@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model, authenticate, logout
@@ -19,6 +19,7 @@ from .serializers import (
     PasswordResetConfirmSerializer, EmailVerificationSerializer
 )
 from users.models import TherapistProfile
+from users.services import AccountLinkingService
 
 User = get_user_model()
 
@@ -180,6 +181,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
 
         therapist_pin = None
+        account_linking_info = None
 
         # Handle therapist profile creation
         if user.user_type == 'therapist':
@@ -194,6 +196,31 @@ class RegisterView(generics.CreateAPIView):
                 specialization=specialization,
             )
             therapist_pin = therapist_profile.therapist_pin
+        
+        # Handle account linking for patients
+        elif user.user_type == 'patient':
+            # Attempt to detect and link with existing therapist-created patient profile
+            linked, message, linked_profile = AccountLinkingService.detect_and_link_during_registration(user)
+            
+            if linked and linked_profile:
+                account_linking_info = {
+                    'account_linked': True,
+                    'message': message,
+                    'therapist_info': {
+                        'id': str(linked_profile.therapist.user.id),
+                        'name': linked_profile.therapist.user.full_name,
+                        'specialization': linked_profile.therapist.specialization,
+                        'clinic_name': linked_profile.therapist.clinic_name
+                    },
+                    'patient_id': linked_profile.patient_id,
+                    'linked_at': linked_profile.linked_at
+                }
+                print(f"Account linked for {user.email} with patient profile {linked_profile.patient_id}")
+            else:
+                account_linking_info = {
+                    'account_linked': False,
+                    'message': message
+                }
 
         # Email verification token
         token = uuid.uuid4()
@@ -216,6 +243,9 @@ class RegisterView(generics.CreateAPIView):
 
         if therapist_pin:
             response_data['therapist_pin'] = therapist_pin
+        
+        if account_linking_info:
+            response_data['account_linking'] = account_linking_info
 
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -263,8 +293,12 @@ class ChangePasswordView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
+    
+    class LogoutSerializer(serializers.Serializer):
+        refresh = serializers.CharField(required=False, help_text="Refresh token to blacklist")
 
     @extend_schema(
+        request=LogoutSerializer,
         responses={200: OpenApiResponse(description='Logged out successfully.')},
         summary="Logout",
         description="Logout the authenticated user."
@@ -440,7 +474,11 @@ class EmailVerificationView(APIView):
 class RefreshTokenView(APIView):
     permission_classes = [permissions.AllowAny]
     
+    class RefreshTokenSerializer(serializers.Serializer):
+        refresh = serializers.CharField(required=True, help_text="Refresh token to exchange for new access token")
+    
     @extend_schema(
+        request=RefreshTokenSerializer,
         responses={
             200: OpenApiResponse(description='Tokens refreshed successfully.'),
             400: OpenApiResponse(description='Invalid or expired token.')

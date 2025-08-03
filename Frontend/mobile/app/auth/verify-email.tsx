@@ -65,7 +65,7 @@ export default function VerifyEmailScreen() {
           <Text style={[styles.title, { color: themeStyle.title }]}>Verify Your Email</Text>
 
           <Image
-            source={require('../../assets/images/therap.jpg')}
+            source={require('../../assets/images/myemail.png.png')}
             style={styles.image}
             resizeMode="contain"
           />

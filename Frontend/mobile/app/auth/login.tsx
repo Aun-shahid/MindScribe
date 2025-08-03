@@ -125,6 +125,7 @@ export default function LoginScreen() {
         <Image
           style={styles.img}
           source={require('../../assets/images/loginnew2.png')}
+         
           resizeMode="contain"
         />
 

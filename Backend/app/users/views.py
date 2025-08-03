@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
@@ -455,8 +455,13 @@ class ConnectToTherapistView(APIView):
 
 
 @extend_schema(tags=[ 'Patient Management'])
-class DisconnectFromTherapistView(APIView):
+class DisconnectFromTherapistView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    
+    class DisconnectResponseSerializer(serializers.Serializer):
+        detail = serializers.CharField()
+    
+    serializer_class = DisconnectResponseSerializer
     
     @extend_schema(
         responses={

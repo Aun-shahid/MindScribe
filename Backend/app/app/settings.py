@@ -64,8 +64,7 @@ INSTALLED_APPS = [
     "transcription",  # Transcription logic
     "therapy_sessions",       # Therapy session management
     "history",        # User history/logs
-    "soap",           # SOAP note generation
-    "core",           # Core utilities/shared models
+    "soap",           # SOAP note generation           
 ]
 
 MIDDLEWARE = [

@@ -17,11 +17,10 @@ urlpatterns = [
     # API endpoints for your apps
     path("api/authenticator/", include("authenticator.urls")), # Updated to authenticator
     path("api/users/", include("users.urls")),
-    # path("api/therapy_sessions/", include("therapy_sessions.urls")), # Updated to therapy_sessions
+    path("api/therapy_sessions/", include("therapy_sessions.urls")), # Updated to therapy_sessions
+    path("api/history/", include("history.urls")), # Patient history and tracking
     # path("api/transcription/", include("transcription.urls")),
-    # path("api/history/", include("history.urls")),
     # path("api/soap/", include("soap.urls")),
-    # path("api/core/", include("core.urls")),
 
     # OpenAPI/Swagger UI URLs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
