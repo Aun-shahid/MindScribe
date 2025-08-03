@@ -1,5 +1,4 @@
 
-
 import {
   View,
   Text,
@@ -17,15 +16,16 @@ import {
 import { useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../hooks/useAuth';
-// import { validateEmailField } from '../../utils/validation';
-import { AUTH_MESSAGES } from '../../constants/messages';
+import { useAuth } from '../hooks/useAuth';
+// import { validateEmailField } from '../utils/validation';
+import { AUTH_MESSAGES } from '../constants/messages';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function RequestResetScreen() {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const { requestPasswordReset, isLoading, error, clearError } = useAuth();
-
+  const { theme, themeStyle, toggleTheme } = useTheme();
   const handleResetRequest = async () => {
     // Validate email
     // const emailValidation = validateEmailField(email);
@@ -63,23 +63,24 @@ export default function RequestResetScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.wrapper}>
+    <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Forgot Your Password?</Text>
+          <Text style={[styles.title, { color: themeStyle.title }]}>Forgot Your Password?</Text>
 
           <Image
             style={styles.img}
-            source={require('../../../assets/images/Forgot.png')}
+            source={require('../../assets/images/Forgot.png')}
             resizeMode="contain"
           />
           
-          <Text style={styles.subtitle}>
-            Enter your email address and we will send you a link to reset your password.
-          </Text>
+         <Text style={[styles.subtitle, { color: themeStyle.text }]}>
+  Enter your email address and we will send you a link to reset your password.
+</Text>
+
 
           {(error || emailError) && (
             <View style={styles.errorContainer}>
@@ -101,23 +102,28 @@ export default function RequestResetScreen() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.resetButton, isLoading && styles.resetButtonDisabled]} 
-            onPress={handleResetRequest}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.resetButtonText}>Send Reset Email</Text>
-            )}
-          </TouchableOpacity>
+         <TouchableOpacity 
+  style={[
+    styles.resetButton, 
+    { backgroundColor: themeStyle.button }, 
+    isLoading && styles.resetButtonDisabled
+  ]} 
+  onPress={handleResetRequest}
+  disabled={isLoading}
+>
+  {isLoading ? (
+    <ActivityIndicator  size="small" />
+  ) : (
+    <Text style={styles.resetButtonText}>Send Reset Email</Text>
+  )}
+</TouchableOpacity>
+
 
           <TouchableOpacity 
             onPress={() => router.push('./login')}
             disabled={isLoading}
           >
-            <Text style={[styles.linkText, isLoading && styles.linkTextDisabled]}>
+            <Text style={[styles.linkText, { color: themeStyle.text }, isLoading && styles.linkTextDisabled]}>
               ← Back to Login
             </Text>
           </TouchableOpacity>
@@ -130,7 +136,7 @@ export default function RequestResetScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    //backgroundColor: '#ffffff',
     padding: 15,
   },
   container: {
@@ -147,17 +153,19 @@ const styles = StyleSheet.create({
   img: {
     width: 300,
     height: 500,
+    marginBottom: -50,
+    marginTop: -50,
   },
   title: {
     fontSize: 30,
     fontWeight: '700',
     color: '#524f85',
     textAlign: 'center',
-    marginBottom: 2,
+    // marginBottom: 30,
   },
   subtitle: {
     fontSize: 17,
-    color: '#666',
+    // color: '#666',
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 10,
@@ -201,7 +209,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   resetButton: {
-    backgroundColor: '#524f85',
+    // backgroundColor: '#524f85',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

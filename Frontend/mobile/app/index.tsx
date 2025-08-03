@@ -10,7 +10,7 @@ export default function Index() {
     const timer = setTimeout(() => {
       // Simply redirect to the auth splash screen
       // The auth context will handle checking authentication status
-      router.replace('./components/auth/splash');
+      router.replace('./auth/welcome');
     }, 100);
 
     return () => clearTimeout(timer);

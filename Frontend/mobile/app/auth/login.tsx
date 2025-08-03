@@ -15,12 +15,13 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { useAuth } from '../../hooks/useAuth';
-import { validateEmailField, validatePasswordField } from '../../utils/validation';
-import { AUTH_MESSAGES } from '../../constants/messages';
+import { useAuth } from '../hooks/useAuth';
+import { validateEmailField, validatePasswordField } from '../utils/validation';
+import { AUTH_MESSAGES } from '../constants/messages';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -30,6 +31,7 @@ export default function LoginScreen() {
   const [selectedRole, setSelectedRole] = useState<'therapist' | 'patient' | null>(null);
   
   const { login, isLoading, error, clearError } = useAuth();
+  const { theme, themeStyle, toggleTheme } = useTheme();
 
   useEffect(() => {
     const loadRole = async () => {
@@ -102,32 +104,32 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.wrapper}
+      style={[styles.wrapper, { backgroundColor: themeStyle.background }]}
     >
       <View>
         <Pressable 
-          style={styles.backButton} 
+          style={[styles.backButton, { backgroundColor: themeStyle.background }]} 
           onPress={() => !isLoading && router.push('./splash')}
           disabled={isLoading}
         >
-          <AntDesign name="arrowleft" size={24} color="black" />
+          <AntDesign name="arrowleft" size={24} color={themeStyle.text} />
         </Pressable>
       </View>
       
-      <View style={styles.circleContainer}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-      </View>
-      
+  <View style={styles.circleContainer}>
+  <View style={[styles.circle1, { backgroundColor: themeStyle.circle }]} />
+  <View style={[styles.circle2, { backgroundColor: themeStyle.circle }]} />
+</View>
+
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Image
           style={styles.img}
-          source={require('../../../assets/images/login1.png')}
+          source={require('../../assets/images/loginnew2.png')}
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>LOGIN</Text>
-        <Text style={styles.subtitle}>Please log in to continue</Text>
+        <Text style={[styles.title ,{color: themeStyle.title}]}>LOGIN</Text>
+        <Text style={[styles.subtitle,{color: themeStyle.title}]}>Please log in to continue</Text>
 
         {(error && !emailError && !passwordError) && (
           <View style={styles.errorContainer}>
@@ -168,25 +170,32 @@ export default function LoginScreen() {
           <Text style={styles.fieldErrorText}>{passwordError}</Text>
         )}
 
-        <TouchableOpacity 
-          style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
+       <TouchableOpacity 
+  style={[
+    styles.loginButton,
+    { backgroundColor: themeStyle.logoutButton },
+    isLoading && styles.loginButtonDisabled
+  ]} 
+  onPress={handleLogin}
+  disabled={isLoading}
+>
+  {isLoading ? (
+    <ActivityIndicator color={themeStyle.button} size="small" />
+  ) : (
+    <Text style={[styles.loginButtonText, { color: themeStyle.logoutText }]}>
+      Login
+    </Text>
+  )}
+</TouchableOpacity>
+
 
         <View style={styles.links}>
           <TouchableOpacity 
             onPress={() => !isLoading && router.push('./register')}
             disabled={isLoading}
           >
-            <Text style={[styles.linkText, isLoading && styles.linkTextDisabled]}>
-              Don't have an account? Register
+            <Text style={[styles.linkText,{color: themeStyle.text}, isLoading && styles.linkTextDisabled]}>
+              Dont have an account? Register
             </Text>
           </TouchableOpacity>
 
@@ -194,7 +203,7 @@ export default function LoginScreen() {
             onPress={() => !isLoading && router.push('./request-reset')}
             disabled={isLoading}
           >
-            <Text style={[styles.linkText, isLoading && styles.linkTextDisabled]}>
+            <Text style={[styles.linkText, {color: themeStyle.text}, isLoading && styles.linkTextDisabled]}>
               Forgot Password?
             </Text>
           </TouchableOpacity>
@@ -207,7 +216,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    //backgroundColor: '#ffffff',
   },
   backButton: {
     position: 'absolute',
@@ -226,7 +235,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 100,
-    backgroundColor: '#2E2C4E87',
+    // backgroundColor: '#2E2C4E87',
     opacity: 0.8,
     position: 'absolute',
     top: 0,
@@ -237,7 +246,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 100,
-    backgroundColor: '#2E2C4E87',
+    // backgroundColor: '#2E2C4E87',
     opacity: 0.6,
     position: 'absolute',
     top: 40,
@@ -249,21 +258,23 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   img: {
-    width: 300,
-    height: 300,
+    marginTop: -50,
+    width: 500,
+    height: 500,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: -25,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#524f85',
+    //color: '#524f85',
+    // color: themeStyle.titleColor,
     textAlign: 'center',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: '#888',
+    //color: '#888',
     textAlign: 'center',
     marginBottom: 30,
   },
@@ -311,7 +322,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   loginButton: {
-    backgroundColor: '#524f85',
+    //backgroundColor: '#524f85',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

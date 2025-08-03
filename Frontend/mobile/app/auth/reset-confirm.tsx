@@ -1,4 +1,4 @@
-// app/components/auth/reset-confirm.tsx
+// app/auth/reset-confirm.tsx
 import {
   View,
   Text,
@@ -16,9 +16,9 @@ import {
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../hooks/useAuth';
-import { validatePasswordField } from '../../utils/validation';
-import { AUTH_MESSAGES } from '../../constants/messages';
+import { useAuth } from '../hooks/useAuth';
+import { validatePasswordField } from '../utils/validation';
+import { AUTH_MESSAGES } from '../constants/messages';
 
 export default function ResetConfirmScreen() {
   const { token } = useLocalSearchParams();
@@ -92,7 +92,7 @@ export default function ResetConfirmScreen() {
           <Text style={styles.title}>Reset Your Password</Text>
           
           <Image
-            source={require('../../../assets/images/reset1.png')}
+            source={require('../../assets/images/reset1.png')}
             style={styles.image}
             resizeMode="contain"
           />

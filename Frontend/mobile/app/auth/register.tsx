@@ -1,4 +1,3 @@
-//LIGHT MODE
 
 import {
   View,
@@ -17,10 +16,11 @@ import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '../../hooks/useAuth';
-import { validateRegisterForm, FormValidationErrors } from '../../utils/validation';
-import { AUTH_MESSAGES } from '../../constants/messages';
-import { RegisterRequest } from '../../types/auth';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
+import { validateRegisterForm, FormValidationErrors } from '../utils/validation';
+import { AUTH_MESSAGES } from '../constants/messages';
+import { RegisterRequest } from '../types/auth';
 
 export default function RegisterScreen() {
   const [role, setRole] = useState<'therapist' | 'patient'>('patient');
@@ -43,6 +43,7 @@ export default function RegisterScreen() {
     license_number: '',
     specialization: '',
   });
+  const { theme, themeStyle, toggleTheme } = useTheme();
 
   useEffect(() => {
     const loadRole = async () => {
@@ -111,7 +112,7 @@ export default function RegisterScreen() {
 
     <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.wrapper}
+          style={[styles.wrapper, { backgroundColor: themeStyle.background }]}
         >
     
 
@@ -119,15 +120,15 @@ export default function RegisterScreen() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <View style={styles.circleContainer}>
-            <View style={styles.circle1} />
-            <View style={styles.circle2} />
+            <View style={[styles.circle1, { backgroundColor: themeStyle.circle }]} />
+              <View style={[styles.circle2, { backgroundColor: themeStyle.circle }]} />
           </View>
         <Image
                   style={styles.img}
-                  source={require('../../../assets/images/register.png')}
+                  source={require('../../assets/images/register.png')}
                   resizeMode="contain"
                 ></Image>
-        <Text style={styles.title}>
+        <Text style={[styles.title, { color: themeStyle.title }]}>
           {role === 'therapist' ? 'SIGN UP AS THERAPIST' : 'SIGN UP AS A PATIENT'}
         </Text>
 
@@ -137,7 +138,7 @@ export default function RegisterScreen() {
           </View>
         )}
 
-        <Text style={styles.label}>Username</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Username</Text>
         <TextInput
           style={[styles.input, validationErrors.username && styles.inputError]}
           placeholder="Enter your username"
@@ -149,7 +150,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.username}</Text>
         )}
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Email</Text>
         <TextInput
           style={[styles.input, validationErrors.email && styles.inputError]}
           placeholder="Enter your email"
@@ -163,7 +164,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.email}</Text>
         )}
 
-        <Text style={styles.label}>Password</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Password</Text>
         <TextInput
           style={[styles.input, validationErrors.password && styles.inputError]}
           placeholder="Enter password"
@@ -176,7 +177,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.password}</Text>
         )}
 
-        <Text style={styles.label}>Confirm Password</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Confirm Password</Text>
         <TextInput
           style={[styles.input, validationErrors.password_confirm && styles.inputError]}
           placeholder="Re-enter password"
@@ -189,7 +190,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.password_confirm}</Text>
         )}
 
-        <Text style={styles.label}>First Name</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>First Name</Text>
         <TextInput
           style={[styles.input, validationErrors.first_name && styles.inputError]}
           placeholder="Enter first name"
@@ -201,7 +202,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.first_name}</Text>
         )}
 
-        <Text style={styles.label}>Last Name</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Last Name</Text>
         <TextInput
           style={[styles.input, validationErrors.last_name && styles.inputError]}
           placeholder="Enter last name"
@@ -215,57 +216,10 @@ export default function RegisterScreen() {
 
 
 
-
-        {/* <Text style={styles.label}>User Type</Text>
-        <View style={styles.radioGroup}>
-          <TouchableOpacity style={styles.radioItem} onPress={() => handleChange('user_type', 'patient')}>
-            <RadioButton
-              value="patient"
-              status={form.user_type === 'patient' ? 'checked' : 'unchecked'}
-              onPress={() => handleChange('user_type', 'patient')}
-              color="white"
-              uncheckedColor="white"
-            />
-            <Text style={styles.radioLabel}>Patient</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.radioItem} onPress={() => handleChange('user_type', 'therapist')}>
-            <RadioButton
-              value="therapist"
-              status={form.user_type === 'therapist' ? 'checked' : 'unchecked'}
-              onPress={() => handleChange('user_type', 'therapist')}
-              color="white"
-              uncheckedColor="white"
-            />
-            <Text style={styles.radioLabel}>Therapist</Text>
-          </TouchableOpacity>
-        </View>
-
-        {form.user_type === 'therapist' && (
-          <>
-            <Text style={styles.label}>License Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter license number"
-              onChangeText={(text) => handleChange('license_number', text)}
-              value={form.license_number}
-            />
-
-            <Text style={styles.label}>Specialization</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Depression, Anxiety"
-              onChangeText={(text) => handleChange('specialization', text)}
-              value={form.specialization}
-            />
-          </>
-        )} */}
-
-
         {/* Conditionally render therapist-specific fields */}
         {role === 'therapist' && (
           <>
-            <Text style={styles.label}>License Number</Text>
+            <Text style={[styles.label, { color: themeStyle.label }]}>License Number</Text>
             <TextInput
               style={[styles.input, validationErrors.license_number && styles.inputError]}
               placeholder="Enter license number"
@@ -277,7 +231,7 @@ export default function RegisterScreen() {
               <Text style={styles.fieldErrorText}>{validationErrors.license_number}</Text>
             )}
 
-            <Text style={styles.label}>Specialization</Text>
+            <Text style={[styles.label, { color: themeStyle.label }]}>Specialization</Text>
             <TextInput
               style={[styles.input, validationErrors.specialization && styles.inputError]}
               placeholder="e.g., Depression, Anxiety"
@@ -291,7 +245,7 @@ export default function RegisterScreen() {
           </>
         )}
 
-        <Text style={styles.label}>Phone Number</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Phone Number</Text>
         <TextInput
           style={[styles.input, validationErrors.phone_number && styles.inputError]}
           placeholder="03xx-xxxxxxx"
@@ -304,7 +258,7 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.phone_number}</Text>
         )}
 
-        <Text style={styles.label}>Date of Birth</Text>
+        <Text style={[styles.label, { color: themeStyle.label }]}>Date of Birth</Text>
         <TouchableOpacity 
           style={[styles.input, validationErrors.date_of_birth && styles.inputError]} 
           onPress={() => !isLoading && setShowDatePicker(true)}
@@ -328,23 +282,30 @@ export default function RegisterScreen() {
           />
         )}
 
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={handleRegister}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.buttonText}>Register</Text>
-          )}
-        </TouchableOpacity>
+       <TouchableOpacity
+  style={[
+    styles.button,
+    { backgroundColor: themeStyle.button },
+    isLoading && styles.buttonDisabled
+  ]}
+  onPress={handleRegister}
+  disabled={isLoading}
+>
+  {isLoading ? (
+    <ActivityIndicator color={themeStyle.buttonText} size="small" />
+  ) : (
+    <Text style={[styles.buttonText, { color: themeStyle.buttonText }]}>
+      Register
+    </Text>
+  )}
+</TouchableOpacity>
+
 
         <TouchableOpacity 
           onPress={() => !isLoading && router.push('./login')}
           disabled={isLoading}
         >
-          <Text style={[styles.link, isLoading && styles.linkDisabled]}>
+          <Text style={[styles.link, , { color: themeStyle.text }, isLoading && styles.linkDisabled]}>
             Already have an account? Login
           </Text>
         </TouchableOpacity>
@@ -352,15 +313,15 @@ export default function RegisterScreen() {
     </ScrollView>
     </KeyboardAvoidingView>
   );
-}
 
+}
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
   wrapper: {
     flex: 1,
-    backgroundColor: '#ffffff'
+    //backgroundColor: '#ffffff'
   },
   container: {
     flexGrow: 1,
@@ -370,7 +331,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: '900',
-    color: '#49467E',
+    //color: '#49467E',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -388,7 +349,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   label: {
-    color: '#524f85',
+    //color: '#524f85',
     fontSize: 16,
     marginBottom: 5,
     marginTop: 10,
@@ -468,7 +429,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 100,
-    backgroundColor: '#2E2C4E87', 
+    // backgroundColor: '#2E2C4E87', 
     opacity: 0.8,
     position: 'absolute',
     top: 0,
@@ -479,7 +440,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 100,
-    backgroundColor: '#2E2C4E87', 
+    // backgroundColor: '#2E2C4E87', 
     opacity: 0.6,
     position: 'absolute',
     top: 40,

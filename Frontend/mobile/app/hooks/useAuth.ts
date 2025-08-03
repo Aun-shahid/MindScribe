@@ -1,5 +1,5 @@
 // app/hooks/useAuth.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import authService from '../services/auth.service';
@@ -58,14 +58,14 @@ export const useAuth = (): AuthState & AuthActions => {
     updateState({ error, isLoading: false });
   };
 
-  const setLoading = (isLoading: boolean) => {
+  const setLoading = useCallback((isLoading: boolean) => {
     updateState({ isLoading });
-  };
+  }, []);
 
   /**
    * Check if user is authenticated by verifying stored tokens
    */
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -99,7 +99,7 @@ export const useAuth = (): AuthState & AuthActions => {
         isLoading: false,
       });
     }
-  };
+  }, [setLoading]);
 
   /**
    * Store user data and tokens
@@ -145,7 +145,23 @@ export const useAuth = (): AuthState & AuthActions => {
       setLoading(true);
       clearError();
       
+      console.log('🔐 [AUTH] Starting login process...');
       const response = await authService.login(credentials);
+      
+      console.log('🎉 [AUTH] Login successful! Complete response:');
+      console.log('='.repeat(50));
+      console.log('📊 Login Response Data:');
+      console.log('  - User ID:', response.user.id);
+      console.log('  - Email:', response.user.email);
+      console.log('  - User Type:', response.user.user_type);
+      console.log('  - First Name:', response.user.first_name);
+      console.log('  - Last Name:', response.user.last_name);
+      console.log('  - Is Verified:', response.user.is_verified);
+      console.log('  - Access Token (first 20 chars):', response.access.substring(0, 20) + '...');
+      console.log('  - Refresh Token (first 20 chars):', response.refresh.substring(0, 20) + '...');
+      console.log('📦 Complete User Object from Login:');
+      console.log(JSON.stringify(response.user, null, 2));
+      console.log('='.repeat(50));
       
       // Check if user type matches selected role
       const savedRole = await AsyncStorage.getItem('selected_role');
@@ -161,11 +177,14 @@ export const useAuth = (): AuthState & AuthActions => {
       
       // Navigate based on user type
       if (response.user.user_type === 'therapist') {
+        console.log('🔄 [AUTH] Navigating to therapist dashboard...');
         router.push('../therapist/dashboard');
       } else {
+        console.log('🔄 [AUTH] Navigating to patient dashboard...');
         router.push('../patient/dashboard');
       }
     } catch (error) {
+      console.error('❌ [AUTH] Login failed:', error);
       setError(error as AuthError);
     }
   };
@@ -203,11 +222,12 @@ export const useAuth = (): AuthState & AuthActions => {
       await authService.logout();
       await clearAuthData();
       
-      router.push('./login');
+      router.push('../auth/login');
     } catch (error) {
       // Even if logout fails, clear local data
+      console.error('❌ [AUTH] Logout error:', error);
       await clearAuthData();
-      router.push('./login');
+      router.push('../auth/login');
     }
   };
 
@@ -268,24 +288,37 @@ export const useAuth = (): AuthState & AuthActions => {
   /**
    * Fetch user profile
    */
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
+      console.log('🔄 [AUTH] Starting fetchProfile...');
       updateState({ profileLoading: true });
       
       const profile = await profileService.getProfile();
       
+      console.log('✅ [AUTH] Profile fetched successfully:');
+      console.log('📊 Profile Data Summary:');
+      console.log('  - User ID:', profile.id);
+      console.log('  - Email:', profile.email);
+      console.log('  - User Type:', profile.user_type);
+      console.log('  - Verified Status (is_verified):', profile.is_verified);
+      console.log('  - Verified Status (email_verified):', (profile as any).email_verified);
+      console.log('  - Complete Profile Object:', JSON.stringify(profile, null, 2));
+      
       updateState({ 
         profile, 
+        user:profile,
         profileLoading: false,
         error: null 
       });
     } catch (error) {
+      console.error('❌ [AUTH] Error fetching profile:', error);
+      console.error('❌ [AUTH] Error details:', error);
       updateState({ 
         profileLoading: false,
         error: error as AuthError 
       });
     }
-  };
+  }, []);
 
   /**
    * Update user profile
@@ -313,7 +346,7 @@ export const useAuth = (): AuthState & AuthActions => {
   // Check auth status on hook initialization
   useEffect(() => {
     checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
   return {
     ...state,

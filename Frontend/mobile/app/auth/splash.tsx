@@ -1,4 +1,4 @@
-// 
+
 
 import {
   View,
@@ -12,46 +12,51 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 
 const screenWidth = Dimensions.get('window').width;
 
+
 export default function Splash() {
+
+  const { theme, themeStyle, toggleTheme } = useTheme();
  
   
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
         
-        <Text style={styles.subheading}>Continue as</Text>
+        <Text style={[styles.subheading, { color: themeStyle.title }]}>Continue as</Text>
 
 
-        <TouchableOpacity style={styles.card}
+        <TouchableOpacity style={[styles.card, { backgroundColor: themeStyle.card }]}
           onPress={async () => {
             await AsyncStorage.setItem('selected_role', 'therapist');
-            router.push('./login');
+            router.push('../onboarding/therapistintro1');
           }}>
 
           <Image
-        source={require('../../../assets/images/therap.jpg')} // Replace with your image
+        source={require('../../assets/images/therap.jpg')} // Replace with your image
         style={styles.bgImage}
         resizeMode="contain"
       />
             <View style={styles.labelCont}>
             <Text style={styles.label}>Therapist</Text>
             </View>
+            {/* <Text style={styles.lbl}>"Manage Patients, sessions and AI-powered Insights"</Text> */}
 
 
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card}
+        <TouchableOpacity style={[styles.card, { backgroundColor: themeStyle.card }]}
         onPress={async()=>{await AsyncStorage.setItem('selected_role','patient');
-          router.push('./login');
+          router.push('../onboarding/patientintro1');
         }}>
 
           <Image
-          source={require('../../../assets/images/pat.png')}
+          source={require('../../assets/images/pat.png')}
           style={styles.bgImage}
           resizeMode='contain'
           ></Image>
@@ -79,9 +84,9 @@ const styles = StyleSheet.create({
   },
 
   bgImage: {
-    width:'100%',
-    height:195,
-    marginBottom:20,
+    width:'140%',
+    height:210,
+    marginBottom:10,
     shadowColor: '#111',
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -100,9 +105,10 @@ const styles = StyleSheet.create({
      shadowOffset: { width: 0, height: 3 },
      borderRadius:20,
      alignItems:'center',
-     height:screenWidth *0.75,
+     height:screenWidth *0.8,
      shadowColor:'#000',
-     shadowOpacity:0.4
+     shadowOpacity:0.4,
+     
 
     
     
@@ -124,17 +130,29 @@ const styles = StyleSheet.create({
    backgroundColor:'#524f85',
    paddingVertical:10,
    paddingHorizontal:30,
-   borderRadius:20,
+   borderRadius:50,
    width:200,
-   alignItems:'center'
+   alignItems:'center',
+   marginTop:20,
 
   },
 
   label:{
     color:'white',
     fontSize:22,
-    fontWeight:500
+    fontWeight:700,
+    //color: '#4B4B4B',
+    textShadowColor: '#00000040',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
+    //marginBottom:15
 
+  },
+  lbl:{
+    fontSize:18,
+    textAlign:"center",
+    fontWeight:500,
+    marginBottom:15
   }
 
   
@@ -144,36 +162,3 @@ const styles = StyleSheet.create({
 
 
 
-
-
-
-
-
-
-
-
-{/* <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <Text style={styles.subheading}>Choose your role to continue</Text>
-
-        <TouchableOpacity
-          style={styles.buttonT}
-          onPress={async () => {
-            await AsyncStorage.setItem('selected_role', 'therapist');
-            router.push('./login');
-          }}>
-          <MaterialIcons name="psychology" size={24} color="white" />
-          <Text style={styles.textT}>Therapist</Text>
-        </TouchableOpacity>
-
-        <Text style={{ fontSize: 20, fontWeight: '500', color: 'white' }}>OR</Text>
-
-        <TouchableOpacity
-          style={styles.buttonP}
-          onPress={async () => {
-            await AsyncStorage.setItem('selected_role', 'patient');
-            router.push('./login');
-          }}>
-          <FontAwesome5 name="user-alt" size={24} color="#524f85" />
-          <Text style={styles.textP}>Patient</Text>
-        </TouchableOpacity>
-      </Animated.View> */}
