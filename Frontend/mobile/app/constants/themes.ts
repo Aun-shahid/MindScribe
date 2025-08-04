@@ -1,7 +1,7 @@
 export const lightTheme = {
   background: '#fff',
   card: '#f8f8f8', 
-  text: '#333',
+  text: '#524f85',
   title: '#524f85',
   label: '#888',
   border: '#eee',
@@ -16,7 +16,10 @@ export const lightTheme = {
   onboardingtop:'#d8c9ea',     
   onboardingbottom:'#ffffff',
   progressbarmain: '#49467E',  // Main progress bar color
-  progressbarside: '#d8c9ea',  // Side progress bar color
+  progressbarside: '#d8c9ea', 
+  dashboardcard: '#fff',
+  darktext: '#524f85',
+  lighttext: '#ffffff', // Side progress bar color
 };
 
 export const darkTheme = {
@@ -37,7 +40,10 @@ export const darkTheme = {
   onboardingtop:'#d8c9ea',
   onboardingbottom:'#49467E',
   progressbarmain: '#ffffff',
-  progressbarside: '#7079A3'//de progress bar color
+  progressbarside: '#7079A3',//de progress bar color
+  dashboardcard: '#49467E',
+  darktext: '#ffffff',
+  lighttext: '#524f85', // Dark violet for dashboard cards
 };
 
 export const themeStyles = {

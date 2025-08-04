@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 from datetime import datetime, timedelta
 import json
+import uuid
 from .exceptions import (
     validate_user_role_for_action, validate_patient_therapist_connection,
     validate_session_status_transition, PatientNotConnectedException,
@@ -321,12 +322,13 @@ class TherapistPatientsView(generics.ListAPIView):
         ),
     ]
 )
-class CreatePatientView(generics.GenericAPIView):
+class CreatePatientView(generics.CreateAPIView):
     """Create a new patient and assign to therapist"""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = EnhancedPatientCreateSerializer
+    http_method_names = ['post', 'options', 'head']  # Explicitly allow POST method
     
-    def post(self, request):
+    def create(self, request, *args, **kwargs):
         user = request.user
         if user.user_type != 'therapist':
             return Response(
@@ -345,7 +347,7 @@ class CreatePatientView(generics.GenericAPIView):
                 )
             
             # Use the enhanced serializer for validation and creation
-            serializer = EnhancedPatientCreateSerializer(
+            serializer = self.get_serializer(
                 data=request.data,
                 context={'therapist': therapist_profile}
             )
@@ -948,7 +950,6 @@ class MySessionsView(generics.GenericAPIView):
         """Get details for a specific session with enhanced error handling"""
         try:
             # Validate session_id format
-            import uuid
             try:
                 uuid.UUID(session_id)
             except ValueError:
