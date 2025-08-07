@@ -264,7 +264,17 @@ export default function TherapistDashboard() {
           <Text style={[styles.greeting, { color: themeStyle.title }]}>Good Evening</Text>
           <Text style={[styles.doctorName, { color: themeStyle.text }]}>Dr. {user.last_name}</Text>
           <Text style={[styles.subtitle, { color: themeStyle.label }]}>Ready to help your patients</Text>
-          
+          {/* <Text style={[styles.subtitle, { color: themeStyle.label }]} onPress={() => router.push('./Session-Calender')}>View Schedule</Text> */}
+
+          <TouchableOpacity onPress={() => router.push('./Session-Calender')} style={{backgroundColor: themeStyle.button, padding: 10, borderRadius: 8, marginTop: 10}}>
+            <Text style={[styles.subtitle, { color: 'white' }]} >View Schedule</Text>
+            </TouchableOpacity>
+             
+
+             <TouchableOpacity onPress={() => router.push('./sessions')} style={{backgroundColor: themeStyle.button, padding: 10, borderRadius: 8, marginTop: 10}}>
+             <Text style={[styles.subtitle, { color: 'white' }]} >Sessions</Text>
+
+          </TouchableOpacity>
           {/* Compact Therapist Info */}
           <View style={styles.therapistBadge}>
             <View style={styles.badgeRow}>
@@ -286,14 +296,19 @@ export default function TherapistDashboard() {
         <View style={[styles.section, { backgroundColor: themeStyle.onboardingtop }]}>
           <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Today&apos;s Snapshot</Text>
           
+
+           
           <View style={styles.snapshotGrid}>
+            
             <SnapshotCard
               icon="📅"
               title="Sessions Today"
+              
               value={today_sessions.length.toString()}
               subtitle={`${today_sessions.length} today, ${upcoming_sessions.length} upcoming`}
               themeStyle={themeStyle}
             />
+            
             
             <SnapshotCard
               icon="⚠️"

@@ -3,8 +3,18 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
-    "moduleResolution": "bundler", // ← updated here
-    "types": ["react", "react-native"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "lib": ["dom", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]

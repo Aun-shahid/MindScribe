@@ -138,7 +138,7 @@ const PatientDetails = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Patient Details</Text>
         <TouchableOpacity onPress={handleStartSession}>
-          <Text style={styles.sessionText}>Start Session</Text>
+          <Text style={styles.sessionText} onPress={handleStartSession}>Start Session</Text>
         </TouchableOpacity>
       </View>
 
