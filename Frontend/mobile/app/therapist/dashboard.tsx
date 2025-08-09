@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTherapistSessions, useTherapistPatients } from '../hooks/useTherapist';
 import api from '../utils/api';
 
 // Dashboard API response type

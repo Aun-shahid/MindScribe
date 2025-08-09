@@ -149,7 +149,7 @@ const EndSession = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-      <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+      <View style={[styles.header, { backgroundColor: themeStyle.logoutButton }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
@@ -247,7 +247,7 @@ const EndSession = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.completeButton, { opacity: loading ? 0.7 : 1 }]}
+          style={[styles.completeButton, { opacity: loading ? 0.7 : 1 }, {backgroundColor: themeStyle.button }]}
           onPress={handleCompleteSession}
           disabled={loading}
         >

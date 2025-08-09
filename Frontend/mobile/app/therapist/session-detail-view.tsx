@@ -162,7 +162,7 @@ const SessionDetailView = () => {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-        <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+        <View style={[styles.header, { backgroundColor: themeStyle.logoutButton }]}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
@@ -182,7 +182,7 @@ const SessionDetailView = () => {
   if (!sessionDetail) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-        <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+        <View style={[styles.header, { backgroundColor: themeStyle.logoutButton }]}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
