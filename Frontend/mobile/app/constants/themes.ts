@@ -20,6 +20,18 @@ export const lightTheme = {
   dashboardcard: '#fff',
   darktext: '#524f85',
   lighttext: '#ffffff', // Side progress bar color
+
+   //therapist dashboard theme
+
+  // dashoutercard: '#ffff',
+  // dashinnercard: '#ffffff',
+  // dashoutercardtextprimary: '#49467E',
+  // dashoutercardtextsecondary: '#000000',
+  // dashinnercardtextprimary: '#49467E',
+  // dashinnercardtextsecondary: '#000000',
+  // dashrowcards: '#000000',
+  // dashquote: '#ffffff',
+  // dashrowcardstext: '#49467E',
 };
 
 export const darkTheme = {
@@ -44,6 +56,17 @@ export const darkTheme = {
   dashboardcard: '#49467E',
   darktext: '#ffffff',
   lighttext: '#524f85', // Dark violet for dashboard cards
+
+  //therapist dashboard theme
+
+  // dashoutercard: '#49467E',
+  // dashinnercard: '#ffffff',
+  // dashoutercardtext: '#ffffff',
+  // dashinnercardtext: '#49467E',
+  // dashrowcards: '#ffffff',
+  // dashquote: '#ffffff',
+  // dashrowcardstext: '#49467E',
+
 };
 
 export const themeStyles = {

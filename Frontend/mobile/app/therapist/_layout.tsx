@@ -1,69 +1,3 @@
-// import { Tabs } from 'expo-router';
-
-// export default function Layout() {
-//   return (
-//     <Tabs>
-//       <Tabs.Screen
-//         name="dashboard"
-//         options={{
-//           title: 'Dashboard',
-//           headerShown: false,
-//           tabBarLabel: 'Home',
-//         }}
-//       />
-//       <Tabs.Screen
-//         name="profile"
-//         options={{
-//           title: 'Profile',
-//           headerShown: false,
-//           tabBarLabel: 'Profile',
-//         }}
-//       />
-//     </Tabs>
-//   );
-// }
-
-
-// import { Tabs } from 'expo-router';
-
-// export default function Layout() {
-//   return (
-//     <Tabs>
-//       <Tabs.Screen
-//         name="dashboard"
-//         options={{
-//           title: 'Dashboard',
-//           headerShown: false,
-//           tabBarLabel: 'Home',
-//         }}
-//       />
-//       <Tabs.Screen
-//         name="patients"
-//         options={{
-//           title: 'Patients',
-//           headerShown: false,
-//           tabBarLabel: 'Patients',
-//         }}
-//       />
-//       <Tabs.Screen
-//         name="tools"
-//         options={{
-//           title: 'Tools',
-//           headerShown: false,
-//           tabBarLabel: 'Tools',
-//         }}
-//       />
-//       <Tabs.Screen
-//         name="profile"
-//         options={{
-//           title: 'Settings',
-//           headerShown: false,
-//           tabBarLabel: 'Settings',
-//         }}
-//       />
-//     </Tabs>
-//   );
-// }
 
 
 import React from 'react';
@@ -83,18 +17,16 @@ export default function Layout() {
           if (route.name === 'dashboard') {
             return <MaterialIcons name="dashboard" size={size} color={color} />;
           }
-          if (route.name === 'profile') {
-            return <FontAwesome name="user" size={size} color={color} />;
-          }
           if (route.name === 'patients') {
             return <FontAwesome5 name="user-friends" size={size} color={color} />;
           }
           if (route.name === 'tools') {
             return <Feather name="tool" size={size} color={color} />;
           }
-          if (route.name === 'sessions') {
-            return <MaterialIcons name="event-note" size={size} color={color} />;
+           if (route.name === 'profile') {
+            return <FontAwesome name="user" size={size} color={color} />;
           }
+         
           return null;
         },
         headerShown: false,
@@ -104,15 +36,21 @@ export default function Layout() {
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       <Tabs.Screen name="patients" options={{ title: 'Patients' }} />
       <Tabs.Screen name="tools" options={{ title: 'Tools' }} />
-      <Tabs.Screen name="sessions" options={{ title: 'Sessions' }} />
+    
 
       {/* Hidden routes */}
+      <Tabs.Screen name="addpatientform" options={{ href: null }} />
       <Tabs.Screen name="end-session" options={{ href: null }} />
-      <Tabs.Screen name="start-session" options={{ href: null }} />
       <Tabs.Screen name="patient-details" options={{ href: null }} />
       <Tabs.Screen name="Session-Calender" options={{ href: null }} />
-    <Tabs.Screen name="session-detail-view" options={{ href: null }} />
-    <Tabs.Screen name="session-details" options={{ href: null }} />
+      <Tabs.Screen name="session-detail-view" options={{ href: null }} />
+      <Tabs.Screen name="session-details" options={{ href: null }} />
+      <Tabs.Screen name="sessionformconsent" options={{ href: null }} />
+      <Tabs.Screen name="sessions" options={{ href: null }} />
+      <Tabs.Screen name="start-new-session" options={{ href: null }} />
+      <Tabs.Screen name="start-session" options={{ href: null }} />
+      <Tabs.Screen name="therapist-qr-code" options={{ href: null }} />
+      
 
     </Tabs>
   );

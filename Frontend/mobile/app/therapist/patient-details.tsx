@@ -47,13 +47,13 @@ const PatientDetails = () => {
   const fetchPatientDetails = async () => {
     try {
       setLoading(true)
-      // Using the same endpoint as the patients list to get consistent data structure
+      
+      // Fetch patient details
       const response = await api.get(`/therapy_sessions/patients/`)
       if (response.data && Array.isArray(response.data)) {
         // Find the patient by ID from the list
         const foundPatient = response.data.find((p: PatientDetailsType) => p.id === patientId)
         if (foundPatient) {
-          // Debug logging to see what data we're receiving
           console.log('Found patient data:', JSON.stringify(foundPatient, null, 2))
           
           // Clean the patient data to ensure safe rendering
@@ -71,18 +71,19 @@ const PatientDetails = () => {
                 : null,
           }
           setPatient(cleanedPatient)
+          
         } else {
           Alert.alert('Error', 'Patient not found')
-          router.back()
+          router.push('./patients')
         }
       } else {
         Alert.alert('Error', 'Patient not found')
-        router.back()
+        router.push('./patients')
       }
     } catch (error) {
       console.error('Failed to fetch patient details:', error)
       Alert.alert('Error', 'Failed to load patient details')
-      router.back()
+      router.push('./patients')
     } finally {
       setLoading(false)
     }
@@ -133,7 +134,7 @@ const PatientDetails = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: '#00B894' }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.push('./patients')}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Patient Details</Text>
@@ -170,47 +171,6 @@ const PatientDetails = () => {
           <View style={styles.infoRow}>
             <Text style={[styles.label, { color: themeStyle.label }]}>Gender:</Text>
             <Text style={[styles.value, { color: themeStyle.text }]}>{patient.gender || 'Not specified'}</Text>
-          </View>
-        </View>
-
-        {/* Session Information */}
-        <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Session Information</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Total Sessions:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.total_sessions || '0'}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Last Session:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>
-              {typeof patient.last_session === 'string' 
-                ? patient.last_session || 'No sessions yet'
-                : patient.last_session 
-                  ? 'Session data available' 
-                  : 'No sessions yet'
-              }
-            </Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Next Session:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>
-              {typeof patient.next_session === 'string' 
-                ? patient.next_session || 'Not scheduled'
-                : patient.next_session 
-                  ? 'Session scheduled' 
-                  : 'Not scheduled'
-              }
-            </Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Patient Since:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>
-              {new Date(patient.created_at).toLocaleDateString()}
-            </Text>
           </View>
         </View>
 

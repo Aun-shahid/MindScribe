@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -85,16 +84,23 @@ export default function TherapistDashboard() {
         const totalPatients = patientsData.length;
         const totalSessions = sessionsData.length;
         
-        // Filter today's sessions (basic date comparison)
+        // Filter today's sessions (match the API response structure)
         const today = new Date().toISOString().split('T')[0];
+        console.log('🗓️ [TherapistDashboard] Today\'s date:', today);
+        
         const todaySessions = sessionsData.filter((session: any) => {
-          const sessionDate = session.date?.split('T')[0] || session.scheduled_at?.split('T')[0];
-          return sessionDate === today;
+          // Use session_date field from the API response
+          const sessionDate = session.session_date?.split('T')[0];
+          const isToday = sessionDate === today;
+          console.log(`🔍 [TherapistDashboard] Session ${session.id}: ${sessionDate} === ${today} ? ${isToday}`);
+          return isToday;
         });
+        
+        console.log('📅 [TherapistDashboard] Today\'s sessions found:', todaySessions.length);
 
         // Filter upcoming sessions (future dates)
         const upcomingSessions = sessionsData.filter((session: any) => {
-          const sessionDate = session.date?.split('T')[0] || session.scheduled_at?.split('T')[0];
+          const sessionDate = session.session_date?.split('T')[0];
           return sessionDate && sessionDate > today;
         }).slice(0, 5); // Limit to 5 upcoming sessions
 
@@ -113,16 +119,40 @@ export default function TherapistDashboard() {
           { id: 2, patient: 'Maria L.', status: 'completed', count: 1 },
         ];
 
-        // Calculate session hours
+        // Calculate session hours using actual duration_minutes from API
+        const currentDate = new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        // Calculate total hours from all sessions
+        const totalHours = sessionsData.reduce((total: number, session: any) => {
+          return total + (session.duration_minutes || 0);
+        }, 0) / 60; // Convert minutes to hours
+        
+        // Calculate today's hours
+        const todayHours = todaySessions.reduce((total: number, session: any) => {
+          return total + (session.duration_minutes || 0);
+        }, 0) / 60; // Convert minutes to hours
+        
+        // Calculate this week's hours (filter sessions from this week)
+        const thisWeekSessions = sessionsData.filter((session: any) => {
+          const sessionDate = new Date(session.session_date);
+          return sessionDate >= weekAgo && sessionDate <= currentDate;
+        });
+        
+        const thisWeekHours = thisWeekSessions.reduce((total: number, session: any) => {
+          return total + (session.duration_minutes || 0);
+        }, 0) / 60; // Convert minutes to hours
+        
+        console.log('⏰ [TherapistDashboard] Session hours calculated:');
+        console.log('  - Total sessions:', sessionsData.length, 'Total hours:', totalHours.toFixed(1));
+        console.log('  - Today sessions:', todaySessions.length, 'Today hours:', todayHours.toFixed(1));
+        console.log('  - This week sessions:', thisWeekSessions.length, 'This week hours:', thisWeekHours.toFixed(1));
+
         const sessionHours = {
-          total: totalSessions * 1, // Assuming 1 hour per session
-          today: todaySessions.length * 1,
-          thisWeek: sessionsData.filter((session: any) => {
-            const sessionDate = new Date(session.date || session.scheduled_at);
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return sessionDate >= weekAgo;
-          }).length * 1,
+          total: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
+          today: Math.round(todayHours * 10) / 10,
+          thisWeek: Math.round(thisWeekHours * 10) / 10,
         };
 
         // Patient moods data
@@ -239,20 +269,8 @@ export default function TherapistDashboard() {
   } = dashboardData;
 
   const handleStartSession = () => {
-    Alert.alert(
-      'Start New Session',
-      'Would you like to start a new therapy session?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Start', 
-          onPress: () => {
-            // Navigate to session start or creation screen
-            router.push('./sessions'); // Adjust path as needed
-          }
-        }
-      ]
-    );
+    // Navigate directly to the start new session screen
+    router.push('./start-new-session');
   };
 
   return (
@@ -260,87 +278,134 @@ export default function TherapistDashboard() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         {/* Header with Therapist Info */}
-        <View style={styles.header}>
-          <Text style={[styles.greeting, { color: themeStyle.title }]}>Good Evening</Text>
-          <Text style={[styles.doctorName, { color: themeStyle.text }]}>Dr. {user.last_name}</Text>
-          <Text style={[styles.subtitle, { color: themeStyle.label }]}>Ready to help your patients</Text>
-          {/* <Text style={[styles.subtitle, { color: themeStyle.label }]} onPress={() => router.push('./Session-Calender')}>View Schedule</Text> */}
-
-          <TouchableOpacity onPress={() => router.push('./Session-Calender')} style={{backgroundColor: themeStyle.button, padding: 10, borderRadius: 8, marginTop: 10}}>
-            <Text style={[styles.subtitle, { color: 'white' }]} >View Schedule</Text>
-            </TouchableOpacity>
-             
-
-             <TouchableOpacity onPress={() => router.push('./sessions')} style={{backgroundColor: themeStyle.button, padding: 10, borderRadius: 8, marginTop: 10}}>
-             <Text style={[styles.subtitle, { color: 'white' }]} >Sessions</Text>
-
-          </TouchableOpacity>
-          {/* Compact Therapist Info */}
-          <View style={styles.therapistBadge}>
-            <View style={styles.badgeRow}>
-              <Text style={[styles.badgeLabel, { color: themeStyle.label }]}>License:</Text>
-              <Text style={[styles.badgeValue, { color: themeStyle.text }]}>
-                {therapist_info['License Number'] || 'LIC123456'}
-              </Text>
+        <View style={[styles.header, { backgroundColor: themeStyle.dashboardcard }]}>
+          <View style={styles.headerContent}>
+            <View style={styles.greetingSection}>
+              <Text style={[styles.greeting, { color: themeStyle.title }]}>Good Evening</Text>
+              <Text style={[styles.doctorName, { color: themeStyle.text }]}>Dr. {user.last_name}</Text>
+              <Text style={[styles.subtitle, { color: themeStyle.label }]}>Ready to help your patients</Text>
             </View>
-            <View style={styles.badgeRow}>
-              <Text style={[styles.badgeLabel, { color: themeStyle.label }]}>Specialization:</Text>
-              <Text style={[styles.badgeValue, { color: themeStyle.text }]}>
-                {therapist_info['Specialization'] || 'Clinical Psychology'}
-              </Text>
+
+            {/* Action Buttons
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                onPress={() => router.push('./Session-Calender')} 
+                style={[styles.actionButton, { backgroundColor: themeStyle.button }]}
+              >
+                <Text style={styles.actionButtonIcon}>📅</Text>
+                <Text style={styles.actionButtonText}>Schedule</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => router.push('./sessions')} 
+                style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
+              >
+                <Text style={styles.actionButtonIcon}>🎯</Text>
+                <Text style={styles.actionButtonText}>Sessions</Text>
+              </TouchableOpacity>
+            </View> */}
+
+            {/* Compact Therapist Info */}
+            <View style={[styles.therapistBadge, { backgroundColor: themeStyle.background }]}>
+              <View style={styles.badgeRow}>
+                <Text style={[styles.badgeLabel, { color: themeStyle.label }]}>License:</Text>
+                <Text style={[styles.badgeValue, { color: themeStyle.text }]}>
+                  {therapist_info['License Number'] || 'LIC123456'}
+                </Text>
+              </View>
+              <View style={styles.badgeRow}>
+                <Text style={[styles.badgeLabel, { color: themeStyle.label }]}>Specialization:</Text>
+                <Text style={[styles.badgeValue, { color: themeStyle.text }]}>
+                  {therapist_info['Specialization'] || 'Clinical Psychology'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Today's Snapshot */}
-        <View style={[styles.section, { backgroundColor: themeStyle.onboardingtop }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Today&apos;s Snapshot</Text>
-          
+        
 
-           
+        {/* Today's Snapshot */}
+        <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Today&apos;s Snapshot</Text>
+            <View style={[styles.sectionDivider, { backgroundColor: themeStyle.border }]} />
+          </View>
+          
           <View style={styles.snapshotGrid}>
-            
             <SnapshotCard
               icon="📅"
               title="Sessions Today"
-              
               value={today_sessions.length.toString()}
               subtitle={`${today_sessions.length} today, ${upcoming_sessions.length} upcoming`}
               themeStyle={themeStyle}
+              onPress={() => router.push('./sessions')}
             />
-            
             
             <SnapshotCard
               icon="⚠️"
               title="Mood Alerts"
               value={mood_alerts.length.toString()}
-              subtitle=""
+              subtitle="Requiring attention"
               themeStyle={themeStyle}
               alertColor="#FFB347"
             />
             
             <SnapshotCard
               icon="📝"
-              title="Pending SOAP Notes"
+              title="Pending SOAP"
               value={soap_notes.filter(note => note.status === 'pending').length.toString()}
-              subtitle="Requiring your review"
+              subtitle="Notes to review"
               themeStyle={themeStyle}
               alertColor="#FF6B6B"
             />
+
+            <SnapshotCard
+              icon="👥"
+              title="Total Patients"
+              value={patient_stats['Total Patients'] || '0'}
+              subtitle="Under your care"
+              themeStyle={themeStyle}
+              onPress={() => router.push('./patients')}
+            />
           </View>
         </View>
+      {/* Action Buttons */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                onPress={() => router.push('./Session-Calender')} 
+                style={[styles.actionButton, { backgroundColor: themeStyle.button }]}
+              >
+                <Text style={styles.actionButtonIcon}>📅</Text>
+                <Text style={styles.actionButtonText}>Schedule</Text>
+              </TouchableOpacity>
+              
+              {/* <TouchableOpacity 
+                onPress={() => router.push('./sessions')} 
+                style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
+              >
+                <Text style={styles.actionButtonIcon}>🎯</Text>
+                <Text style={styles.actionButtonText}>Sessions</Text>
+              </TouchableOpacity> */}
+            </View>
 
         {/* Start New Session Button */}
         <TouchableOpacity
-          style={styles.startSessionButton}
+          style={[styles.startSessionButton, { backgroundColor: '#00D4AA' }]}
           onPress={handleStartSession}
         >
-          <Text style={styles.startSessionText}>▶ Start New Session</Text>
+          <View style={styles.startSessionContent}>
+            <Text style={styles.startSessionIcon}>▶</Text>
+            <Text style={styles.startSessionText}>Start New Session</Text>
+          </View>
         </TouchableOpacity>
 
         {/* This Week in Sessions */}
         <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>This Week in Sessions</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>This Week in Sessions</Text>
+            <View style={[styles.sectionDivider, { backgroundColor: themeStyle.border }]} />
+          </View>
           
           <View style={styles.weeklyStats}>
             <WeeklyStatItem
@@ -356,66 +421,82 @@ export default function TherapistDashboard() {
               subtitle="3 Pending"
               themeStyle={themeStyle}
             />
+            <WeeklyStatItem
+              icon="👥"
+              label="Active Patients"
+              value={patient_stats['Active Patients'] || '8'}
+              subtitle="This week"
+              themeStyle={themeStyle}
+            />
           </View>
         </View>
 
         {/* Top Patient Moods */}
         <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.darktext }]}>Top Patient Moods</Text>
-          
-          <View style={styles.moodsList}>
-            {Object.entries(patient_stats).map(([mood, count], index) => {
-              const moodColors = ['#FF6B6B', '#4ECDC4', '#A8E6CF', '#B4A7D6', '#FFB347'];
-              return (
-                <MoodItem
-                  key={index}
-                  name={mood}
-                  count={parseInt(count) || 0}
-                  color={moodColors[index % moodColors.length]}
-                  themeStyle={themeStyle}
-                />
-              );
-            })}
-            {/* Fallback to mock data if patient_stats is empty */}
-            {Object.keys(patient_stats).length === 0 && progress_data.patient_moods.map((mood, index) => (
-              <MoodItem
-                key={index}
-                name={mood.name}
-                count={mood.count}
-                color={mood.color}
-                themeStyle={themeStyle}
-              />
-            ))}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: themeStyle.darktext }]}>Top Patient Moods</Text>
+            <View style={[styles.sectionDivider, { backgroundColor: themeStyle.border }]} />
           </View>
           
-          <Text style={[styles.inspirationalText, { color: themeStyle.label }]}>
-            &ldquo;The good you do today will often be forgotten. Do good anyway.&rdquo;
-          </Text>
-          <Text style={[styles.inspirationalAuthor, { color: themeStyle.label }]}>
-            - Mother Teresa
-          </Text>
+          <View style={styles.moodsList}>
+            {/* Display top 3 patient moods */}
+            <MoodItem
+              name="Angry"
+              count={5}
+              color="#FF6B6B"
+              themeStyle={themeStyle}
+            />
+            <MoodItem
+              name="Calm"
+              count={8}
+              color="#4ECDC4"
+              themeStyle={themeStyle}
+            />
+            <MoodItem
+              name="Anxious"
+              count={3}
+              color="#FFB347"
+              themeStyle={themeStyle}
+            />
+          </View>
+          
+          <View style={styles.inspirationalSection}>
+            <Text style={[styles.inspirationalText, { color: themeStyle.label }]}>
+              &ldquo;The good you do today will often be forgotten. Do good anyway.&rdquo;
+            </Text>
+            <Text style={[styles.inspirationalAuthor, { color: themeStyle.label }]}>
+              - Mother Teresa
+            </Text>
+          </View>
         </View>
 
         {/* Recent Patients */}
         {recent_patients.length > 0 && (
           <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Recent Patients</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Recent Patients</Text>
+              <View style={[styles.sectionDivider, { backgroundColor: themeStyle.border }]} />
+            </View>
             <View style={styles.patientsList}>
               {recent_patients.slice(0, 5).map((patient, index) => (
                 <View key={index} style={[styles.patientItem, { borderColor: themeStyle.border }]}>
-                  <Text style={styles.patientIcon}>👤</Text>
-                  <Text style={[styles.patientText, { color: themeStyle.text }]}>
-                    {typeof patient === 'string' 
-                      ? patient 
-                      : `${patient.user?.first_name || 'Patient'} ${patient.user?.last_name || ''}`
-                    }
-                  </Text>
-                  <Text style={[styles.patientDate, { color: themeStyle.label }]}>
-                    {typeof patient === 'object' && patient.connected_at
-                      ? new Date(patient.connected_at).toLocaleDateString()
-                      : 'Recently'
-                    }
-                  </Text>
+                  <View style={styles.patientAvatar}>
+                    <Text style={styles.patientIcon}>👤</Text>
+                  </View>
+                  <View style={styles.patientInfo}>
+                    <Text style={[styles.patientText, { color: themeStyle.text }]}>
+                      {typeof patient === 'string' 
+                        ? patient 
+                        : patient.name || 'Patient'
+                      }
+                    </Text>
+                    <Text style={[styles.patientDate, { color: themeStyle.label }]}>
+                      {typeof patient === 'object' && patient.connected_at
+                        ? new Date(patient.connected_at).toLocaleDateString()
+                        : 'Recently'
+                      }
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -434,7 +515,8 @@ const SnapshotCard = ({
   value, 
   subtitle, 
   themeStyle, 
-  alertColor 
+  alertColor,
+  onPress 
 }: { 
   icon: string; 
   title: string; 
@@ -442,13 +524,21 @@ const SnapshotCard = ({
   subtitle: string; 
   themeStyle: any; 
   alertColor?: string;
+  onPress?: () => void;
 }) => (
-  <View style={[styles.snapshotCard, { backgroundColor: themeStyle.dashboardcard }]}>
-    <Text style={styles.cardIcon}>{icon}</Text>
+  <TouchableOpacity 
+    style={[styles.snapshotCard, { backgroundColor: themeStyle.background || '#f8f9fa' }]}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={styles.cardIconContainer}>
+      <Text style={styles.cardIcon}>{icon}</Text>
+    </View>
     <Text style={[styles.cardTitle, { color: themeStyle.label }]}>{title}</Text>
     <Text style={[styles.cardValue, { color: alertColor || themeStyle.text }]}>{value}</Text>
     {subtitle ? <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>{subtitle}</Text> : null}
-  </View>
+  </TouchableOpacity>
 );
 
 const WeeklyStatItem = ({ 
@@ -464,11 +554,15 @@ const WeeklyStatItem = ({
   subtitle?: string; 
   themeStyle: any;
 }) => (
-  <View style={styles.weeklyStatItem}>
-    <Text style={styles.statIcon}>{icon}</Text>
-    <Text style={[styles.statLabel, { color: themeStyle.label }]}>{label}</Text>
+  <View style={[styles.weeklyStatItem, { backgroundColor: themeStyle.background || '#f8f9fa' }]}>
+    <View style={styles.statIconContainer}>
+      <Text style={styles.statIcon}>{icon}</Text>
+    </View>
+    <View style={styles.statContent}>
+      <Text style={[styles.statLabel, { color: themeStyle.label }]}>{label}</Text>
+      {subtitle && <Text style={[styles.statSubtitle, { color: themeStyle.label }]}>{subtitle}</Text>}
+    </View>
     <Text style={[styles.statValue, { color: themeStyle.text }]}>{value}</Text>
-    {subtitle && <Text style={[styles.statSubtitle, { color: themeStyle.label }]}>{subtitle}</Text>}
   </View>
 );
 
@@ -498,12 +592,26 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
-    paddingBottom: 100, // Space for bottom tabs
+    paddingBottom: 120, // More space for bottom tabs
   },
   
   // Header styles
   header: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+  },
+  headerContent: {
+    gap: 16,
+  },
+  greetingSection: {
+    marginBottom: 4,
   },
   greeting: {
     fontSize: 20,
@@ -520,45 +628,116 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   
-  // Therapist badge styles
-  therapistBadge: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
+  // Action buttons
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: 8,
   },
-  badgeRow: {
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-  },
-  badgeLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginRight: 8,
-    minWidth: 80,
-  },
-  badgeValue: {
-    fontSize: 13,
-    flex: 1,
-  },
-  
-  // Section styles
-  section: {
-    backgroundColor: '#fff',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
   },
+  actionButtonIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Start session button
+  startSessionButton: {
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+  },
+  startSessionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startSessionIcon: {
+    color: 'white',
+    fontSize: 18,
+    marginRight: 12,
+    fontWeight: 'bold',
+  },
+  startSessionText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  
+  // Therapist badge styles
+  therapistBadge: {
+    backgroundColor: '#f0f8ff',
+    borderRadius: 12,
+    padding: 18,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#e3f2fd',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  badgeLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginRight: 12,
+    minWidth: 100,
+    color: '#666',
+  },
+  badgeValue: {
+    fontSize: 15,
+    flex: 1,
+    fontWeight: '500',
+  },
+  
+  // Section styles
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sectionDivider: {
+    height: 1,
+    opacity: 0.1,
   },
   
   // Snapshot cards
@@ -569,47 +748,44 @@ const styles = StyleSheet.create({
   },
   snapshotCard: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '47%',
     backgroundColor: '#f8f9fa',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 14,
+    padding: 16,
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  cardIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   cardIcon: {
     fontSize: 24,
-    marginBottom: 6,
   },
   cardTitle: {
     fontSize: 12,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    fontWeight: '500',
   },
   cardValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   cardSubtitle: {
     fontSize: 10,
     textAlign: 'center',
-  },
-  
-  // Start session button
-  startSessionButton: {
-    backgroundColor: '#00D4AA',
-    borderRadius: 25,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  startSessionText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    opacity: 0.7,
   },
   
   // Weekly stats
@@ -619,61 +795,99 @@ const styles = StyleSheet.create({
   weeklyStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   statIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    width: 30,
+    fontSize: 18,
+  },
+  statContent: {
+    flex: 1,
   },
   statLabel: {
-    flex: 1,
     fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
+    fontWeight: '700',
   },
   statSubtitle: {
     fontSize: 12,
+    opacity: 0.7,
   },
   
   // Mood items
   moodsList: {
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   moodItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   moodDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 16,
   },
   moodName: {
     flex: 1,
     fontSize: 14,
+    fontWeight: '500',
   },
   moodCount: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+    minWidth: 30,
+    textAlign: 'right',
   },
   
   // Inspirational text
+  inspirationalSection: {
+    backgroundColor: '#f0f8ff',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
   inspirationalText: {
     fontSize: 14,
     fontStyle: 'italic',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 20,
   },
   inspirationalAuthor: {
     fontSize: 12,
     textAlign: 'center',
+    fontWeight: '500',
   },
   
   // Info grid styles
@@ -747,27 +961,43 @@ const styles = StyleSheet.create({
   
   // Patients list styles
   patientsList: {
-    gap: 8,
+    gap: 10,
   },
   patientItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
     backgroundColor: '#f8f9fa',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  patientAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   patientIcon: {
-    fontSize: 16,
-    marginRight: 12,
+    fontSize: 18,
+  },
+  patientInfo: {
+    flex: 1,
   },
   patientText: {
     fontSize: 14,
-    flex: 1,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   patientDate: {
     fontSize: 12,
-    marginLeft: 8,
   },
   
   // Bottom tabs

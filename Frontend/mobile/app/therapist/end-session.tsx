@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../utils/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const EndSession = () => {
   const { themeStyle } = useTheme();
@@ -62,10 +63,18 @@ const EndSession = () => {
 
   try {
     setLoading(true);
+    
+    // Check if we have authentication token
+    const token = await AsyncStorage.getItem('access_token');
+    console.log('📤 Auth token exists:', !!token);
+    console.log('📤 Auth token (first 20 chars):', token ? token.substring(0, 20) + '...' : 'No token');
+    
     console.log('📤 Sending data:', payload);
     console.log('📤 Sending data to sessionId:', sessionId);
+    console.log('📤 Request URL:', `${api.defaults.baseURL}therapy_sessions/sessions/${sessionId}/end/`);
+    console.log('📤 Base URL check:', api.defaults.baseURL);
+    console.log('📤 Full URL being called:', `${api.defaults.baseURL}therapy_sessions/sessions/${sessionId}/end/`);
     
-
 
     const response = await api.post(
       `/therapy_sessions/sessions/${sessionId}/end/`,
@@ -89,11 +98,26 @@ const EndSession = () => {
     ]);
   } catch (error: any) {
     console.error('❌ Failed to complete session:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      url: error?.config?.url,
+      method: error?.config?.method,
+      baseURL: error?.config?.baseURL,
+      timeout: error?.config?.timeout
+    });
+    
     // Enhanced error logging
     if (error.response) {
       console.error('📄 Error status:', error.response.status);
       console.error('📄 Error data:', error.response.data);
       console.error('📄 Error headers:', error.response.headers);
+    } else if (error.request) {
+      console.error('📄 No response received:', error.request);
+    } else {
+      console.error('📄 Request setup error:', error.message);
     }
     const status = error?.response?.status;
     const data = error?.response?.data;

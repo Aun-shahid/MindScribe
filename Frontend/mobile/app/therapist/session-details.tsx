@@ -398,7 +398,7 @@ const SessionDetails = () => {
             No Sessions Found
           </Text>
           <Text style={[styles.emptySubtitle, { color: themeStyle.label }]}>
-            This patient doesn't have session data available yet.
+            This patient doesnt have session data available yet.
           </Text>
           <TouchableOpacity 
             style={[styles.createButton, { backgroundColor: '#007AFF' }]}
