@@ -13,41 +13,29 @@ import {
   ActivityIndicator,
   RefreshControl
 } from 'react-native'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { router, useFocusEffect } from 'expo-router'
 import { useTheme } from '../contexts/ThemeContext'
-import api from '../utils/api'
-
-type Patient = {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string;
-  date_of_birth: string;
-  gender: string;
-  patient_profile: {
-    patient_id: string;
-    primary_concern: string;
-    therapy_start_date: string;
-    session_frequency: string;
-    preferred_session_days: string[];
-    emergency_contact_name: string;
-    emergency_contact_phone: string;
-    preferred_language: string;
-    connected_at: string;
-  } | null;
-  last_session: string | null;
-  next_session: string | null;
-  total_sessions: string;
-  created_at: string;
-}
+import { useTherapistPatients } from '../hooks/useTherapist'
+import type { Patient } from '../types/therapist'
 
 const Patients = () => {
   const { themeStyle } = useTheme()
   
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [allPatients, setAllPatients] = useState<Patient[]>([])
-  const [loading, setLoading] = useState(true)
+  // Use the therapist patients hook
+  const {
+    patients,
+    allPatients,
+    loading,
+    error,
+    filter,
+    updateFilter,
+    addPatient,
+    updatePatient,
+    deletePatient,
+    refetch
+  } = useTherapistPatients()
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState('All')
   const [refreshing, setRefreshing] = useState(false)
@@ -58,132 +46,63 @@ const Patients = () => {
 
   const filters = ['All', 'High-Risk', 'New', 'Recently Active']
 
-  useEffect(() => {
-    fetchPatients()
-  }, [])
-
   // Add focus listener to refresh patients when returning to this screen
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       console.log('Patients screen focused - refreshing data')
-      fetchPatients()
-    }, [])
+      refetch()
+    }, [refetch])
   )
 
-  const fetchPatients = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get('/therapy_sessions/patients/')
-      const patientsData = response.data || []
-      
-      console.log('Fetched patients data:', patientsData)
-      
-      // Validate and clean patient data to prevent render errors
-      const cleanedPatients = patientsData.map((patient: any) => ({
-        id: patient.id?.toString() || '',
-        full_name: typeof patient.full_name === 'string' ? patient.full_name : 'Unknown Patient',
-        email: typeof patient.email === 'string' ? patient.email : '',
-        phone_number: typeof patient.phone_number === 'string' ? patient.phone_number : '',
-        date_of_birth: typeof patient.date_of_birth === 'string' ? patient.date_of_birth : '',
-        gender: typeof patient.gender === 'string' ? patient.gender : '',
-        patient_profile: patient.patient_profile && typeof patient.patient_profile === 'object' ? {
-          patient_id: patient.patient_profile.patient_id?.toString() || '',
-          primary_concern: typeof patient.patient_profile.primary_concern === 'string' ? patient.patient_profile.primary_concern : 'General therapy',
-          therapy_start_date: typeof patient.patient_profile.therapy_start_date === 'string' ? patient.patient_profile.therapy_start_date : '',
-          session_frequency: typeof patient.patient_profile.session_frequency === 'string' ? patient.patient_profile.session_frequency : '',
-          preferred_session_days: Array.isArray(patient.patient_profile.preferred_session_days) ? patient.patient_profile.preferred_session_days : [],
-          emergency_contact_name: typeof patient.patient_profile.emergency_contact_name === 'string' ? patient.patient_profile.emergency_contact_name : '',
-          emergency_contact_phone: typeof patient.patient_profile.emergency_contact_phone === 'string' ? patient.patient_profile.emergency_contact_phone : '',
-          preferred_language: typeof patient.patient_profile.preferred_language === 'string' ? patient.patient_profile.preferred_language : '',
-          connected_at: typeof patient.patient_profile.connected_at === 'string' ? patient.patient_profile.connected_at : ''
-        } : null,
-        last_session: typeof patient.last_session === 'string' ? patient.last_session : null,
-        next_session: typeof patient.next_session === 'string' ? patient.next_session : null,
-        total_sessions: patient.total_sessions?.toString() || '0',
-        created_at: typeof patient.created_at === 'string' ? patient.created_at : ''
-      }))
-      
-      console.log('Cleaned patients data:', cleanedPatients)
-      setPatients(cleanedPatients)
-      setAllPatients(cleanedPatients)
-    } catch (error) {
-      console.error('Failed to fetch patients:', error)
-      Alert.alert('Error', 'Failed to load patients')
-    } finally {
-      setLoading(false)
+  // Handle errors from the hook
+  useEffect(() => {
+    if (error) {
+      console.error('Patient data error:', error)
+      Alert.alert('Error', `Failed to load patients: ${error.message}`)
     }
-  }
+  }, [error])
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await fetchPatients()
-    setRefreshing(false)
-  }
-
-  const searchPatients = async (query: string) => {
-    if (!query.trim()) {
-      fetchPatients()
-      return
-    }
-    
     try {
-      // For now, use local filtering since search endpoint might not be configured
-      // You can replace this with API call when backend search is ready
-      const filtered = allPatients.filter((patient: Patient) => {
-        const searchLower = query.toLowerCase()
-        const fullName = (patient.full_name || '').toLowerCase()
-        const email = (patient.email || '').toLowerCase()
-        const phone = patient.phone_number || ''
-        const primaryConcern = (patient.patient_profile?.primary_concern || '').toLowerCase()
-        
-        return fullName.includes(searchLower) ||
-               email.includes(searchLower) ||
-               phone.includes(query) ||
-               primaryConcern.includes(searchLower)
-      })
-      setPatients(filtered)
-    } catch (error) {
-      console.error('Search failed:', error)
-      // Fallback to basic filtering
-      const filtered = allPatients.filter((patient: Patient) => {
-        const searchLower = query.toLowerCase()
-        const fullName = (patient.full_name || '').toLowerCase()
-        const email = (patient.email || '').toLowerCase()
-        const phone = patient.phone_number || ''
-        
-        return fullName.includes(searchLower) ||
-               email.includes(searchLower) ||
-               phone.includes(query)
-      })
-      setPatients(filtered)
+      await refetch()
+    } catch (err) {
+      console.error('Refresh error:', err)
+      Alert.alert('Error', 'Failed to refresh patients')
+    } finally {
+      setRefreshing(false)
     }
-  }
+  }, [refetch])
 
-  const getRiskLevel = (patient: Patient) => {
-    // Mock risk assessment - you can implement actual logic
-    const sessionCount = parseInt(patient.total_sessions || '0')
-    if (sessionCount === 0) return { level: 'new', color: '#007AFF' }
-    if (sessionCount < 3) return { level: 'medium', color: '#FF9500' }
-    return { level: 'low', color: '#34C759' }
-  }
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+    // Use the hook's updateFilter to handle search
+    updateFilter({ search_query: query })
+  }, [updateFilter])
 
-  const getMoodStatus = (patient: Patient) => {
-    // Use actual patient data when available
+  const getRiskLevel = useCallback((patient: Patient) => {
+    try {
+      const sessionCount = patient.total_sessions ? parseInt(String(patient.total_sessions)) : 0
+      if (sessionCount === 0) return { level: 'new', color: '#007AFF' }
+      if (sessionCount < 3) return { level: 'medium', color: '#FF9500' }
+      return { level: 'low', color: '#34C759' }
+    } catch {
+      return { level: 'unknown', color: '#999999' }
+    }
+  }, [])
+
+  const getMoodStatus = useCallback((patient: Patient) => {
     const primaryConcern = patient.patient_profile?.primary_concern || 'General therapy'
-    const sessionCount = parseInt(patient.total_sessions || '0')
+    const sessionCount = patient.total_sessions ? parseInt(String(patient.total_sessions)) : 0
     
-    // Determine mood based on session count and data
     let mood = 'stable'
     if (sessionCount === 0) mood = 'new patient'
     else if (sessionCount < 3) mood = 'initial progress'
     else if (sessionCount < 10) mood = 'improving'
     else mood = 'ongoing treatment'
     
-    return {
-      mood,
-      condition: primaryConcern
-    }
-  }
+    return { mood, condition: primaryConcern }
+  }, [])
 
   const handleViewDetails = (patient: Patient) => {
     router.push({
@@ -234,14 +153,48 @@ const Patients = () => {
     })
   }
 
-  const filteredPatients = patients.filter(patient => {
-    if (selectedFilter === 'All') return true
-    if (selectedFilter === 'New') return parseInt(patient.total_sessions || '0') === 0
-    if (selectedFilter === 'High-Risk') return parseInt(patient.total_sessions || '0') < 3
-    if (selectedFilter === 'Recently Active') return patient.last_session
+  // Local filtering for better UX combined with hook's filter
+  const filteredPatients = useMemo(() => {
+    if (!patients || !Array.isArray(patients)) return []
     
-    return true
-  })
+    let filtered = patients
+    
+    // Apply search filter locally (in addition to hook's search)
+    if (searchQuery.trim()) {
+      const searchLower = searchQuery.toLowerCase()
+      filtered = filtered.filter((patient: Patient) => {
+        const fullName = (patient.full_name || '').toLowerCase()
+        const email = (patient.email || '').toLowerCase()
+        const phone = patient.phone_number || ''
+        const primaryConcern = (patient.patient_profile?.primary_concern || '').toLowerCase()
+        
+        return fullName.includes(searchLower) ||
+               email.includes(searchLower) ||
+               phone.includes(searchQuery) ||
+               primaryConcern.includes(searchLower)
+      })
+    }
+    
+    // Apply category filter
+    if (selectedFilter !== 'All') {
+      filtered = filtered.filter((patient: Patient) => {
+        const sessions = patient.total_sessions ? parseInt(String(patient.total_sessions)) : 0
+        
+        switch (selectedFilter) {
+          case 'New':
+            return sessions === 0
+          case 'High-Risk':
+            return sessions < 3
+          case 'Recently Active':
+            return patient.last_session
+          default:
+            return true
+        }
+      })
+    }
+    
+    return filtered
+  }, [patients, searchQuery, selectedFilter])
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
@@ -271,7 +224,7 @@ const Patients = () => {
           value={searchQuery}
           onChangeText={(text) => {
             setSearchQuery(text)
-            searchPatients(text)
+            handleSearch(text)
           }}
         />
       </View>
@@ -300,7 +253,29 @@ const Patients = () => {
       {/* Patients List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeStyle.text} />
+          <ActivityIndicator size="large" color="#524f85" />
+          <Text style={[styles.loadingText, { color: themeStyle.text }]}>Loading patients...</Text>
+        </View>
+      ) : filteredPatients.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>👥</Text>
+          <Text style={[styles.emptyTitle, { color: themeStyle.text }]}>
+            {searchQuery ? 'No patients found' : 'No patients yet'}
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: themeStyle.label }]}>
+            {searchQuery 
+              ? 'Try adjusting your search terms'
+              : 'Add your first patient to get started'
+            }
+          </Text>
+          {!searchQuery && (
+            <TouchableOpacity
+              style={styles.emptyActionButton}
+              onPress={() => router.push('./addpatientform')}
+            >
+              <Text style={styles.emptyActionText}>Add Patient</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView 
@@ -315,15 +290,18 @@ const Patients = () => {
           }
         >
           {filteredPatients.map((patient, index) => {
-            // Add debug logging to identify problematic data
-            console.log('Patient data:', JSON.stringify(patient, null, 2))
-            console.log(`Patient ${patient.full_name} - Total Sessions: "${patient.total_sessions}" (parsed: ${parseInt(patient.total_sessions || '0')})`)
-            
-            // Ensure patient has a valid ID
-            if (!patient || !patient.id) {
+            // Enhanced validation for patient data
+            if (!patient?.id) {
               console.warn('Invalid patient data found:', patient)
               return null
             }
+            
+            // Ensure we have valid name data
+            const patientName = patient.full_name && patient.full_name.trim() 
+              ? patient.full_name 
+              : 'Unknown Patient'
+            
+            console.log(`[DEBUG] Patient ${patient.id}: name="${patientName}", sessions="${patient.total_sessions}", last_session="${patient.last_session}"`)
             
             const risk = getRiskLevel(patient)
             const mood = getMoodStatus(patient)
@@ -336,11 +314,11 @@ const Patients = () => {
                     <Text style={styles.patientIcon}>👤</Text>
                     <View>
                       <Text style={[styles.patientName, { color: themeStyle.text }]}>
-                        {typeof patient.full_name === 'string' ? patient.full_name : 'Unknown Patient'}
+                        {patientName}
                       </Text>
                       <View style={styles.conditionRow}>
                         <Text style={[styles.conditionText, { color: themeStyle.label }]}>
-                          {typeof mood.condition === 'string' ? mood.condition : 'General therapy'}
+                          {mood.condition}
                         </Text>
                       </View>
                     </View>
@@ -354,10 +332,24 @@ const Patients = () => {
                 <View style={styles.moodRow}>
                   <Text style={styles.moodIcon}>📈</Text>
                   <Text style={[styles.moodText, { color: themeStyle.text }]}>
-                    Mood {mood.mood}
+                    Status: {mood.mood}
                   </Text>
                   <Text style={[styles.lastSession, { color: themeStyle.label }]}>
-                    Total Sessions: {parseInt(patient.total_sessions || '0')} sessions
+                    Sessions: {patient.total_sessions ? parseInt(String(patient.total_sessions)) : 0}
+                  </Text>
+                </View>
+
+                {/* Additional Info Row */}
+                <View style={styles.moodRow}>
+                  <Text style={styles.moodIcon}>📅</Text>
+                  <Text style={[styles.moodText, { color: themeStyle.text }]}>
+                    Last: {patient.last_session 
+                      ? new Date(patient.last_session).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : 'No sessions yet'
+                    }
+                  </Text>
+                  <Text style={[styles.lastSession, { color: themeStyle.label }]}>
+                    Email: {patient.email || 'No email'}
                   </Text>
                 </View>
 
@@ -529,7 +521,45 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-   
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  emptyActionButton: {
+    backgroundColor: '#524f85',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  emptyActionText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   patientsList: {
     flex: 1,
@@ -896,3 +926,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 })
+

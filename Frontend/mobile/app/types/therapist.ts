@@ -100,6 +100,21 @@ export interface UpcomingSession {
   is_online: boolean;
 }
 
+// ...existing code...
+interface PatientContextType {
+  patients: Patient[];
+  allPatients: Patient[];
+  loading: boolean;
+  error: TherapistError | null;
+  filter: PatientFilter;
+  updateFilter: (newFilter: PatientFilter) => void;
+  addPatient: (patientData: PatientFormData) => Promise<void>;
+  updatePatient: (patientId: string, patientData: Partial<Patient>) => Promise<void>;
+  deletePatient: (patientId: string) => Promise<void>;
+  fetchPatients: () => Promise<void>; // Add this line
+}
+// ...existing code...
+
 export interface RecentActivity {
   id: string;
   type: 'session_completed' | 'patient_added' | 'notes_updated';

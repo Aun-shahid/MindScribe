@@ -152,7 +152,7 @@ class TherapistService {
    */
   async getPatients(filter: PatientFilter = {}): Promise<Patient[]> {
     try {
-      let endpoint = '/users/patients/';
+      let endpoint = '/therapy_sessions/patients/';
       const params = new URLSearchParams();
       
       if (filter.search_query) {
@@ -173,16 +173,43 @@ class TherapistService {
       console.log('[TherapistService] GET', endpoint);
       const response = await api.get(endpoint);
       
-      // Handle different response structures
+      // Handle different response structures and clean the data
+      let patientsData = [];
       if (response.data && Array.isArray(response.data.patients)) {
-        return response.data.patients;
+        patientsData = response.data.patients;
       } else if (Array.isArray(response.data)) {
-        return response.data;
+        patientsData = response.data;
       } else if (response.data && Array.isArray(response.data.results)) {
-        return response.data.results;
+        patientsData = response.data.results;
       }
       
-      return [];
+      // Clean and validate patient data to prevent render errors
+      const cleanedPatients = patientsData.map((patient: any) => ({
+        id: patient.id?.toString() || '',
+        full_name: typeof patient.full_name === 'string' ? patient.full_name : 'Unknown Patient',
+        email: typeof patient.email === 'string' ? patient.email : '',
+        phone_number: typeof patient.phone_number === 'string' ? patient.phone_number : '',
+        date_of_birth: typeof patient.date_of_birth === 'string' ? patient.date_of_birth : '',
+        gender: typeof patient.gender === 'string' ? patient.gender : '',
+        patient_profile: patient.patient_profile && typeof patient.patient_profile === 'object' ? {
+          patient_id: patient.patient_profile.patient_id?.toString() || '',
+          primary_concern: typeof patient.patient_profile.primary_concern === 'string' ? patient.patient_profile.primary_concern : 'General therapy',
+          therapy_start_date: typeof patient.patient_profile.therapy_start_date === 'string' ? patient.patient_profile.therapy_start_date : '',
+          session_frequency: typeof patient.patient_profile.session_frequency === 'string' ? patient.patient_profile.session_frequency : '',
+          preferred_session_days: Array.isArray(patient.patient_profile.preferred_session_days) ? patient.patient_profile.preferred_session_days : [],
+          emergency_contact_name: typeof patient.patient_profile.emergency_contact_name === 'string' ? patient.patient_profile.emergency_contact_name : '',
+          emergency_contact_phone: typeof patient.patient_profile.emergency_contact_phone === 'string' ? patient.patient_profile.emergency_contact_phone : '',
+          preferred_language: typeof patient.patient_profile.preferred_language === 'string' ? patient.patient_profile.preferred_language : '',
+          connected_at: typeof patient.patient_profile.connected_at === 'string' ? patient.patient_profile.connected_at : ''
+        } : null,
+        last_session: typeof patient.last_session === 'string' ? patient.last_session : null,
+        next_session: typeof patient.next_session === 'string' ? patient.next_session : null,
+        total_sessions: patient.total_sessions?.toString() || '0',
+        created_at: typeof patient.created_at === 'string' ? patient.created_at : ''
+      }));
+      
+      console.log('[TherapistService] Cleaned patients data:', cleanedPatients);
+      return cleanedPatients;
     } catch (error: any) {
       throw this.handleError(error);
     }
@@ -190,8 +217,8 @@ class TherapistService {
 
   async getPatientDetail(patientId: string): Promise<Patient> {
     try {
-      console.log('[TherapistService] GET /users/patients/', patientId);
-      const response = await api.get<Patient>(`/users/patients/${patientId}/`);
+      console.log('[TherapistService] GET /therapy_sessions/patients/', patientId);
+      const response = await api.get<Patient>(`/therapy_sessions/patients/${patientId}/`);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -200,8 +227,8 @@ class TherapistService {
 
   async addPatient(patientData: PatientFormData): Promise<Patient> {
     try {
-      console.log('[TherapistService] POST /users/patients/', patientData);
-      const response = await api.post<Patient>('/users/patients/', patientData);
+      console.log('[TherapistService] POST /therapy_sessions/patients/', patientData);
+      const response = await api.post<Patient>('/therapy_sessions/patients/', patientData);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -210,8 +237,8 @@ class TherapistService {
 
   async updatePatient(patientId: string, patientData: Partial<PatientFormData>): Promise<Patient> {
     try {
-      console.log('[TherapistService] PATCH /users/patients/', patientId, patientData);
-      const response = await api.patch<Patient>(`/users/patients/${patientId}/`, patientData);
+      console.log('[TherapistService] PATCH /therapy_sessions/patients/', patientId, patientData);
+      const response = await api.patch<Patient>(`/therapy_sessions/patients/${patientId}/`, patientData);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -220,8 +247,8 @@ class TherapistService {
 
   async deletePatient(patientId: string): Promise<void> {
     try {
-      console.log('[TherapistService] DELETE /users/patients/', patientId);
-      await api.delete(`/users/patients/${patientId}/`);
+      console.log('[TherapistService] DELETE /therapy_sessions/patients/', patientId);
+      await api.delete(`/therapy_sessions/patients/${patientId}/`);
     } catch (error: any) {
       throw this.handleError(error);
     }

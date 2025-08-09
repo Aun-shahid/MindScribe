@@ -208,36 +208,32 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
   const [error, setError] = useState<TherapistError | null>(null);
   const [filter, setFilter] = useState<PatientFilter>(initialFilter);
 
-  const fetchPatients = useCallback(async (filterParams?: PatientFilter) => {
+  const getPatients = useCallback(async (filterParams?: PatientFilter) => {
     try {
       setLoading(true);
       setError(null);
       const currentFilter = filterParams || filter;
       const data = await therapistService.getPatients(currentFilter);
       setPatients(data);
-      if (!currentFilter.search_query) {
-        setAllPatients(data);
-      }
+      setAllPatients(data);
     } catch (err) {
       setError(err as TherapistError);
       console.error('Patients fetch error:', err);
-      Alert.alert('Error', 'Failed to load patients');
     } finally {
       setLoading(false);
     }
   }, [filter]);
 
   const updateFilter = useCallback((newFilter: PatientFilter) => {
-    setFilter(newFilter);
-    fetchPatients(newFilter);
-  }, [fetchPatients]);
+    setFilter(prev => ({ ...prev, ...newFilter }));
+  }, []);
 
   const addPatient = useCallback(async (patientData: PatientFormData) => {
     try {
       setError(null);
       const newPatient = await therapistService.addPatient(patientData);
-      setPatients(prev => [newPatient, ...prev]);
-      setAllPatients(prev => [newPatient, ...prev]);
+      setPatients(prev => [...prev, newPatient]);
+      setAllPatients(prev => [...prev, newPatient]);
       return newPatient;
     } catch (err) {
       setError(err as TherapistError);
@@ -245,16 +241,16 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
     }
   }, []);
 
-  const updatePatient = useCallback(async (patientId: string, patientData: Partial<PatientFormData>) => {
+  const updatePatient = useCallback(async (patientId: string, patientData: Partial<Patient>) => {
     try {
       setError(null);
       const updatedPatient = await therapistService.updatePatient(patientId, patientData);
-      setPatients(prev => prev.map(patient => 
-        patient.id === patientId ? updatedPatient : patient
-      ));
-      setAllPatients(prev => prev.map(patient => 
-        patient.id === patientId ? updatedPatient : patient
-      ));
+      setPatients(prev => 
+        prev.map(p => p.id === patientId ? { ...p, ...updatedPatient } : p)
+      );
+      setAllPatients(prev => 
+        prev.map(p => p.id === patientId ? { ...p, ...updatedPatient } : p)
+      );
       return updatedPatient;
     } catch (err) {
       setError(err as TherapistError);
@@ -266,8 +262,8 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
     try {
       setError(null);
       await therapistService.deletePatient(patientId);
-      setPatients(prev => prev.filter(patient => patient.id !== patientId));
-      setAllPatients(prev => prev.filter(patient => patient.id !== patientId));
+      setPatients(prev => prev.filter(p => p.id !== patientId));
+      setAllPatients(prev => prev.filter(p => p.id !== patientId));
     } catch (err) {
       setError(err as TherapistError);
       throw err;
@@ -275,8 +271,8 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
   }, []);
 
   useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
+    getPatients();
+  }, [getPatients]);
 
   return {
     patients,
@@ -288,7 +284,7 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
     addPatient,
     updatePatient,
     deletePatient,
-    refetch: fetchPatients,
+    refetch: getPatients,
   };
 };
 
