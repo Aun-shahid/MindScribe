@@ -67,6 +67,16 @@ const StartSession = () => {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(alreadyStarted === 'true' ? new Date() : null)
   const [notes, setNotes] = useState('')
 
+  // Debug logs to track the session state
+  useEffect(() => {
+    console.log('🔧 StartSession initialized with:')
+    console.log('   patientId:', patientId)
+    console.log('   existingSessionId:', existingSessionId)
+    console.log('   alreadyStarted:', alreadyStarted)
+    console.log('   sessionId state:', sessionId)
+    console.log('   sessionStarted state:', sessionStarted)
+  }, [patientId, existingSessionId, alreadyStarted, sessionId, sessionStarted])
+
   // Mock emotion analysis data
   const [emotionData] = useState({
     calm: 30,
@@ -168,8 +178,13 @@ const handleStartSession = async () => {
 }
 // ...existing code...
   const handleStopRecording = async () => {
+    console.log('🛑 Attempting to stop recording...')
+    console.log('   Current sessionId:', sessionId)
+    console.log('   Current sessionStarted:', sessionStarted)
+    
     if (!sessionId) {
-      Alert.alert('Error', 'No active session found');
+      console.error('❌ No sessionId found when trying to stop recording')
+      Alert.alert('Error', 'No active session found. Please restart the session.');
       return;
     }
 
@@ -190,8 +205,13 @@ const handleStartSession = async () => {
   }
 
   const handleStartRecording = async () => {
+    console.log('🎙️ Attempting to start recording...')
+    console.log('   Current sessionId:', sessionId)
+    console.log('   Current sessionStarted:', sessionStarted)
+    
     if (!sessionId) {
-      Alert.alert('Error', 'No active session found');
+      console.error('❌ No sessionId found when trying to start recording')
+      Alert.alert('Error', 'No active session found. Please restart the session.');
       return;
     }
 
@@ -211,8 +231,13 @@ const handleStartSession = async () => {
   }
 
   const handleEndSession = async () => {
+    console.log('🏁 Attempting to end session...')
+    console.log('   Current sessionId:', sessionId)
+    console.log('   Current sessionStarted:', sessionStarted)
+    
     if (!sessionId) {
-      Alert.alert('Error', 'No active session found');
+      console.error('❌ No sessionId found when trying to end session')
+      Alert.alert('Error', 'No active session found. Please restart the session.');
       return;
     }
 
@@ -251,16 +276,18 @@ const handleStartSession = async () => {
   };
 
 
-  if (!sessionStarted && !existingSessionId) {
+  // Show the "Start Session" button only if no session has been started and no existing session ID
+  if (!sessionStarted && !sessionId) {
+    console.log('🚀 Showing start session button (no active session)')
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+        <View style={[styles.header, { backgroundColor: '#49467E' }]}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Start Session</Text>
-          <View style={{ width: 24 }} />
+          <View style={{ width: 40 }} />
         </View>
 
         <View style={styles.startContent}>
@@ -273,7 +300,7 @@ const handleStartSession = async () => {
           </Text>
 
           <TouchableOpacity
-            style={[styles.startButton, { opacity: loading ? 0.7 : 1 }]}
+            style={[styles.startButton, { opacity: loading ? 0.7 : 1, backgroundColor: '#49467E' }]}
             onPress={handleStartSession}
             disabled={loading}
           >
@@ -288,10 +315,45 @@ const handleStartSession = async () => {
     )
   }
 
+  // Show active session UI
+  console.log('📱 Showing active session UI')
+  console.log('   sessionId:', sessionId)
+  console.log('   sessionStarted:', sessionStarted)
+
+  // Safety check - if we're supposed to show active session but no sessionId, show error
+  if (!sessionId) {
+    console.error('❌ Critical error: Should show active session but sessionId is null')
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
+        <View style={[styles.header, { backgroundColor: '#FF3B30' }]}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.backText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Session Error</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.startContent}>
+          <Text style={[styles.startTitle, { color: themeStyle.text }]}>
+            Session Error
+          </Text>
+          <Text style={[styles.startSubtitle, { color: themeStyle.label }]}>
+            No active session found. Please go back and start a new session.
+          </Text>
+          <TouchableOpacity
+            style={[styles.startButton, { backgroundColor: '#FF3B30' }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.startButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+      <View style={[styles.header, { backgroundColor: '#49467E' }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
@@ -305,14 +367,14 @@ const handleStartSession = async () => {
         {/* Session in Progress */}
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
           <View style={styles.sessionHeader}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Session in Progress</Text>
-            <Text style={[styles.duration, { color: '#FF6B6B' }]}>Duration: {sessionDuration}</Text>
+            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>⏱️ Session in Progress</Text>
+            <Text style={[styles.duration, { color: '#49467E', fontWeight: 'bold' }]}>Duration: {sessionDuration}</Text>
           </View>
         </View>
 
         {/* Audio Recording */}
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>🎵 Audio Recording</Text>
+          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>�️ Audio Recording</Text>
           
           <View style={styles.recordingControls}>
             <Text style={[styles.recordingStatus, { color: themeStyle.label }]}>
@@ -328,7 +390,7 @@ const handleStartSession = async () => {
                     styles.waveformBar,
                     {
                       height: isRecording ? Math.random() * 40 + 10 : 10,
-                      backgroundColor: isRecording ? '#00B894' : '#ccc'
+                      backgroundColor: isRecording ? '#49467E' : '#E0E0E0'
                     }
                   ]}
                 />
@@ -338,17 +400,17 @@ const handleStartSession = async () => {
             <View style={styles.recordingButtons}>
               {!isRecording ? (
                 <TouchableOpacity
-                  style={[styles.recordButton, { backgroundColor: '#00B894' }]}
+                  style={[styles.recordButton, { backgroundColor: '#49467E' }]}
                   onPress={handleStartRecording}
                 >
                   <Text style={styles.recordButtonText}>Start Recording</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[styles.recordButton, { backgroundColor: '#FF6B6B' }]}
+                  style={[styles.recordButton, { backgroundColor: '#E74C3C' }]}
                   onPress={handleStopRecording}
                 >
-                  <Text style={styles.recordButtonText}>End Session</Text>
+                  <Text style={styles.recordButtonText}>Stop Recording</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -357,7 +419,7 @@ const handleStartSession = async () => {
 
         {/* Real-time Emotion Analysis */}
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Real-time Emotion Analysis</Text>
+          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>📊 Real-time Emotion Analysis</Text>
           <Text style={[styles.subtitle, { color: themeStyle.label }]}>
             Analyzing emotional trends during session
           </Text>
@@ -394,7 +456,7 @@ const handleStartSession = async () => {
 
         {/* Live Transcript */}
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Live Transcript</Text>
+          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>💬 Live Transcript</Text>
           <Text style={[styles.subtitle, { color: themeStyle.label }]}>
             Real-time conversation transcription
           </Text>
@@ -405,7 +467,7 @@ const handleStartSession = async () => {
                 <View style={[
                   styles.transcriptBubble,
                   {
-                    backgroundColor: item.speaker === 'Therapist' ? '#00B894' : '#E8F5E8',
+                    backgroundColor: item.speaker === 'Therapist' ? '#49467E' : '#F8F9FA',
                     alignSelf: item.speaker === 'Therapist' ? 'flex-end' : 'flex-start',
                     marginLeft: item.speaker === 'Therapist' ? 50 : 0,
                     marginRight: item.speaker === 'Patient' ? 50 : 0,
@@ -437,7 +499,7 @@ const handleStartSession = async () => {
 
         {/* Additional Notes & Observations */}
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>� Additional Notes & Observations</Text>
+          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>📝 Additional Notes & Observations</Text>
           <Text style={[styles.subtitle, { color: themeStyle.label }]}>
             Record your observations and insights during the session
           </Text>
@@ -475,8 +537,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 16,
     paddingTop: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
   },
   backText: {
     color: 'white',
@@ -488,6 +559,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
   },
+  endSessionButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   endSessionText: {
     color: 'white',
     fontSize: 16,
@@ -497,26 +574,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
   startTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   startSubtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
+    lineHeight: 24,
   },
   startButton: {
-    backgroundColor: '#00B894',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    minWidth: 200,
+    backgroundColor: '#49467E',
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 16,
+    minWidth: 220,
     alignItems: 'center',
+    shadowColor: '#49467E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   startButtonText: {
     color: 'white',
@@ -525,18 +608,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   card: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(73, 70, 126, 0.1)',
   },
   sessionHeader: {
     flexDirection: 'row',
@@ -544,48 +629,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   subtitle: {
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: 20,
+    opacity: 0.7,
   },
   duration: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   recordingControls: {
     alignItems: 'center',
   },
   recordingStatus: {
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: 16,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    height: 60,
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    height: 80,
+    marginBottom: 24,
+    paddingHorizontal: 30,
+    backgroundColor: 'rgba(73, 70, 126, 0.05)',
+    borderRadius: 12,
+    paddingVertical: 16,
   },
   waveformBar: {
-    width: 3,
-    marginHorizontal: 1,
+    width: 4,
+    marginHorizontal: 1.5,
     borderRadius: 2,
   },
   recordingButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
   },
   recordButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    minWidth: 120,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    minWidth: 140,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   recordButtonText: {
     color: 'white',
@@ -593,72 +688,89 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   emotionContainer: {
-    gap: 16,
+    gap: 20,
   },
   emotionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+    backgroundColor: 'rgba(73, 70, 126, 0.05)',
+    padding: 16,
+    borderRadius: 12,
   },
   emotionIcon: {
-    fontSize: 24,
-    width: 32,
+    fontSize: 28,
+    width: 40,
   },
   emotionLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    width: 70,
+    fontWeight: '600',
+    width: 80,
   },
   progressBar: {
     flex: 1,
-    height: 8,
+    height: 10,
     backgroundColor: '#E0E0E0',
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 6,
   },
   emotionPercentage: {
-    fontSize: 14,
-    fontWeight: '600',
-    width: 40,
+    fontSize: 16,
+    fontWeight: 'bold',
+    width: 50,
     textAlign: 'right',
+    color: '#49467E',
   },
   transcriptContainer: {
-    maxHeight: 300,
+    maxHeight: 350,
+    backgroundColor: 'rgba(73, 70, 126, 0.03)',
+    borderRadius: 12,
+    padding: 16,
   },
   transcriptItem: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   transcriptBubble: {
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    padding: 16,
     maxWidth: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   transcriptSpeaker: {
     fontSize: 12,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   transcriptText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   transcriptTime: {
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 6,
+    fontWeight: '500',
   },
   notesInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 140,
+    textAlignVertical: 'top',
+    lineHeight: 24,
   },
   bottomSpacer: {
-    height: 20,
+    height: 30,
   },
 })
 

@@ -5,8 +5,6 @@ import {
   SessionDetail,
   Patient,
   DashboardResponse,
-  SessionsResponse,
-  PatientsResponse,
   SessionFormData,
   PatientFormData,
   SessionFilter,
@@ -16,6 +14,16 @@ import {
   SessionNotes,
   SessionUpdate,
   ConsentData,
+  NewPatientFormData,
+  StartNewSessionPatient,
+  NewPatientFormFields,
+  TherapistPinResponse,
+  CreatePatientResponse,
+  TherapistQRInfo,
+  CreateSessionData,
+  StartSessionData,
+  PatientDetailsType,
+  EndSessionFormData,
 } from '../types/therapist';
 
 class TherapistService {
@@ -225,6 +233,51 @@ class TherapistService {
     }
   }
 
+  async getPatientSessions(patientId: string): Promise<any[]> {
+    try {
+      console.log('[TherapistService] GET /therapy_sessions/sessions/?patient=', patientId);
+      const response = await api.get(`/therapy_sessions/sessions/?patient=${patientId}`);
+      return response.data || [];
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getPatientDetails(): Promise<PatientDetailsType[]> {
+    try {
+      console.log('[TherapistService] GET /therapy_sessions/patients/');
+      const response = await api.get<PatientDetailsType[]>('/therapy_sessions/patients/');
+      return response.data || [];
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Dashboard-specific API calls
+   */
+  async getTherapistPatients(): Promise<any[]> {
+    try {
+      console.log('[TherapistService] GET /users/patients/');
+      const response = await api.get('/users/patients/');
+      return response.data.patients || [];
+    } catch (error: any) {
+      console.warn('[TherapistService] No patients data available:', error.message);
+      return [];
+    }
+  }
+
+  async getTherapistSessions(): Promise<any[]> {
+    try {
+      console.log('[TherapistService] GET /therapy_sessions/sessions/');
+      const response = await api.get('/therapy_sessions/sessions/');
+      return response.data.sessions || response.data || [];
+    } catch (error: any) {
+      console.warn('[TherapistService] No sessions data available:', error.message);
+      return [];
+    }
+  }
+
   async addPatient(patientData: PatientFormData): Promise<Patient> {
     try {
       console.log('[TherapistService] POST /therapy_sessions/patients/', patientData);
@@ -285,7 +338,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/qr-code/', data);
       const response = await api.post('/therapy_sessions/qr-code/', data);
       return response.data.qr_code_data || JSON.stringify(data);
-    } catch (error: any) {
+    } catch {
       console.log('[TherapistService] QR Code generation failed, using fallback');
       return JSON.stringify({ therapist_id: therapistId, session_id: sessionId });
     }
@@ -301,10 +354,10 @@ class TherapistService {
     }
   }
 
-  async endSession(sessionId: string, sessionData: Partial<SessionUpdate>): Promise<SessionType> {
+  async endSession(sessionId: string, sessionData: EndSessionFormData): Promise<any> {
     try {
       console.log('[TherapistService] POST /therapy_sessions/sessions/', sessionId, '/end/', sessionData);
-      const response = await api.post<SessionType>(`/therapy_sessions/sessions/${sessionId}/end/`, sessionData);
+      const response = await api.post(`/therapy_sessions/sessions/${sessionId}/end/`, sessionData);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -328,6 +381,76 @@ class TherapistService {
     try {
       console.log('[TherapistService] PATCH /users/profile/', profileData);
       const response = await api.patch('/users/profile/', profileData);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async createNewPatient(patientData: NewPatientFormData): Promise<StartNewSessionPatient> {
+    try {
+      // Sanitize the data before sending
+      const sanitizedData = {
+        ...patientData,
+        // Convert empty date strings to null
+        date_of_birth: patientData.date_of_birth && patientData.date_of_birth.trim() ? patientData.date_of_birth : null,
+        therapy_start_date: patientData.therapy_start_date && patientData.therapy_start_date.trim() ? patientData.therapy_start_date : null,
+        // Ensure empty strings are properly handled
+        email: patientData.email && patientData.email.trim() ? patientData.email.trim() : '',
+        gender: patientData.gender || '',
+        primary_concern: patientData.primary_concern || '',
+        emergency_contact_name: patientData.emergency_contact_name || '',
+        emergency_contact_phone: patientData.emergency_contact_phone || '',
+        address: patientData.address || '',
+        medical_history: patientData.medical_history || '',
+        current_medications: patientData.current_medications || '',
+        preferred_language: patientData.preferred_language || 'en',
+        session_frequency: patientData.session_frequency || 'weekly',
+        preferred_session_days: patientData.preferred_session_days || []
+      };
+
+      console.log('[TherapistService] POST /therapy_sessions/patients/create/', sanitizedData);
+      const response = await api.post<CreatePatientResponse>('/therapy_sessions/patients/create/', sanitizedData);
+      return response.data.patient;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTherapistPin(): Promise<TherapistPinResponse> {
+    try {
+      console.log('[TherapistService] GET /users/therapist-pin/');
+      const response = await api.get<TherapistPinResponse>('/users/therapist-pin/');
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async fetchSessionPatients(): Promise<StartNewSessionPatient[]> {
+    try {
+      console.log('[TherapistService] GET /therapy_sessions/patients/');
+      const response = await api.get('/therapy_sessions/patients/');
+      return response.data || [];
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async createSessionPatient(patientData: NewPatientFormFields): Promise<CreatePatientResponse> {
+    try {
+      console.log('[TherapistService] POST /therapy_sessions/patients/create/', patientData);
+      const response = await api.post<CreatePatientResponse>('/therapy_sessions/patients/create/', patientData);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTherapistQRInfo(): Promise<TherapistQRInfo> {
+    try {
+      console.log('[TherapistService] GET /users/therapist-pin/');
+      const response = await api.get<TherapistQRInfo>('/users/therapist-pin/');
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -391,6 +514,58 @@ class TherapistService {
       message: 'An unexpected error occurred',
       code: 'UNKNOWN_ERROR',
     };
+  }
+
+  /**
+   * Session Consent API calls
+   */
+  static async createSession(sessionData: CreateSessionData): Promise<{ id: string }> {
+    try {
+      const response = await api.post('/therapy_sessions/sessions/create/', sessionData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      throw error;
+    }
+  }
+
+  static async startSession(sessionId: string, startData: StartSessionData): Promise<any> {
+    try {
+      const response = await api.post(`/therapy_sessions/sessions/${sessionId}/start/`, startData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Session Details API calls
+   */
+  static async fetchPatientSessions(patientId: string): Promise<any[]> {
+    try {
+      const response = await api.get(`/therapy_sessions/sessions/?patient=${patientId}`);
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch patient sessions directly:', error);
+      throw error;
+    }
+  }
+
+  static async fetchPatientsData(): Promise<any[]> {
+    try {
+      const response = await api.get('/therapy_sessions/patients/');
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch patients data:', error);
+      throw error;
+    }
   }
 }
 

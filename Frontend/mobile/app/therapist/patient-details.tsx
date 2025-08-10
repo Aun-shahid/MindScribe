@@ -6,108 +6,36 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert
 } from 'react-native'
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '../contexts/ThemeContext'
-import api from '../utils/api'
-
-type PatientDetailsType = {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string;
-  date_of_birth: string;
-  gender: string;
-  patient_profile: {
-    patient_id: string;
-    primary_concern: string;
-    therapy_start_date: string;
-    session_frequency: string;
-    preferred_session_days: string[];
-    emergency_contact_name: string;
-    emergency_contact_phone: string;
-    preferred_language: string;
-    connected_at: string;
-  } | null;
-  last_session: string | null;
-  next_session: string | null;
-  total_sessions: string;
-  created_at: string;
-}
+import { usePatientDetails } from '../hooks/useTherapist'
+import { THERAPIST_MESSAGES } from '../constants/messages'
+import { InfoField } from '../components/InfoField'
+import { InfoSection } from '../components/InfoSection'
+import {
+  formatDate,
+  formatPhoneNumber,
+  formatGender,
+  formatPreferredDays,
+  formatPreferredLanguage,
+  shouldShowTherapyInfo,
+  shouldShowEmergencyContact,
+  shouldShowPreferredDays,
+} from '../utils/patientDetails'
 
 const PatientDetails = () => {
   const { themeStyle } = useTheme()
   const { patientId } = useLocalSearchParams()
   
-  const [patient, setPatient] = useState<PatientDetailsType | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const fetchPatientDetails = async () => {
-    try {
-      setLoading(true)
-      
-      // Fetch patient details
-      const response = await api.get(`/therapy_sessions/patients/`)
-      if (response.data && Array.isArray(response.data)) {
-        // Find the patient by ID from the list
-        const foundPatient = response.data.find((p: PatientDetailsType) => p.id === patientId)
-        if (foundPatient) {
-          console.log('Found patient data:', JSON.stringify(foundPatient, null, 2))
-          
-          // Clean the patient data to ensure safe rendering
-          const cleanedPatient = {
-            ...foundPatient,
-            last_session: typeof foundPatient.last_session === 'string' 
-              ? foundPatient.last_session 
-              : foundPatient.last_session 
-                ? JSON.stringify(foundPatient.last_session) 
-                : null,
-            next_session: typeof foundPatient.next_session === 'string' 
-              ? foundPatient.next_session 
-              : foundPatient.next_session 
-                ? JSON.stringify(foundPatient.next_session) 
-                : null,
-          }
-          setPatient(cleanedPatient)
-          
-        } else {
-          Alert.alert('Error', 'Patient not found')
-          router.push('./patients')
-        }
-      } else {
-        Alert.alert('Error', 'Patient not found')
-        router.push('./patients')
-      }
-    } catch (error) {
-      console.error('Failed to fetch patient details:', error)
-      Alert.alert('Error', 'Failed to load patient details')
-      router.push('./patients')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (patientId) {
-      fetchPatientDetails()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
-
-  const handleStartSession = () => {
-    router.push({
-      pathname: './start-session',
-      params: { patientId: patient?.id }
-    })
-  }
+  const { patient, loading, handleStartSession } = usePatientDetails(patientId)
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeStyle.text} />
+          <ActivityIndicator size="large" color="#49467E" />
           <Text style={[styles.loadingText, { color: themeStyle.label }]}>Loading patient details...</Text>
         </View>
       </SafeAreaView>
@@ -120,7 +48,7 @@ const PatientDetails = () => {
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: themeStyle.error }]}>Patient not found</Text>
           <TouchableOpacity 
-            style={[styles.backButton, { backgroundColor: themeStyle.logoutButton }]}
+            style={[styles.errorBackButton, { backgroundColor: themeStyle.logoutButton }]}
             onPress={() => router.back()}
           >
             <Text style={[styles.backButtonText, { color: themeStyle.logoutText }]}>Go Back</Text>
@@ -133,114 +61,109 @@ const PatientDetails = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: '#00B894' }]}>
-        <TouchableOpacity onPress={() => router.push('./patients')}>
+      <View style={[styles.header, { backgroundColor: '#49467E' }]}>
+        <TouchableOpacity onPress={() => router.push('./patients')} style={styles.backButton}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Patient Details</Text>
-        <TouchableOpacity onPress={handleStartSession}>
-          <Text style={styles.sessionText} onPress={handleStartSession}>Start Session</Text>
+        <TouchableOpacity onPress={handleStartSession} style={styles.sessionButton}>
+          <Text style={styles.sessionText}>Start Session</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
         {/* Basic Information */}
-        <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Basic Information</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Full Name:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.full_name}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Email:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.email}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Phone:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.phone_number || 'Not provided'}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Date of Birth:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.date_of_birth || 'Not provided'}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Gender:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.gender || 'Not specified'}</Text>
-          </View>
-        </View>
+        <InfoSection title={THERAPIST_MESSAGES.PATIENT_DETAILS_BASIC_INFO} themeStyle={themeStyle}>
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_FULL_NAME} 
+            value={patient.full_name} 
+            themeStyle={themeStyle} 
+          />
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_EMAIL} 
+            value={patient.email} 
+            themeStyle={themeStyle} 
+          />
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_PHONE} 
+            value={formatPhoneNumber(patient.phone_number)} 
+            themeStyle={themeStyle} 
+          />
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_DOB} 
+            value={formatDate(patient.date_of_birth)} 
+            themeStyle={themeStyle} 
+          />
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_GENDER} 
+            value={formatGender(patient.gender)} 
+            themeStyle={themeStyle} 
+          />
+        </InfoSection>
 
         {/* Therapy Information */}
-        {(patient.patient_profile?.primary_concern || patient.patient_profile?.therapy_start_date || patient.patient_profile?.session_frequency) && (
-          <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Therapy Information</Text>
-            
+        {shouldShowTherapyInfo(patient) && (
+          <InfoSection title={THERAPIST_MESSAGES.PATIENT_DETAILS_THERAPY_INFO} themeStyle={themeStyle}>
             {patient.patient_profile?.primary_concern && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: themeStyle.label }]}>Primary Concern:</Text>
-                <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile.primary_concern}</Text>
-              </View>
+              <InfoField 
+                label={THERAPIST_MESSAGES.PATIENT_DETAILS_PRIMARY_CONCERN} 
+                value={patient.patient_profile.primary_concern} 
+                themeStyle={themeStyle} 
+              />
             )}
-            
             {patient.patient_profile?.therapy_start_date && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: themeStyle.label }]}>Therapy Start:</Text>
-                <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile.therapy_start_date}</Text>
-              </View>
+              <InfoField 
+                label={THERAPIST_MESSAGES.PATIENT_DETAILS_THERAPY_START} 
+                value={formatDate(patient.patient_profile.therapy_start_date)} 
+                themeStyle={themeStyle} 
+              />
             )}
-            
             {patient.patient_profile?.session_frequency && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: themeStyle.label }]}>Session Frequency:</Text>
-                <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile.session_frequency}</Text>
-              </View>
+              <InfoField 
+                label={THERAPIST_MESSAGES.PATIENT_DETAILS_SESSION_FREQUENCY} 
+                value={patient.patient_profile.session_frequency} 
+                themeStyle={themeStyle} 
+              />
             )}
-          </View>
+          </InfoSection>
         )}
 
         {/* Emergency Contact */}
-        {(patient.patient_profile?.emergency_contact_name || patient.patient_profile?.emergency_contact_phone) && (
-          <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Emergency Contact</Text>
-            
+        {shouldShowEmergencyContact(patient) && (
+          <InfoSection title={THERAPIST_MESSAGES.PATIENT_DETAILS_EMERGENCY_CONTACT} themeStyle={themeStyle}>
             {patient.patient_profile?.emergency_contact_name && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: themeStyle.label }]}>Name:</Text>
-                <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile.emergency_contact_name}</Text>
-              </View>
+              <InfoField 
+                label={THERAPIST_MESSAGES.PATIENT_DETAILS_EMERGENCY_NAME} 
+                value={patient.patient_profile.emergency_contact_name} 
+                themeStyle={themeStyle} 
+              />
             )}
-            
             {patient.patient_profile?.emergency_contact_phone && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: themeStyle.label }]}>Phone:</Text>
-                <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile.emergency_contact_phone}</Text>
-              </View>
+              <InfoField 
+                label={THERAPIST_MESSAGES.PATIENT_DETAILS_PHONE} 
+                value={patient.patient_profile.emergency_contact_phone} 
+                themeStyle={themeStyle} 
+              />
             )}
-          </View>
+          </InfoSection>
         )}
 
         {/* Additional Information */}
-        <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Additional Information</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: themeStyle.label }]}>Preferred Language:</Text>
-            <Text style={[styles.value, { color: themeStyle.text }]}>{patient.patient_profile?.preferred_language || 'English'}</Text>
-          </View>
-          
-          {patient.patient_profile?.preferred_session_days && patient.patient_profile.preferred_session_days.length > 0 && (
-            <View style={styles.infoColumn}>
-              <Text style={[styles.label, { color: themeStyle.label }]}>Preferred Session Days:</Text>
-              <Text style={[styles.value, { color: themeStyle.text }]}>
-                {patient.patient_profile.preferred_session_days.join(', ')}
-              </Text>
-            </View>
+        <InfoSection title={THERAPIST_MESSAGES.PATIENT_DETAILS_ADDITIONAL_INFO} themeStyle={themeStyle}>
+          <InfoField 
+            label={THERAPIST_MESSAGES.PATIENT_DETAILS_PREFERRED_LANGUAGE} 
+            value={formatPreferredLanguage(patient.patient_profile?.preferred_language)} 
+            themeStyle={themeStyle} 
+          />
+          {shouldShowPreferredDays(patient) && (
+            <InfoField 
+              label={THERAPIST_MESSAGES.PATIENT_DETAILS_PREFERRED_DAYS} 
+              value={formatPreferredDays(patient.patient_profile?.preferred_session_days)} 
+              themeStyle={themeStyle} 
+              isColumn={true}
+            />
           )}
-        </View>
+        </InfoSection>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -258,98 +181,93 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingTop: 60,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backText: {
     color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
     color: 'white',
+    letterSpacing: 0.3,
+  },
+  sessionButton: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   sessionText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  section: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  infoColumn: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  value: {
-    fontSize: 14,
-    flex: 2,
-    textAlign: 'right',
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 48,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '500',
+    opacity: 0.7,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   errorText: {
-    fontSize: 18,
-    marginBottom: 20,
+    fontSize: 20,
+    marginBottom: 24,
     textAlign: 'center',
+    fontWeight: '600',
   },
-  backButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  errorBackButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   bottomSpacer: {
-    height: 20,
+    height: 40,
   },
 })

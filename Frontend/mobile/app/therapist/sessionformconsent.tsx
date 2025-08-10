@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react';
 import {
   View,
   Text,
@@ -7,139 +7,40 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TextInput
-} from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
-import { useTheme } from '../contexts/ThemeContext'
-import api from '../utils/api'
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
+import { useSessionConsent } from '../hooks/useTherapist';
 
 const SessionFormConsent = () => {
-  const { themeStyle } = useTheme()
-  const { patientId, patientName, isNewPatient } = useLocalSearchParams()
+  const { themeStyle } = useTheme();
+  const { patientId, patientName, isNewPatient } = useLocalSearchParams();
   
-  const [submitting, setSubmitting] = useState(false)
-  const [consentData, setConsentData] = useState({
-    session_type: 'individual',
-    duration_minutes: 60 as number | string,
-    location: 'Office',
-    patient_goals: '',
-    fee_charged: 0,
-    is_online: false,
-    consent_recording: false,
-    consent_ai_analysis: false
-  })
-
-  // Clear form data when component mounts, patientId changes, or when it's a new patient
-  useEffect(() => {
-    console.log('Clearing form data for patient:', patientName, 'isNewPatient:', isNewPatient)
-    setConsentData({
-      session_type: 'individual',
-      duration_minutes: 60,
-      location: 'Office',
-      patient_goals: '',
-      fee_charged: 0,
-      is_online: false,
-      consent_recording: false,
-      consent_ai_analysis: false
-    })
-  }, [patientId, patientName, isNewPatient])
-
-  const handleConsentAndStartSession = async () => {
-    try {
-      setSubmitting(true)
-
-      // Validation
-      if (!consentData.patient_goals.trim()) {
-        Alert.alert('Error', 'Session goals are required')
-        return
-      }
-
-      if (!consentData.consent_recording || !consentData.consent_ai_analysis) {
-        Alert.alert('Error', 'Both recording and AI analysis consent are required to proceed.')
-        return
-      }
-
-      // Step 1: Create a new session (using exact same structure that worked in modal)
-      const createSessionData = {
-        patient_id: patientId,
-        session_type: consentData.session_type,
-        scheduled_date: new Date().toISOString(),
-        duration_minutes: typeof consentData.duration_minutes === 'string' 
-          ? (consentData.duration_minutes === '' ? 60 : parseInt(consentData.duration_minutes)) 
-          : consentData.duration_minutes,
-        location: consentData.location,
-        is_online: consentData.is_online,
-        patient_goals: consentData.patient_goals,
-        fee_charged: consentData.fee_charged,
-        consent_recording: consentData.consent_recording,
-        consent_ai_analysis: consentData.consent_ai_analysis
-      }
-      
-      console.log('Creating session with data:', createSessionData)
-      const createResponse = await api.post('/therapy_sessions/sessions/create/', createSessionData)
-      
-      if (!createResponse.data?.id) {
-        throw new Error('Session creation failed - no session ID returned')
-      }
-      
-      const sessionId = createResponse.data.id
-      console.log('Session created successfully with ID:', sessionId)
-      
-      // Step 2: Start the session (same as original modal)
-      const startSessionData = {
-        detail: "Starting therapy session",
-        session: {
-          status: "in_progress",
-          actual_start_time: new Date().toISOString()
-        }
-      }
-      
-      console.log('Starting session with ID:', sessionId)
-      const startResponse = await api.post(`/therapy_sessions/sessions/${sessionId}/start/`, startSessionData)
-      
-      console.log('Session started successfully:', startResponse.data)
-      
-      // Step 3: Navigate to the session UI (same as original modal)
-      router.push({
-        pathname: './start-session',
-        params: { 
-          patientId: patientId,
-          sessionId: sessionId,
-          sessionStarted: 'true'
-        }
-      })
-
-    } catch (error: any) {
-      console.error('❌ Failed to create session:', error)
-      
-      let errorMessage = 'Failed to create session. Please try again.'
-      if (error.response?.status === 400) {
-        const errorData = error.response.data
-        if (typeof errorData === 'object') {
-          const errorFields = Object.keys(errorData).join(', ')
-          errorMessage = `Invalid data in fields: ${errorFields}`
-        } else {
-          errorMessage = `Invalid data: ${errorData}`
-        }
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please check backend connection.'
-      }
-      
-      Alert.alert('Error', errorMessage)
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const {
+    submitting,
+    consentData,
+    patientName: displayPatientName,
+    updateField,
+    handleDurationChange,
+    handleFeeChange,
+    toggleCheckbox,
+    handleConsentAndStartSession,
+    handleBack
+  } = useSessionConsent({
+    patientId: patientId as string,
+    patientName: patientName as string,
+    isNewPatient: isNewPatient as string
+  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-      <View style={[styles.header, { backgroundColor: '#007AFF' }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+      <View style={[styles.header, { backgroundColor: '#49467E' }]}>
+        <TouchableOpacity onPress={handleBack} style={styles.closeButton}>
           <Text style={styles.closeText}>×</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Session Consent & Setup</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 44 }} />
       </View>
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -148,7 +49,7 @@ const SessionFormConsent = () => {
         </Text>
         
         <Text style={[styles.patientInfo, { color: themeStyle.label }]}>
-          Patient: {patientName || 'Unknown Patient'}
+          Patient: {displayPatientName}
         </Text>
 
         <View style={styles.inputRow}>
@@ -166,17 +67,7 @@ const SessionFormConsent = () => {
             <TextInput
               style={[styles.input, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text, borderColor: themeStyle.border }]}
               value={consentData.duration_minutes.toString()}
-              onChangeText={(text) => {
-                // Allow empty string or valid numbers
-                if (text === '') {
-                  setConsentData(prev => ({ ...prev, duration_minutes: '' }))
-                } else {
-                  const numValue = parseInt(text)
-                  if (!isNaN(numValue)) {
-                    setConsentData(prev => ({ ...prev, duration_minutes: numValue }))
-                  }
-                }
-              }}
+              onChangeText={handleDurationChange}
               keyboardType="numeric"
               placeholder="60"
               placeholderTextColor={themeStyle.label}
@@ -188,7 +79,7 @@ const SessionFormConsent = () => {
         <TextInput
           style={[styles.input, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text, borderColor: themeStyle.border }]}
           value={consentData.location}
-          onChangeText={(text) => setConsentData(prev => ({ ...prev, location: text }))}
+          onChangeText={(text) => updateField('location', text)}
           placeholder="Office, Room 101"
           placeholderTextColor={themeStyle.label}
         />
@@ -197,7 +88,7 @@ const SessionFormConsent = () => {
         <TextInput
           style={[styles.input, styles.textArea, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text, borderColor: themeStyle.border }]}
           value={consentData.patient_goals}
-          onChangeText={(text) => setConsentData(prev => ({ ...prev, patient_goals: text }))}
+          onChangeText={(text) => updateField('patient_goals', text)}
           placeholder="What do you hope to accomplish in this session?"
           placeholderTextColor={themeStyle.label}
           multiline
@@ -207,7 +98,7 @@ const SessionFormConsent = () => {
         <TextInput
           style={[styles.input, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text, borderColor: themeStyle.border }]}
           value={consentData.fee_charged.toString()}
-          onChangeText={(text) => setConsentData(prev => ({ ...prev, fee_charged: parseFloat(text) || 0 }))}
+          onChangeText={handleFeeChange}
           keyboardType="numeric"
           placeholder="0"
           placeholderTextColor={themeStyle.label}
@@ -219,7 +110,7 @@ const SessionFormConsent = () => {
 
         <TouchableOpacity
           style={[styles.checkboxContainer, { borderColor: themeStyle.border }]}
-          onPress={() => setConsentData(prev => ({ ...prev, is_online: !prev.is_online }))}
+          onPress={() => toggleCheckbox('is_online')}
         >
           <View style={[styles.checkbox, consentData.is_online && styles.checkboxChecked]}>
             {consentData.is_online && <Text style={styles.checkmark}>✓</Text>}
@@ -231,7 +122,7 @@ const SessionFormConsent = () => {
 
         <TouchableOpacity
           style={[styles.checkboxContainer, { borderColor: themeStyle.border }]}
-          onPress={() => setConsentData(prev => ({ ...prev, consent_recording: !prev.consent_recording }))}
+          onPress={() => toggleCheckbox('consent_recording')}
         >
           <View style={[styles.checkbox, consentData.consent_recording && styles.checkboxChecked]}>
             {consentData.consent_recording && <Text style={styles.checkmark}>✓</Text>}
@@ -243,7 +134,7 @@ const SessionFormConsent = () => {
 
         <TouchableOpacity
           style={[styles.checkboxContainer, { borderColor: themeStyle.border }]}
-          onPress={() => setConsentData(prev => ({ ...prev, consent_ai_analysis: !prev.consent_ai_analysis }))}
+          onPress={() => toggleCheckbox('consent_ai_analysis')}
         >
           <View style={[styles.checkbox, consentData.consent_ai_analysis && styles.checkboxChecked]}>
             {consentData.consent_ai_analysis && <Text style={styles.checkmark}>✓</Text>}
@@ -260,7 +151,7 @@ const SessionFormConsent = () => {
         <View style={styles.buttons}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
-            onPress={() => router.back()}
+            onPress={handleBack}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -294,137 +185,203 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingTop: 60,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeText: {
     color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
     color: 'white',
+    letterSpacing: 0.3,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    marginTop: 20,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 24,
+    marginTop: 28,
+    color: '#49467E',
+    letterSpacing: 0.3,
   },
   patientInfo: {
-    fontSize: 16,
-    marginBottom: 20,
-    fontWeight: '500',
+    fontSize: 18,
+    marginBottom: 28,
+    fontWeight: '600',
+    backgroundColor: 'rgba(73, 70, 126, 0.05)',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(73, 70, 126, 0.1)',
   },
   inputRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
+    gap: 16,
   },
   halfInput: {
     flex: 1,
-    marginHorizontal: 4,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 15,
+    marginBottom: 10,
+    marginTop: 16,
+    color: '#49467E',
+    letterSpacing: 0.2,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(73, 70, 126, 0.15)',
+    backgroundColor: 'rgba(73, 70, 126, 0.02)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
+    paddingTop: 20,
+    lineHeight: 22,
   },
   pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(73, 70, 126, 0.15)',
+    backgroundColor: 'rgba(73, 70, 126, 0.02)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   pickerText: {
     fontSize: 16,
     textTransform: 'capitalize',
+    fontWeight: '500',
   },
   checkboxContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 15,
-    paddingVertical: 8,
+    alignItems: 'flex-start',
+    marginTop: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(73, 70, 126, 0.02)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(73, 70, 126, 0.1)',
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     borderWidth: 2,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    marginRight: 12,
+    borderColor: '#49467E',
+    borderRadius: 6,
+    marginRight: 16,
+    marginTop: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
   },
   checkboxChecked: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: '#49467E',
+    borderColor: '#49467E',
   },
   checkmark: {
     color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
   },
   checkboxLabel: {
-    fontSize: 14,
+    fontSize: 15,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   consentNote: {
-    fontSize: 12,
-    marginTop: 16,
+    fontSize: 13,
+    marginTop: 20,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: 20,
+    backgroundColor: 'rgba(73, 70, 126, 0.05)',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#49467E',
   },
   buttons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 30,
-    paddingHorizontal: 10,
+    marginTop: 40,
+    paddingHorizontal: 0,
+    gap: 16,
   },
   button: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
-    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: 'rgba(73, 70, 126, 0.2)',
   },
   cancelButtonText: {
-    color: '#333',
-    fontWeight: '600',
+    color: '#49467E',
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   confirmButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#49467E',
   },
   confirmButtonText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   formSpacer: {
-    height: 40,
+    height: 60,
   },
 })

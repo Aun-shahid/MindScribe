@@ -1,3 +1,4 @@
+
 import {
   StyleSheet,
   Text,
@@ -365,9 +366,12 @@ const SessionDetails = () => {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Session History</Text>
-        <TouchableOpacity onPress={() => router.push({
-          pathname: './start-session',
-          params: { patientId: patientId }
+            <TouchableOpacity onPress={() => router.push({
+          pathname: './sessionformconsent',
+          params: { 
+            patientId: patientId,
+            patientName: patientName || patient?.full_name || 'Patient'
+          }
         })}>
           <Text style={styles.addText}>+</Text>
         </TouchableOpacity>

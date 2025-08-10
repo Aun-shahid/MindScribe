@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,17 @@ import {
 } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { getProfileFields, getThemeToggleText } from '../utils/profile';
+import { ProfileField } from '../components/ProfileField';
+import { THERAPIST_MESSAGES } from '../constants/messages';
 
-/*************  ✨ Windsurf Command ⭐  *************/
-/*******  57d4a96b-609a-4102-a609-bfaaceecc820  *******/
 export default function TherapistProfile() {
-  const { profile, profileLoading, error, fetchProfile, logout } = useAuthContext();
+  const { profile, profileLoading, fetchProfile, logout } = useAuthContext();
   const { theme, themeStyle, toggleTheme } = useTheme();
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (profile) {
@@ -41,10 +42,13 @@ export default function TherapistProfile() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: themeStyle.background }]}>
         <ActivityIndicator size="large" color={themeStyle.text} />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>Fetching your profile...</Text>
+        <Text style={[styles.loadingText, { color: themeStyle.label }]}>{THERAPIST_MESSAGES.PROFILE_LOADING}</Text>
       </View>
     );
   }
+
+  const profileFields = profile ? getProfileFields(profile) : [];
+  const themeToggleText = getThemeToggleText(theme);
 
   return (
     <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }]}>
@@ -53,60 +57,37 @@ export default function TherapistProfile() {
         onPress={toggleTheme}
       >
         <Text style={[styles.themeToggleText, { color: themeStyle.buttonText }]}>
-          Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
+          {themeToggleText}
         </Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={[styles.title, { color: themeStyle.title }]}>👩‍⚕️ Therapist Profile</Text>
+        <Text style={[styles.title, { color: themeStyle.title }]}>{THERAPIST_MESSAGES.PROFILE_TITLE}</Text>
 
         {profile ? (
           <>
-            <ProfileField label="ID" value={profile.id} themeStyle={themeStyle} />
-            <ProfileField
-              label="Name"
-              value={`${profile.first_name} ${profile.last_name}`}
-              themeStyle={themeStyle}
-            />
-            <ProfileField label="Email" value={profile.email} themeStyle={themeStyle} />
-            <ProfileField label="User Type" value={profile.user_type} themeStyle={themeStyle} />
-            <ProfileField
-              label="Verified"
-              value={(profile as any).email_verified || profile.is_verified ? 'Yes' : 'No'}
-              themeStyle={themeStyle}
-            />
+            {profileFields.map((field, index) => (
+              <ProfileField
+                key={`${field.label}-${index}`}
+                field={field}
+                themeStyle={themeStyle}
+              />
+            ))}
 
             <TouchableOpacity
               style={[styles.logoutButton, { backgroundColor: themeStyle.logoutButton }]}
               onPress={handleLogout}
             >
-              <Text style={[styles.logoutText, { color: themeStyle.logoutText }]}>Logout</Text>
+              <Text style={[styles.logoutText, { color: themeStyle.logoutText }]}>{THERAPIST_MESSAGES.LOGOUT}</Text>
             </TouchableOpacity>
           </>
         ) : (
           <Text style={[styles.errorText, { color: themeStyle.error }]}>
-            ⚠️ Failed to load profile. Please try again.
+            {THERAPIST_MESSAGES.PROFILE_LOAD_ERROR}
           </Text>
         )}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function ProfileField({
-  label,
-  value,
-  themeStyle,
-}: {
-  label: string;
-  value: string;
-  themeStyle: any;
-}) {
-  return (
-    <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }]}>
-      <Text style={[styles.label, { color: themeStyle.label }]}>{label}:</Text>
-      <Text style={[styles.value, { color: themeStyle.text }]}>{value}</Text>
-    </View>
   );
 }
 
@@ -123,18 +104,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 20,
-  },
-  infoBox: {
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    paddingBottom: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  value: {
-    fontSize: 16,
   },
   themeToggle: {
     alignSelf: 'flex-end',

@@ -83,7 +83,7 @@ const Patients = () => {
   const getRiskLevel = useCallback((patient: Patient) => {
     try {
       const sessionCount = patient.total_sessions ? parseInt(String(patient.total_sessions)) : 0
-      if (sessionCount === 0) return { level: 'new', color: '#007AFF' }
+      if (sessionCount === 0) return { level: 'new', color: '#49467E' }
       if (sessionCount < 3) return { level: 'medium', color: '#FF9500' }
       return { level: 'low', color: '#34C759' }
     } catch {
@@ -199,7 +199,7 @@ const Patients = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: '#00B894' }]}>
+      <View style={[styles.header, { backgroundColor: themeStyle.darktext }]}>
         <Text style={styles.headerTitle}>My Patients</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
@@ -253,7 +253,7 @@ const Patients = () => {
       {/* Patients List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#524f85" />
+          <ActivityIndicator size="large" color="#49467E" />
           <Text style={[styles.loadingText, { color: themeStyle.text }]}>Loading patients...</Text>
         </View>
       ) : filteredPatients.length === 0 ? (
@@ -284,7 +284,7 @@ const Patients = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#007AFF']}
+              colors={['#49467E']}
               tintColor={themeStyle.text}
             />
           }
@@ -342,12 +342,12 @@ const Patients = () => {
                 {/* Additional Info Row */}
                 <View style={styles.moodRow}>
                   <Text style={styles.moodIcon}>📅</Text>
-                  <Text style={[styles.moodText, { color: themeStyle.text }]}>
+                  {/* <Text style={[styles.moodText, { color: themeStyle.text }]}>
                     Last: {patient.last_session 
                       ? new Date(patient.last_session).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                       : 'No sessions yet'
                     }
-                  </Text>
+                  </Text> */}
                   <Text style={[styles.lastSession, { color: themeStyle.label }]}>
                     Email: {patient.email || 'No email'}
                   </Text>
@@ -444,57 +444,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingTop: 60,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: 'white',
+    letterSpacing: 0.5,
   },
   addButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   addButtonText: {
     color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '600',
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginBottom: 5,
+    paddingVertical: 16,
+    marginBottom: 8,
   },
   searchInput: {
-    height: 40,
+    height: 44,
     borderRadius: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: 18,
     borderWidth: 1,
+    fontSize: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   filterContainer: {
     paddingHorizontal: 20,
-    marginBottom: -20,
-    paddingVertical: 2,
+    marginBottom: 16,
+    paddingVertical: 8,
   },
   filterTab: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 6,
-    backgroundColor: '#f5f5f7',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 10,
+    backgroundColor: '#f8f9fa',
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: '#e9ecef',
     elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,
@@ -504,161 +523,208 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   filterTabActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: '#49467E',
+    borderColor: '#49467E',
     elevation: 2,
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
   },
   filterText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 48,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 48,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 20,
+    fontSize: 72,
+    marginBottom: 24,
+    opacity: 0.7,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 12,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   emptySubtitle: {
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 32,
+    opacity: 0.8,
   },
   emptyActionButton: {
-    backgroundColor: '#524f85',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
+    backgroundColor: '#49467E',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 24,
+    shadowColor: '#49467E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   emptyActionText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   patientsList: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 2,
-    marginTop: -630,
+    paddingTop: 12,
+    paddingBottom: 20,
+    marginTop: -630, // Adjust to avoid overlap with header
   },
   patientCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(73, 70, 126, 0.05)',
+    backgroundColor: 'white',
   },
   patientHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   patientInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
   },
   patientIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 32,
+    marginRight: 16,
+    marginTop: 2,
+    opacity: 0.8,
   },
   patientName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 6,
+    letterSpacing: 0.2,
+    lineHeight: 24,
   },
   conditionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
   conditionText: {
     fontSize: 14,
     marginRight: 8,
+    fontWeight: '500',
+    opacity: 0.7,
   },
   riskBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    alignSelf: 'flex-start',
   },
   riskText: {
     color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    letterSpacing: 0.3,
   },
   moodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   moodIcon: {
     fontSize: 16,
-    marginRight: 8,
+    marginRight: 10,
+    opacity: 0.8,
   },
   moodText: {
     fontSize: 14,
     flex: 1,
+    fontWeight: '500',
+    opacity: 0.8,
   },
   lastSession: {
     fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.6,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 12,
   },
   detailsButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#49467E',
     alignItems: 'center',
+    backgroundColor: 'rgba(73, 70, 126, 0.05)',
   },
   detailsButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#49467E',
+    letterSpacing: 0.2,
   },
   sessionButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#8B5CF6',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: '#49467E',
     alignItems: 'center',
+    shadowColor: '#49467E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sessionButtonText: {
     color: 'white',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   modalContainer: {
     flex: 1,
@@ -727,7 +793,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   dayButtonSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#49467E',
   },
   dayButtonText: {
     fontSize: 12,
@@ -751,7 +817,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   genderButtonSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#49467E',
   },
   genderButtonText: {
     fontSize: 14,
@@ -868,62 +934,70 @@ const styles = StyleSheet.create({
   // View Options Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   viewOptionsContainer: {
-    width: '90%',
-    maxWidth: 400,
-    borderRadius: 12,
+    width: '95%',
+    maxWidth: 420,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+    overflow: 'hidden',
   },
   viewOptionsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    letterSpacing: 0.3,
   },
   viewOptionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     borderBottomWidth: 0.5,
   },
   viewOptionIcon: {
-    fontSize: 24,
-    marginRight: 15,
+    fontSize: 28,
+    marginRight: 20,
   },
   viewOptionTextContainer: {
     flex: 1,
   },
   viewOptionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
   viewOptionSubtitle: {
     fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
   },
   viewOptionArrow: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 20,
+    fontWeight: '600',
+    opacity: 0.6,
   },
   cancelOptionButton: {
-    paddingVertical: 16,
+    paddingVertical: 20,
     alignItems: 'center',
     borderTopWidth: 0.5,
+    backgroundColor: 'rgba(248, 249, 250, 0.5)',
   },
   cancelOptionText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 })
 

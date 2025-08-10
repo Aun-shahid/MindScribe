@@ -124,7 +124,7 @@ const SessionsList = () => {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Today's Sessions</Text>
+          <Text style={styles.headerTitle}>Todays Sessions</Text>
           <Text style={styles.headerSubtitle}>Professional Schedule</Text>
         </View>
         <TouchableOpacity style={styles.refreshButton}>
