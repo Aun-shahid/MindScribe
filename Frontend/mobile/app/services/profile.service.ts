@@ -10,7 +10,6 @@ class ProfileService {
     try {
       const response = await api.get<User>('/authenticator/profile/');
       return response.data;
-      console.log(response.data);
     } catch (error: any) {
       throw this.handleError(error);
     }

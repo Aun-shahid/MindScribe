@@ -703,8 +703,14 @@ class EnhancedPatientCreateSerializer(serializers.Serializer):
         else:
             user_data['username'] = user_data['phone_number']
         
-        # Generate random password
-        user_data['password'] = User.objects.make_random_password()
+             # Generate random password
+        # user_data['password'] = User.objects.make_random_password()
+        # Generate random password (this will be hashed by create_user)
+        import secrets
+        import string
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        password = ''.join(secrets.choice(alphabet) for i in range(12))
+        user_data['password'] = password
         
         # Extract patient profile data
         patient_data = {
