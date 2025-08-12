@@ -81,8 +81,8 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       // Optional: Call logout endpoint if backend requires it
-      // console.log('[AuthService] POST /authenticator/logout/');
-      // await api.post('/authenticator/logout/');
+       console.log('[AuthService] POST /authenticator/logout/');
+       await api.post('/authenticator/logout/');
     } catch (error) {
       // Ignore errors during logout
     }

@@ -2,7 +2,7 @@
 
 /venv/
 Backend/venv/
-
+node_modules/
 # Miscellaneous
 *.class
 *.log
