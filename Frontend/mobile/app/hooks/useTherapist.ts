@@ -195,7 +195,9 @@ export const useSessionDetail = (sessionId: string) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('[useSessionDetail] Fetching session detail for:', sessionId);
       const data = await therapistService.getSessionDetail(sessionId);
+      console.log('[useSessionDetail] Session detail fetched:', data);
       setSession(data);
     } catch (err) {
       setError(err as TherapistError);
@@ -208,10 +210,14 @@ export const useSessionDetail = (sessionId: string) => {
   const updateNotes = useCallback(async (notesData: SessionNotes) => {
     try {
       setError(null);
+      console.log('[useSessionDetail] Updating notes for session:', sessionId, notesData);
       await therapistService.updateSessionNotes(sessionId, notesData);
+      console.log('[useSessionDetail] Notes updated successfully, refetching session data...');
       // Refetch session data to get updated notes
       await fetchSessionDetail();
+      console.log('[useSessionDetail] Session data refetched successfully');
     } catch (err) {
+      console.error('[useSessionDetail] Failed to update notes:', err);
       setError(err as TherapistError);
       throw err;
     }

@@ -444,14 +444,13 @@ export interface CalendarData {
 
 // Notes and session management types
 export interface SessionNotes {
-  session_id: string;
-  notes: string;
+  session_notes?: string;
   patient_mood_before?: number;
   patient_mood_after?: number;
-  therapist_observations?: string;
   homework_assigned?: string;
   next_session_goals?: string;
   session_effectiveness?: number;
+  therapist_observations?: string;
 }
 
 export interface SessionUpdate {
