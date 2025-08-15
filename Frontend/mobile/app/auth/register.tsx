@@ -99,12 +99,17 @@ export default function RegisterScreen() {
         AUTH_MESSAGES.REGISTER_SUCCESS,
         [{ text: 'OK', onPress: () => router.push('./verify-email') }]
       );
-    } catch (err) {
+    } catch (err:any) {
       console.log('[RegisterScreen] Register failed:', err, 'Current error:', error);
+      if(err?.details && typeof err.details === 'object') {
+        setValidationErrors(err.details);
+      }
+      else{
       Alert.alert(
         '❌ Registration Failed',
         error?.message || AUTH_MESSAGES.REGISTER_FAILED
       );
+    }
     }
   };
 

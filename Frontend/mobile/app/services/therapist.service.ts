@@ -121,9 +121,11 @@ class TherapistService {
 
   async updateSessionNotes(sessionId: string, notesData: SessionNotes): Promise<void> {
     try {
-      console.log('[TherapistService] PATCH /therapy_sessions/sessions/', sessionId, '/notes/', notesData);
-      await api.patch(`/therapy_sessions/sessions/${sessionId}/`, notesData);
+      console.log('[TherapistService] PATCH /therapy_sessions/sessions/', sessionId, '/', notesData);
+      const response = await api.patch(`/therapy_sessions/sessions/${sessionId}/`, notesData);
+      console.log('[TherapistService] Session notes update response:', response.data);
     } catch (error: any) {
+      console.error('[TherapistService] Session notes update failed:', error);
       throw this.handleError(error);
     }
   }
