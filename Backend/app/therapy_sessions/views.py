@@ -31,6 +31,7 @@ from .serializers import (
     SessionScheduleResponseSerializer, BulkSessionUpdateSerializer
 )
 from users.models import PatientProfile, TherapistProfile
+from transcription.services import transcription_service
 
 User = get_user_model()
 
@@ -430,10 +431,24 @@ class StartSessionView(generics.GenericAPIView):
             )
         
         session.start_session()
+
+        # Attempt to start realtime transcription if consent provided
+        realtime_info = None
+        if session.consent_recording and session.consent_ai_analysis:
+            try:
+                rt_result = transcription_service.start_realtime_for_session(session)
+                realtime_info = {
+                    'realtime_id': str(rt_result.realtime.id),
+                    'websocket_url': rt_result.client_websocket_url,
+                    'status': rt_result.realtime.status,
+                }
+            except Exception as e:
+                realtime_info = {'error': str(e)}
         
         return Response({
             'detail': 'Session started successfully.',
-            'session': SessionSerializer(session).data
+            'session': SessionSerializer(session).data,
+            'realtime_transcription': realtime_info,
         }, status=status.HTTP_200_OK)
 
 
@@ -522,6 +537,19 @@ class EndSessionView(generics.GenericAPIView):
             session.session_effectiveness = data['session_effectiveness']
         
         session.end_session()
+
+        # Close realtime transcription & trigger SOAP/insights generation
+        transcription_service.close_realtime(session)
+        if session.consent_recording and session.consent_ai_analysis:
+            try:
+                transcription_service.generate_session_insights(session)
+            except Exception as e:
+                # Non-fatal; return error note
+                return Response({
+                    'detail': 'Session ended; analysis failed',
+                    'error': str(e),
+                    'session': SessionSerializer(session).data
+                }, status=status.HTTP_200_OK)
         
         return Response({
             'detail': 'Session ended successfully.',

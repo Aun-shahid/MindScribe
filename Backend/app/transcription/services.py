@@ -22,7 +22,7 @@ from django.conf import settings
 
 from .models import (
     Transcription, TranscriptionSegment, EmotionAnalysis,
-    RealtimeTranscriptionSession, SoapNote, MoodSnapshot
+    RealtimeTranscriptionSession, MoodSnapshot
 )
 from therapy_sessions.models import Session, SessionInsight
 
@@ -169,29 +169,22 @@ class TranscriptionService:
             logger.exception('Failed to persist mood snapshot for session %s', session.id)
 
     # ------------------------------------------------------------------
-    # Post-session analysis
+    # Post-session insight generation (SOAP removed to dedicated app)
     # ------------------------------------------------------------------
-    def generate_soap_and_insights(self, session: Session):
+    def generate_session_insights(self, session: Session):
         try:
             transcription = session.transcription
         except Transcription.DoesNotExist:
-            logger.info("No transcription for session %s; skipping SOAP generation", session.id)
+            logger.info("No transcription for session %s; skipping insight generation", session.id)
             return
         segments = transcription.segments.order_by('start_time')
         joined_text = "\n".join(s.text for s in segments)
-
-        # Simple guard
         if not joined_text.strip():
-            logger.info("Empty transcript for session %s", session.id)
             return
-
-        soap_note = SoapNote.objects.create(session=session)
-
         if requests and OPENAI_API_KEY:
             try:
                 prompt = (
-                    "You are a clinical assistant. Create a concise SOAP note from the transcript. "
-                    "Return JSON with keys subjective, objective, assessment, plan, key_themes (list), overall_mood, recommendations.\n" + joined_text[:6000]
+                    "Extract concise key themes (list), overall mood (one word), and 1-2 recommendations from the transcript.\n" + joined_text[:6000]
                 )
                 resp = requests.post(
                     f"https://api.openai.com/v1/chat/completions",
@@ -199,56 +192,28 @@ class TranscriptionService:
                     json={
                         "model": MODEL_SOAP,
                         "messages": [
-                            {"role": "system", "content": "Format responses as JSON."},
+                            {"role": "system", "content": "Return JSON with keys key_themes (list), overall_mood, recommendations."},
                             {"role": "user", "content": prompt},
                         ],
-                        "temperature": 0.4,
+                        "temperature": 0.3,
                     },
-                    timeout=30,
+                    timeout=25,
                 )
                 if resp.status_code < 300:
                     data = resp.json()
                     content = data['choices'][0]['message']['content']
-                    # Best effort JSON extraction
                     import json as _json
                     try:
                         parsed = _json.loads(content)
                     except Exception:
                         parsed = {}
-                    soap_note.subjective = parsed.get('subjective')
-                    soap_note.objective = parsed.get('objective')
-                    soap_note.assessment = parsed.get('assessment')
-                    soap_note.plan = parsed.get('plan')
-                    soap_note.raw_model_response = parsed
-                    soap_note.save()
-
-                    # SessionInsight upsert
                     insight, _ = SessionInsight.objects.get_or_create(session=session)
                     insight.overall_mood = parsed.get('overall_mood')
                     insight.key_themes = parsed.get('key_themes', [])
                     insight.recommendations = parsed.get('recommendations')
                     insight.save()
-                else:
-                    logger.error("SOAP generation failed: %s %s", resp.status_code, resp.text)
             except Exception:  # pragma: no cover
-                logger.exception("SOAP generation network error")
-        else:
-            logger.warning("requests missing or API key not set; skipping SOAP generation for %s", session.id)
-
-    # ------------------------------------------------------------------
-    # Batch SOAP generation
-    # ------------------------------------------------------------------
-    def batch_generate_soap(self, session_ids: List[str]) -> Dict[str, Any]:
-        results = {}
-        for sid in session_ids:
-            try:
-                session = Session.objects.get(id=sid)
-                self.generate_soap_and_insights(session)
-                results[sid] = 'ok'
-            except Exception as e:  # pragma: no cover
-                logger.exception('Batch SOAP failed for %s', sid)
-                results[sid] = f'error:{e}'
-        return results
+                logger.exception("Insight generation failed for session %s", session.id)
 
 
 transcription_service = TranscriptionService()
