@@ -1,5 +1,5 @@
 """SOAP note generation & management endpoints."""
-from rest_framework import views, permissions, status
+from rest_framework import views, permissions, status, serializers
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -10,6 +10,7 @@ import logging
 import json
 
 from .models import SOAPNote, SOAPNoteVersion
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse
 from therapy_sessions.models import Session
 
 logger = logging.getLogger(__name__)
@@ -23,25 +24,68 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 SOAP_MODEL = os.getenv("OPENAI_SOAP_MODEL", "gpt-4o-mini")
 
 
+class BatchSOAPRequestSerializer(serializers.Serializer):
+	session_ids = serializers.ListField(
+		child=serializers.UUIDField(),
+		help_text='List of session UUIDs to generate/update SOAP notes for'
+	)
+
+
+class BatchSOAPResponseSerializer(serializers.Serializer):
+	detail = serializers.CharField()
+	results = serializers.DictField(child=serializers.CharField())
+
+
+class SOAPNoteSerializer(serializers.Serializer):
+	id = serializers.UUIDField()
+	patient = serializers.UUIDField()
+	therapist = serializers.UUIDField()
+	sessions = serializers.ListField(child=serializers.UUIDField())
+	subjective = serializers.CharField(allow_null=True)
+	objective = serializers.CharField(allow_null=True)
+	assessment = serializers.CharField(allow_null=True)
+	plan = serializers.CharField(allow_null=True)
+	status = serializers.CharField()
+	created_at = serializers.DateTimeField()
+	updated_at = serializers.DateTimeField()
+
+
 class BatchSOAPGenerationView(views.APIView):
 	permission_classes = [permissions.IsAuthenticated]
 
+	@extend_schema(
+		tags=['SOAP'],
+		summary='Batch generate or update SOAP notes',
+		description='Generates or updates SOAP notes for the provided session IDs using existing transcripts.',
+		request=BatchSOAPRequestSerializer,
+		responses={200: BatchSOAPResponseSerializer},
+		examples=[
+			OpenApiExample(
+				'Batch Request',
+				value={'session_ids': ['123e4567-e89b-12d3-a456-426614174000', '223e4567-e89b-12d3-a456-426614174000']}
+			),
+			OpenApiExample(
+				'Batch Response',
+				value={'detail': 'batch processed', 'results': {'123e...4000': 'ok', '223e...4000': 'skipped:no patient'}}
+			)
+		]
+	)
 	def post(self, request):
-		session_ids: List[str] = request.data.get('session_ids', [])
-		if not isinstance(session_ids, list) or not session_ids:
-			return Response({'detail': 'session_ids list required'}, status=400)
+		serializer = BatchSOAPRequestSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		session_ids: List[str] = serializer.validated_data['session_ids']
 		results = {}
 		for sid in session_ids:
 			try:
 				session = Session.objects.get(id=sid)
 				if session.patient is None:
-					results[sid] = 'skipped:no patient'
+					results[str(sid)] = 'skipped:no patient'
 					continue
 				note = self._generate_or_update_soap(session)
-				results[sid] = 'ok' if note else 'skipped'
+				results[str(sid)] = 'ok' if note else 'skipped'
 			except Exception as e:  # pragma: no cover
 				logger.exception("SOAP batch error for %s", sid)
-				results[sid] = f'error:{e}'
+				results[str(sid)] = f'error:{e}'
 		return Response({'detail': 'batch processed', 'results': results})
 
 	def _generate_or_update_soap(self, session: Session) -> SOAPNote | None:
@@ -115,6 +159,29 @@ class BatchSOAPGenerationView(views.APIView):
 class SOAPNoteDetailView(views.APIView):
 	permission_classes = [permissions.IsAuthenticated]
 
+	@extend_schema(
+		tags=['SOAP'],
+		summary='Retrieve a SOAP note',
+		responses={200: SOAPNoteSerializer},
+		examples=[
+			OpenApiExample(
+				'SOAP Note',
+				value={
+					'id': '323e4567-e89b-12d3-a456-426614174000',
+					'patient': '123e4567-e89b-12d3-a456-426614174000',
+					'therapist': '223e4567-e89b-12d3-a456-426614174000',
+					'sessions': ['423e4567-e89b-12d3-a456-426614174000'],
+					'subjective': 'Patient reports reduced anxiety.',
+					'objective': 'Calmer affect, normal speech.',
+					'assessment': 'Generalized anxiety improving.',
+					'plan': 'Continue CBT and breathing exercises.',
+					'status': 'draft',
+					'created_at': '2025-08-19T10:00:00Z',
+					'updated_at': '2025-08-19T10:05:00Z'
+				}
+			)
+		]
+	)
 	def get(self, request, note_id: str):
 		note = get_object_or_404(SOAPNote, id=note_id)
 		if request.user not in [note.therapist, note.patient]:
