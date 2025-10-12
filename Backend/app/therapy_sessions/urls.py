@@ -1,17 +1,20 @@
 from django.urls import path
+
+
 from .views import (
-    TherapistSessionsView, SessionDetailView, TherapistPatientsView,
+    SessionDetailView, TherapistPatientsView,
     CreatePatientView, StartSessionView, EndSessionView, SessionStatsView,
     SessionsListView, SessionRequestView, PatientDashboardView, 
-    TherapistDashboardView, SessionNotesView, AssignPatientToSessionView
+    TherapistDashboardView, SessionNotesView, AssignPatientToSessionView,
+    SessionScheduleView, RecurringSessionScheduleView, BulkSessionUpdateView,
+    PatientSchedulePreferencesView, AutoScheduleInitialSessionsView
 )
 
 urlpatterns = [
-    # Consolidated sessions endpoints
-    path('sessions/', SessionsListView.as_view(), name='sessions_list'),  # GET: List sessions with basic details
-    path('sessions/create/', TherapistSessionsView.as_view(), name='create_session'),  # POST: Create session (therapists only)
-    path('sessions/request/', SessionRequestView.as_view(), name='request_session'),  # POST: Request session (patients only)
-    path('sessions/<uuid:pk>/', SessionDetailView.as_view(), name='session_detail'),  # GET/PATCH/DELETE: Session details
+    # # Consolidated sessions endpoints
+    path('sessions/', SessionsListView.as_view(), name='sessions_list'),
+    path('sessions/request/', SessionRequestView.as_view(), name='request_session'),
+    path('sessions/<uuid:pk>/', SessionDetailView.as_view(), name='session_detail'),
     
     # Session actions
     path('sessions/<uuid:session_id>/start/', StartSessionView.as_view(), name='start_session'),
@@ -22,6 +25,8 @@ urlpatterns = [
     # Patient management
     path('patients/', TherapistPatientsView.as_view(), name='therapist_patients'),
     path('patients/create/', CreatePatientView.as_view(), name='create_patient'),
+    path('patients/new/', CreatePatientView.as_view(), name='create_patient_new'),  # Alternative endpoint
+    path('patients/<uuid:patient_id>/', TherapistPatientsView.as_view(), name='patient_detail'),  # Individual patient details
     
     # Dashboard views
     path('dashboard/therapist/', TherapistDashboardView.as_view(), name='therapist_dashboard'),
@@ -29,4 +34,11 @@ urlpatterns = [
     
     # Statistics and insights
     path('stats/', SessionStatsView.as_view(), name='session_stats'),
+    
+    # Session scheduling
+    path('schedule/', SessionScheduleView.as_view(), name='schedule_session'),
+    path('schedule/recurring/', RecurringSessionScheduleView.as_view(), name='schedule_recurring_sessions'),
+    path('schedule/bulk-update/', BulkSessionUpdateView.as_view(), name='bulk_update_sessions'),
+    path('patients/<uuid:patient_id>/preferences/', PatientSchedulePreferencesView.as_view(), name='patient_schedule_preferences'),
+    path('patients/<uuid:patient_id>/auto-schedule/', AutoScheduleInitialSessionsView.as_view(), name='auto_schedule_initial_sessions'),
 ]

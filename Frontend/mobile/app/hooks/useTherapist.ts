@@ -153,7 +153,7 @@ export const useTherapistSessions = (initialFilter: SessionFilter = {}) => {
     try {
       setError(null);
       const updatedSession = await therapistService.updateSession(sessionId, updateData);
-      setSessions(prev => prev.map(session => 
+      setSessions(prev => prev.map(session =>
         session.id === sessionId ? updatedSession : session
       ));
       return updatedSession;
@@ -310,10 +310,10 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
     try {
       setError(null);
       const updatedPatient = await therapistService.updatePatient(patientId, patientData);
-      setPatients(prev => 
+      setPatients(prev =>
         prev.map(p => p.id === patientId ? { ...p, ...updatedPatient } : p)
       );
-      setAllPatients(prev => 
+      setAllPatients(prev =>
         prev.map(p => p.id === patientId ? { ...p, ...updatedPatient } : p)
       );
       return updatedPatient;
@@ -394,7 +394,7 @@ export const usePatientDetail = (patientId: string) => {
 // Consent Hook
 export const useSessionConsent = (params: SessionConsentParams) => {
   const { patientId, patientName, isNewPatient } = params;
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [consentData, setConsentData] = useState<SessionConsentData>(getInitialConsentData());
 
@@ -436,34 +436,34 @@ export const useSessionConsent = (params: SessionConsentParams) => {
 
       // Step 1: Create a new session
       const createSessionData = prepareCreateSessionData(patientId, consentData);
-      
+
       console.log('Creating session with data:', createSessionData);
       const createResponse = await api.post('/therapy_sessions/sessions/create/', createSessionData);
-      
+
       if (!createResponse.data?.id) {
         throw new Error('Session creation failed - no session ID returned');
       }
-      
+
       const sessionId = createResponse.data.id;
       console.log('Session created successfully with ID:', sessionId);
-      
+
       // Step 2: Start the session
       const startSessionData = prepareStartSessionData();
-      
+
       console.log('Starting session with ID:', sessionId);
       const startResponse = await api.post(`/therapy_sessions/sessions/${sessionId}/start/`, startSessionData);
-      
+
       console.log('Session started successfully:', startResponse.data);
-      
+
       // Step 3: Navigate to the session UI
       console.log('🚀 Navigating to start-session with params:');
       console.log('   patientId:', patientId);
       console.log('   sessionId:', sessionId);
       console.log('   sessionStarted: true');
-      
+
       router.push({
         pathname: './start-session',
-        params: { 
+        params: {
           patientId: patientId,
           sessionId: sessionId,
           sessionStarted: 'true'
@@ -472,7 +472,7 @@ export const useSessionConsent = (params: SessionConsentParams) => {
 
     } catch (error: any) {
       console.error('❌ Failed to create session:', error);
-      
+
       const errorMessage = formatErrorMessage(error);
       Alert.alert('Error', errorMessage);
     } finally {
@@ -489,7 +489,7 @@ export const useSessionConsent = (params: SessionConsentParams) => {
     submitting,
     consentData,
     patientName: patientName || 'Unknown Patient',
-    
+
     // Actions
     updateField,
     handleDurationChange,
@@ -515,10 +515,10 @@ export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions =>
   const fetchTherapistInfo = useCallback(async () => {
     try {
       updateState({ loading: true, error: null });
-      
+
       const data = await therapistService.getTherapistQRInfo();
       const validatedInfo = validateTherapistInfo(data);
-      
+
       if (validatedInfo) {
         updateState({ therapistInfo: validatedInfo });
         console.log('Therapist QR Code Data:', {
@@ -533,7 +533,7 @@ export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions =>
       }
     } catch (error: any) {
       console.error('Failed to fetch therapist info:', error);
-      
+
       const errorMessage = getErrorMessage(error);
       updateState({ error: errorMessage });
       Alert.alert('Error', errorMessage);
@@ -547,7 +547,7 @@ export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions =>
 
     try {
       const shareMessage = generateShareMessage(state.therapistInfo);
-      
+
       await Share.share({
         message: shareMessage,
         title: 'Connect to Your Therapist'
@@ -728,11 +728,11 @@ export const usePatientSessions = (patientId: string | null) => {
 
       // Fallback: Use the working endpoint from patients
       const patientsData = await therapistService.getPatients();
-      
+
       if (patientsData && Array.isArray(patientsData)) {
         // Find the specific patient
         const foundPatient = patientsData.find((p: PatientWithSessions) => p.id === patientId);
-        
+
         if (foundPatient) {
           console.log('✅ Found patient:', foundPatient.full_name);
           console.log('📊 Patient sessions data:', {
@@ -741,15 +741,15 @@ export const usePatientSessions = (patientId: string | null) => {
             total_sessions: foundPatient.total_sessions
           });
           setPatient(foundPatient);
-          
+
           // Extract sessions from patient data
           const extractedSessions: Session[] = [];
-          
+
           // Check if last_session contains session data
           if (foundPatient.last_session) {
             console.log('🔍 Processing last_session:', foundPatient.last_session);
             let lastSessionData;
-            
+
             if (typeof foundPatient.last_session === 'string') {
               try {
                 lastSessionData = JSON.parse(foundPatient.last_session);
@@ -764,7 +764,7 @@ export const usePatientSessions = (patientId: string | null) => {
             } else {
               lastSessionData = foundPatient.last_session;
             }
-            
+
             if (lastSessionData) {
               console.log('✅ Adding last session to extracted sessions');
               extractedSessions.push({
@@ -789,11 +789,11 @@ export const usePatientSessions = (patientId: string | null) => {
               });
             }
           }
-          
+
           // Check if next_session contains session data
           if (foundPatient.next_session) {
             let nextSessionData;
-            
+
             if (typeof foundPatient.next_session === 'string') {
               try {
                 nextSessionData = JSON.parse(foundPatient.next_session);
@@ -808,7 +808,7 @@ export const usePatientSessions = (patientId: string | null) => {
             } else {
               nextSessionData = foundPatient.next_session;
             }
-            
+
             if (nextSessionData) {
               console.log('✅ Adding next session to extracted sessions');
               extractedSessions.push({
@@ -833,16 +833,16 @@ export const usePatientSessions = (patientId: string | null) => {
               });
             }
           }
-          
+
           console.log('📋 Final extracted sessions:', extractedSessions);
           console.log('📋 Setting sessions state with:', extractedSessions.length, 'sessions');
-          
+
           // Note: If no sessions are extracted but patient has total_sessions > 0,
           // it means the patient has sessions but they're not in last_session/next_session fields
           // We should not create fake sessions as they will cause 404 errors when clicked
-          
+
           setSessions(extractedSessions);
-          
+
         } else {
           console.log('❌ Patient not found');
           setSessions([]);
@@ -877,7 +877,7 @@ export const usePatientSessions = (patientId: string | null) => {
 // Session Details Hook - extends usePatientSessions with navigation handlers
 export const useSessionDetails = (params: SessionDetailsParams) => {
   const { patientId, patientName } = params;
-  
+
   // Use the existing patient sessions hook
   const {
     sessions,
@@ -901,7 +901,7 @@ export const useSessionDetails = (params: SessionDetailsParams) => {
   const handleSessionPress = (session: Session) => {
     console.log('📋 Opening session details for:', session.id);
     console.log('📋 Session data being passed:', session);
-    
+
     // Check if this is a valid session ID (not a fallback)
     if (session.id.startsWith('fallback-')) {
       Alert.alert(
@@ -911,7 +911,7 @@ export const useSessionDetails = (params: SessionDetailsParams) => {
       );
       return;
     }
-    
+
     // Always navigate to session-detail-view, passing the session ID
     router.push({
       pathname: './session-detail-view',
@@ -930,7 +930,7 @@ export const useSessionDetails = (params: SessionDetailsParams) => {
   const handleCreateNewSession = () => {
     router.push({
       pathname: './sessionformconsent',
-      params: { 
+      params: {
         patientId: patientId,
         patientName: patientName || patient?.full_name || 'Patient'
       }
@@ -952,7 +952,7 @@ export const useSessionDetails = (params: SessionDetailsParams) => {
     refreshing,
     error,
     patientDisplayName: patientName || patient?.full_name || 'Patient',
-    
+
     // Actions
     onRefresh,
     handleSessionPress,
@@ -983,9 +983,9 @@ export const useStartNewSession = () => {
   const fetchTherapistPin = useCallback(async () => {
     try {
       updateState({ qrLoading: true, qrError: null });
-      
+
       const pinData = await therapistService.getTherapistPin();
-      
+
       if (pinData && pinData.therapist_pin) {
         updateState({ therapistPin: pinData.therapist_pin });
         console.log('Therapist PIN retrieved:', pinData.therapist_pin);
@@ -1001,7 +1001,7 @@ export const useStartNewSession = () => {
     } catch (error: any) {
       console.error('Failed to fetch therapist PIN:', error);
       updateState({ qrError: 'Failed to generate QR code. Please try again.' });
-      
+
       if (error.response?.status === 403) {
         Alert.alert('Error', 'Only therapists can access this feature.');
       } else if (error.response?.status === 404) {
@@ -1018,7 +1018,7 @@ export const useStartNewSession = () => {
     try {
       updateState({ loading: true });
       const patientsData = await therapistService.fetchSessionPatients();
-      
+
       if (patientsData?.length > 0) {
         // For StartNewSessionPatient, we don't need to sanitize - they're already in the right format
         updateState({ patients: patientsData });
@@ -1070,7 +1070,7 @@ export const useStartNewSession = () => {
     }
 
     console.log('🚀 Starting session for patient:', state.selectedPatient.full_name);
-    
+
     router.push({
       pathname: './sessionformconsent',
       params: {
@@ -1090,12 +1090,12 @@ export const useStartNewSession = () => {
       }
 
       console.log('Creating patient with data:', state.newPatient);
-      
+
       const createdPatient = await therapistService.createNewPatient(state.newPatient);
-      
+
       if (createdPatient?.id) {
         console.log('✅ Patient created successfully:', createdPatient);
-        
+
         router.push({
           pathname: './sessionformconsent',
           params: {
@@ -1104,16 +1104,16 @@ export const useStartNewSession = () => {
             isNewPatient: 'true'
           }
         });
-        
+
         Alert.alert('Success', `Patient ${createdPatient.full_name} created successfully!`);
       }
     } catch (error: any) {
       console.error('Error creating patient:', error);
-      
+
       // Show the specific error message from the server
       const errorMessage = error?.message || 'Failed to create patient. Please try again.';
       const errorDetails = error?.details ? JSON.stringify(error.details, null, 2) : '';
-      
+
       if (errorDetails) {
         console.error('Error details:', errorDetails);
         Alert.alert('Validation Error', `${errorMessage}\n\nDetails: ${errorDetails}`);
@@ -1153,17 +1153,17 @@ export const usePatientDetails = (patientId: string | string[]): PatientDetailsS
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch patient details
       const patientsData = await therapistService.getPatientDetails();
-      
+
       if (patientsData && Array.isArray(patientsData)) {
         // Find the patient by ID from the list
         const foundPatient = findPatientById(patientsData, id);
-        
+
         if (foundPatient) {
           console.log('Found patient data:', JSON.stringify(foundPatient, null, 2));
-          
+
           // Clean the patient data to ensure safe rendering
           const cleanedPatient = cleanPatientData(foundPatient);
           setPatient(cleanedPatient);
@@ -1238,7 +1238,7 @@ export const useEndSession = (params: EndSessionParams): EndSessionState & EndSe
 
   const handleCompleteSession = useCallback(async () => {
     const sessionId = Array.isArray(params.sessionId) ? params.sessionId[0] : params.sessionId;
-    
+
     if (!sessionId) {
       Alert.alert('Error', 'No session ID found');
       return;
@@ -1267,13 +1267,13 @@ export const useEndSession = (params: EndSessionParams): EndSessionState & EndSe
 
     try {
       setLoading(true);
-      
+
       // Check authentication token
       const token = await AsyncStorage.getItem('access_token');
-      
+
       // Log request details
       logEndSessionRequest(payload, sessionId, token, api.defaults.baseURL || '');
-      
+
       const response = await therapistService.endSession(sessionId, payload);
 
       console.log('✅ Session ended:', response);
@@ -1409,16 +1409,16 @@ export const useAddPatientForm = () => {
 
     try {
       setSubmitting(true);
-      
+
       // Prepare data for API
       const patientData: any = preparePatientDataForAPI(newPatient);
-      
+
       console.log('Creating patient with data:', patientData);
-      
+
       const response = await therapistService.createSessionPatient(patientData);
-      
+
       console.log('Patient creation response:', response);
-      
+
       Alert.alert(THERAPIST_MESSAGES.SUCCESS, ADD_PATIENT_FORM_MESSAGES.CREATE_SUCCESS, [
         {
           text: 'OK',
@@ -1427,7 +1427,7 @@ export const useAddPatientForm = () => {
           }
         }
       ]);
-      
+
     } catch (error: any) {
       console.error('Failed to create patient:', error);
       const errorMessage = formatAPIError(error);
@@ -1444,7 +1444,7 @@ export const useAddPatientForm = () => {
     therapistInfo,
     loadingPin,
     newPatient,
-    
+
     // Actions
     setNewPatient,
     updatePatient,

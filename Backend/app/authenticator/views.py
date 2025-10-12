@@ -366,8 +366,12 @@ class PasswordResetRequestView(APIView):
 
 
                 # trying for the frontend
-                frontend_url = "http://192.168.100.117:8081"
-                reset_link = f"{frontend_url}/auth/reset-confirm?token={token}"
+                # frontend_url = "http://192.168.100.117:8081"
+                # reset_link = f"{frontend_url}/auth/reset-confirm?token={token}"
+                
+                # Web frontend URL
+                frontend_url = "http://localhost:5173"  # Vite dev server default port
+                reset_link = f"{frontend_url}/ResetConfirm?token={token}"
 
                 send_mail(
                     subject="🔐 Reset Your TherapEase Password",

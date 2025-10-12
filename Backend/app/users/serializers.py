@@ -35,13 +35,15 @@ class TherapistInfoSerializer(serializers.Serializer):
 class PatientProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     therapist_info = serializers.SerializerMethodField()
+    preferred_session_days_list = serializers.SerializerMethodField()
     
     class Meta:
         model = PatientProfile
         fields = [
             'emergency_contact_name', 'emergency_contact_phone', 'medical_history',
             'current_medications', 'preferred_language', 'connected_at',
-            'user_info', 'therapist_info'
+            'session_frequency', 'preferred_session_days', 'preferred_session_days_list',
+            'primary_concern', 'therapy_start_date', 'user_info', 'therapist_info'
         ]
         read_only_fields = ['connected_at']
     
@@ -67,6 +69,10 @@ class PatientProfileSerializer(serializers.ModelSerializer):
                 'clinic_name': therapist.clinic_name,
             }
         return None
+    
+    def get_preferred_session_days_list(self, obj):
+        """Return preferred session days as a list"""
+        return obj.get_preferred_days_list()
 
 
 class TherapistProfileSerializer(serializers.ModelSerializer):

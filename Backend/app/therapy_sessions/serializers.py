@@ -742,3 +742,142 @@ class EnhancedPatientCreateSerializer(serializers.Serializer):
             'temporary_password': user_data['password']
         }
 
+
+
+class SessionScheduleSerializer(serializers.Serializer):
+    """Serializer for scheduling sessions"""
+    patient_id = serializers.UUIDField(required=True)
+    scheduled_date = serializers.DateTimeField(required=True)
+    duration_minutes = serializers.IntegerField(default=60, min_value=15, max_value=480)
+    session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, default='individual')
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    is_online = serializers.BooleanField(default=False)
+    patient_goals = serializers.CharField(required=False, allow_blank=True)
+    fee_charged = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    
+    def validate_patient_id(self, value):
+        """Validate that patient exists and is connected to therapist"""
+        try:
+            patient = User.objects.get(id=value, user_type='patient')
+            therapist = self.context['request'].user
+            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.therapist or patient.patient_profile.therapist.user != therapist:
+                raise serializers.ValidationError("Patient is not connected to this therapist.")
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Patient not found.")
+    
+    def validate_scheduled_date(self, value):
+        """Validate that scheduled date is in the future"""
+        from django.utils import timezone
+        if value <= timezone.now():
+            raise serializers.ValidationError("Scheduled date must be in the future.")
+        return value
+
+
+class RecurringSessionScheduleSerializer(serializers.Serializer):
+    """Serializer for scheduling recurring sessions based on patient preferences"""
+    patient_id = serializers.UUIDField(required=True)
+    start_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=False, allow_null=True)
+    number_of_sessions = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=52)
+    session_time = serializers.TimeField(required=True)
+    duration_minutes = serializers.IntegerField(default=60, min_value=15, max_value=480)
+    session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, default='individual')
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    is_online = serializers.BooleanField(default=False)
+    fee_charged = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    
+    # Override patient preferences
+    override_frequency = serializers.ChoiceField(
+        choices=PatientProfile.SESSION_FREQUENCY_CHOICES,
+        required=False,
+        allow_null=True,
+        help_text="Override patient's default session frequency"
+    )
+    override_days = serializers.ListField(
+        child=serializers.ChoiceField(choices=PatientProfile.WEEKDAY_CHOICES),
+        required=False,
+        allow_empty=True,
+        help_text="Override patient's preferred session days"
+    )
+    
+    def validate_patient_id(self, value):
+        """Validate that patient exists and is connected to therapist"""
+        try:
+            patient = User.objects.get(id=value, user_type='patient')
+            therapist = self.context['request'].user
+            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.therapist or patient.patient_profile.therapist.user != therapist:
+                raise serializers.ValidationError("Patient is not connected to this therapist.")
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Patient not found.")
+    
+    def validate(self, attrs):
+        """Validate that either end_date or number_of_sessions is provided"""
+        end_date = attrs.get('end_date')
+        number_of_sessions = attrs.get('number_of_sessions')
+        start_date = attrs.get('start_date')
+        
+        if not end_date and not number_of_sessions:
+            raise serializers.ValidationError(
+                "Either end_date or number_of_sessions must be provided."
+            )
+        
+        if start_date:
+            from django.utils import timezone
+            if start_date <= timezone.now().date():
+                raise serializers.ValidationError("Start date must be in the future.")
+        
+        if end_date and start_date and end_date <= start_date:
+            raise serializers.ValidationError("End date must be after start date.")
+        
+        return attrs
+
+
+class SessionScheduleResponseSerializer(serializers.Serializer):
+    """Response serializer for scheduled sessions"""
+    sessions_created = serializers.IntegerField()
+    sessions = SessionListSerializer(many=True)
+    patient_info = serializers.DictField()
+    schedule_summary = serializers.DictField()
+
+
+class BulkSessionUpdateSerializer(serializers.Serializer):
+    """Serializer for bulk updating sessions"""
+    session_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        min_length=1,
+        max_length=50
+    )
+    action = serializers.ChoiceField(choices=[
+        ('cancel', 'Cancel'),
+        ('reschedule', 'Reschedule'),
+        ('update_location', 'Update Location'),
+        ('update_type', 'Update Type'),
+        ('update_duration', 'Update Duration')
+    ])
+    
+    # Optional fields based on action
+    new_date = serializers.DateTimeField(required=False, allow_null=True)
+    new_location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    new_session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, required=False, allow_null=True)
+    new_duration = serializers.IntegerField(min_value=15, max_value=480, required=False, allow_null=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
+    
+    def validate(self, attrs):
+        """Validate required fields based on action"""
+        action = attrs.get('action')
+        
+        if action == 'reschedule' and not attrs.get('new_date'):
+            raise serializers.ValidationError("new_date is required for reschedule action.")
+        
+        if action == 'update_location' and not attrs.get('new_location'):
+            raise serializers.ValidationError("new_location is required for update_location action.")
+        
+        if action == 'update_type' and not attrs.get('new_session_type'):
+            raise serializers.ValidationError("new_session_type is required for update_type action.")
+        
+        if action == 'update_duration' and not attrs.get('new_duration'):
+            raise serializers.ValidationError("new_duration is required for update_duration action.")
+        
+        return attrs
