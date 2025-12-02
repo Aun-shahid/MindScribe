@@ -7,7 +7,9 @@ from .views import (
     SessionsListView, SessionRequestView, PatientDashboardView, 
     TherapistDashboardView, SessionNotesView, AssignPatientToSessionView,
     SessionScheduleView, RecurringSessionScheduleView, BulkSessionUpdateView,
-    PatientSchedulePreferencesView, AutoScheduleInitialSessionsView
+    PatientSchedulePreferencesView, AutoScheduleInitialSessionsView,
+    PatientSessionsListView, SessionEmotionalAnalysisView, SessionTranscriptionView,
+    TherapistMoodAlertsView, PatientMoodSummaryView
 )
 
 urlpatterns = [
@@ -39,4 +41,15 @@ urlpatterns = [
     path('schedule/bulk-update/', BulkSessionUpdateView.as_view(), name='bulk_update_sessions'),
     path('patients/<uuid:patient_id>/preferences/', PatientSchedulePreferencesView.as_view(), name='patient_schedule_preferences'),
     path('patients/<uuid:patient_id>/auto-schedule/', AutoScheduleInitialSessionsView.as_view(), name='auto_schedule_initial_sessions'),
+    
+    # Patient-specific sessions list (all sessions for a specific patient)
+    path('patients/<uuid:patient_id>/sessions/', PatientSessionsListView.as_view(), name='patient_sessions_list'),
+    
+    # Session analysis and transcription
+    path('sessions/<uuid:session_id>/analysis/', SessionEmotionalAnalysisView.as_view(), name='session_emotional_analysis'),
+    path('sessions/<uuid:session_id>/transcription/', SessionTranscriptionView.as_view(), name='session_transcription'),
+    
+    # Mood alerts and summaries
+    path('mood-alerts/', TherapistMoodAlertsView.as_view(), name='therapist_mood_alerts'),
+    path('mood-summary/', PatientMoodSummaryView.as_view(), name='patient_mood_summary'),
 ]
