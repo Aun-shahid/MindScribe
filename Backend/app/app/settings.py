@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta # Import timedelta for JWT settings
 import os # Import os for environment variables
 from dotenv import load_dotenv # Import load_dotenv for .env file support
+import dj_database_url # Import dj_database_url for DATABASE_URL support
 
 # Load environment variables from .env file (if it exists)
 # Make sure your .env file is in the same directory as manage.py
@@ -106,14 +107,7 @@ WSGI_APPLICATION = "app.wsgi.application"
 # IMPORTANT: For production, load these from actual environment variables (e.g., in your Elastic Beanstalk config)!
 # The values provided here are for local development defaults.
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "MindScribe"), # Set to your database name
-        "USER": os.environ.get("DB_USER", "postgres"),   # Set to your database user
-        "PASSWORD": os.environ.get("DB_PASSWORD", "qwerty"), # Set to your database password
-        "HOST": os.environ.get("DB_HOST", "localhost"), # Usually 'localhost' for local dev
-        "PORT": os.environ.get("DB_PORT", "5432"), # Default PostgreSQL port
-    }
+    'default': dj_database_url.config()
 }
 
 

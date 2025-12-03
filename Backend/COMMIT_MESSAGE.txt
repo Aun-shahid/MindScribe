@@ -1,0 +1,36 @@
+feat: refactor patient-therapist session management system
+
+Comprehensive overhaul of session management with connection requests, therapist availability scheduling, recurring sessions, and dummy transcription simulation.
+
+Key Changes:
+- Add ConnectionRequest model for patient-therapist approval workflow
+- Redesign TherapistAvailability with weekly schedules and date overrides
+- Add recurring session support with recurring_weeks parameter
+- Implement AvailabilityService with robust conflict detection
+- Remove quick sessions (patient_id now required)
+- Add patient booking and emergency session request endpoints
+- Implement shared secret webhook authentication (X-Transcription-Key)
+- Add 5-minute dummy transcription simulator for testing
+
+Affected Apps:
+- users: ConnectionRequest model, connection request endpoints
+- therapy_sessions: Availability models, AvailabilityService, booking endpoints
+- transcription: Webhook auth, dummy transcription views
+
+Breaking Changes:
+- Sessions no longer support quick_session mode - patient_id is required
+- Removed pairing_code from TherapistProfile
+- Removed history_id from PatientProfile
+
+Database:
+- Created 2 new models (ConnectionRequest, TherapistAvailability, TherapistDateOverride)
+- Modified Session model (removed is_quick_session, quick_session_patient_name; added is_recurring, recurring_weeks, recurrence_parent, is_emergency)
+- Cleanup: removed pairing_code, history_id fields
+
+Migrations:
+python manage.py makemigrations users
+python manage.py makemigrations therapy_sessions
+python manage.py migrate
+
+Environment:
+- Add TRANSCRIPTION_WEBHOOK_SECRET env var for webhook auth

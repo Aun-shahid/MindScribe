@@ -19,7 +19,7 @@ from .exceptions import (
 
 from .models import (
     Session, SessionTemplate, PatientProgress, SessionReminder, 
-    TherapistAvailability, SessionQRCode, SessionAudio, SessionInsight
+    TherapistAvailability, TherapistDateOverride, SessionQRCode, SessionAudio, SessionInsight
 )
 from .serializers import (
     SessionSerializer, SessionCreateSerializer, SessionUpdateSerializer,
@@ -28,7 +28,9 @@ from .serializers import (
     PatientListSerializer, SessionStatsSerializer, EnhancedPatientCreateSerializer,
     PatientSessionSerializer, TherapistSessionSerializer, SessionListSerializer,
     SessionRequestSerializer, SessionScheduleSerializer, RecurringSessionScheduleSerializer,
-    SessionScheduleResponseSerializer, BulkSessionUpdateSerializer
+    SessionScheduleResponseSerializer, BulkSessionUpdateSerializer,
+    TherapistDateOverrideSerializer, PatientBookingSerializer, 
+    EmergencySessionRequestSerializer, AvailableSlotSerializer
 )
 from users.models import PatientProfile, TherapistProfile
 from transcription.services import transcription_service
@@ -2945,4 +2947,477 @@ class PatientMoodSummaryView(generics.GenericAPIView):
             'mood_trend': mood_trend,
             'statistics': stats,
             'recent_entries': recent_entries,
+        }, status=status.HTTP_200_OK)
+
+
+# =============================================================================
+# NEW AVAILABILITY AND BOOKING VIEWS
+# =============================================================================
+
+@extend_schema(tags=['Therapist Availability'])
+class TherapistAvailabilityView(APIView):
+    """Manage therapist weekly availability schedule"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        responses={200: TherapistAvailabilitySerializer(many=True)},
+        summary="Get Availability Schedule",
+        description="Get the therapist's weekly availability schedule."
+    )
+    def get(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can access availability.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .models import TherapistAvailability
+        
+        availabilities = TherapistAvailability.objects.filter(
+            therapist=request.user
+        ).order_by('day_of_week')
+        
+        serializer = TherapistAvailabilitySerializer(availabilities, many=True)
+        
+        # Also include summary
+        days_available = availabilities.filter(is_day_off=False).count()
+        
+        return Response({
+            'availability': serializer.data,
+            'summary': {
+                'days_available': days_available,
+                'days_off': availabilities.filter(is_day_off=True).count(),
+                'total_configured': availabilities.count()
+            }
+        }, status=status.HTTP_200_OK)
+    
+    @extend_schema(
+        request=TherapistAvailabilitySerializer(many=True),
+        responses={200: TherapistAvailabilitySerializer(many=True)},
+        summary="Set Availability Schedule",
+        description="Set or update the therapist's weekly availability schedule."
+    )
+    def post(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can set availability.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .models import TherapistAvailability
+        
+        availabilities_data = request.data if isinstance(request.data, list) else [request.data]
+        created_or_updated = []
+        
+        for avail_data in availabilities_data:
+            day_of_week = avail_data.get('day_of_week')
+            
+            if day_of_week is None:
+                return Response(
+                    {'detail': 'day_of_week is required for each availability entry.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Update or create
+            availability, created = TherapistAvailability.objects.update_or_create(
+                therapist=request.user,
+                day_of_week=day_of_week,
+                defaults={
+                    'start_time': avail_data.get('start_time', '09:00'),
+                    'end_time': avail_data.get('end_time', '17:00'),
+                    'is_day_off': avail_data.get('is_day_off', False),
+                    'break_start': avail_data.get('break_start'),
+                    'break_end': avail_data.get('break_end'),
+                    'slot_duration_minutes': avail_data.get('slot_duration_minutes', 60),
+                    'buffer_between_sessions': avail_data.get('buffer_between_sessions', 15),
+                    'is_online_available': avail_data.get('is_online_available', True),
+                    'location': avail_data.get('location', ''),
+                    'notes': avail_data.get('notes', ''),
+                }
+            )
+            created_or_updated.append(availability)
+        
+        serializer = TherapistAvailabilitySerializer(created_or_updated, many=True)
+        return Response({
+            'detail': f'Updated {len(created_or_updated)} availability entries.',
+            'availability': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=['Therapist Availability'])
+class TherapistDateOverrideView(APIView):
+    """Manage date-specific availability overrides (holidays, special hours)"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='start_date', description='Start date for range (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='end_date', description='End date for range (YYYY-MM-DD)', required=False, type=str),
+        ],
+        responses={200: OpenApiResponse(description='Date overrides retrieved.')},
+        summary="Get Date Overrides",
+        description="Get date-specific availability overrides."
+    )
+    def get(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can access date overrides.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .models import TherapistDateOverride
+        from .serializers import TherapistDateOverrideSerializer
+        
+        overrides = TherapistDateOverride.objects.filter(
+            therapist=request.user
+        ).order_by('date')
+        
+        # Apply date filters
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if start_date:
+            overrides = overrides.filter(date__gte=start_date)
+        if end_date:
+            overrides = overrides.filter(date__lte=end_date)
+        
+        serializer = TherapistDateOverrideSerializer(overrides, many=True)
+        return Response({
+            'overrides': serializer.data,
+            'total': overrides.count()
+        }, status=status.HTTP_200_OK)
+    
+    @extend_schema(
+        request=OpenApiParameter,
+        responses={201: OpenApiResponse(description='Date override created.')},
+        summary="Create Date Override",
+        description="Create a date-specific availability override (e.g., holiday, special hours)."
+    )
+    def post(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can create date overrides.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .models import TherapistDateOverride
+        from .serializers import TherapistDateOverrideSerializer
+        
+        serializer = TherapistDateOverrideSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        override, created = TherapistDateOverride.objects.update_or_create(
+            therapist=request.user,
+            date=serializer.validated_data['date'],
+            defaults={
+                'is_available': serializer.validated_data.get('is_available', False),
+                'start_time': serializer.validated_data.get('start_time'),
+                'end_time': serializer.validated_data.get('end_time'),
+                'reason': serializer.validated_data.get('reason', ''),
+            }
+        )
+        
+        return Response({
+            'detail': 'Date override saved.',
+            'override': TherapistDateOverrideSerializer(override).data
+        }, status=status.HTTP_201_CREATED)
+    
+    @extend_schema(
+        responses={204: OpenApiResponse(description='Date override deleted.')},
+        summary="Delete Date Override",
+        description="Delete a date-specific availability override."
+    )
+    def delete(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can delete date overrides.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .models import TherapistDateOverride
+        
+        date = request.data.get('date')
+        if not date:
+            return Response(
+                {'detail': 'date is required.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        deleted, _ = TherapistDateOverride.objects.filter(
+            therapist=request.user,
+            date=date
+        ).delete()
+        
+        if deleted:
+            return Response({'detail': 'Date override deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        return Response({'detail': 'Date override not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(tags=['Patient Booking'])
+class AvailableSlotsView(APIView):
+    """Get available booking slots for a therapist"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='date', description='Date to get slots for (YYYY-MM-DD)', required=True, type=str),
+            OpenApiParameter(name='duration', description='Session duration in minutes (default: 60)', required=False, type=int),
+        ],
+        responses={200: OpenApiResponse(description='Available slots retrieved.')},
+        summary="Get Available Slots",
+        description="Get available booking slots for the patient's connected therapist on a specific date."
+    )
+    def get(self, request):
+        if request.user.user_type != 'patient':
+            return Response(
+                {'detail': 'Only patients can view available slots.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get patient's therapist
+        try:
+            patient_profile = request.user.patient_profile
+            if not patient_profile.therapist:
+                return Response(
+                    {'detail': 'You are not connected to a therapist.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            therapist = patient_profile.therapist.user
+        except PatientProfile.DoesNotExist:
+            return Response(
+                {'detail': 'Patient profile not found.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get parameters
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response(
+                {'detail': 'date parameter is required.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from datetime import datetime
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'detail': 'Invalid date format. Use YYYY-MM-DD.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        duration = int(request.query_params.get('duration', 60))
+        
+        # Get available slots using AvailabilityService
+        from .services import AvailabilityService
+        
+        slots = AvailabilityService.get_available_slots(
+            therapist=therapist,
+            date=date,
+            duration_minutes=duration
+        )
+        
+        # Format slots for response
+        slots_data = []
+        for slot in slots:
+            slots_data.append({
+                'start_time': slot['start'].isoformat(),
+                'end_time': slot['end'].isoformat(),
+                'is_online_available': slot.get('is_online_available', True),
+                'location': slot.get('location', ''),
+            })
+        
+        return Response({
+            'date': date_str,
+            'therapist': {
+                'id': str(therapist.id),
+                'name': therapist.full_name,
+            },
+            'duration_minutes': duration,
+            'available_slots': slots_data,
+            'total_slots': len(slots_data)
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=['Patient Booking'])
+class PatientBookSessionView(APIView):
+    """Patient books a session from available slots"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        request=PatientBookingSerializer,
+        responses={
+            201: SessionSerializer,
+            400: OpenApiResponse(description='Invalid booking or slot not available.')
+        },
+        summary="Book Session",
+        description="Book a session from an available slot."
+    )
+    def post(self, request):
+        if request.user.user_type != 'patient':
+            return Response(
+                {'detail': 'Only patients can book sessions.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .serializers import PatientBookingSerializer
+        
+        serializer = PatientBookingSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create the session
+        therapist = serializer.validated_data['therapist']
+        session = Session.objects.create(
+            patient=request.user,
+            therapist=therapist,
+            scheduled_date=serializer.validated_data['slot_start'],
+            duration_minutes=serializer.validated_data['duration_minutes'],
+            is_online=serializer.validated_data['is_online'],
+            patient_goals=serializer.validated_data.get('patient_goals', ''),
+            status='UPCOMING',
+            session_type='individual',
+            created_by=request.user,
+        )
+        
+        response_serializer = SessionSerializer(session, context={'request': request})
+        return Response({
+            'detail': 'Session booked successfully.',
+            'session': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=['Patient Booking'])
+class EmergencySessionRequestView(APIView):
+    """Patient requests an emergency session"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        request=EmergencySessionRequestSerializer,
+        responses={
+            201: SessionSerializer,
+            400: OpenApiResponse(description='Invalid request.')
+        },
+        summary="Request Emergency Session",
+        description="Request an emergency session. The therapist will be notified and can schedule freely."
+    )
+    def post(self, request):
+        if request.user.user_type != 'patient':
+            return Response(
+                {'detail': 'Only patients can request emergency sessions.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .serializers import EmergencySessionRequestSerializer
+        
+        serializer = EmergencySessionRequestSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        therapist = serializer.validated_data['therapist']
+        
+        # Create emergency session request
+        session = Session.objects.create(
+            patient=request.user,
+            therapist=therapist,
+            scheduled_date=serializer.validated_data.get('preferred_date') or timezone.now(),
+            is_online=serializer.validated_data['is_online'],
+            patient_goals=serializer.validated_data['reason'],
+            status='REQUESTED',
+            session_type='individual',
+            is_emergency=True,
+            created_by=request.user,
+        )
+        
+        response_serializer = SessionSerializer(session, context={'request': request})
+        return Response({
+            'detail': 'Emergency session request submitted. Your therapist will be notified.',
+            'session': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=['Therapist Availability'])
+class TherapistAvailableDatesView(APIView):
+    """Get dates with available slots for a therapist (for calendar display)"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='month', description='Month (1-12)', required=True, type=int),
+            OpenApiParameter(name='year', description='Year (e.g., 2024)', required=True, type=int),
+        ],
+        responses={200: OpenApiResponse(description='Available dates retrieved.')},
+        summary="Get Available Dates",
+        description="Get all dates in a month that have available slots."
+    )
+    def get(self, request):
+        if request.user.user_type != 'patient':
+            return Response(
+                {'detail': 'Only patients can view available dates.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get patient's therapist
+        try:
+            patient_profile = request.user.patient_profile
+            if not patient_profile.therapist:
+                return Response(
+                    {'detail': 'You are not connected to a therapist.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            therapist = patient_profile.therapist.user
+        except PatientProfile.DoesNotExist:
+            return Response(
+                {'detail': 'Patient profile not found.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get parameters
+        try:
+            month = int(request.query_params.get('month'))
+            year = int(request.query_params.get('year'))
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'month and year parameters are required as integers.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        from .services import AvailabilityService
+        from calendar import monthrange
+        from datetime import date
+        
+        # Get first and last day of month
+        _, last_day = monthrange(year, month)
+        
+        available_dates = []
+        today = timezone.now().date()
+        
+        for day in range(1, last_day + 1):
+            check_date = date(year, month, day)
+            
+            # Skip past dates
+            if check_date < today:
+                continue
+            
+            # Check if there are available slots on this date
+            slots = AvailabilityService.get_available_slots(
+                therapist=therapist,
+                date=check_date,
+                duration_minutes=60  # Default duration for checking
+            )
+            
+            if slots:
+                available_dates.append({
+                    'date': check_date.isoformat(),
+                    'slots_count': len(slots),
+                    'first_slot': slots[0]['start'].strftime('%H:%M') if slots else None,
+                    'last_slot': slots[-1]['start'].strftime('%H:%M') if slots else None,
+                })
+        
+        return Response({
+            'year': year,
+            'month': month,
+            'available_dates': available_dates,
+            'total_dates': len(available_dates)
         }, status=status.HTTP_200_OK)

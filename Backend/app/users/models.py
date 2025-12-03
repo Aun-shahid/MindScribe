@@ -1,8 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid
 import random
+from datetime import timedelta
 
 class User(AbstractUser):
     USER_TYPES = [
@@ -92,15 +94,14 @@ class PatientProfile(models.Model):
                                            null=True, blank=True, related_name='created_patients',
                                            help_text="Therapist who created this patient profile")
     
-    # History integration
-    history_id = models.UUIDField(null=True, blank=True, 
-                                help_text="ID linking to patient history records")
-    
     # Account linking fields
     is_linked_account = models.BooleanField(default=False, 
                                           help_text="True if this patient profile is linked to a user account")
     linked_at = models.DateTimeField(null=True, blank=True, 
                                    help_text="Timestamp when the account was linked")
+    original_therapist_patient = models.ForeignKey('self', on_delete=models.SET_NULL,
+                                                   null=True, blank=True, related_name='linked_accounts',
+                                                   help_text="Reference to the original patient profile created by therapist (if merged)")
     
     def save(self, *args, **kwargs):
         # Auto-generate patient ID if not provided
@@ -185,20 +186,13 @@ class TherapistProfile(models.Model):
     clinic_address = models.TextField(blank=True, null=True)
     consultation_fee = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     
-    # Working hours and availability
-    working_hours_start = models.TimeField(blank=True, null=True, help_text="Start of working hours")
-    working_hours_end = models.TimeField(blank=True, null=True, help_text="End of working hours")
-    working_days = models.CharField(max_length=100, blank=True, null=True, 
-                                  help_text="Comma-separated working days (e.g., 'monday,tuesday,wednesday')")
-    
     # Pairing and identification
     therapist_pin = models.CharField(max_length=9, unique=True, blank=True, null=True)
-    pairing_code = models.CharField(max_length=8, unique=True, blank=True, null=True, 
-                                  help_text="Short code for patient pairing")
     
     # Professional settings
     session_duration_minutes = models.IntegerField(default=60, help_text="Default session duration in minutes")
     max_patients = models.IntegerField(default=50, help_text="Maximum number of patients")
+    buffer_between_sessions = models.IntegerField(default=15, help_text="Buffer time between sessions in minutes")
     
     # Bio and additional info
     bio = models.TextField(blank=True, null=True, help_text="Professional bio/description")
@@ -212,23 +206,10 @@ class TherapistProfile(models.Model):
             if not TherapistProfile.objects.filter(therapist_pin=pin).exists():
                 return pin
     
-    def generate_pairing_code(self):
-        """Generate a unique 8-character pairing code"""
-        import string
-        while True:
-            # Generate 8-character alphanumeric code
-            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-            if not TherapistProfile.objects.filter(pairing_code=code).exists():
-                return code
-    
     def save(self, *args, **kwargs):
         # Generate PIN only if it doesn't exist
         if not self.therapist_pin:
             self.therapist_pin = self.generate_unique_pin()
-        
-        # Generate pairing code only if it doesn't exist
-        if not self.pairing_code:
-            self.pairing_code = self.generate_pairing_code()
         
         super().save(*args, **kwargs)
     
@@ -239,19 +220,6 @@ class TherapistProfile(models.Model):
     def get_patient_count(self):
         """Get the number of patients connected to this therapist"""
         return self.patients.count()
-    
-    def get_working_days_list(self):
-        """Return working days as a list"""
-        if self.working_days:
-            return [day.strip() for day in self.working_days.split(',')]
-        return []
-    
-    def set_working_days(self, days_list):
-        """Set working days from a list"""
-        if days_list:
-            self.working_days = ','.join(days_list)
-        else:
-            self.working_days = ''
     
     def get_languages_list(self):
         """Return languages spoken as a list"""
@@ -285,3 +253,158 @@ class TherapistProfile(models.Model):
     class Meta:
         db_table = 'therapist_profiles'
         ordering = ['-user__created_at']
+
+
+class ConnectionRequest(models.Model):
+    """Connection requests from patients to therapists"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('merged', 'Merged with Existing Patient'),
+        ('rejected', 'Rejected'),
+        ('expired', 'Expired'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # The patient user making the request
+    patient_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests')
+    
+    # The therapist being requested
+    therapist = models.ForeignKey(TherapistProfile, on_delete=models.CASCADE, related_name='connection_requests')
+    
+    # Request status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # If merged with an existing therapist-created patient
+    merged_with_patient = models.ForeignKey(PatientProfile, on_delete=models.SET_NULL, 
+                                           null=True, blank=True, related_name='merge_requests',
+                                           help_text="The therapist-created patient profile this was merged with")
+    
+    # Request message from patient
+    message = models.TextField(blank=True, null=True, help_text="Optional message from patient")
+    
+    # Rejection reason (if rejected)
+    rejection_reason = models.TextField(blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(null=True, blank=True, help_text="Optional expiry date for the request")
+    responded_at = models.DateTimeField(null=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        # Set default expiry to 7 days if not set
+        if not self.expires_at and self.status == 'pending':
+            self.expires_at = timezone.now() + timedelta(days=7)
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_expired(self):
+        """Check if request has expired"""
+        if self.expires_at and self.status == 'pending':
+            return timezone.now() > self.expires_at
+        return False
+    
+    def accept_as_new(self):
+        """Accept the request and connect patient as a new patient"""
+        if self.status != 'pending':
+            raise ValueError("Can only accept pending requests")
+        
+        # Get or create patient profile
+        patient_profile, created = PatientProfile.objects.get_or_create(
+            user=self.patient_user,
+            defaults={'preferred_language': 'en'}
+        )
+        
+        # Connect to therapist
+        patient_profile.therapist = self.therapist
+        patient_profile.connected_at = timezone.now()
+        patient_profile.is_linked_account = True
+        patient_profile.linked_at = timezone.now()
+        patient_profile.save()
+        
+        # Update request status
+        self.status = 'accepted'
+        self.responded_at = timezone.now()
+        self.save()
+        
+        return patient_profile
+    
+    def merge_with_existing(self, existing_patient_profile):
+        """Merge with an existing therapist-created patient profile"""
+        if self.status != 'pending':
+            raise ValueError("Can only merge pending requests")
+        
+        if existing_patient_profile.therapist != self.therapist:
+            raise ValueError("Existing patient must belong to the same therapist")
+        
+        if existing_patient_profile.is_linked_account:
+            raise ValueError("Cannot merge with an already linked patient account")
+        
+        # Get or create patient profile for requesting user
+        new_patient_profile, created = PatientProfile.objects.get_or_create(
+            user=self.patient_user,
+            defaults={'preferred_language': 'en'}
+        )
+        
+        # Transfer data from existing profile to new profile
+        new_patient_profile.therapist = self.therapist
+        new_patient_profile.connected_at = timezone.now()
+        new_patient_profile.is_linked_account = True
+        new_patient_profile.linked_at = timezone.now()
+        new_patient_profile.original_therapist_patient = existing_patient_profile
+        
+        # Copy relevant fields from existing profile
+        if existing_patient_profile.primary_concern and not new_patient_profile.primary_concern:
+            new_patient_profile.primary_concern = existing_patient_profile.primary_concern
+        if existing_patient_profile.therapy_start_date and not new_patient_profile.therapy_start_date:
+            new_patient_profile.therapy_start_date = existing_patient_profile.therapy_start_date
+        if existing_patient_profile.session_frequency:
+            new_patient_profile.session_frequency = existing_patient_profile.session_frequency
+        if existing_patient_profile.emergency_contact_name and not new_patient_profile.emergency_contact_name:
+            new_patient_profile.emergency_contact_name = existing_patient_profile.emergency_contact_name
+        if existing_patient_profile.emergency_contact_phone and not new_patient_profile.emergency_contact_phone:
+            new_patient_profile.emergency_contact_phone = existing_patient_profile.emergency_contact_phone
+        if existing_patient_profile.medical_history and not new_patient_profile.medical_history:
+            new_patient_profile.medical_history = existing_patient_profile.medical_history
+        if existing_patient_profile.current_medications and not new_patient_profile.current_medications:
+            new_patient_profile.current_medications = existing_patient_profile.current_medications
+        
+        new_patient_profile.save()
+        
+        # Update request status
+        self.status = 'merged'
+        self.merged_with_patient = existing_patient_profile
+        self.responded_at = timezone.now()
+        self.save()
+        
+        return new_patient_profile, existing_patient_profile
+    
+    def reject(self, reason=None):
+        """Reject the connection request"""
+        if self.status != 'pending':
+            raise ValueError("Can only reject pending requests")
+        
+        self.status = 'rejected'
+        self.rejection_reason = reason
+        self.responded_at = timezone.now()
+        self.save()
+    
+    class Meta:
+        db_table = 'connection_requests'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['therapist', 'status'], name='therapist_status_idx'),
+            models.Index(fields=['patient_user', 'status'], name='patient_status_idx'),
+            models.Index(fields=['expires_at'], name='expires_at_idx'),
+        ]
+        constraints = [
+            # Prevent duplicate pending requests
+            models.UniqueConstraint(
+                fields=['patient_user', 'therapist'],
+                condition=models.Q(status='pending'),
+                name='unique_pending_request'
+            ),
+        ]
