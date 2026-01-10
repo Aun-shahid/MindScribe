@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "therapy_sessions",       # Therapy session management
     "history",        # User history/logs
     "soap",           # SOAP note generation           
+    "core",
 ]
 
 MIDDLEWARE = [
