@@ -1,0 +1,11 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Backend/Dockerfile"
+context = "Backend"
+
+[deploy]
+startCommand = "/app/start.sh"
+healthcheckPath = "/api/schema/swagger-ui/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+maxRestartCount = 3
