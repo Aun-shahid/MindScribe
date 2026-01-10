@@ -372,8 +372,8 @@ class TherapistAvailabilitySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'day_of_week', 'day_name', 'start_time', 'end_time', 
             'is_day_off', 'break_start', 'break_end',
-            'slot_duration_minutes', 'buffer_between_sessions',
-            'is_online_available', 'location', 'notes',
+            'default_session_duration', 'buffer_minutes',
+            'is_online_available', 'location',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
