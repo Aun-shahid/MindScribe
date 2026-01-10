@@ -44,6 +44,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     
     # Third-party apps
+    "channels",
     "rest_framework",                 # Django REST Framework
     "corsheaders",                    # For handling Cross-Origin Resource Sharing
     "rest_framework_simplejwt",       # For JSON Web Token authentication
@@ -70,6 +72,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware", # CORS middleware must be high up
     "django.middleware.common.CommonMiddleware",
@@ -98,6 +101,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "app.wsgi.application"
+ASGI_APPLICATION = "app.asgi.application"
 
 
 # Database
@@ -147,6 +151,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # For collecting static files in production
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 # Media files (User-uploaded content like profile pictures, audio)
@@ -223,6 +235,13 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True # Allow cookies/auth headers to be sent cross-origin
 
+# CSRF Trusted Origins for Railway and Localhood
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 # DRF Spectacular (OpenAPI/Swagger) settings
 SPECTACULAR_SETTINGS = {
     'TITLE': os.environ.get("SITE_NAME", "MindScribe") + ' API',
@@ -243,8 +262,8 @@ SPECTACULAR_SETTINGS = {
 
 # Celery settings (for background tasks like audio processing, AI pipeline)
 # IMPORTANT: Use environment variables for production!
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -292,9 +311,6 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@MindScribe.com")
-
-# --- Redis Configuration ---
-REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
 
 # --- Frontend Configuration ---
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
