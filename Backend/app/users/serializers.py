@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from .models import PatientProfile, TherapistProfile, ConnectionRequest
 
 User = get_user_model()
@@ -47,6 +48,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['connected_at']
     
+    @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
         return {
@@ -59,6 +61,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             'date_of_birth': user.date_of_birth,
         }
     
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_therapist_info(self, obj):
         if obj.therapist:
             therapist = obj.therapist
@@ -70,6 +73,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             }
         return None
     
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_preferred_session_days_list(self, obj):
         """Return preferred session days as a list"""
         return obj.get_preferred_days_list()
@@ -88,6 +92,7 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['therapist_pin']
     
+    @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
         return {
@@ -100,11 +105,12 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             'date_of_birth': user.date_of_birth,
         }
     
+    @extend_schema_field(serializers.IntegerField())
     def get_patient_count(self, obj):
         return obj.get_patient_count()
 
 
-class PatientListSerializer(serializers.Serializer):
+class TherapistPatientListSerializer(serializers.Serializer):
     """Serializer for patient list responses"""
     id = serializers.UUIDField(read_only=True)
     name = serializers.CharField(read_only=True)
@@ -118,7 +124,7 @@ class PatientListSerializer(serializers.Serializer):
 
 class PatientListResponseSerializer(serializers.Serializer):
     """Serializer for the complete patient list response"""
-    patients = PatientListSerializer(many=True, read_only=True)
+    patients = TherapistPatientListSerializer(many=True, read_only=True)
     total_count = serializers.IntegerField(read_only=True)
     therapist_info = TherapistInfoSerializer(read_only=True)
     filters_applied = serializers.DictField(read_only=True)

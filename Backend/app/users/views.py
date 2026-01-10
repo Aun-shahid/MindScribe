@@ -398,8 +398,10 @@ class ConnectToTherapistView(APIView):
 @extend_schema(tags=['Patient Management'])
 class DisconnectFromTherapistView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = None # Explicitly state no serializer is used
     
     @extend_schema(
+        request=None,
         responses={
             200: OpenApiResponse(description='Successfully disconnected from therapist.'),
             400: OpenApiResponse(description='Not connected to any therapist.'),

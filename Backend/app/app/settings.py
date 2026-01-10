@@ -259,6 +259,11 @@ SPECTACULAR_SETTINGS = {
         'showCommonExtensions': True,
     },
     'COMPONENT_SPLIT_REQUEST': True, # Improves performance for large schemas
+    'ENUM_NAME_OVERRIDES': {
+        'SessionStatusEnum': 'therapy_sessions.models.Session.SESSION_STATUS',
+        'SessionTypeEnum': 'therapy_sessions.models.Session.SESSION_TYPES',
+        'MoodRatingEnum': 'therapy_sessions.models.Session.MOOD_RATINGS',
+    },
 }
 
 # Celery settings (for background tasks like audio processing, AI pipeline)
