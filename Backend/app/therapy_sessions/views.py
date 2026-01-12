@@ -33,8 +33,9 @@ from .serializers import (
     EmergencySessionRequestSerializer, AvailableSlotSerializer
 )
 from users.models import PatientProfile, TherapistProfile
-from transcription.services import transcription_service
-from transcription.models import Transcription, TranscriptionSegment, EmotionAnalysis, MoodSnapshot
+# Removed: transcription_service import - migrated to FastAPI AI service
+from .token_utils import generate_session_token
+from django.conf import settings
 
 User = get_user_model()
 
@@ -407,12 +408,19 @@ class CreatePatientView(generics.CreateAPIView):
     ]
 )
 class StartSessionView(generics.GenericAPIView):
-    """Start a session"""
+    """
+    Start a therapy session and generate JWT token for AI service authentication
+    
+    Generates a secure JWT token containing session_id and therapist_id
+    for authenticating with the FastAPI AI service (transcription, SOAP notes, etc.)
+    """
     permission_classes = [permissions.IsAuthenticated]
     
     class StartSessionResponseSerializer(serializers.Serializer):
         detail = serializers.CharField()
         session = SessionSerializer()
+        ai_service_token = serializers.CharField(help_text="JWT token for AI service authentication")
+        ai_service_url = serializers.CharField(help_text="URL for AI service (configure in settings)", required=False)
     
     serializer_class = StartSessionResponseSerializer
     
@@ -435,24 +443,42 @@ class StartSessionView(generics.GenericAPIView):
         
         session.start_session()
 
-        # Attempt to start realtime transcription if consent provided
-        realtime_info = None
+        # Generate JWT token for AI service authentication
+        ai_token = None
         if session.consent_recording and session.consent_ai_analysis:
             try:
-                rt_result = transcription_service.start_realtime_for_session(session)
-                realtime_info = {
-                    'realtime_id': str(rt_result.realtime.id),
-                    'websocket_url': rt_result.client_websocket_url,
-                    'status': rt_result.realtime.status,
-                }
+                # Generate secure JWT token with session_id and therapist_id
+                ai_token = generate_session_token(
+                    session_id=session.id,
+                    therapist_id=user.id,
+                    expiration_hours=2  # Token expires in 2 hours
+                )
             except Exception as e:
-                realtime_info = {'error': str(e)}
+                return Response(
+                    {'detail': f'Failed to generate AI service token: {str(e)}'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
-        return Response({
+        # Get AI service URL from settings (you'll configure this later)
+        ai_service_url = getattr(settings, 'AI_SERVICE_URL', 'http://localhost:8000')  # Default to localhost
+        
+        response_data = {
             'detail': 'Session started successfully.',
             'session': SessionSerializer(session).data,
-            'realtime_transcription': realtime_info,
-        }, status=status.HTTP_200_OK)
+        }
+        
+        # Include AI service token if generated
+        if ai_token:
+            response_data['ai_service_token'] = ai_token
+            response_data['ai_service_url'] = ai_service_url
+            response_data['token_info'] = {
+                'expires_in_hours': 2,
+                'usage': 'Include this token in Authorization header as "Bearer <token>" when calling AI service'
+            }
+        else:
+            response_data['ai_service_info'] = 'AI service token not generated - patient consent required for recording and AI analysis'
+        
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 @extend_schema(

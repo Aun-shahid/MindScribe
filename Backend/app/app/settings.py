@@ -64,11 +64,10 @@ INSTALLED_APPS = [
     # Your custom apps
     "authenticator",           # Your custom authentication app (contains CustomUser)
     "users",          # User profiles (if separated from auth.CustomUser)
-    "transcription",  # Transcription logic
     "therapy_sessions",       # Therapy session management
     "history",        # User history/logs
-    "soap",           # SOAP note generation           
     "core",
+    # Removed: "transcription" and "soap" - migrated to FastAPI AI service
 ]
 
 MIDDLEWARE = [
