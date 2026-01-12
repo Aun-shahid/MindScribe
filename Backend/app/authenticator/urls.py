@@ -4,8 +4,10 @@ from .views import (
     PasswordResetRequestView, PasswordResetConfirmView, EmailVerificationView,
     RefreshTokenView
 )
+from core.views import HealthCheckView
 
 urlpatterns = [
+    path('health/', HealthCheckView.as_view(), name='health_check'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),

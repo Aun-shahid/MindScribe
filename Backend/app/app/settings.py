@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta # Import timedelta for JWT settings
 import os # Import os for environment variables
 from dotenv import load_dotenv # Import load_dotenv for .env file support
+import dj_database_url # Import dj_database_url for DATABASE_URL support
 
 # Load environment variables from .env file (if it exists)
 # Make sure your .env file is in the same directory as manage.py
@@ -43,6 +44,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     
     # Third-party apps
+    "channels",
     "rest_framework",                 # Django REST Framework
     "corsheaders",                    # For handling Cross-Origin Resource Sharing
     "rest_framework_simplejwt",       # For JSON Web Token authentication
@@ -65,10 +68,12 @@ INSTALLED_APPS = [
     "therapy_sessions",       # Therapy session management
     "history",        # User history/logs
     "soap",           # SOAP note generation           
+    "core",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware", # CORS middleware must be high up
     "django.middleware.common.CommonMiddleware",
@@ -97,6 +102,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "app.wsgi.application"
+ASGI_APPLICATION = "app.asgi.application"
 
 
 # Database
@@ -106,14 +112,7 @@ WSGI_APPLICATION = "app.wsgi.application"
 # IMPORTANT: For production, load these from actual environment variables (e.g., in your Elastic Beanstalk config)!
 # The values provided here are for local development defaults.
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "MindScribe"), # Set to your database name
-        "USER": os.environ.get("DB_USER", "postgres"),   # Set to your database user
-        "PASSWORD": os.environ.get("DB_PASSWORD", "qwerty"), # Set to your database password
-        "HOST": os.environ.get("DB_HOST", "localhost"), # Usually 'localhost' for local dev
-        "PORT": os.environ.get("DB_PORT", "5432"), # Default PostgreSQL port
-    }
+    'default': dj_database_url.config()
 }
 
 
@@ -153,6 +152,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # For collecting static files in production
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 # Media files (User-uploaded content like profile pictures, audio)
@@ -229,6 +236,13 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True # Allow cookies/auth headers to be sent cross-origin
 
+# CSRF Trusted Origins for Railway and Localhood
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 # DRF Spectacular (OpenAPI/Swagger) settings
 SPECTACULAR_SETTINGS = {
     'TITLE': os.environ.get("SITE_NAME", "MindScribe") + ' API',
@@ -245,12 +259,17 @@ SPECTACULAR_SETTINGS = {
         'showCommonExtensions': True,
     },
     'COMPONENT_SPLIT_REQUEST': True, # Improves performance for large schemas
+    'ENUM_NAME_OVERRIDES': {
+        'SessionStatusEnum': 'therapy_sessions.models.Session.SESSION_STATUS',
+        'SessionTypeEnum': 'therapy_sessions.models.Session.SESSION_TYPES',
+        'MoodRatingEnum': 'therapy_sessions.models.Session.MOOD_RATINGS',
+    },
 }
 
 # Celery settings (for background tasks like audio processing, AI pipeline)
 # IMPORTANT: Use environment variables for production!
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -298,9 +317,6 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@MindScribe.com")
-
-# --- Redis Configuration ---
-REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
 
 # --- Frontend Configuration ---
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")

@@ -7,11 +7,13 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
-from .models import PatientProfile, TherapistProfile
+from .models import PatientProfile, TherapistProfile, ConnectionRequest
 from .serializers import (
     PatientTherapistConnectionSerializer, TherapistInfoSerializer,
     PatientProfileSerializer, TherapistProfileSerializer,
-    PatientListResponseSerializer
+    PatientListResponseSerializer, ConnectionRequestSerializer,
+    ConnectionRequestCreateSerializer, ConnectionRequestAcceptSerializer,
+    ConnectionRequestRejectSerializer, MergeablePatientSerializer
 )
 
 
@@ -312,62 +314,79 @@ class PatientsView(APIView):
 
 @extend_schema(tags=['Patient Management'])
 class ConnectToTherapistView(APIView):
+    """Create a connection request to a therapist (uses new request workflow)"""
     permission_classes = [IsAuthenticated]
     
     @extend_schema(
-        request=PatientTherapistConnectionSerializer,
+        request=ConnectionRequestCreateSerializer,
         responses={
-            200: OpenApiResponse(description='Successfully connected to therapist.'),
-            400: OpenApiResponse(description='Invalid PIN or already connected.'),
-            403: OpenApiResponse(description='Only patients can connect to therapists.')
+            201: OpenApiResponse(description='Connection request created successfully.'),
+            400: OpenApiResponse(description='Invalid PIN, already connected, or pending request exists.'),
+            403: OpenApiResponse(description='Only patients can request connections.')
         },
-        summary="Connect Patient to Therapist",
-        description="Connect a patient to a therapist using the therapist's PIN."
+        summary="Request Connection to Therapist",
+        description="Create a connection request to a therapist using their PIN. The therapist must approve the request."
     )
     def post(self, request):
         if request.user.user_type != 'patient':
             return Response(
-                {'detail': 'Only patients can connect to therapists.'}, 
+                {'detail': 'Only patients can request connections to therapists.'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = PatientTherapistConnectionSerializer(data=request.data)
+        serializer = ConnectionRequestCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         therapist_pin = serializer.validated_data['therapist_pin']
+        message = serializer.validated_data.get('message', '')
         
         try:
             therapist_profile = TherapistProfile.objects.get(therapist_pin=therapist_pin)
             
-            # Get or create patient profile
-            patient_profile, created = PatientProfile.objects.get_or_create(
-                user=request.user,
-                defaults={'preferred_language': 'en'}
-            )
+            # Check if patient is already connected to this therapist
+            try:
+                patient_profile = request.user.patient_profile
+                if patient_profile.therapist == therapist_profile:
+                    return Response(
+                        {'detail': 'You are already connected to this therapist.'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except PatientProfile.DoesNotExist:
+                pass
             
-            # Check if already connected
-            if patient_profile.therapist == therapist_profile:
+            # Check if there's already a pending request
+            existing_request = ConnectionRequest.objects.filter(
+                patient_user=request.user,
+                therapist=therapist_profile,
+                status='pending'
+            ).first()
+            
+            if existing_request:
                 return Response(
-                    {'detail': 'You are already connected to this therapist.'}, 
+                    {'detail': 'You already have a pending connection request to this therapist.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Connect patient to therapist
-            patient_profile.therapist = therapist_profile
-            patient_profile.connected_at = timezone.now()
-            patient_profile.save()
+            # Check if therapist can accept new patients
+            if not therapist_profile.can_accept_new_patients():
+                return Response(
+                    {'detail': 'This therapist is not accepting new patients at this time.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create connection request
+            connection_request = ConnectionRequest.objects.create(
+                patient_user=request.user,
+                therapist=therapist_profile,
+                message=message,
+                status='pending'
+            )
             
             return Response({
-                'detail': 'Successfully connected to therapist.',
-                'therapist': {
-                    'id': str(therapist_profile.user.id),
-                    'name': therapist_profile.user.full_name,
-                    'specialization': therapist_profile.specialization,
-                    'clinic_name': therapist_profile.clinic_name,
-                    'connected_at': patient_profile.connected_at
-                }
-            }, status=status.HTTP_200_OK)
+                'detail': 'Connection request sent successfully. Please wait for the therapist to respond.',
+                'request': ConnectionRequestSerializer(connection_request).data
+            }, status=status.HTTP_201_CREATED)
             
         except TherapistProfile.DoesNotExist:
             return Response(
@@ -379,8 +398,10 @@ class ConnectToTherapistView(APIView):
 @extend_schema(tags=['Patient Management'])
 class DisconnectFromTherapistView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = None # Explicitly state no serializer is used
     
     @extend_schema(
+        request=None,
         responses={
             200: OpenApiResponse(description='Successfully disconnected from therapist.'),
             400: OpenApiResponse(description='Not connected to any therapist.'),
@@ -454,3 +475,256 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().dispatch(request, *args, **kwargs)
+
+
+@extend_schema(tags=['Connection Requests'])
+class ConnectionRequestsListView(APIView):
+    """List all connection requests for a therapist"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='status', description='Filter by status: pending, accepted, merged, rejected', required=False, type=str),
+        ],
+        responses={
+            200: OpenApiResponse(description='Connection requests retrieved successfully.'),
+            403: OpenApiResponse(description='Only therapists can view connection requests.')
+        },
+        summary="List Connection Requests",
+        description="Get all connection requests for the authenticated therapist."
+    )
+    def get(self, request):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can view connection requests.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            therapist_profile = request.user.therapist_profile
+        except TherapistProfile.DoesNotExist:
+            return Response({'detail': 'Therapist profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        status_filter = request.query_params.get('status')
+        
+        requests_qs = ConnectionRequest.objects.filter(therapist=therapist_profile).select_related('patient_user')
+        
+        if status_filter:
+            requests_qs = requests_qs.filter(status=status_filter)
+        
+        # Order by created_at descending (most recent first)
+        requests_qs = requests_qs.order_by('-created_at')
+        
+        # Get mergeable patients (existing patients connected to this therapist)
+        existing_patients = PatientProfile.objects.filter(therapist=therapist_profile).select_related('user')
+        mergeable_patients = [
+            {
+                'id': str(p.user.id),
+                'name': p.user.full_name,
+                'email': p.user.email
+            }
+            for p in existing_patients
+        ]
+        
+        requests_data = []
+        for req in requests_qs:
+            requests_data.append({
+                'id': str(req.id),
+                'patient_name': req.patient_user.full_name,
+                'patient_email': req.patient_user.email,
+                'patient_user_id': str(req.patient_user.id),
+                'message': req.message,
+                'status': req.status,
+                'expires_at': req.expires_at,
+                'created_at': req.created_at,
+                'updated_at': req.updated_at,
+                'merged_with_patient_id': str(req.merged_with_patient.user.id) if req.merged_with_patient else None
+            })
+        
+        return Response({
+            'connection_requests': requests_data,
+            'total_count': len(requests_data),
+            'mergeable_patients': mergeable_patients,
+            'filters_applied': {'status': status_filter}
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=['Connection Requests'])
+class ConnectionRequestActionView(APIView):
+    """Accept, merge, or reject a connection request"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        request=ConnectionRequestAcceptSerializer,
+        responses={
+            200: OpenApiResponse(description='Connection request accepted. Patient connected.'),
+            400: OpenApiResponse(description='Invalid action or request already processed.'),
+            403: OpenApiResponse(description='Only therapists can manage connection requests.'),
+            404: OpenApiResponse(description='Connection request not found.')
+        },
+        summary="Accept Connection Request",
+        description="Accept a pending connection request and create a new patient connection."
+    )
+    def post(self, request, request_id):
+        """Accept - creates new patient connection"""
+        return self._handle_action(request, request_id, 'accept')
+    
+    @extend_schema(
+        request=ConnectionRequestRejectSerializer,
+        responses={
+            200: OpenApiResponse(description='Connection request rejected.'),
+            400: OpenApiResponse(description='Request already processed.'),
+            403: OpenApiResponse(description='Only therapists can manage connection requests.'),
+            404: OpenApiResponse(description='Connection request not found.')
+        },
+        summary="Reject Connection Request",
+        description="Reject a pending connection request."
+    )
+    def delete(self, request, request_id):
+        """Reject - marks request as rejected"""
+        return self._handle_action(request, request_id, 'reject')
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='merge_with_patient_id', description='ID of existing patient to merge with', required=True, type=str),
+        ],
+        responses={
+            200: OpenApiResponse(description='Connection request merged with existing patient.'),
+            400: OpenApiResponse(description='Invalid merge target or request already processed.'),
+            403: OpenApiResponse(description='Only therapists can manage connection requests.'),
+            404: OpenApiResponse(description='Connection request or merge target not found.')
+        },
+        summary="Merge Connection Request",
+        description="Merge a connection request with an existing patient profile."
+    )
+    def put(self, request, request_id):
+        """Merge - link requesting user to existing patient profile"""
+        return self._handle_action(request, request_id, 'merge')
+    
+    def _handle_action(self, request, request_id, action):
+        """Handle connection request actions"""
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can manage connection requests.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            therapist_profile = request.user.therapist_profile
+        except TherapistProfile.DoesNotExist:
+            return Response({'detail': 'Therapist profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            connection_request = ConnectionRequest.objects.get(
+                id=request_id, 
+                therapist=therapist_profile
+            )
+        except ConnectionRequest.DoesNotExist:
+            return Response(
+                {'detail': 'Connection request not found.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if connection_request.status != 'pending':
+            return Response(
+                {'detail': f'This request has already been {connection_request.status}.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if action == 'accept':
+            return self._accept_request(connection_request, therapist_profile)
+        elif action == 'reject':
+            return self._reject_request(connection_request, request.data.get('reason', ''))
+        elif action == 'merge':
+            merge_with_patient_id = request.data.get('merge_with_patient_id')
+            if not merge_with_patient_id:
+                return Response(
+                    {'detail': 'merge_with_patient_id is required for merge action.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return self._merge_request(connection_request, therapist_profile, merge_with_patient_id)
+        
+        return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _accept_request(self, connection_request, therapist_profile):
+        """Accept request and create patient connection"""
+        patient_user = connection_request.patient_user
+        
+        # Get or create patient profile
+        patient_profile, created = PatientProfile.objects.get_or_create(
+            user=patient_user,
+            defaults={'preferred_language': 'en'}
+        )
+        
+        # Connect to therapist
+        patient_profile.therapist = therapist_profile
+        patient_profile.connected_at = timezone.now()
+        patient_profile.save()
+        
+        # Update connection request
+        connection_request.status = 'accepted'
+        connection_request.save()
+        
+        return Response({
+            'detail': 'Connection request accepted. Patient is now connected.',
+            'patient': {
+                'id': str(patient_user.id),
+                'name': patient_user.full_name,
+                'email': patient_user.email,
+                'connected_at': patient_profile.connected_at
+            }
+        }, status=status.HTTP_200_OK)
+    
+    def _reject_request(self, connection_request, reason=''):
+        """Reject the connection request"""
+        connection_request.status = 'rejected'
+        connection_request.save()
+        
+        return Response({
+            'detail': 'Connection request rejected.',
+            'request_id': str(connection_request.id)
+        }, status=status.HTTP_200_OK)
+    
+    def _merge_request(self, connection_request, therapist_profile, merge_with_patient_id):
+        """Merge request with existing patient"""
+        try:
+            existing_patient = PatientProfile.objects.get(
+                user__id=merge_with_patient_id,
+                therapist=therapist_profile
+            )
+        except PatientProfile.DoesNotExist:
+            return Response(
+                {'detail': 'Target patient not found or not connected to you.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        requesting_user = connection_request.patient_user
+        
+        # Create or update profile for requesting user, linking them as the same "patient entity"
+        # The merge essentially means both accounts now point to the same therapist
+        patient_profile, created = PatientProfile.objects.get_or_create(
+            user=requesting_user,
+            defaults={'preferred_language': 'en'}
+        )
+        
+        patient_profile.therapist = therapist_profile
+        patient_profile.connected_at = timezone.now()
+        patient_profile.save()
+        
+        # Update connection request with merge info
+        connection_request.status = 'merged'
+        connection_request.merged_with_patient = existing_patient
+        connection_request.save()
+        
+        return Response({
+            'detail': f'Connection request merged with existing patient {existing_patient.user.full_name}.',
+            'merged_patient': {
+                'id': str(existing_patient.user.id),
+                'name': existing_patient.user.full_name
+            },
+            'new_patient': {
+                'id': str(requesting_user.id),
+                'name': requesting_user.full_name,
+                'connected_at': patient_profile.connected_at
+            }
+        }, status=status.HTTP_200_OK)
