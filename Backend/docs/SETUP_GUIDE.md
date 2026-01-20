@@ -99,7 +99,7 @@ Visit: `http://192.168.1.8:8000/api/schema/swagger-ui/`
 
 ### Dashboards
 - `/api/therapy_sessions/dashboard/therapist/` - Therapist dashboard
-- `/api/therapy_sessions/dashboard/patient/` - Patient dashboard
+- `/api/patients/dashboard/` - Patient wellness dashboard (comprehensive)
 
 ### Analytics
 - `/api/therapy_sessions/stats/` - Session statistics
@@ -117,9 +117,10 @@ Visit: `http://192.168.1.8:8000/api/schema/swagger-ui/`
 
 ### For Patient App:
 1. **Login Screen** → `/api/authenticator/login/`
-2. **Dashboard** → `/api/therapy_sessions/dashboard/patient/`
+2. **Dashboard** → `/api/patients/dashboard/` (comprehensive wellness dashboard)
 3. **Pair with Therapist** → `/api/therapy_sessions/patients/pair/`
-4. **My Sessions** → `/api/therapy_sessions/my-sessions/`
+4. **My Sessions** → `/api/therapy_sessions/sessions/upcoming/` and `/past/`
+5. **Wellness Features** → `/api/patients/*` (mood, journal, goals, relaxation, etc.)
 
 ## Sample Data Access
 

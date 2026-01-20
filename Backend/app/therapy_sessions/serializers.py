@@ -44,7 +44,7 @@ class TherapistBasicSerializer(serializers.ModelSerializer):
 
 
 class SessionSerializer(serializers.ModelSerializer):
-    """Full session serializer for display with WebSocket support"""
+    """Full session serializer for therapist view with WebSocket support"""
     patient = PatientBasicSerializer(read_only=True)
     therapist = TherapistBasicSerializer(read_only=True)
     actual_duration_minutes = serializers.ReadOnlyField()
@@ -60,7 +60,8 @@ class SessionSerializer(serializers.ModelSerializer):
             'id', 'patient', 'therapist', 'session_number', 'session_type',
             'scheduled_date', 'actual_start_time', 'actual_end_time',
             'duration_minutes', 'actual_duration_minutes', 'status', 'location',
-            'is_online', 'session_notes', 'patient_goals', 'homework_assigned',
+            'is_online', 'session_notes', 'session_summary', 'summary_written_at',
+            'patient_goals', 'homework_assigned',
             'next_session_goals', 'patient_mood_before', 'patient_mood_after',
             'mood_improvement', 'therapist_observations', 'session_effectiveness',
             'consent_recording', 'consent_ai_analysis', 'fee_charged',
@@ -240,11 +241,52 @@ class SessionUpdateSerializer(serializers.ModelSerializer):
         model = Session
         fields = [
             'session_type', 'scheduled_date', 'duration_minutes', 'status',
-            'location', 'is_online', 'session_notes', 'patient_goals',
-            'homework_assigned', 'next_session_goals', 'patient_mood_before',
-            'patient_mood_after', 'therapist_observations', 'session_effectiveness',
-            'consent_recording', 'consent_ai_analysis', 'fee_charged', 'payment_status'
+            'location', 'is_online', 'session_notes', 'session_summary',
+            'patient_goals', 'homework_assigned', 'next_session_goals', 
+            'patient_mood_before', 'patient_mood_after', 'therapist_observations', 
+            'session_effectiveness', 'consent_recording', 'consent_ai_analysis', 
+            'fee_charged', 'payment_status'
         ]
+
+
+class SessionSummarySerializer(serializers.ModelSerializer):
+    """Serializer for therapist to write session summary for patient"""
+    therapist_name = serializers.SerializerMethodField()
+    patient_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Session
+        fields = [
+            'id', 'session_number', 'scheduled_date', 'session_type', 'duration_minutes',
+            'patient_name', 'therapist_name', 'status',
+            'session_summary', 'patient_goals', 'homework_assigned', 'next_session_goals',
+            'summary_written_at'
+        ]
+        read_only_fields = ['id', 'session_number', 'scheduled_date', 'session_type',
+                           'patient_name', 'therapist_name', 'summary_written_at', 'status', 'duration_minutes']
+    
+    def get_therapist_name(self, obj):
+        return obj.therapist.full_name if obj.therapist else None
+    
+    def get_patient_name(self, obj):
+        return obj.patient.full_name if obj.patient else None
+    
+    def validate(self, attrs):
+        """Validate that only completed or in-progress sessions can have summaries"""
+        instance = self.instance
+        if instance and instance.status not in ['COMPLETED', 'IN_PROGRESS']:
+            raise serializers.ValidationError(
+                "Session summary can only be written for completed or in-progress sessions."
+            )
+        return attrs
+    
+    def update(self, instance, validated_data):
+        # Auto-set summary_written_at timestamp if any summary field is provided
+        summary_fields = ['session_summary', 'patient_goals', 'homework_assigned', 'next_session_goals']
+        if any(field in validated_data for field in summary_fields):
+            instance.summary_written_at = timezone.now()
+        
+        return super().update(instance, validated_data)
 
 
 class PatientListSerializer(serializers.ModelSerializer):
@@ -595,7 +637,10 @@ class PatientSessionSerializer(serializers.ModelSerializer):
             'id', 'session_number', 'session_type', 'scheduled_date',
             'actual_start_time', 'actual_end_time', 'duration_minutes',
             'status', 'session_status_display', 'location', 'is_online', 
-            'therapist', 'patient_goals', 'homework_assigned', 'next_session_goals', 
+            'therapist',
+            # Session summary fields
+            'session_summary', 'patient_goals', 'homework_assigned', 'next_session_goals', 
+            'summary_written_at',
             'patient_mood_before', 'patient_mood_after', 'mood_improvement', 
             'appointment_label', 'time_until_session', 'can_join_session',
             'is_recurring', 'is_emergency', 'is_part_of_series',
@@ -682,6 +727,12 @@ class PatientSessionSerializer(serializers.ModelSerializer):
                 protocol = 'wss' if request.is_secure() else 'ws'
                 return f"{protocol}://{host}/ws/therapy-session/{obj.websocket_room_id}/"
         return None
+    
+    def get_goals_worked_on_details(self, obj):
+        """Return detailed information about linked goals"""
+        from patients.serializers import PatientGoalSerializer
+        goals = obj.goals_worked_on.all()
+        return PatientGoalSerializer(goals, many=True).data
 
 
 class TherapistSessionSerializer(serializers.ModelSerializer):

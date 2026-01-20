@@ -4,8 +4,9 @@ from django.urls import path
 from .views import (
     SessionDetailView, TherapistPatientsView, TherapistSessionsView,
     CreatePatientView, StartSessionView, EndSessionView, SessionStatsView,
-    SessionsListView, SessionRequestView, PatientDashboardView, 
-    TherapistDashboardView, SessionNotesView,
+    SessionsListView, 
+    TherapistDashboardView, SessionNotesView, SessionSummaryView,
+    PatientProgressJourneyView,
     SessionScheduleView, RecurringSessionScheduleView, BulkSessionUpdateView,
     PatientSchedulePreferencesView, AutoScheduleInitialSessionsView,
     PatientSessionsListView, SessionEmotionalAnalysisView, SessionTranscriptionView,
@@ -30,6 +31,7 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/start/', StartSessionView.as_view(), name='start_session'),
     path('sessions/<uuid:session_id>/end/', EndSessionView.as_view(), name='end_session'),
     path('sessions/<uuid:session_id>/notes/', SessionNotesView.as_view(), name='session_notes'),
+    path('sessions/<uuid:session_id>/summary/', SessionSummaryView.as_view(), name='session_summary'),
     
     # Patient management
     path('patients/', TherapistPatientsView.as_view(), name='therapist_patients'),
@@ -42,7 +44,8 @@ urlpatterns = [
     
     # Dashboard views
     path('dashboard/therapist/', TherapistDashboardView.as_view(), name='therapist_dashboard'),
-    path('dashboard/patient/', PatientDashboardView.as_view(), name='patient_dashboard'),
+    # Note: Patient dashboard is now at /api/patients/dashboard/ (more comprehensive)
+    path('progress-journey/', PatientProgressJourneyView.as_view(), name='patient_progress_journey'),
     
     # Statistics
     path('stats/', SessionStatsView.as_view(), name='session_stats'),
@@ -61,9 +64,6 @@ urlpatterns = [
     path('booking/dates/', TherapistAvailableDatesView.as_view(), name='available_dates'),
     path('booking/book/', PatientBookSessionView.as_view(), name='book_session'),
     path('booking/emergency/', EmergencySessionRequestView.as_view(), name='emergency_session'),
-    
-    # Session requests (kept for backwards compatibility, now redirects to booking flow)
-    path('sessions/request/', SessionRequestView.as_view(), name='request_session'),
     
     # Session analysis and transcription
     path('sessions/<uuid:session_id>/analysis/', SessionEmotionalAnalysisView.as_view(), name='session_emotional_analysis'),

@@ -79,10 +79,14 @@ class Session(models.Model):
     is_online = models.BooleanField(default=False)
     
     # Session content
-    session_notes = models.TextField(blank=True, null=True, help_text="Therapist's session notes")
-    patient_goals = models.TextField(blank=True, null=True, help_text="Goals discussed in session")
-    homework_assigned = models.TextField(blank=True, null=True, help_text="Homework or tasks assigned")
+    session_notes = models.TextField(blank=True, null=True, help_text="Therapist's private session notes (not visible to patient)")
+    session_summary = models.TextField(blank=True, null=True, help_text="Summary of the session for patient")
+    patient_goals = models.TextField(blank=True, null=True, help_text="Patient goals discussed in session")
+    homework_assigned = models.TextField(blank=True, null=True, help_text="Homework assigned to patient")
     next_session_goals = models.TextField(blank=True, null=True, help_text="Goals for next session")
+    summary_written_at = models.DateTimeField(blank=True, null=True, help_text="When therapist wrote the summary")
+    
+    # Patient mood tracking
     
     # Assessments and ratings
     patient_mood_before = models.IntegerField(

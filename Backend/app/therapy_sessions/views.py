@@ -30,7 +30,7 @@ from .serializers import (
     SessionRequestSerializer, SessionScheduleSerializer, RecurringSessionScheduleSerializer,
     SessionScheduleResponseSerializer, BulkSessionUpdateSerializer,
     TherapistDateOverrideSerializer, PatientBookingSerializer, 
-    EmergencySessionRequestSerializer, AvailableSlotSerializer
+    EmergencySessionRequestSerializer, AvailableSlotSerializer, SessionSummarySerializer
 )
 from users.models import PatientProfile, TherapistProfile
 # Removed: transcription_service import - migrated to FastAPI AI service
@@ -1599,6 +1599,344 @@ class SessionNotesView(generics.GenericAPIView):
             'detail': 'Session notes updated successfully.',
             'session': SessionSerializer(session).data
         }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Therapy Sessions'],
+    summary="Write session summary for patient",
+    description="Therapist writes a session summary that will be visible to the patient. Can only be written for completed or in-progress sessions.",
+    examples=[
+        OpenApiExample(
+            'Session Summary Creation',
+            summary='Write session summary',
+            value={
+                "session_summary": "We worked on anxiety management techniques. Patient showed great progress with breathing exercises. Continue practicing daily mindfulness for 10 minutes.",
+                "patient_goals": "Practice breathing exercises daily",
+                "homework_assigned": "Complete 10-minute daily mindfulness practice",
+                "next_session_goals": "Review progress and introduce cognitive restructuring techniques"
+            },
+            request_only=True,
+        ),
+    ],
+)
+class SessionSummaryView(generics.UpdateAPIView):
+    """Therapist writes session summary for patient to view"""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SessionSummarySerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'session_id'
+    
+    def get_queryset(self):
+        """Only therapist can write summaries for their own sessions"""
+        user = self.request.user
+        if user.user_type != 'therapist':
+            return Session.objects.none()
+        return Session.objects.filter(therapist=user)
+    
+    def update(self, request, *args, **kwargs):
+        session = self.get_object()
+        
+        # Validate session status
+        if session.status not in ['COMPLETED', 'IN_PROGRESS']:
+            return Response(
+                {'detail': 'Session summary can only be written for completed or in-progress sessions.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = self.get_serializer(session, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        return Response({
+            'detail': 'Session summary written successfully.',
+            'session': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Therapy Sessions'],
+    summary="Get available session topics",
+    description="Returns all available topic tags that therapists can select when writing session summaries. Supports search query parameter to filter topics.",
+    parameters=[
+        OpenApiParameter(
+            name='search',
+            description='Search query to filter topics by label (case-insensitive)',
+            required=False,
+            type=str
+        ),
+        OpenApiParameter(
+            name='category',
+            description='Filter by category: mental_health, mindfulness, relationships, personal_dev, behavioral, cognitive, work_life, techniques, crisis, assessment',
+            required=False,
+            type=str
+        )
+    ]
+)
+class AvailableSessionTopicsView(APIView):
+    """Get all available session topic tags for session summary form with search/filter"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Return all session topic choices organized by category, with optional search/filter"""
+        search_query = request.query_params.get('search', '').lower()
+        category_filter = request.query_params.get('category', '').lower()
+        
+        # All topics with metadata
+        all_topics = []
+        for code, label in Session.SESSION_TOPIC_CHOICES:
+            all_topics.append({
+                'value': code,
+                'label': label
+            })
+        
+        # Organize by categories
+        categorized_topics = {
+            'Mental Health & Emotions': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[:9]
+            ],
+            'Mindfulness & Self-Care': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[9:15]
+            ],
+            'Relationships & Social': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[15:23]
+            ],
+            'Personal Development': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[23:31]
+            ],
+            'Behavioral & Coping': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[31:36]
+            ],
+            'Cognitive & Thought Patterns': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[36:41]
+            ],
+            'Work & Life Balance': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[41:46]
+            ],
+            'Specific Techniques': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[46:52]
+            ],
+            'Crisis & Support': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[52:56]
+            ],
+            'Assessment & Planning': [
+                {'value': code, 'label': label}
+                for code, label in Session.SESSION_TOPIC_CHOICES[56:59]
+            ],
+        }
+        
+        # Apply search filter
+        filtered_topics = all_topics
+        if search_query:
+            filtered_topics = [
+                topic for topic in all_topics 
+                if search_query in topic['label'].lower() or search_query in topic['value'].lower()
+            ]
+        
+        # Apply category filter
+        if category_filter:
+            category_map = {
+                'mental_health': 'Mental Health & Emotions',
+                'mindfulness': 'Mindfulness & Self-Care',
+                'relationships': 'Relationships & Social',
+                'personal_dev': 'Personal Development',
+                'behavioral': 'Behavioral & Coping',
+                'cognitive': 'Cognitive & Thought Patterns',
+                'work_life': 'Work & Life Balance',
+                'techniques': 'Specific Techniques',
+                'crisis': 'Crisis & Support',
+                'assessment': 'Assessment & Planning'
+            }
+            
+            category_name = category_map.get(category_filter)
+            if category_name and category_name in categorized_topics:
+                filtered_topics = categorized_topics[category_name]
+        
+        return Response({
+            'topics': filtered_topics,  # Filtered list
+            'total': len(filtered_topics),
+            'categorized_topics': categorized_topics,  # Full categorized list
+            'search_applied': bool(search_query),
+            'category_applied': bool(category_filter)
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Therapy Sessions'],
+    summary="Get patient's progress journey",
+    description="Analyzes the last 8 completed sessions to show patient's strengths developed, areas of growth, and ongoing focus.",
+)
+class PatientProgressJourneyView(generics.GenericAPIView):
+    """Analyze patient's session history to show progress journey"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        
+        # Get last 8 completed sessions
+        sessions = Session.objects.filter(
+            patient=user,
+            status='COMPLETED'
+        ).order_by('-scheduled_date')[:8]
+        
+        if not sessions.exists():
+            return Response({
+                'detail': 'No completed sessions found',
+                'total_sessions': 0
+            }, status=status.HTTP_200_OK)
+        
+        # Analyze sessions for patterns
+        analysis = self._analyze_progress(sessions)
+        
+        return Response(analysis, status=status.HTTP_200_OK)
+    
+    def _analyze_progress(self, sessions):
+        """Analyze sessions to extract strengths, growth areas, and focus"""
+        from collections import Counter
+        
+        all_topics = []
+        recent_recommendations = []
+        recent_focus_areas = []
+        
+        # Extract data from sessions
+        for session in sessions:
+            if session.session_topics:
+                all_topics.extend(session.session_topics)
+            if session.recommendations and session == sessions[0]:  # Most recent
+                recent_recommendations = session.recommendations[:3]
+            if session.next_session_focus and len(recent_focus_areas) < 3:
+                recent_focus_areas.append(session.next_session_focus)
+        
+        # Count topic frequency
+        topic_counter = Counter(all_topics)
+        most_common_topics = topic_counter.most_common(10)
+        
+        # Categorize topics into strengths, growth areas, and ongoing focus
+        strengths = self._identify_strengths(most_common_topics, all_highlights)
+        growth_areas = self._identify_growth_areas(most_common_topics, recent_recommendations)
+        ongoing_focus = self._identify_ongoing_focus(recent_focus_areas, most_common_topics)
+        
+        return {
+            'total_sessions_analyzed': len(sessions),
+            'title': 'Your Progress Journey',
+            'subtitle': f'Over {len(sessions)} sessions, you\'ve shown remarkable growth and resilience.',
+            'strengths_developed': strengths,
+            'areas_of_growth': growth_areas,
+            'ongoing_focus': ongoing_focus,
+            'encouragement_message': 'Remember: healing is a journey, not a destination. Celebrate every step forward! 🌟'
+        }
+    
+    def _identify_strengths(self, topic_counter, highlights):
+        """Identify areas where patient has shown consistent work (strengths)"""
+        # Topics mentioned 3+ times indicate established strengths
+        strengths = []
+        
+        strength_keywords = {
+            'mindfulness': 'Mindfulness practice',
+            'stress': 'Coping strategies',
+            'emotional': 'Emotional awareness',
+            'anxiety': 'Anxiety management',
+            'breathing': 'Breathing techniques',
+            'meditation': 'Meditation practice',
+            'self-care': 'Self-care routines',
+            'gratitude': 'Gratitude practice',
+            'awareness': 'Self-awareness'
+        }
+        
+        for topic, count in topic_counter:
+            if count >= 3:  # Worked on multiple times = strength
+                topic_lower = topic.lower()
+                for keyword, label in strength_keywords.items():
+                    if keyword in topic_lower:
+                        if label not in strengths:
+                            strengths.append(label)
+                        break
+                else:
+                    # Use original topic if no keyword match
+                    if topic not in strengths and len(strengths) < 5:
+                        strengths.append(topic)
+        
+        # Default strengths if analysis doesn't find enough
+        if len(strengths) < 2:
+            strengths = ['Emotional awareness', 'Mindfulness practice', 'Coping strategies']
+        
+        return strengths[:5]  # Max 5 strengths
+    
+    def _identify_growth_areas(self, topic_counter, recent_recommendations):
+        """Identify areas still being worked on"""
+        growth_areas = []
+        
+        growth_keywords = {
+            'stress': 'Stress management',
+            'boundary': 'Boundary setting',
+            'self-compassion': 'Self-compassion',
+            'relationship': 'Relationship dynamics',
+            'assertive': 'Assertiveness',
+            'communication': 'Communication skills',
+            'emotion regulation': 'Emotional regulation',
+            'conflict': 'Conflict resolution'
+        }
+        
+        # Check recent recommendations for growth areas
+        for rec in recent_recommendations:
+            rec_lower = rec.lower()
+            for keyword, label in growth_keywords.items():
+                if keyword in rec_lower and label not in growth_areas:
+                    growth_areas.append(label)
+        
+        # Check topics mentioned 1-2 times (still developing)
+        for topic, count in topic_counter:
+            if 1 <= count <= 2 and len(growth_areas) < 3:
+                topic_lower = topic.lower()
+                for keyword, label in growth_keywords.items():
+                    if keyword in topic_lower and label not in growth_areas:
+                        growth_areas.append(label)
+                        break
+        
+        # Default growth areas
+        if len(growth_areas) < 2:
+            growth_areas = ['Stress management', 'Self-compassion', 'Boundary setting']
+        
+        return growth_areas[:3]  # Max 3 growth areas
+    
+    def _identify_ongoing_focus(self, recent_focus_areas, topic_counter):
+        """Identify current ongoing focus areas"""
+        ongoing = []
+        
+        focus_keywords = {
+            'relationship': 'Relationship dynamics',
+            'assertive': 'Assertiveness',
+            'emotion': 'Emotional regulation',
+            'boundary': 'Boundary setting',
+            'communication': 'Communication',
+            'self-esteem': 'Self-esteem',
+            'confidence': 'Building confidence',
+            'mindfulness': 'Mindfulness deepening'
+        }
+        
+        # Extract from recent next session focus
+        for focus_text in recent_focus_areas:
+            focus_lower = focus_text.lower()
+            for keyword, label in focus_keywords.items():
+                if keyword in focus_lower and label not in ongoing:
+                    ongoing.append(label)
+                    if len(ongoing) >= 3:
+                        break
+        
+        # Default ongoing focus
+        if len(ongoing) < 2:
+            ongoing = ['Relationship dynamics', 'Assertiveness', 'Emotional regulation']
+        
+        return ongoing[:3]  # Max 3 ongoing focus
+
 
 @extend_schema(tags=['Session Scheduling'])
 class SessionScheduleView(APIView):

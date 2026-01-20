@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "therapy_sessions",       # Therapy session management
     "history",        # User history/logs
     "core",
+    "patients",       # Patient wellness features (mood, journal, relaxation, goals)
     # Removed: "transcription" and "soap" - migrated to FastAPI AI service
 ]
 
@@ -323,3 +324,11 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 # --- Site Configuration ---
 SITE_NAME = os.environ.get("SITE_NAME", "MindScribe")
 VERSION = os.environ.get("VERSION", "1.0.0")
+
+# --- Media Files Configuration ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# --- AI Services Configuration ---
+# OpenAI API key for AI-powered mood insights
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
