@@ -1,0 +1,44 @@
+# AI Service Dependencies
+# FastAPI and Web Framework
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Database
+sqlalchemy[asyncio]
+asyncpg
+
+# OpenAI
+openai
+
+# ML/AI Models
+transformers
+torch
+pyannote.audio
+
+# Audio Processing
+librosa
+soundfile
+pydub
+numpy
+
+# Configuration
+pydantic
+pydantic-settings
+python-dotenv
+
+# NLTK for text processing
+nltk
+
+# Testing (optional)
+pytest
+pytest-asyncio
+httpx
+
+# HuggingFace Hub
+huggingface-hub
