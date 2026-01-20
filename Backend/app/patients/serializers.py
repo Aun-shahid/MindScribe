@@ -27,7 +27,7 @@ class MoodEntrySerializer(serializers.ModelSerializer):
     )
     
     # Read-only computed fields
-    moods_list = serializers.ListField(read_only=True, source='moods_list')
+    moods_list = serializers.ListField(read_only=True)
     dominant_mood = serializers.CharField(read_only=True)
     average_intensity = serializers.FloatField(read_only=True)
     
