@@ -34,6 +34,8 @@ urlpatterns = [
     # Patient management
     path('patients/', TherapistPatientsView.as_view(), name='therapist_patients'),
     path('patients/create/', CreatePatientView.as_view(), name='create_patient'),
+    path('patients/new/', CreatePatientView.as_view(), name='create_patient_new'),  # Alternative endpoint
+    path('patients/<uuid:patient_id>/', TherapistPatientsView.as_view(), name='patient_detail'),  # Individual patient details
     path('patients/<uuid:patient_id>/sessions/', PatientSessionsListView.as_view(), name='patient_sessions_list'),
     path('patients/<uuid:patient_id>/preferences/', PatientSchedulePreferencesView.as_view(), name='patient_schedule_preferences'),
     path('patients/<uuid:patient_id>/auto-schedule/', AutoScheduleInitialSessionsView.as_view(), name='auto_schedule_initial_sessions'),
