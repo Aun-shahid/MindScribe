@@ -32,15 +32,9 @@ COPY . .
 # Create directory for model cache
 RUN mkdir -p /app/models_cache
 
-# Expose port 8080
+# Expose port (Railway will override this, but 8080 is a good default)
 EXPOSE 8080
 
-# Set the AI_SERVICE_PORT environment variable to 8080
-ENV AI_SERVICE_PORT=8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
-
 # Run the application with uvicorn
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# We use a shell-form CMD to allow environment variable expansion
+CMD uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8080}

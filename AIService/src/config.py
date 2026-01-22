@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     target_sample_rate: int = Field(default=16000, alias="TARGET_SAMPLE_RATE")
     
     # Service Configuration
-    ai_service_port: int = Field(default=8001, alias="AI_SERVICE_PORT")
+    ai_service_port: int = Field(default=8080, alias="PORT")
     debug: bool = Field(default=False, alias="DEBUG")
     
     # CORS
