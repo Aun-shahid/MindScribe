@@ -15,6 +15,7 @@ import ActiveSession from './pages/ActiveSession';
 import EndSession from './pages/EndSession';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
+import PatientSessions from './pages/PatientSessions';
 import Profile from './pages/Profile';
 import QRCode from './pages/QRCode';
 import NewSession from './pages/NewSession';
@@ -49,6 +50,7 @@ function App() {
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />
+                <Route path="/patients/:patientId/sessions" element={<PatientSessions />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

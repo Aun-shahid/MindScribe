@@ -118,10 +118,19 @@ const NewPatient: React.FC = () => {
     }
 
     try {
+      console.log('Submitting patient data:', patientData);
       await createPatient(patientData);
       navigate('/patients');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create patient:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        response: err?.response?.data
+      });
+      // Show user-friendly error message
+      alert(`Failed to create patient: ${err?.message || 'Unknown error. Check console for details.'}`);
     }
   };
 
