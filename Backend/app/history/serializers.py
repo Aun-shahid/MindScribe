@@ -63,8 +63,12 @@ class MoodEntryCreateSerializer(serializers.ModelSerializer):
 class JournalEntrySerializer(serializers.ModelSerializer):
     """Serializer for journal entries"""
     tags_list = serializers.SerializerMethodField()
-    mood_improvement = serializers.ReadOnlyField()
+    mood_improvement = serializers.SerializerMethodField()
     
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_mood_improvement(self, obj):
+        return obj.mood_improvement
+
     class Meta:
         model = JournalEntry
         fields = [
@@ -111,15 +115,15 @@ class JournalEntryCreateSerializer(serializers.ModelSerializer):
 
 class ActivityLogSerializer(serializers.ModelSerializer):
     """Serializer for activity logs"""
-    mood_impact = serializers.ReadOnlyField()
-    energy_impact = serializers.ReadOnlyField()
+    mood_impact = serializers.SerializerMethodField()
+    energy_impact = serializers.SerializerMethodField()
     
-    @extend_schema_field(serializers.CharField)
-    def mood_impact(self, obj):
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_mood_impact(self, obj):
         return obj.mood_impact
     
-    @extend_schema_field(serializers.CharField)
-    def energy_impact(self, obj):
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_energy_impact(self, obj):
         return obj.energy_impact
     
     class Meta:

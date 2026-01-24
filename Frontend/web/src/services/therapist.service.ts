@@ -51,7 +51,7 @@ class TherapistService {
       console.log('[TherapistService] Transformed dashboard data:', transformedData);
       console.log('[TherapistService] Upcoming sessions sample:', transformedData.upcoming_sessions[0]);
       return transformedData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -100,7 +100,7 @@ class TherapistService {
       }
       
       return sessionsData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -131,7 +131,7 @@ class TherapistService {
       console.log('[TherapistService] GET', endpoint);
       const response = await api.get(endpoint);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -272,7 +272,7 @@ class TherapistService {
     patient_goals?: string;
     homework_assigned?: string;
     next_session_goals?: string;
-  }): Promise<any> {
+  }): Promise<Patient[]> {
     try {
       console.log('[TherapistService] PUT /therapy_sessions/sessions/', sessionId, '/summary/', summaryData);
       const response = await api.put(`/therapy_sessions/sessions/${sessionId}/summary/`, summaryData);
@@ -294,7 +294,7 @@ class TherapistService {
       
       let sessionsData = [];
       if (response.data && Array.isArray(response.data.sessions)) {
-        sessionsData = response.data.sessions.map((s: any) => ({
+        sessionsData = response.data.sessions.map((s: SessionType) => ({
           id: s.id,
           patient_name: s.patient_name || 'Unknown',
           session_date: s.session_date || 'Unknown',
@@ -343,7 +343,7 @@ class TherapistService {
       }
       
       // Clean and validate patient data to prevent render errors
-      const cleanedPatients = patientsData.map((patient: any) => ({
+      const cleanedPatients = patientsData.map((patient: Patient) => ({
         id: patient.id?.toString() || '',
         full_name: typeof patient.full_name === 'string' ? patient.full_name : 'Unknown Patient',
         email: typeof patient.email === 'string' ? patient.email : '',
@@ -369,7 +369,7 @@ class TherapistService {
       
       console.log('[TherapistService] Cleaned patients data:', cleanedPatients);
       return cleanedPatients;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -384,7 +384,7 @@ class TherapistService {
     }
   }
 
-  async getPatientSessions(patientId: string): Promise<any[]> {
+  async getPatientSessions(patientId: string): Promise<SessionType[]> {
     try {
       console.log('[TherapistService] GET /therapy_sessions/sessions/?patient_id=', patientId);
       const response = await api.get(`/therapy_sessions/sessions/?patient_id=${patientId}&limit=100`);
@@ -414,7 +414,7 @@ class TherapistService {
   /**
    * Dashboard-specific API calls
    */
-  async getTherapistPatients(): Promise<any[]> {
+  async getTherapistPatients(): Promise<Patient[]> {
     try {
       console.log('[TherapistService] GET /users/patients/');
       const response = await api.get('/users/patients/');
@@ -425,7 +425,7 @@ class TherapistService {
     }
   }
 
-  async getTherapistSessions(): Promise<any[]> {
+  async getTherapistSessions(): Promise<SessionType[]> {
     try {
       console.log('[TherapistService] GET /therapy_sessions/sessions/');
       const response = await api.get('/therapy_sessions/sessions/');
@@ -477,7 +477,7 @@ class TherapistService {
     }
   }
 
-  async getConsentStatus(patientId: string, therapistId: string): Promise<any> {
+  async getConsentStatus(patientId: string, therapistId: string): Promise<ConsentData> {
     try {
       console.log('[TherapistService] GET /therapy_sessions/consent/status/', { patientId, therapistId });
       const response = await api.get(`/therapy_sessions/consent/status/?patient_id=${patientId}&therapist_id=${therapistId}`);
@@ -512,7 +512,7 @@ class TherapistService {
     }
   }
 
-  async endSession(sessionId: string, sessionData: EndSessionFormData): Promise<any> {
+  async endSession(sessionId: string, sessionData: EndSessionFormData): Promise<void> {
     try {
       console.log('[TherapistService] POST /therapy_sessions/sessions/', sessionId, '/end/', sessionData);
       const response = await api.post(`/therapy_sessions/sessions/${sessionId}/end/`, sessionData);
@@ -613,7 +613,7 @@ class TherapistService {
   /**
    * Profile and tools
    */
-  async getTherapistProfile(): Promise<any> {
+  async getTherapistProfile(): Promise<TherapistQRInfo> {
     try {
       console.log('[TherapistService] GET /users/therapist-profile/');
       const response = await api.get('/users/therapist-profile/');
@@ -623,7 +623,7 @@ class TherapistService {
     }
   }
 
-  async updateTherapistProfile(profileData: any): Promise<any> {
+  async updateTherapistProfile(profileData: TherapistQRInfo): Promise<TherapistQRInfo> {
     try {
       console.log('[TherapistService] PATCH /users/therapist-profile/', profileData);
       const response = await api.patch('/users/therapist-profile/', profileData);
@@ -706,7 +706,7 @@ class TherapistService {
   /**
    * Handle API errors and transform them into TherapistError
    */
-  private handleError(error: any): TherapistError {
+  private handleError(error: unknown): TherapistError {
     if (error.response?.data) {
       const { data } = error.response;
       
@@ -730,8 +730,15 @@ class TherapistService {
       if (typeof data === 'object' && !data.message) {
         const fieldErrors = Object.entries(data)
           .filter(([key]) => key !== 'non_field_errors')
-          .map(([field, errors]: [string, any]) => {
-            const errorMsg = Array.isArray(errors) ? errors.join(', ') : errors;
+          .map(([field, errors]: [string, unknown]) => {
+            let errorMsg: string;
+            if (Array.isArray(errors)) {
+              errorMsg = errors.join(', ');
+            } else if (typeof errors === 'string') {
+              errorMsg = errors;
+            } else {
+              errorMsg = JSON.stringify(errors);
+            }
             return `${field}: ${errorMsg}`;
           })
           .join('; ');
@@ -775,7 +782,7 @@ class TherapistService {
     }
   }
 
-  static async startSession(sessionId: string, startData: StartSessionData): Promise<any> {
+  static async startSession(sessionId: string, startData: StartSessionData): Promise<void> {
     try {
       const response = await api.post(`/therapy_sessions/sessions/${sessionId}/start/`, startData);
       return response.data;
@@ -788,7 +795,7 @@ class TherapistService {
   /**
    * Session Details API calls
    */
-  static async fetchPatientSessions(patientId: string): Promise<any[]> {
+  static async fetchPatientSessions(patientId: string): Promise<SessionType[]> {
     try {
       const response = await api.get(`/therapy_sessions/sessions/?patient=${patientId}`);
       if (response.data && Array.isArray(response.data)) {
@@ -801,7 +808,7 @@ class TherapistService {
     }
   }
 
-  static async fetchPatientsData(): Promise<any[]> {
+  static async fetchPatientsData(): Promise<Patient[]> {
     try {
       const response = await api.get('/therapy_sessions/patients/');
       if (response.data && Array.isArray(response.data)) {

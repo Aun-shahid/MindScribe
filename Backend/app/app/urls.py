@@ -6,6 +6,8 @@ from rest_framework_simplejwt.views import (
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django.views.generic import RedirectView # Import RedirectView
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # Redirect root URL to Swagger UI in DEBUG mode
@@ -19,11 +21,15 @@ urlpatterns = [
     path("api/users/", include("users.urls")),
     path("api/therapy_sessions/", include("therapy_sessions.urls")), # Updated to therapy_sessions
     path("api/history/", include("history.urls")), # Patient history and tracking
-    # path("api/transcription/", include("transcription.urls")),
-    # path("api/soap/", include("soap.urls")),
+    path("api/patients/", include("patients.urls")), # Patient wellness features
+    # Removed: transcription and soap routes - migrated to FastAPI AI service
 
     # OpenAPI/Swagger UI URLs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     # Only display Swagger UI in debug mode (controlled by SPECTACULAR_SETTINGS['SERVE_INCLUDE_SCHEMA'])
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

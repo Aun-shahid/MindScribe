@@ -12,7 +12,7 @@ import {
   Alert
 } from 'react-native';
 import React from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSessionDetail } from '../hooks/useTherapist';
 import { SessionDetail } from '../types/therapist';
@@ -25,7 +25,18 @@ const SessionDetailView = () => {
     session: sessionDetail,
     loading,
     error,
+    refetch,
   } = useSessionDetail(sessionId);
+
+  // Refresh data when screen comes into focus (e.g., returning from edit)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Session detail view focused, refreshing data...');
+      if (sessionId && refetch) {
+        refetch();
+      }
+    }, [sessionId, refetch])
+  );
 
   // Handle errors (from hook)
   React.useEffect(() => {
@@ -82,11 +93,11 @@ const SessionDetailView = () => {
 
   const handleEditNotes = () => {
     router.push({
-      pathname: './session-notes-edit',
+      pathname: './edit_notes',
       params: {
         sessionId: sessionId,
-        existingNotes: sessionDetail?.session_notes || '',
-        existingMood: sessionDetail?.patient_mood_after?.toString() || '7'
+        patientName: sessionDetail?.patient?.full_name || 'Unknown Patient',
+        patientId: sessionDetail?.patient?.id || ''
       }
     });
   };
@@ -144,9 +155,14 @@ const SessionDetailView = () => {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Session #{sessionDetail.session_number}</Text>
-        <TouchableOpacity onPress={handleEditNotes}>
-          <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity onPress={() => refetch()}>
+            <Text style={styles.editText}>🔄</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleEditNotes}>
+            <Text style={styles.editText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
