@@ -2254,10 +2254,20 @@ class SessionsListView(generics.ListAPIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
+        # Filter by session type
+        session_type_filter = self.request.query_params.get('session_type')
+        if session_type_filter:
+            queryset = queryset.filter(session_type=session_type_filter)
+        
+        # Filter by patient ID (for therapists viewing specific patient's sessions)
+        patient_id_filter = self.request.query_params.get('patient_id')
+        if patient_id_filter and user.user_type == 'therapist':
+            queryset = queryset.filter(patient_id=patient_id_filter)
+        
         # Apply limit
         limit = int(self.request.query_params.get('limit', 50))
         
-        return queryset.select_related('patient', 'therapist').order_by('scheduled_date')[:limit]
+        return queryset.select_related('patient', 'therapist').order_by('-scheduled_date')[:limit]
     
     def list(self, request, *args, **kwargs):
         """Override list to add user type and total count"""
