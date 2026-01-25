@@ -88,7 +88,7 @@ const JournalEntry = () => {
     
     try {
       setHistoryLoading(true);
-      const response = await api.get('history/journal/?limit=10');
+      const response = await api.get('/patients/journal/?limit=10');
       setJournalHistory(response.data);
       setHistoryLoaded(true);
     } catch (error) {
@@ -167,7 +167,7 @@ const JournalEntry = () => {
 
     try {
       setLoading(true);
-      const response = await api.post('history/journal/', payload);
+      const response = await api.post('/patients/journal/', payload);
       console.log('✅ Journal entry saved:', response.data);
       
       const moodImprovement = payload.mood_after - payload.mood_before;

@@ -119,7 +119,7 @@ const MoodTracker = () => {
       setHistoryLoading(true);
       console.log('📥 Fetching mood history...');
       
-      const response = await api.get<MoodHistoryEntry[]>('/history/mood/', {
+      const response = await api.get<MoodHistoryEntry[]>('/patients/mood/', {
         params: {
           limit: 10 // Get last 10 entries
         }
@@ -171,9 +171,9 @@ const MoodTracker = () => {
     try {
       setLoading(true);
       console.log('📤 Submitting mood entry:', payload);
-      console.log('📡 API endpoint: /history/mood/');
+      console.log('📡 API endpoint: /patients/mood/');
 
-      const res = await api.post<MoodEntryResponse>('/history/mood/', payload);
+      const res = await api.post<MoodEntryResponse>('/patients/mood/', payload);
       console.log('✅ Mood entry saved:', res.data);
 
       // Use the response data to show confirmation

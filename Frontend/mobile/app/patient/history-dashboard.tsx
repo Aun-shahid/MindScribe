@@ -126,7 +126,7 @@ const HistoryDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('history/dashboard/');
+      const response = await api.get('/patients/dashboard/');
       
       // Ensure the response has the expected structure
       const data = response.data;

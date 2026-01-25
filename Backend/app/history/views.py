@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404
+﻿from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Avg, Count, Q
@@ -69,6 +69,14 @@ class PatientHistoryDashboardView(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # DEPRECATION WARNING
+        import warnings
+        warnings.warn(
+            "The /history/dashboard/ endpoint is deprecated. Use /patients/dashboard/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         # Get recent entries (last 7 days)
         week_ago = timezone.now() - timedelta(days=7)
         
@@ -120,7 +128,11 @@ class PatientHistoryDashboardView(generics.GenericAPIView):
             }
         }
         
-        return Response(dashboard_data, status=status.HTTP_200_OK)
+        response = Response(dashboard_data, status=status.HTTP_200_OK)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/dashboard/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'  # 1 month deprecation period
+        return response
     
     def calculate_streak_days(self, user):
         """Calculate consecutive days with any entries"""
@@ -575,6 +587,14 @@ class MoodEntriesView(generics.ListCreateAPIView):
         if user.user_type != 'patient':
             return MoodEntry.objects.none()
         
+        # DEPRECATION WARNING
+        import warnings
+        warnings.warn(
+            "The /history/mood/ endpoint is deprecated. Use /patients/mood/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         queryset = MoodEntry.objects.filter(patient=user).order_by('-created_at')
         
         # Apply filters
@@ -587,6 +607,28 @@ class MoodEntriesView(generics.ListCreateAPIView):
             queryset = queryset[:int(limit)]
         
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to add deprecation headers"""
+        response = super().list(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/mood/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to add deprecation headers"""
+        import warnings
+        warnings.warn(
+            "The /history/mood/ endpoint is deprecated. Use /patients/mood/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        response = super().create(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/mood/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
 
 
 @extend_schema(
@@ -629,6 +671,14 @@ class JournalEntriesView(generics.ListCreateAPIView):
         if user.user_type != 'patient':
             return JournalEntry.objects.none()
         
+        # DEPRECATION WARNING
+        import warnings
+        warnings.warn(
+            "The /history/journal/ endpoint is deprecated. Use /patients/journal/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         queryset = JournalEntry.objects.filter(patient=user).order_by('-created_at')
         
         # Apply filters
@@ -645,6 +695,28 @@ class JournalEntriesView(generics.ListCreateAPIView):
             queryset = queryset[:int(limit)]
         
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to add deprecation headers"""
+        response = super().list(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/journal/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to add deprecation headers"""
+        import warnings
+        warnings.warn(
+            "The /history/journal/ endpoint is deprecated. Use /patients/journal/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        response = super().create(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/journal/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
 
 
 @extend_schema(
@@ -685,6 +757,14 @@ class ActivityEntriesView(generics.ListCreateAPIView):
         if user.user_type != 'patient':
             return ActivityLog.objects.none()
         
+        # DEPRECATION WARNING
+        import warnings
+        warnings.warn(
+            "The /history/activities/ endpoint is deprecated. Use /patients/activities/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         queryset = ActivityLog.objects.filter(patient=user).order_by('-activity_date')
         
         # Apply filters
@@ -697,6 +777,28 @@ class ActivityEntriesView(generics.ListCreateAPIView):
             queryset = queryset[:int(limit)]
         
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to add deprecation headers"""
+        response = super().list(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/activities/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to add deprecation headers"""
+        import warnings
+        warnings.warn(
+            "The /history/activities/ endpoint is deprecated. Use /patients/activities/ instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        response = super().create(request, *args, **kwargs)
+        response['X-API-Deprecated'] = 'true'
+        response['X-API-Deprecation-Message'] = 'Use /patients/activities/ instead'
+        response['X-API-Sunset-Date'] = '2026-03-01'
+        return response
 
 @extend_schema(
     tags=['History'],
@@ -1070,3 +1172,4 @@ class HistoryStatsView(generics.GenericAPIView):
                 break
         
         return streak
+

@@ -18,6 +18,9 @@ from .views import (
     # Goals
     PatientGoalListCreateView, PatientGoalDetailView,
     
+    # Activities
+    ActivityLogListCreateView, ActivityLogDetailView, ActivityAnalyticsView,
+    
     # Inspiration
     DailyInspirationView,
     
@@ -66,6 +69,11 @@ urlpatterns = [
     # Goals
     path('goals/', PatientGoalListCreateView.as_view(), name='goals-list'),
     path('goals/<uuid:pk>/', PatientGoalDetailView.as_view(), name='goals-detail'),
+    
+    # Activities
+    path('activities/', ActivityLogListCreateView.as_view(), name='activities-list'),
+    path('activities/<uuid:pk>/', ActivityLogDetailView.as_view(), name='activities-detail'),
+    path('activities/analytics/', ActivityAnalyticsView.as_view(), name='activities-analytics'),
     
     # Daily Inspiration
     path('inspiration/', DailyInspirationView.as_view(), name='daily-inspiration'),

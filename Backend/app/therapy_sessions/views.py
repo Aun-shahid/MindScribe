@@ -566,19 +566,6 @@ class EndSessionView(generics.GenericAPIView):
             session.session_effectiveness = data['session_effectiveness']
         
         session.end_session()
-
-        # Close realtime transcription & trigger SOAP/insights generation
-        transcription_service.close_realtime(session)
-        if session.consent_recording and session.consent_ai_analysis:
-            try:
-                transcription_service.generate_session_insights(session)
-            except Exception as e:
-                # Non-fatal; return error note
-                return Response({
-                    'detail': 'Session ended; analysis failed',
-                    'error': str(e),
-                    'session': SessionSerializer(session).data
-                }, status=status.HTTP_200_OK)
         
         return Response({
             'detail': 'Session ended successfully.',
