@@ -1,9 +1,10 @@
 // src/utils/api.ts
 import axios from 'axios';
+import { backendUrl } from '../config';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api', // Update this to match your Django backend URL
+  baseURL: `${backendUrl}/api`, // Using backendUrl from config
   headers: {
     'Content-Type': 'application/json',
   },
@@ -36,7 +37,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
-          const response = await axios.post('http://localhost:8000/api/authenticator/token/refresh/', {
+          const response = await axios.post(`${backendUrl}/api/authenticator/token/refresh/`, {
             refresh: refreshToken,
           });
 

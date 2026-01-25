@@ -148,6 +148,12 @@ const Patients = () => {
                       <p>Joined: {new Date(patient.created_at).toLocaleDateString()}</p>
                     </div>
                     <Link
+                      to={`/patients/${patient.id}/sessions`}
+                      className="btn-secondary text-sm"
+                    >
+                      View Sessions
+                    </Link>
+                    <Link
                       to={`/patients/${patient.id}`}
                       className="btn-primary text-sm"
                     >

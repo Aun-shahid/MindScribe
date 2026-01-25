@@ -250,12 +250,58 @@ class TherapistService {
     }
   }
 
-  async getPatientSessions(patientId: string): Promise<any[]> {
+  async getPatientSessions(patientId: string, filter: import('../types/therapist').PatientSessionFilter = {}): Promise<import('../types/therapist').PatientSessionsResponse> {
     try {
-      console.log('[TherapistService] GET /therapy_sessions/sessions/?patient=', patientId);
-      const response = await api.get(`/therapy_sessions/sessions/?patient=${patientId}`);
-      return response.data || [];
+      const params = new URLSearchParams();
+      
+      // Always add patient ID as query parameter
+      params.append('patient', patientId);
+      
+      // Add filter parameters (if the backend supports them)
+      if (filter.status) {
+        params.append('status', filter.status);
+      }
+      if (filter.limit) {
+        params.append('limit', filter.limit.toString());
+      }
+      if (filter.offset) {
+        params.append('offset', filter.offset.toString());
+      }
+      
+      const queryString = params.toString();
+      const endpoint = `/therapy_sessions/sessions/?${queryString}`;
+      
+      console.log('[TherapistService] GET', endpoint);
+      const response = await api.get(endpoint);
+      
+      console.log('[TherapistService] Patient sessions response:', response.data);
+      
+      // Extract sessions array with multiple fallbacks
+      let sessionsArray = [];
+      if (response.data) {
+        if (Array.isArray(response.data.sessions)) {
+          sessionsArray = response.data.sessions;
+        } else if (Array.isArray(response.data.results)) {
+          sessionsArray = response.data.results;
+        } else if (Array.isArray(response.data)) {
+          sessionsArray = response.data;
+        }
+      }
+      
+      // Try to get patient name from the first session
+      let patientName = '';
+      if (sessionsArray.length > 0 && sessionsArray[0].patient_name) {
+        patientName = sessionsArray[0].patient_name;
+      }
+      
+      return {
+        sessions: sessionsArray,
+        total_count: response.data.total_count || response.data.count || sessionsArray.length,
+        patient_name: patientName,
+        therapist_name: ''
+      };
     } catch (error: any) {
+      console.error('[TherapistService] Error fetching patient sessions:', error);
       throw this.handleError(error);
     }
   }
@@ -384,12 +430,14 @@ class TherapistService {
   /**
    * Profile and tools
    */
-  async getTherapistProfile(): Promise<any> {
+  async getTherapistProfile(): Promise<import('../types/therapist').TherapistProfileResponse> {
     try {
       console.log('[TherapistService] GET /users/therapist-profile/');
-      const response = await api.get('/users/therapist-profile/');
+      const response = await api.get<import('../types/therapist').TherapistProfileResponse>('/users/therapist-profile/');
+      console.log('[TherapistService] Profile response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[TherapistService] Error fetching profile:', error);
       throw this.handleError(error);
     }
   }

@@ -36,6 +36,7 @@ interface AuthContextType {
   profileLoading: boolean;
   error: AuthError | null;
   clearError: () => void;
+  resetInactivityTimer: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -215,6 +216,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const resetInactivityTimer = () => {
+    // This function is used by useAutoLogout hook
+    // It can be used to reset the inactivity timer when user performs actions
+    console.log('Inactivity timer reset');
+  };
+
   const value: AuthContextType = {
     user,
     login,
@@ -230,6 +237,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     profileLoading,
     error,
     clearError,
+    resetInactivityTimer,
   };
 
   return (

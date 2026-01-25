@@ -1496,7 +1496,6 @@ class TherapistDashboardView(generics.GenericAPIView):
                     'license_number': therapist_profile.license_number,
                     'clinic_name': therapist_profile.clinic_name,
                     'therapist_pin': therapist_profile.therapist_pin,
-                    'pairing_code': therapist_profile.pairing_code,
                     'years_of_experience': therapist_profile.years_of_experience,
                 },
                 'patient_stats': {
