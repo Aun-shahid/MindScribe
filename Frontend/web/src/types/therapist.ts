@@ -383,6 +383,14 @@ export interface PatientFilter {
   therapy_status?: 'active' | 'inactive' | 'completed';
 }
 
+export interface PatientSessionFilter {
+  include_past?: boolean;
+  include_upcoming?: boolean;
+  limit?: number;
+  offset?: number;
+  status?: 'CANCELLED' | 'COMPLETED' | 'IN_PROGRESS' | 'NO_SHOW' | 'REQUESTED' | 'RESCHEDULED' | 'UPCOMING';
+}
+
 // Error types
 export interface TherapistError {
   message: string;
@@ -396,6 +404,13 @@ export interface SessionsResponse {
   total_count: number;
   page: number;
   page_size: number;
+}
+
+export interface PatientSessionsResponse {
+  sessions: SessionType[];
+  total_count: number;
+  patient_name: string;
+  therapist_name: string;
 }
 
 export interface PatientsResponse {
@@ -647,6 +662,26 @@ export interface TherapistProfileData {
   user_type: string;
   email_verified?: boolean;
   is_verified?: boolean;
+}
+
+export interface TherapistProfileResponse {
+  license_number: string;
+  specialization: string;
+  years_of_experience: number;
+  education: string;
+  certifications: string;
+  clinic_name: string;
+  clinic_address: string;
+  therapist_pin: string;
+  user_info: {
+    id: string;
+    full_name: string;
+    email: string;
+    phone_number?: string;
+    user_type: string;
+    [key: string]: any;
+  };
+  patient_count: number;
 }
 
 export interface ProfileState {

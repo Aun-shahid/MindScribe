@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     MoodEntry, JournalEntry, EmotionalInsight, 
     RelaxationContent, RelaxationSession, DailyInspiration, PatientGoal, RelaxationTip, JournalPrompt,
-    NotificationPreference, Notification
+    NotificationPreference, Notification, ActivityLog
 )
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -367,4 +367,42 @@ class NotificationSerializer(serializers.ModelSerializer):
             return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
         else:
             return "Just now"
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    """Serializer for activity logs"""
+    mood_impact = serializers.CharField(read_only=True)
+    energy_impact = serializers.CharField(read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    
+    class Meta:
+        model = ActivityLog
+        fields = [
+            'id', 'patient', 'patient_name',
+            'activity_type', 'activity_name', 'description',
+            'duration_minutes', 'intensity', 
+            'mood_before', 'mood_after', 'mood_impact',
+            'energy_before', 'energy_after', 'energy_impact',
+            'location', 'with_others', 'notes', 
+            'activity_date', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'patient', 'created_at', 'updated_at', 'mood_impact', 'energy_impact']
+    
+    def create(self, validated_data):
+        validated_data['patient'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class ActivityAnalyticsSerializer(serializers.Serializer):
+    """Serializer for activity analytics"""
+    total_activities = serializers.IntegerField()
+    this_week = serializers.IntegerField()
+    this_month = serializers.IntegerField()
+    average_duration = serializers.FloatField()
+    average_mood_improvement = serializers.FloatField()
+    average_energy_improvement = serializers.FloatField()
+    most_common_type = serializers.CharField()
+    most_common_type_count = serializers.IntegerField()
+    top_activities = serializers.ListField()
+    activity_type_distribution = serializers.DictField()
 

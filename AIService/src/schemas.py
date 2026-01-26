@@ -122,7 +122,20 @@ class FullTranscript(BaseModel):
 # ============================================================================
 
 class SessionStartRequest(BaseModel):
-    """Request to start a session analysis."""
+    """Request to start a session analysis.
+    
+    Two modes:
+    1. Scheduled Session: Provide session_id (from Django backend)
+    2. Instant Session: Provide patient_name (generates new session_id)
+    """
+    session_id: Optional[str] = Field(
+        None, 
+        description="Session ID from Django backend (for scheduled sessions)"
+    )
+    patient_name: Optional[str] = Field(
+        None,
+        description="Patient name (required for instant sessions without session_id)"
+    )
     language: str = Field(default="ur", description="Primary language (ur=Urdu)")
     enable_diarization: bool = True
     enable_emotion_analysis: bool = True
