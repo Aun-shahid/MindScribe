@@ -566,6 +566,11 @@ class EndSessionView(generics.GenericAPIView):
             session.session_effectiveness = data['session_effectiveness']
         
         session.end_session()
+
+        # Note: Transcription and SOAP note generation are handled by the FastAPI AI service
+        # The client should call:
+        # 1. POST /api/v1/session/{session_id}/stop to stop transcription
+        # 2. POST /api/v1/soap/{session_id}/generate to generate SOAP notes
         
         return Response({
             'detail': 'Session ended successfully.',

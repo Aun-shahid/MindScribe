@@ -101,28 +101,60 @@ class SessionManager:
 session_manager = SessionManager()
 
 
-@router.post("/{session_id}/start", response_model=SessionStartResponse)
+@router.post("/start", response_model=SessionStartResponse)
 async def start_session(
-    session_id: str,
     request: SessionStartRequest,
     session: AuthenticatedSession = Depends(get_current_session)
 ):
     """
     Start a new transcription session.
+    
+    Supports two modes:
+    1. **Scheduled Session**: Provide session_id from Django backend
+       - Validates session exists and user has access
+       - Fetches patient details automatically
+    
+    2. **Instant Session**: Don't provide session_id
+       - Creates a new instant session
+       - Requires patient_name in request
+    
     Returns WebSocket URL for streaming audio.
     """
-    # Validate session access
-    validate_session_access(session, session_id)
+    session_id = request.session_id
     
-    # Check if session already exists
-    existing = session_manager.get_session(session_id)
-    if existing and existing["status"] == SessionStatus.ACTIVE:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Session is already active"
-        )
+    # Mode 1: Scheduled session with existing session_id
+    if session_id:
+        # Validate session access
+        validate_session_access(session, session_id)
+        
+        # Check if session already has active transcription
+        existing = session_manager.get_session(session_id)
+        if existing and existing["status"] == SessionStatus.ACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Transcription session is already active for this session"
+            )
+        
+        # TODO: Optionally fetch session details from Django backend
+        # This would validate the session exists and get patient info
+        # For now, we trust the session_id is valid
+        
+        logger.info(f"Starting scheduled session: {session_id}")
     
-    # Create new session
+    # Mode 2: Instant session without session_id
+    else:
+        # Generate a new session ID for instant session
+        session_id = str(uuid.uuid4())
+        
+        if not request.patient_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="patient_name is required for instant sessions"
+            )
+        
+        logger.info(f"Starting instant session: {session_id} for patient: {request.patient_name}")
+    
+    # Create transcription session
     session_manager.create_session(session_id, request)
     
     # Build WebSocket URL
@@ -132,7 +164,7 @@ async def start_session(
         session_id=session_id,
         status=SessionStatus.ACTIVE,
         websocket_url=ws_url,
-        message="Session started. Connect to WebSocket to stream audio."
+        message=f"Session started successfully. Connect to WebSocket to stream audio."
     )
 
 
