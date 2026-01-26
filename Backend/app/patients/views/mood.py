@@ -146,38 +146,47 @@ class MoodAnalyticsView(APIView):
             mood_date__gte=start_date
         )
         
-        # Calculate statistics
-        avg_intensity = moods.aggregate(Avg('intensity'))['intensity__avg'] or 0
+        # Calculate statistics using new mood_intensities structure
+        # Get all mood intensities and calculate average
+        all_intensities = []
+        all_mood_counts = Counter()
+        
+        for mood_entry in moods:
+            if mood_entry.mood_intensities:
+                for mood, intensity in mood_entry.mood_intensities.items():
+                    all_intensities.append(intensity)
+                    all_mood_counts[mood] += 1
+        
+        avg_intensity = sum(all_intensities) / len(all_intensities) if all_intensities else 0
         
         # Most common mood
-        mood_counts = moods.values('mood').annotate(count=Count('mood')).order_by('-count')
-        most_common_mood = mood_counts.first()['mood'] if mood_counts else None
+        most_common_mood = all_mood_counts.most_common(1)[0][0] if all_mood_counts else None
         
         # Mood distribution
-        mood_distribution = {item['mood']: item['count'] for item in mood_counts}
+        mood_distribution = dict(all_mood_counts)
         
-        # Weekly trend
+        # Weekly trend - using dominant mood per day
         weekly_trend = []
         for i in range(7):
             date = timezone.now().date() - timedelta(days=i)
-            day_moods = moods.filter(mood_date=date)
-            if day_moods.exists():
-                avg = day_moods.aggregate(Avg('intensity'))['intensity__avg']
+            day_data = MoodEntry.get_dominant_mood_for_day(request.user, date)
+            if day_data:
                 weekly_trend.append({
                     'date': str(date),
-                    'average_intensity': round(avg, 2)
+                    'average_intensity': day_data['avg_intensity'],
+                    'dominant_mood': day_data['dominant_mood']
                 })
         
         # Common triggers
-        all_triggers = [m.triggers for m in moods if m.triggers]
-        trigger_words = []
-        for triggers in all_triggers:
-            trigger_words.extend(triggers.split(','))
-        common_triggers = [word.strip() for word, count in Counter(trigger_words).most_common(5)]
+        all_triggers = []
+        for m in moods:
+            if m.triggers:
+                all_triggers.extend([t.strip() for t in m.triggers.split(',')])
+        common_triggers = [word for word, count in Counter(all_triggers).most_common(5)]
         
         data = {
             'average_intensity': round(avg_intensity, 2),
-            'most_common_mood': most_common_mood,
+            'most_common_mood': most_common_mood or 'N/A',
             'mood_distribution': mood_distribution,
             'weekly_trend': weekly_trend[::-1],
             'monthly_comparison': {},
