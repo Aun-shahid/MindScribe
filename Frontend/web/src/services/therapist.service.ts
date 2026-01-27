@@ -1,30 +1,147 @@
 // src/services/therapist.service.ts
 import api from '../utils/api';
-import type {
-  SessionType,
-  SessionDetail,
-  Patient,
-  DashboardResponse,
-  SessionFormData,
-  PatientFormData,
-  SessionFilter,
-  PatientFilter,
-  TherapistError,
-  CalendarSession,
-  SessionNotes,
-  SessionUpdate,
-  ConsentData,
-  NewPatientFormData,
-  StartNewSessionPatient,
-  NewPatientFormFields,
-  TherapistPinResponse,
-  CreatePatientResponse,
-  TherapistQRInfo,
-  CreateSessionData,
-  StartSessionData,
-  PatientDetailsType,
-  EndSessionFormData,
-} from '../types/therapist';
+import type { Session, SessionType, MoodAlert, Patient as ImportedPatient, PatientDetailsType } from '../types/therapist';
+
+// Update `DashboardResponse` to include `stats`
+export interface DashboardResponse {
+  today_sessions: Session[];
+  upcoming_sessions: Session[];
+  recent_patients: ImportedPatient[];
+  mood_alerts: MoodAlert[];
+  stats?: { [key: string]: number };
+  recent_activities?: string[];
+}
+
+// Update `SessionFilter` to include `session_type`
+export interface SessionFilter {
+  date?: string;
+  status?: string;
+  patient_id?: string;
+  session_type?: string;
+  search?: string;
+}
+
+export interface SessionDetail extends Session {
+  session_notes: string;
+  session_summary: string;
+  therapist_observations: string;
+  session_effectiveness: string;
+}
+
+export interface SessionFormData {
+  patient_id: string;
+  session_type: SessionType;
+  scheduled_date: string;
+  duration_minutes: number;
+  location: string;
+  is_online: boolean;
+  patient_goals: string;
+  fee_charged: number;
+  consent_recording: boolean;
+  consent_ai_analysis: boolean;
+}
+
+export interface SessionUpdate {
+  session_type?: SessionType;
+  scheduled_date?: string;
+  duration_minutes?: number;
+  location?: string;
+  is_online?: boolean;
+  patient_goals?: string;
+  fee_charged?: number;
+  consent_recording?: boolean;
+  consent_ai_analysis?: boolean;
+}
+
+export interface SessionNotes {
+  notes: string;
+}
+
+export interface Patient {
+  id: string;
+  full_name: string;
+  patient_id: string;
+}
+
+export interface PatientFilter {
+  name?: string;
+  age?: number;
+  gender?: string;
+}
+
+export interface CalendarSession {
+  id: string;
+  patient_name: string;
+  session_date: string;
+  status: string;
+  session_type: SessionType;
+  location: string;
+  duration_minutes: number;
+}
+
+export interface PatientFormData {
+  full_name: string;
+  age: number;
+  gender: string;
+  contact_info: string;
+}
+
+export interface ConsentData {
+  consent_recording: boolean;
+  consent_ai_analysis: boolean;
+}
+
+export interface EndSessionFormData {
+  session_summary: string;
+  session_notes: string;
+}
+
+export interface TherapistQRInfo {
+  id: string;
+  name: string;
+  clinic_name: string;
+  clinic_address: string;
+  consultation_fee: number;
+}
+
+export interface NewPatientFormData {
+  full_name: string;
+  age: number;
+  gender: string;
+  contact_info: string;
+  email?: string;
+  primary_concern?: string;
+  address?: string;
+  medical_history?: string;
+  current_medications?: string;
+  date_of_birth?: string;
+  therapy_start_date?: string;
+  session_frequency?: string;
+  preferred_session_days?: string[];
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  preferred_language?: string;
+}
+
+export interface StartNewSessionPatient {
+  id: string;
+  full_name: string;
+  patient_id: string;
+}
+
+export interface CreatePatientResponse {
+  id: string;
+  full_name: string;
+  patient_id: string;
+}
+
+export interface TherapistPinResponse {
+  pin: string;
+}
+
+function isErrorWithMessage(error: unknown): error is { message: string } {
+  return typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string';
+}
 
 class TherapistService {
   /**
@@ -168,7 +285,7 @@ class TherapistService {
         return response.data.results;
       }
       return [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -189,7 +306,7 @@ class TherapistService {
         return response.data.sessions;
       }
       return [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -212,7 +329,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/stats/?days=', days);
       const response = await api.get(`/therapy_sessions/stats/?days=${days}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -222,7 +339,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/sessions/', sessionId);
       const response = await api.get<SessionDetail>(`/therapy_sessions/sessions/${sessionId}/`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -232,7 +349,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/schedule/', sessionData);
       const response = await api.post<SessionType>('/therapy_sessions/schedule/', sessionData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -242,7 +359,7 @@ class TherapistService {
       console.log('[TherapistService] PATCH /therapy_sessions/sessions/', sessionId, updateData);
       const response = await api.patch<SessionType>(`/therapy_sessions/sessions/${sessionId}/`, updateData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -251,7 +368,7 @@ class TherapistService {
     try {
       console.log('[TherapistService] DELETE /therapy_sessions/sessions/', sessionId);
       await api.delete(`/therapy_sessions/sessions/${sessionId}/`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -261,7 +378,7 @@ class TherapistService {
       console.log('[TherapistService] PATCH /therapy_sessions/sessions/', sessionId, '/notes/', notesData);
       const response = await api.patch(`/therapy_sessions/sessions/${sessionId}/notes/`, notesData);
       console.log('[TherapistService] Session notes update response:', response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[TherapistService] Session notes update failed:', error);
       throw this.handleError(error);
     }
@@ -278,7 +395,7 @@ class TherapistService {
       const response = await api.put(`/therapy_sessions/sessions/${sessionId}/summary/`, summaryData);
       console.log('[TherapistService] Session summary update response:', response.data);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[TherapistService] Session summary update failed:', error);
       throw this.handleError(error);
     }
@@ -306,7 +423,7 @@ class TherapistService {
       }
       
       return sessionsData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -379,7 +496,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/patients/', patientId);
       const response = await api.get<Patient>(`/therapy_sessions/patients/${patientId}/`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -396,7 +513,7 @@ class TherapistService {
         return response.data;
       }
       return [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -405,9 +522,14 @@ class TherapistService {
     try {
       console.log('[TherapistService] GET /therapy_sessions/patients/');
       const response = await api.get<PatientDetailsType[]>('/therapy_sessions/patients/');
-      return response.data || [];
-    } catch (error: any) {
-      throw this.handleError(error);
+      return response.data;
+    } catch (error) {
+      if (isErrorWithMessage(error)) {
+        console.warn('[TherapistService] No patients data available:', error.message);
+      } else {
+        console.warn('[TherapistService] Unknown error occurred');
+      }
+      throw error;
     }
   }
 
@@ -419,7 +541,7 @@ class TherapistService {
       console.log('[TherapistService] GET /users/patients/');
       const response = await api.get('/users/patients/');
       return response.data.patients || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn('[TherapistService] No patients data available:', error.message);
       return [];
     }
@@ -430,7 +552,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/sessions/');
       const response = await api.get('/therapy_sessions/sessions/');
       return response.data.sessions || response.data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn('[TherapistService] No sessions data available:', error.message);
       return [];
     }
@@ -441,7 +563,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/patients/', patientData);
       const response = await api.post<Patient>('/therapy_sessions/patients/', patientData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -451,7 +573,7 @@ class TherapistService {
       console.log('[TherapistService] PATCH /therapy_sessions/patients/', patientId, patientData);
       const response = await api.patch<Patient>(`/therapy_sessions/patients/${patientId}/`, patientData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -460,7 +582,7 @@ class TherapistService {
     try {
       console.log('[TherapistService] DELETE /therapy_sessions/patients/', patientId);
       await api.delete(`/therapy_sessions/patients/${patientId}/`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -472,7 +594,7 @@ class TherapistService {
     try {
       console.log('[TherapistService] POST /therapy_sessions/consent/', consentData);
       await api.post('/therapy_sessions/consent/', consentData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -482,7 +604,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/consent/status/', { patientId, therapistId });
       const response = await api.get(`/therapy_sessions/consent/status/?patient_id=${patientId}&therapist_id=${therapistId}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -507,7 +629,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/sessions/', sessionId, '/start/');
       const response = await api.post<SessionType>(`/therapy_sessions/sessions/${sessionId}/start/`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -517,7 +639,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/sessions/', sessionId, '/end/', sessionData);
       const response = await api.post(`/therapy_sessions/sessions/${sessionId}/end/`, sessionData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -618,7 +740,7 @@ class TherapistService {
       console.log('[TherapistService] GET /users/therapist-profile/');
       const response = await api.get('/users/therapist-profile/');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -628,7 +750,7 @@ class TherapistService {
       console.log('[TherapistService] PATCH /users/therapist-profile/', profileData);
       const response = await api.patch('/users/therapist-profile/', profileData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -658,7 +780,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/patients/create/', sanitizedData);
       const response = await api.post<CreatePatientResponse>('/therapy_sessions/patients/create/', sanitizedData);
       return response.data.patient;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -668,7 +790,7 @@ class TherapistService {
       console.log('[TherapistService] GET /users/therapist-pin/');
       const response = await api.get<TherapistPinResponse>('/users/therapist-pin/');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -678,7 +800,7 @@ class TherapistService {
       console.log('[TherapistService] GET /therapy_sessions/patients/');
       const response = await api.get('/therapy_sessions/patients/');
       return response.data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -688,7 +810,7 @@ class TherapistService {
       console.log('[TherapistService] POST /therapy_sessions/patients/create/', patientData);
       const response = await api.post<CreatePatientResponse>('/therapy_sessions/patients/create/', patientData);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }
@@ -698,7 +820,7 @@ class TherapistService {
       console.log('[TherapistService] GET /users/therapist-pin/');
       const response = await api.get<TherapistQRInfo>('/users/therapist-pin/');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleError(error);
     }
   }

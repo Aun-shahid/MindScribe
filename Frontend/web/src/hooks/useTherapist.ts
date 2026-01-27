@@ -186,7 +186,7 @@ export const useSessionDetail = (sessionId: string) => {
     if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
       setError({ message: 'Invalid session ID', code: 'INVALID_ID' });
       setLoading(false);
-      return;
+      return null; // Return null if sessionId is invalid
     }
     try {
       setLoading(true);
@@ -195,9 +195,11 @@ export const useSessionDetail = (sessionId: string) => {
       const data = await therapistService.getSessionDetail(sessionId);
       console.log('[useSessionDetail] Session detail fetched:', data);
       setSession(data);
+      return data; // Return the fetched session data
     } catch (err) {
       setError(err as TherapistError);
       console.error('Session detail fetch error:', err);
+      return null; // Return null in case of an error
     } finally {
       setLoading(false);
     }
@@ -487,6 +489,10 @@ export const useSessionConsent = (params: SessionConsentParams) => {
       if (session) {
         // Start the session
         await therapistService.startSession(session.id);
+        
+        // Fetch the updated session data after starting the session
+        const updatedSession = await therapistService.getSessionDetail(session.id);
+        console.log('🔄 Updated session data after starting:', updatedSession);
         navigate(`/sessions/${session.id}`);
       }
     } catch (err: any) {
@@ -724,7 +730,7 @@ export const useCreatePatient = () => {
       const sanitizedData = {
         first_name: patientData.first_name,
         last_name: patientData.last_name,
-        email: patientData.email || '', // Backend expects empty string, not undefined
+        email: patientData.email || '',
         phone_number: patientData.phone_number,
         date_of_birth: patientData.date_of_birth || null,
         gender: patientData.gender || '',
@@ -739,6 +745,8 @@ export const useCreatePatient = () => {
         current_medications: patientData.current_medications || '',
         preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
       };
+      
+      console.log('🛠️ Sanitized data being sent to backend:', sanitizedData);
       
       // Use the correct endpoint for patient creation
       const response = await therapistService.createSessionPatient(sanitizedData);
