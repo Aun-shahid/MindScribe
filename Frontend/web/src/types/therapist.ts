@@ -127,8 +127,10 @@ export interface SessionDetail {
   location: string;
   is_online: boolean;
   scheduled_date: string;
+  duration_minutes?: number;
   actual_duration_minutes: number;
   session_notes: string;
+  session_summary: string | null;
   patient_goals: string;
   homework_assigned: string;
   next_session_goals: string;
@@ -217,6 +219,7 @@ export interface PatientDetailsActions {
 // End Session types
 export interface EndSessionFormData {
   session_notes: string;
+  patient_goals?: string;
   patient_mood_after: number;
   homework_assigned: string;
   next_session_goals: string;
@@ -378,17 +381,7 @@ export interface SessionFilter {
 }
 
 export interface PatientFilter {
-  search_query?: string;
-  gender?: string;
-  therapy_status?: 'active' | 'inactive' | 'completed';
-}
-
-export interface PatientSessionFilter {
-  include_past?: boolean;
-  include_upcoming?: boolean;
-  limit?: number;
-  offset?: number;
-  status?: 'CANCELLED' | 'COMPLETED' | 'IN_PROGRESS' | 'NO_SHOW' | 'REQUESTED' | 'RESCHEDULED' | 'UPCOMING';
+  search?: string;
 }
 
 // Error types
@@ -404,13 +397,6 @@ export interface SessionsResponse {
   total_count: number;
   page: number;
   page_size: number;
-}
-
-export interface PatientSessionsResponse {
-  sessions: SessionType[];
-  total_count: number;
-  patient_name: string;
-  therapist_name: string;
 }
 
 export interface PatientsResponse {
@@ -453,12 +439,27 @@ export interface SessionNotes {
 }
 
 export interface SessionUpdate {
-  session_id: string;
+  session_id?: string;  // Optional - already in URL path
   status?: string;
+  scheduled_date?: string;
+  duration_minutes?: number;
+  location?: string;
+  session_type?: 'individual' | 'group' | 'family' | 'couples';
+  is_online?: boolean;
   actual_duration_minutes?: number;
   session_notes?: string;
+  session_summary?: string;
+  patient_goals?: string;
+  homework_assigned?: string;
+  next_session_goals?: string;
+  patient_mood_before?: number;
   patient_mood_after?: number;
+  therapist_observations?: string;
   session_effectiveness?: number;
+  consent_recording?: boolean;
+  consent_ai_analysis?: boolean;
+  fee_charged?: number;
+  payment_status?: string;
 }
 
 // Patient Management Types (for start-new-session)
@@ -664,26 +665,6 @@ export interface TherapistProfileData {
   is_verified?: boolean;
 }
 
-export interface TherapistProfileResponse {
-  license_number: string;
-  specialization: string;
-  years_of_experience: number;
-  education: string;
-  certifications: string;
-  clinic_name: string;
-  clinic_address: string;
-  therapist_pin: string;
-  user_info: {
-    id: string;
-    full_name: string;
-    email: string;
-    phone_number?: string;
-    user_type: string;
-    [key: string]: any;
-  };
-  patient_count: number;
-}
-
 export interface ProfileState {
   profile: TherapistProfileData | null;
   loading: boolean;
@@ -694,4 +675,30 @@ export interface ProfileActions {
   handleLogout: () => Promise<void>;
   handleThemeToggle: () => void;
   refetchProfile: () => void;
+}
+
+// Connection Request types
+export interface ConnectionRequest {
+  id: string;
+  patient_name: string;
+  patient_email: string;
+  phone_number?: string;
+  requested_at: string;
+  status: 'pending' | 'accepted' | 'merged' | 'rejected';
+  patient_id?: string;
+}
+
+export interface ConnectionRequestResponse {
+  id: string;
+  patient_name: string;
+  patient_email: string;
+  phone_number?: string;
+  requested_at: string;
+  status: string;
+  patient_id?: string;
+}
+
+export interface AcceptConnectionRequest {
+  action: 'accept_new' | 'merge';
+  merge_patient_id?: string;
 }

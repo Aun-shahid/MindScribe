@@ -126,8 +126,15 @@ export const useTherapistSessions = (initialFilter: SessionFilter = {}) => {
     fetchSessions();
   }, [fetchSessions]);
 
-  const updateFilter = useCallback((newFilter: SessionFilter) => {
-    setFilter(prev => ({ ...prev, ...newFilter }));
+  /**
+   * Updates the session filter. If reset=true, replaces filter entirely (for Clear Filters).
+   */
+  const updateFilter = useCallback((newFilter: SessionFilter, reset = false) => {
+    if (reset) {
+      setFilter({ ...newFilter });
+    } else {
+      setFilter(prev => ({ ...prev, ...newFilter }));
+    }
   }, []);
 
   const createSession = useCallback(async (sessionData: SessionFormData): Promise<SessionType | null> => {
@@ -293,8 +300,15 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
     fetchPatients();
   }, [fetchPatients]);
 
-  const updateFilter = useCallback((newFilter: PatientFilter) => {
-    setFilter(prev => ({ ...prev, ...newFilter }));
+  /**
+   * Updates the patient filter. If reset=true, replaces filter entirely (for Clear Filters).
+   */
+  const updateFilter = useCallback((newFilter: PatientFilter, reset = false) => {
+    if (reset) {
+      setFilter({ ...newFilter });
+    } else {
+      setFilter(prev => ({ ...prev, ...newFilter }));
+    }
   }, []);
 
   const addPatient = useCallback(async (patientData: PatientFormData): Promise<Patient | null> => {
@@ -555,7 +569,7 @@ export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions =>
 
 // Profile Hook
 export const useTherapistProfile = () => {
-  const [profile, setProfile] = useState<import('../types/therapist').TherapistProfileResponse | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -564,14 +578,11 @@ export const useTherapistProfile = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('[useTherapistProfile] Fetching profile...');
       const data = await therapistService.getTherapistProfile();
-      console.log('[useTherapistProfile] Profile data received:', data);
       setProfile(data);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch profile';
-      setError(errorMessage);
-      console.error('[useTherapistProfile] Profile fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
+      console.error('Profile fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -603,24 +614,15 @@ export const useTherapistProfile = () => {
 
   const handleLogout = useCallback(async () => {
     try {
-      console.log('[useTherapistProfile] Logging out...');
-      
       // Clear local storage
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       
-      console.log('[useTherapistProfile] Cleared local storage, redirecting to login...');
-      
-      // Redirect to login page
-      navigate('/login', { replace: true });
-      
-      // Force reload to clear any cached state
-      window.location.href = '/login';
+      // Redirect to login
+      navigate('/login');
     } catch (err) {
-      console.error('[useTherapistProfile] Logout error:', err);
-      // Even if there's an error, force redirect
-      window.location.href = '/login';
+      console.error('Logout error:', err);
     }
   }, [navigate]);
 
@@ -738,19 +740,15 @@ export const useCreatePatient = () => {
         preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
       };
       
-      console.log('[useCreatePatient] Sanitized data to send:', sanitizedData);
-      
       // Use the correct endpoint for patient creation
       const response = await therapistService.createSessionPatient(sanitizedData);
-      
-      console.log('[useCreatePatient] Patient created successfully:', response);
       
       // Emit patient creation event to refresh dashboard
       emitAppEvent('patient-created', response);
       
-      return response;
+      // Return the created patient data with ID
+      return response.patient || response;
     } catch (err) {
-      console.error('[useCreatePatient] Error creating patient:', err);
       const error = err as TherapistError;
       setError(error);
       throw error;
