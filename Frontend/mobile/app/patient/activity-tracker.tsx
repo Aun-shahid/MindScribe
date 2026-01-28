@@ -105,7 +105,7 @@ const ActivityTracker = () => {
   const fetchActivityHistory = async (activityType?: string) => {
     try {
       setHistoryLoading(true);
-      let endpoint = 'history/activities/?limit=10';
+      let endpoint = '/patients/activities/?limit=10';
       
       if (activityType && activityType !== 'all') {
         endpoint += `&activity_type=${activityType}`;
@@ -238,7 +238,7 @@ const ActivityTracker = () => {
 
     try {
       setLoading(true);
-      const response = await api.post('history/activities/', payload);
+      const response = await api.post('/patients/activities/', payload);
       console.log('✅ Activity entry saved:', response.data);
       
       const moodImprovement = payload.mood_after - payload.mood_before;

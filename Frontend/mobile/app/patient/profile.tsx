@@ -173,6 +173,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -240,6 +241,13 @@ export default function PatientProfile() {
               value={(profile as any).email_verified || profile.is_verified ? 'Yes' : 'No'}
               themeStyle={themeStyle}
             />
+
+            <TouchableOpacity
+              style={[styles.settingsButton, { backgroundColor: themeStyle.dashboardcard || '#f5f5f7' }]}
+              onPress={() => router.push('./notification-settings' as any)}
+            >
+              <Text style={{ color: themeStyle.primary, fontWeight: '700' }}>Notification Settings</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.logoutButton, { backgroundColor: themeStyle.logoutButton }]}
