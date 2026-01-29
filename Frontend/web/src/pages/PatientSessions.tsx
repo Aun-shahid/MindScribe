@@ -15,8 +15,8 @@ const PatientSessions = () => {
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [includePast, setIncludePast] = useState(true);
-  const [includeUpcoming, setIncludeUpcoming] = useState(true);
+  const [includePast] = useState(true);
+  const [includeUpcoming] = useState(true);
 
   useEffect(() => {
     fetchPatientSessions();
@@ -40,9 +40,20 @@ const PatientSessions = () => {
       console.log('[PatientSessions] Is array:', Array.isArray(response));
       
       // Ensure response is an array
-      const sessionsArray = Array.isArray(response) ? response : [];
-      console.log('[PatientSessions] Sessions array length:', sessionsArray.length);
-      setSessions(sessionsArray);
+      let sessionsArray = Array.isArray(response) ? response : [];
+      
+      // Remove duplicates based on session ID
+      const uniqueSessions = sessionsArray.reduce((acc: SessionType[], current: SessionType) => {
+        const exists = acc.find(session => session.id === current.id);
+        if (!exists) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+      
+      console.log('[PatientSessions] Total sessions:', sessionsArray.length);
+      console.log('[PatientSessions] Unique sessions:', uniqueSessions.length);
+      setSessions(uniqueSessions);
       
       // Get patient name from first session
       if (sessionsArray.length > 0 && sessionsArray[0].patient_name) {
@@ -77,8 +88,10 @@ const PatientSessions = () => {
     );
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined | null) => {
+    if (!dateString) return 'Date not set';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleDateString('en-US', { 
       weekday: 'short', 
       month: 'short', 
@@ -87,8 +100,10 @@ const PatientSessions = () => {
     });
   };
 
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string | undefined | null) => {
+    if (!dateString) return 'Time not set';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid time';
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit' 
@@ -169,7 +184,7 @@ const PatientSessions = () => {
             </div>
 
             <div className="flex items-center space-x-4 md:col-span-2">
-              <label className="flex items-center space-x-2">
+              {/* <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={includePast}
@@ -177,9 +192,9 @@ const PatientSessions = () => {
                   className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                 />
                 <span className="text-sm text-gray-700">Include Past Sessions</span>
-              </label>
+              </label> */}
 
-              <label className="flex items-center space-x-2">
+              {/* <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={includeUpcoming}
@@ -187,7 +202,7 @@ const PatientSessions = () => {
                   className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                 />
                 <span className="text-sm text-gray-700">Include Upcoming Sessions</span>
-              </label>
+              </label> */}
             </div>
           </div>
         </div>
@@ -235,12 +250,12 @@ const PatientSessions = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
                         <div className="flex items-center">
                           <Calendar size={16} className="mr-2 text-gray-400" />
-                          {formatDate(session.session_date)}
+                          {formatDate(session.session_date || (session as any).scheduled_date || (session as any).start_time)}
                         </div>
 
                         <div className="flex items-center">
                           <Clock size={16} className="mr-2 text-gray-400" />
-                          {formatTime(session.session_date)} 
+                          {formatTime(session.session_date || (session as any).scheduled_date || (session as any).start_time)} 
                           {session.duration_minutes && ` (${session.duration_minutes} min)`}
                         </div>
 

@@ -580,9 +580,16 @@ export const useTherapistProfile = () => {
       setError(null);
       const data = await therapistService.getTherapistProfile();
       setProfile(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to fetch profile';
+      setError(errorMessage);
       console.error('Profile fetch error:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status,
+        data: err?.response?.data
+      });
     } finally {
       setLoading(false);
     }

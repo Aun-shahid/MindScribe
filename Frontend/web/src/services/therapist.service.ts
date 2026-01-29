@@ -25,7 +25,6 @@ import type {
   PatientDetailsType,
   EndSessionFormData,
   ConnectionRequest,
-  ConnectionRequestResponse,
   AcceptConnectionRequest,
 } from '../types/therapist';
 
@@ -923,8 +922,26 @@ class TherapistService {
 
   async rejectConnectionRequest(requestId: string): Promise<any> {
     try {
-      console.log('[TherapistService] POST /users/connection-requests/', requestId, '{ action: "reject" }');
-      const response = await api.post(`/users/connection-requests/${requestId}/`, { action: 'reject' });
+      console.log('[TherapistService] DELETE /users/connection-requests/', requestId);
+      const response = await api.delete(`/users/connection-requests/${requestId}/`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Mood Alerts API calls
+   */
+  async getMoodAlerts(patientId?: string, severity?: string, days: number = 7): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (patientId) params.append('patient_id', patientId);
+      if (severity) params.append('severity', severity);
+      params.append('days', days.toString());
+
+      console.log('[TherapistService] GET /therapy_sessions/mood-alerts/', params.toString());
+      const response = await api.get(`/therapy_sessions/mood-alerts/?${params.toString()}`);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);

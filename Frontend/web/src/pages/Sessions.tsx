@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTherapistSessions } from '../hooks/useTherapist';
 import therapistService from '../services/therapist.service';
-import type { SessionFilter, SessionType } from '../types/therapist';
+import type { SessionFilter } from '../types/therapist';
 
 const Sessions = () => {
   const [activeFilter, setActiveFilter] = useState<SessionFilter>({});
@@ -21,8 +21,8 @@ const Sessions = () => {
 
   // Sort sessions in ascending order by scheduled/session date
   const displaySessions = [...sessions].sort((a, b) => {
-    const dateA = new Date(a.scheduled_date || a.session_date).getTime();
-    const dateB = new Date(b.scheduled_date || b.session_date).getTime();
+    const dateA = new Date((a as any).scheduled_date || a.session_date).getTime();
+    const dateB = new Date((b as any).scheduled_date || b.session_date).getTime();
     return dateA - dateB;
   });
 
@@ -64,7 +64,7 @@ const Sessions = () => {
 
     try {
       // For 'update' action, determine the specific backend action based on filled fields
-      let actualAction = bulkAction;
+      let actualAction: string = bulkAction;
       
       if (bulkAction === 'update') {
         // Priority: location > type > duration (if multiple fields filled, use first one)
@@ -337,10 +337,10 @@ const Sessions = () => {
                       <div className="flex items-center space-x-4">
                         <div>
                           <h3 className="text-lg font-medium text-gray-900">
-                            {session.patient_name || session.patient?.full_name || 'Unknown Patient'}
+                            {session.patient_name || (session as any).patient?.full_name || 'Unknown Patient'}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {new Date(session.scheduled_date || session.session_date).toLocaleDateString()} • {session.session_type}
+                            {new Date((session as any).scheduled_date || session.session_date).toLocaleDateString()} • {session.session_type}
                           </p>
                           <p className="text-sm text-gray-500">
                             {session.duration_minutes} minutes • {session.location}

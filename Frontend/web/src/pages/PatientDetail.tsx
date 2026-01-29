@@ -1,21 +1,22 @@
 // // src/pages/PatientDetail.tsx
-// import { useParams, useNavigate, Link } from 'react-router-dom';
-// import { useState, useEffect } from 'react';
-// import { usePatientDetail } from '../hooks/useTherapist';
-// import { InfoField } from '../components/InfoField';
-// import { InfoSection } from '../components/InfoSection';
-// import therapistService from '../services/therapist.service';
-// import type { SessionType } from '../types/therapist';
-// import {
-//   formatDate,
-//   formatPhoneNumber,
-//   formatGender,
-//   formatPreferredDays,
-//   formatPreferredLanguage,
-//   shouldShowTherapyInfo,
-//   shouldShowEmergencyContact,
-//   shouldShowPreferredDays,
-// } from '../utils/patientDetails';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { usePatientDetail } from '../hooks/useTherapist';
+import { InfoField } from '../components/InfoField';
+import { InfoSection } from '../components/InfoSection';
+import PatientMoodTrend from '../components/PatientMoodTrend';
+import therapistService from '../services/therapist.service';
+import type { SessionType } from '../types/therapist';
+import {
+  formatDate,
+  formatPhoneNumber,
+  formatGender,
+  formatPreferredDays,
+  formatPreferredLanguage,
+  shouldShowTherapyInfo,
+  shouldShowEmergencyContact,
+  shouldShowPreferredDays,
+} from '../utils/patientDetails';
 
 // const PatientDetail = () => {
 //   const { patientId } = useParams<{ patientId: string }>();
@@ -1472,24 +1473,7 @@
 // };
 
 // export default PatientDetail;
-// src/pages/PatientDetail.tsx
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { usePatientDetail } from '../hooks/useTherapist';
-import { InfoField } from '../components/InfoField';
-import { InfoSection } from '../components/InfoSection';
-import therapistService from '../services/therapist.service';
-import type { SessionType } from '../types/therapist';
-import {
-  formatDate,
-  formatPhoneNumber,
-  formatGender,
-  formatPreferredDays,
-  formatPreferredLanguage,
-  shouldShowTherapyInfo,
-  shouldShowEmergencyContact,
-  shouldShowPreferredDays,
-} from '../utils/patientDetails';
+// src/pages/PatientDetail.tsx - Active component starts here
 
 const PatientDetail = () => {
   const { patientId } = useParams<{ patientId: string }>();
@@ -1497,7 +1481,6 @@ const PatientDetail = () => {
   const { patient, loading, error, handleStartSession } = usePatientDetail(patientId || '');
   const [scheduleSuccess, setScheduleSuccess] = useState<{sessions_created: number; sessions: any[]} | null>(null);
   const [preferences, setPreferences] = useState<any>(null);
-  const [loadingPreferences, setLoadingPreferences] = useState(false);
   
   // Session history states
   const [pastSessions, setPastSessions] = useState<SessionType[]>([]);
@@ -1545,14 +1528,11 @@ const PatientDetail = () => {
   const loadPreferences = async () => {
     if (!patientId) return;
     
-    setLoadingPreferences(true);
     try {
       const prefs = await therapistService.getPatientSchedulePreferences(patientId);
       setPreferences(prefs);
     } catch (err) {
       console.error('Failed to load preferences:', err);
-    } finally {
-      setLoadingPreferences(false);
     }
   };
 
@@ -1773,7 +1753,6 @@ const PatientDetail = () => {
 
     const maxIterations = 400; // Safety limit (over 1 year)
     let iterations = 0;
-    let weekNumber = 0;
 
     while (sessionsScheduled < numSessions && iterations < maxIterations) {
       const dayOfWeek = currentDate.getDay();
@@ -2084,6 +2063,9 @@ const PatientDetail = () => {
             </div>
           )}
 
+          {/* Mood Trend Section */}
+          <PatientMoodTrend patientId={patient.id} patientName={patient.full_name} />
+
           {/* Basic Information */}
           <InfoSection title="Basic Information">
             <InfoField 
@@ -2223,7 +2205,7 @@ const PatientDetail = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {new Date(session.scheduled_date || session.session_date).toLocaleDateString('en-US', {
+                            {new Date((session as any).scheduled_date || session.session_date).toLocaleDateString('en-US', {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
@@ -2249,9 +2231,9 @@ const PatientDetail = () => {
                           </svg>
                         </div>
                       </div>
-                      {session.session_summary && (
+                      {(session as any).session_summary && (
                         <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                          {session.session_summary}
+                          {(session as any).session_summary}
                         </p>
                       )}
                     </Link>
@@ -2390,7 +2372,7 @@ const PatientDetail = () => {
                           <h4 className="font-medium text-gray-700 mb-3">Upcoming Sessions Preview</h4>
                           <div className="space-y-2 max-h-40 overflow-y-auto">
                             {upcomingSessions.slice(0, 5).map((session) => {
-                              const dateStr = session.session_date || session.scheduled_date || session.start_time || '';
+                              const dateStr = session.session_date || (session as any).scheduled_date || (session as any).start_time || '';
                               return (
                               <div key={session.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-sm">
                                 <span className="text-gray-700">
@@ -2545,7 +2527,7 @@ const PatientDetail = () => {
                       {/* Sessions list with checkboxes */}
                       <div className="space-y-3 max-h-80 overflow-y-auto">
                         {upcomingSessions.map((session) => {
-                          const sessionDate = session.session_date || session.scheduled_date || session.start_time || '';
+                          const sessionDate = session.session_date || (session as any).scheduled_date || (session as any).start_time || '';
                           const isSelected = selectedSessions.includes(session.id);
                           return (
                           <div 

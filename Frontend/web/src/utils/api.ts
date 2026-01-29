@@ -91,7 +91,10 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
     if (token) {
+      console.log('[API] Adding token to request:', config.url);
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('[API] No access token found for request:', config.url);
     }
     return config;
   },
@@ -109,8 +112,16 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      console.warn('[API] 401 Unauthorized - Attempting token refresh');
+      
       try {
         const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          console.error('[API] No refresh token available');
+          throw new Error('No refresh token');
+        }
+
+        console.log('[API] Refreshing access token...');
         const response = await axios.post(
           'https://mindscribe-backend-production-ca1e.up.railway.app/api/authenticator/token/refresh/',
           { refresh: refreshToken }
@@ -118,10 +129,12 @@ api.interceptors.response.use(
 
         const { access } = response.data;
         localStorage.setItem('access_token', access);
+        console.log('[API] Token refreshed successfully');
 
         originalRequest.headers.Authorization = `Bearer ${access}`;
         return api(originalRequest);
       } catch (refreshError) {
+        console.error('[API] Token refresh failed:', refreshError);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';

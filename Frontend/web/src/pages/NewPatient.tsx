@@ -78,7 +78,6 @@ const NewPatient: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [backendErrors, setBackendErrors] = useState<Record<string, string>>({});
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState<boolean>(true);
-  const [autoScheduleResult, setAutoScheduleResult] = useState<{sessions_created: number} | null>(null);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -235,7 +234,6 @@ const NewPatient: React.FC = () => {
       if (autoScheduleEnabled && patientData.session_frequency && patientData.preferred_session_days.length > 0 && createdPatient?.id) {
         try {
           const scheduleResult = await therapistService.autoSchedulePatientSessions(createdPatient.id);
-          setAutoScheduleResult(scheduleResult);
           console.log('Auto-schedule result:', scheduleResult);
         } catch (scheduleError) {
           console.error('Failed to auto-schedule sessions:', scheduleError);

@@ -16,7 +16,7 @@
 
 // export default TherapistQRCode;
 // src/components/TherapistQRCode.tsx
-import { FC } from 'react';
+import { type FC } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface TherapistQRCodeProps {
