@@ -8,7 +8,7 @@ console.log(`[API Config] Base URL: ${BASE_URL}`);
 
 const api = axios.create({
   baseURL: `${BASE_URL}/api`,
-  timeout: 10000,
+  timeout: 30000, // 30 seconds timeout for slow backend
 });
 
 // Request interceptor to add auth token and log requests

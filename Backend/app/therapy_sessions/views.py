@@ -593,6 +593,7 @@ class EndSessionView(generics.GenericAPIView):
     
     class EndSessionRequestSerializer(serializers.Serializer):
         session_notes = serializers.CharField(required=False, allow_blank=True)
+        patient_goals = serializers.CharField(required=False, allow_blank=True)
         patient_mood_after = serializers.IntegerField(min_value=1, max_value=10, required=False)
         homework_assigned = serializers.CharField(required=False, allow_blank=True)
         next_session_goals = serializers.CharField(required=False, allow_blank=True)
@@ -614,16 +615,22 @@ class EndSessionView(generics.GenericAPIView):
         
         session = get_object_or_404(Session, id=session_id, therapist=user)
         
-        if session.status != 'IN_PROGRESS':
+        # Allow ending IN_PROGRESS sessions or updating COMPLETED sessions
+        if session.status not in ['IN_PROGRESS', 'COMPLETED']:
             return Response(
-                {'detail': 'Session is not in progress.'}, 
+                {'detail': f'Session cannot be ended. Current status: {session.status}. Only IN_PROGRESS or COMPLETED sessions can be updated.'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Check if this is an update to an already completed session
+        is_already_completed = session.status == 'COMPLETED'
         
         # Update session with end data
         data = request.data
         if 'session_notes' in data:
             session.session_notes = data['session_notes']
+        if 'patient_goals' in data:
+            session.patient_goals = data['patient_goals']
         if 'patient_mood_after' in data:
             session.patient_mood_after = data['patient_mood_after']
         if 'homework_assigned' in data:
@@ -633,15 +640,27 @@ class EndSessionView(generics.GenericAPIView):
         if 'session_effectiveness' in data:
             session.session_effectiveness = data['session_effectiveness']
         
-        session.end_session()
+        # Only call end_session() if the session is not already completed
+        if not is_already_completed:
+            session.end_session()
+        else:
+            # Just save the updated fields for already completed sessions
+            session.save()
 
-        # Note: Transcription and SOAP note generation are handled by the FastAPI AI service
-        # The client should call:
-        # 1. POST /api/v1/session/{session_id}/stop to stop transcription
-        # 2. POST /api/v1/soap/{session_id}/generate to generate SOAP notes
+        # TODO: Integrate with FastAPI AI service for transcription and insights
+        # The transcription_service has been migrated to FastAPI AI service
+        # These calls should be made to the AI service endpoint instead
+        # Commented out old code for reference:
+        # transcription_service.close_realtime(session)
+        # if session.consent_recording and session.consent_ai_analysis:
+        #     try:
+        #         transcription_service.generate_session_insights(session)
+        #     except Exception as e:
+        #         return Response({'detail': 'Session ended; analysis failed', 'error': str(e), 'session': SessionSerializer(session).data}, status=status.HTTP_200_OK)
         
+        response_message = 'Session notes updated successfully.' if is_already_completed else 'Session ended successfully.'
         return Response({
-            'detail': 'Session ended successfully.',
+            'detail': response_message,
             'session': SessionSerializer(session).data
         }, status=status.HTTP_200_OK)
 
@@ -829,10 +848,20 @@ class SessionsListView(generics.ListAPIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
+        # Filter by session type
+        session_type_filter = self.request.query_params.get('session_type')
+        if session_type_filter:
+            queryset = queryset.filter(session_type=session_type_filter)
+        
+        # Filter by patient ID (for therapists viewing specific patient's sessions)
+        patient_id_filter = self.request.query_params.get('patient_id')
+        if patient_id_filter and user.user_type == 'therapist':
+            queryset = queryset.filter(patient_id=patient_id_filter)
+        
         # Apply limit
         limit = int(self.request.query_params.get('limit', 50))
         
-        return queryset.select_related('patient', 'therapist').order_by('scheduled_date')[:limit]
+        return queryset.select_related('patient', 'therapist').order_by('-scheduled_date')[:limit]
     
     def list(self, request, *args, **kwargs):
         """Override list to add user type and total count"""

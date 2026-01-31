@@ -1,7 +1,8 @@
 // src/pages/NewSession.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useTherapistPatients, useSessionConsent } from '../hooks/useTherapist';
+import { useTherapistPatients } from '../hooks/useTherapist';
+import therapistService from '../services/therapist.service';
 
 const NewSession = () => {
   const navigate = useNavigate();
@@ -9,21 +10,30 @@ const NewSession = () => {
   const { patients, loading: patientsLoading } = useTherapistPatients();
   
   const selectedPatientId = searchParams.get('patientId') || '';
-  const selectedPatientName = searchParams.get('patientName') || '';
 
   const [selectedPatient, setSelectedPatient] = useState(selectedPatientId);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const { 
-    formData, 
-    loading, 
-    error, 
-    updateField, 
-    handleSubmit, 
-    clearError 
-  } = useSessionConsent({
-    patientId: selectedPatient,
-    patientName: patients.find(p => p.id === selectedPatient)?.full_name || selectedPatientName,
-    isNewPatient: 'false'
+  // Get current date and time for default values
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(10, 0, 0, 0); // Default to 10:00 AM tomorrow
+  
+  // Session timing mode: 'now' or 'scheduled'
+  const [sessionTiming, setSessionTiming] = useState<'now' | 'scheduled'>('scheduled');
+
+  const [formData, setFormData] = useState({
+    session_type: 'individual',
+    duration_minutes: 60,
+    location: '',
+    is_online: false,
+    patient_goals: '',
+    fee_charged: 0,
+    consent_recording: false,
+    consent_ai_analysis: false,
+    scheduled_date: tomorrow.toISOString().slice(0, 16), // Format: YYYY-MM-DDTHH:mm
   });
 
   useEffect(() => {
@@ -32,13 +42,82 @@ const NewSession = () => {
     }
   }, [selectedPatientId]);
 
+  const updateField = (field: string, value: string | number | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Check if the scheduled date is in the future (more than 10 minutes from now)
+  const isUpcomingSession = () => {
+    const scheduledDate = new Date(formData.scheduled_date);
+    const now = new Date();
+    const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+    return scheduledDate > tenMinutesFromNow;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) {
       alert('Please select a patient');
       return;
     }
-    await handleSubmit();
+    
+    try {
+      setLoading(true);
+      setError(null);
+
+      // If "Right Now", use current time + 1 minute to pass backend validation
+      // For scheduled sessions, send the datetime-local value directly with seconds appended
+      const now = new Date();
+      const scheduledDate = sessionTiming === 'now' 
+        ? new Date(now.getTime() + 60000).toISOString()  // 1 minute in future for "now"
+        : formData.scheduled_date + ':00';  // datetime-local format + seconds
+
+      const sessionData = {
+        patient_id: selectedPatient,
+        scheduled_date: scheduledDate,
+        duration_minutes: Number(formData.duration_minutes),
+        session_type: formData.session_type,
+        location: formData.location || 'Office',
+        is_online: formData.is_online,
+        patient_goals: formData.patient_goals || '',
+        fee_charged: formData.fee_charged || 0,
+        consent_recording: formData.consent_recording,
+        consent_ai_analysis: formData.consent_ai_analysis,
+      };
+
+      console.log('Scheduling session:', sessionData);
+      const session = await therapistService.createSession(sessionData);
+      
+      if (session) {
+        if (sessionTiming === 'now') {
+          // For "Right Now" sessions, go directly to session detail page to start
+          navigate(`/sessions/${session.id}`, {
+            state: { 
+              message: 'Session created! You can start it now.',
+              startImmediately: true
+            }
+          });
+        } else if (isUpcomingSession()) {
+          // For future sessions, go to dashboard with success message
+          navigate('/dashboard', { 
+            state: { 
+              message: 'Session scheduled successfully!',
+              sessionId: session.id 
+            } 
+          });
+        } else {
+          // For current/immediate sessions, go to session detail page to start
+          navigate(`/sessions/${session.id}`);
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Schedule session error:', err);
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to schedule session';
+      setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (patientsLoading) {
@@ -62,14 +141,23 @@ const NewSession = () => {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p>{error}</p>
-          <button 
-            onClick={clearError}
-            className="mt-2 text-sm underline hover:no-underline"
-          >
-            Dismiss
-          </button>
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-4 rounded-lg">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-medium text-red-700 mb-1">Failed to schedule session</p>
+              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-xs text-red-500 mt-2">Common issues: Invalid date format, patient not found, or missing required fields.</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800 ml-2"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 
@@ -118,6 +206,81 @@ const NewSession = () => {
               <option value="couples">Couples</option>
             </select>
           </div>
+
+          {/* Session Timing Toggle */}
+          <div>
+            <label className="form-label">
+              When to Start <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-4 mt-2">
+              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                sessionTiming === 'now' 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="sessionTiming"
+                  value="now"
+                  checked={sessionTiming === 'now'}
+                  onChange={() => setSessionTiming('now')}
+                  className="sr-only"
+                  disabled={loading}
+                />
+                <div className="text-center">
+                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="font-medium">Start Right Now</span>
+                  <p className="text-xs text-gray-500 mt-1">Begin session immediately</p>
+                </div>
+              </label>
+              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                sessionTiming === 'scheduled' 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="sessionTiming"
+                  value="scheduled"
+                  checked={sessionTiming === 'scheduled'}
+                  onChange={() => setSessionTiming('scheduled')}
+                  className="sr-only"
+                  disabled={loading}
+                />
+                <div className="text-center">
+                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-medium">Schedule for Later</span>
+                  <p className="text-xs text-gray-500 mt-1">Pick a future date & time</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Scheduled Date & Time - Only show when scheduling for later */}
+          {sessionTiming === 'scheduled' && (
+            <div>
+              <label htmlFor="scheduled_date" className="form-label">
+                Scheduled Date & Time <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="scheduled_date"
+                type="datetime-local"
+                required
+                className="form-input"
+                value={formData.scheduled_date}
+                onChange={(e) => updateField('scheduled_date', e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                disabled={loading}
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Select the date and time for this session
+              </p>
+            </div>
+          )}
 
           {/* Duration */}
           <div>
@@ -231,7 +394,7 @@ const NewSession = () => {
                 disabled={loading}
               />
               <label htmlFor="consent_ai_analysis" className="ml-2 block text-sm text-gray-900">
-                Patient consents to AI analysis of session
+                Patient coScheduling Session...' : 'Scheduleion
               </label>
             </div>
           </div>
@@ -251,7 +414,9 @@ const NewSession = () => {
               className="btn-primary"
               disabled={loading || !selectedPatient}
             >
-              {loading ? 'Creating Session...' : 'Start Session'}
+              {loading 
+                ? (sessionTiming === 'now' ? 'Creating...' : 'Scheduling...') 
+                : (sessionTiming === 'now' ? 'Create & Start Session' : 'Schedule Session')}
             </button>
           </div>
         </form>

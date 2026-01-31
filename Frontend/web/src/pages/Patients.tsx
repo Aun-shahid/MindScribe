@@ -54,58 +54,23 @@ const Patients = () => {
               Search
             </label>
             <input
-              id="search_query"
+              id="search"
               type="text"
               placeholder="Search patients..."
               className="form-input"
-              value={activeFilter.search_query || ''}
-              onChange={(e) => handleFilterChange({ ...activeFilter, search_query: e.target.value || undefined })}
+              value={activeFilter.search || ''}
+              onChange={(e) => handleFilterChange({ ...activeFilter, search: e.target.value || undefined })}
             />
           </div>
 
-          <div>
-            <label htmlFor="gender" className="form-label">
-              Gender
-            </label>
-            <select
-              id="gender"
-              className="form-input"
-              value={activeFilter.gender || ''}
-              onChange={(e) => handleFilterChange({ ...activeFilter, gender: e.target.value || undefined })}
-            >
-              <option value="">All Genders</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="therapy_status" className="form-label">
-              Status
-            </label>
-            <select
-              id="therapy_status"
-              className="form-input"
-              value={activeFilter.therapy_status || ''}
-              onChange={(e) => handleFilterChange({ 
-                ...activeFilter, 
-                therapy_status: e.target.value ? e.target.value as any : undefined 
-              })}
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
+          {/* Only search filter is supported by backend */}
         </div>
 
         <div className="mt-4">
           <button
             onClick={() => {
               setActiveFilter({});
-              updateFilter({});
+              updateFilter({}, true); // Pass reset=true to fully clear filter
             }}
             className="btn-secondary text-sm"
           >

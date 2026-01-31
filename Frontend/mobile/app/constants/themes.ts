@@ -35,8 +35,8 @@ export const lightTheme = {
 };
 
 export const darkTheme = {
-  background: '#49467E',       // Dark violet background
- card: '#f8f8f8',               // Slightly lighter for cards
+  background: '#301934',       // Dark violet background
+ card: '#674587',               // Card color matching dashboardcard
   text: '#ffffff',              // Pure white text
   title: '#FFFFFF',            // Title stays white
   label: '#CCCCFF',            // Light purple for labels
@@ -53,7 +53,7 @@ export const darkTheme = {
   onboardingbottom:'#49467E',
   progressbarmain: '#ffffff',
   progressbarside: '#7079A3',//de progress bar color
-  dashboardcard: '#49467E',
+  dashboardcard: '#674587',
   darktext: '#ffffff',
   lighttext: '#524f85', // Dark violet for dashboard cards
 

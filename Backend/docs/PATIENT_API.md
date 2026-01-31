@@ -1,7 +1,7 @@
 # Patient Module API Documentation
 
 **Version:** 1.0  
-**Last Updated:** January 26, 2026  
+**Last Updated:** January 16, 2026  
 **Base URL:** `/api/patients/`
 
 ---
@@ -30,54 +30,17 @@ Body: { "email": "patient@example.com", "password": "yourpassword" }
 ### Dashboard
 **GET** `/api/patients/dashboard/`
 
-Returns patient dashboard overview with aggregated mood data, journal stats, goals, mood trends, and sessions.
+Returns patient dashboard overview with current mood, journal stats, goals, and next session.
 
 **Response:**
 ```json
 {
-  "mood_today": {
-    "mood": "peaceful",
-    "mood_display": "Peaceful 😌",
-    "intensity": 5,
-    "average_intensity": 3.67,
-    "all_moods": [
-      {"mood": "happy", "intensity": 4},
-      {"mood": "peaceful", "intensity": 5},
-      {"mood": "anxious", "intensity": 2}
-    ],
-    "entry_count": 1
-  },
+  "current_mood": { "mood": "happy", "intensity": 8, "date": "2026-01-16" },
   "journal_count_this_month": 12,
   "active_goals_count": 3,
-  "completed_goals_count": 8,
-  "next_session": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "date": "Monday",
-    "time": "02:00 PM",
-    "datetime": "2026-01-27T14:00:00Z",
-    "therapist": "Dr. Sarah Johnson"
-  },
-  "mood_trend": [
-    {
-      "date": "2026-01-20",
-      "mood": "happy",
-      "intensity": 4,
-      "average_intensity": 3.5,
-      "all_moods": [{"mood": "happy", "intensity": 4}, {"mood": "grateful", "intensity": 3}]
-    }
-  ],
-  "recent_journal_entries": [...],
-  "upcoming_sessions": [...],
-  "daily_inspiration": {...},
-  "relaxation_minutes_this_week": 45,
-  "emotional_insights_count": 15
+  "next_session": { "date": "Tomorrow", "time": "2:00 PM" }
 }
 ```
-
-**Notes:**
-- `mood_today` aggregates all mood entries for today. If multiple entries exist, shows dominant mood with highest intensity.
-- `intensity` is the dominant mood's intensity; `average_intensity` is average across all moods logged today.
-- Returns null if no mood entries exist for today.
 
 ---
 
@@ -94,45 +57,16 @@ Returns patient dashboard overview with aggregated mood data, journal stats, goa
 **POST Body:**
 ```json
 {
-  "mood_intensities": {
-    "happy": 4,
-    "peaceful": 5,
-    "anxious": 2
-  },
-  "triggers_list": ["work", "sleep", "exercise"],
+  "mood": "happy",
+  "intensity": 8,
   "notes": "Feeling good today",
+  "triggers": "Good sleep, exercise",
   "activities": "Therapy session, morning walk",
   "mood_date": "2026-01-16"
 }
 ```
 
-**Available Moods:** `happy`, `sad`, `angry`, `anxious`, `peaceful`, `excited`, `grateful`, `overwhelmed`, `hopeful`, `stressed`
-
-**Intensity Levels:** 1 (Very Low) to 5 (Very High)
-
-**Response:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "patient": "660e8400-e29b-41d4-a716-446655440000",
-  "patient_name": "John Doe",
-  "mood_intensities": {
-    "happy": 4,
-    "peaceful": 5,
-    "anxious": 2
-  },
-  "moods_list": ["happy", "peaceful", "anxious"],
-  "dominant_mood": "peaceful",
-  "average_intensity": 3.67,
-  "notes": "Feeling good today",
-  "triggers": "work,sleep,exercise",
-  "triggers_list": ["work", "sleep", "exercise"],
-  "activities": "Therapy session, morning walk",
-  "mood_date": "2026-01-16",
-  "created_at": "2026-01-16T14:30:00Z",
-  "updated_at": "2026-01-16T14:30:00Z"
-}
-```
+**Mood Choices:** `very_happy`, `happy`, `neutral`, `sad`, `very_sad`, `anxious`, `angry`, `stressed`, `calm`, `excited`
 
 #### Get Today's Mood
 **GET** `/api/patients/mood/today/`
@@ -151,38 +85,29 @@ Returns mood trends, averages, and distribution.
 
 **Query Params (GET):**
 - `start_date`, `end_date`: Date range
-- `favorite`: Filter favorites (true/false)
-- `search`: Search in title/content
+- `is_favorite`: Filter favorites (true/false)
+- `entry_type`: text/voice/mixed
 
-**POST Body:**
+**POST Body (Text):**
 ```json
 {
   "title": "Today's Reflection",
-  "content": "Feeling grateful for the progress I've made this week. Each small step counts.",
-  "mood_tags_list": ["grateful", "hopeful", "progress"],
-  "is_private": true,
-  "is_favorite": false
+  "content": "Feeling grateful for the progress...",
+  "entry_type": "text",
+  "mood_tags": "grateful,hopeful",
+  "is_private": true
 }
 ```
 
-**Available Mood Tags:** `happy`, `sad`, `anxious`, `peaceful`, `angry`, `grateful`, `hopeful`, `overwhelmed`, `excited`, `calm`, `stressed`, `reflective`, `struggling`, `breakthrough`, `progress`
-
-**Response:**
+**POST Body (Voice):**
 ```json
 {
-  "id": "660e8400-e29b-41d4-a716-446655440000",
-  "patient": "550e8400-e29b-41d4-a716-446655440000",
-  "patient_name": "John Doe",
-  "prompt": "What are you grateful for today?",
-  "title": "Today's Reflection",
-  "content": "Feeling grateful for the progress I've made this week. Each small step counts.",
-  "mood_tags": "grateful,hopeful,progress",
-  "mood_tags_list": ["grateful", "hopeful", "progress"],
-  "is_private": true,
-  "is_favorite": false,
-  "entry_date": "2026-01-16",
-  "created_at": "2026-01-16T15:00:00Z",
-  "updated_at": "2026-01-16T15:00:00Z"
+  "title": "Voice Journal",
+  "entry_type": "voice",
+  "voice_recording_url": "https://storage.example.com/recording.mp3",
+  "voice_duration_seconds": 180,
+  "voice_transcription": "Transcribed text...",
+  "is_private": true
 }
 ```
 
@@ -207,15 +132,12 @@ Returns total entries, counts by type, favorites, and most used tags.
   "body_sensations": "Tight chest, rapid heartbeat",
   "thoughts": "I'm worried I said the wrong thing",
   "behaviors": "Withdrew from social interaction",
-  "insights_learned": "Recognized my anxiety triggers around confrontation",
-  "coping_strategies": "Deep breathing, journaling, went for a walk",
-  "is_resolved": false
+  "insights_learned": "Recognized my anxiety triggers",
+  "coping_strategies": "Deep breathing, journaling"
 }
 ```
 
 **Emotion Choices:** `joy`, `sadness`, `anger`, `fear`, `anxiety`, `love`, `guilt`, `shame`, `pride`, `hope`, `gratitude`, `confusion`
-
-**Intensity:** 1-10 scale
 
 #### Emotional Analytics
 **GET** `/api/patients/emotions/analytics/`
@@ -321,7 +243,7 @@ curl -X GET "http://localhost:8000/api/patients/dashboard/" \
 curl -X POST "http://localhost:8000/api/patients/mood/" \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"mood_intensities":{"happy":4,"peaceful":5},"notes":"Feeling great"}'
+  -d '{"mood":"happy","intensity":8}'
 ```
 
 ### Using Postman

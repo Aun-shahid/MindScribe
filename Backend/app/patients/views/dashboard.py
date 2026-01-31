@@ -32,28 +32,17 @@ class PatientDashboardView(APIView):
         today = timezone.now().date()
         this_month_start = today.replace(day=1)
         
-        # Today's mood (aggregate all entries for today)
+        # Today's mood
         mood_today = None
-        mood_entries_today = MoodEntry.objects.filter(patient=user, mood_date=today)
-        if mood_entries_today.exists():
-            # Get dominant mood for today using the class method
-            day_data = MoodEntry.get_dominant_mood_for_day(user, today)
-            if day_data:
-                dominant_mood = day_data['dominant_mood']
-                mood_display_name = None
-                for choice in MoodEntry.MOOD_CHOICES:
-                    if choice[0] == dominant_mood:
-                        mood_display_name = choice[1]
-                        break
-                
-                mood_today = {
-                    'mood': dominant_mood,
-                    'mood_display': mood_display_name or dominant_mood.title(),
-                    'intensity': day_data['dominant_intensity'],
-                    'average_intensity': day_data['avg_intensity'],
-                    'all_moods': day_data['all_moods'],
-                    'entry_count': day_data['entry_count']
-                }
+        try:
+            mood = MoodEntry.objects.get(patient=user, mood_date=today)
+            mood_today = {
+                'mood': mood.get_mood_display(),
+                'mood_value': mood.mood,
+                'intensity': mood.intensity
+            }
+        except MoodEntry.DoesNotExist:
+            pass
         
         # Journal count this month
         journal_count_this_month = JournalEntry.objects.filter(
@@ -97,21 +86,18 @@ class PatientDashboardView(APIView):
         mood_trend = []
         for i in range(7):
             date = today - timedelta(days=6-i)
-            day_data = MoodEntry.get_dominant_mood_for_day(user, date)
-            if day_data:
+            try:
+                mood = MoodEntry.objects.get(patient=user, mood_date=date)
                 mood_trend.append({
                     'date': str(date),
-                    'mood': day_data['dominant_mood'],
-                    'intensity': day_data['dominant_intensity'],
-                    'average_intensity': day_data['avg_intensity'],
-                    'all_moods': day_data['all_moods']
+                    'mood': mood.mood,
+                    'intensity': mood.intensity
                 })
-            else:
+            except MoodEntry.DoesNotExist:
                 mood_trend.append({
                     'date': str(date),
                     'mood': None,
-                    'intensity': 0,
-                    'all_moods': []
+                    'intensity': 0
                 })
         
         # Recent journal entries

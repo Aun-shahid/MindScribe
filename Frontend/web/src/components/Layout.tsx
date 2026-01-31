@@ -1,10 +1,31 @@
 // src/components/Layout.tsx
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import therapistService from '../services/therapist.service';
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [alertCount, setAlertCount] = useState<number>(0);
+
+  useEffect(() => {
+    fetchAlertCount();
+    // Poll for new alerts every 2 minutes
+    const interval = setInterval(fetchAlertCount, 120000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchAlertCount = async () => {
+    try {
+      const data = await therapistService.getMoodAlerts(undefined, undefined, 7);
+      const count = (data.summary?.critical_alerts || 0) + (data.summary?.high_alerts || 0);
+      setAlertCount(count);
+    } catch (err) {
+      console.error('Failed to fetch alert count:', err);
+    }
+  };
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path);
@@ -39,6 +60,20 @@ const Layout = () => {
                   </Link>
                   <Link to="/qr-code" className={navLinkClass('/qr-code')}>
                     QR Code
+                  </Link>
+                  <Link 
+                    to="/notifications" 
+                    className="relative px-3 py-2 text-blue-100 hover:text-white hover:bg-blue-600 rounded-md transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell size={20} />
+                      <span className="text-sm font-medium">Notifications</span>
+                      {alertCount > 0 && (
+                        <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                          {alertCount > 99 ? '99+' : alertCount}
+                        </span>
+                      )}
+                    </div>
                   </Link>
                 </div>
               </div>
