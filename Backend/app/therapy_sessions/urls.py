@@ -15,7 +15,8 @@ from .views import (
     # New availability and booking views
     TherapistAvailabilityView, TherapistDateOverrideView,
     AvailableSlotsView, PatientBookSessionView, EmergencySessionRequestView,
-    TherapistAvailableDatesView
+    TherapistAvailableDatesView,
+    TherapistPatientMoodTrendView
 )
 
 urlpatterns = [
