@@ -12,71 +12,65 @@
 |----------|--------|-------------|
 | `/dashboard/` | GET | Get overview with stats, mood, sessions |
 
-### Mood Tracking (6 endpoints)
+### Mood Tracking (5 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/mood/` | GET | List all mood entries |
-| `/mood/` | POST | Create new mood entry |
-| `/mood/{id}/` | GET/PATCH/DELETE | Get/update/delete specific mood |
+| `/mood/` | GET/POST | List all mood entries / Create new mood entry |
+| `/mood/<uuid:pk>/` | GET/PATCH/DELETE | Get/update/delete specific mood entry |
 | `/mood/today/` | GET | Get today's mood entries |
 | `/mood/analytics/` | GET | Get mood statistics |
 | `/mood/weekly-trend/` | GET | Get last 7 days trend |
 
-### Journal (7 endpoints)
+### Journal (5 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/journal/` | GET | List journal entries |
-| `/journal/` | POST | Create new entry |
-| `/journal/{id}/` | GET/PATCH/DELETE | Get/update/delete entry |
+| `/journal/` | GET/POST | List journal entries / Create new entry |
+| `/journal/<uuid:pk>/` | GET/PATCH/DELETE | Get/update/delete entry |
 | `/journal/prompt/today/` | GET | Get today's prompt |
 | `/journal/prompts/` | GET | List all prompts |
 | `/journal/analytics/` | GET | Get journal statistics |
 
-### Activities (4 endpoints)
+### Activities (3 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/activities/` | GET | List activities |
-| `/activities/` | POST | Log new activity |
-| `/activities/{id}/` | GET/PATCH/DELETE | Get/update/delete activity |
+| `/activities/` | GET/POST | List activities / Log new activity |
+| `/activities/<uuid:pk>/` | GET/PATCH/DELETE | Get/update/delete activity |
 | `/activities/analytics/` | GET | Get activity statistics |
 
-### Emotions (4 endpoints)
+### Emotions (3 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/emotions/` | GET | List emotional insights |
-| `/emotions/` | POST | Create new insight |
-| `/emotions/{id}/` | GET/PATCH/DELETE | Get/update/delete insight |
+| `/emotions/` | GET/POST | List emotional insights / Create new insight |
+| `/emotions/<uuid:pk>/` | GET/PATCH/DELETE | Get/update/delete insight |
 | `/emotions/analytics/` | GET | Get emotion statistics |
 
-### Relaxation (8 endpoints)
+### Relaxation (6 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/relaxation/content/` | GET | List relaxation content |
-| `/relaxation/content/{id}/` | GET | Get specific content |
+| `/relaxation/content/<uuid:pk>/` | GET | Get specific content |
 | `/relaxation/tips/` | GET | Get relaxation tips |
-| `/relaxation/sessions/` | GET | List sessions |
-| `/relaxation/sessions/` | POST | Create session |
-| `/relaxation/sessions/{id}/` | GET/PATCH/DELETE | Manage session |
+| `/relaxation/sessions/` | GET/POST | List sessions / Create session |
+| `/relaxation/sessions/<uuid:pk>/` | GET/PATCH | Manage session |
 | `/relaxation/sessions/analytics/` | GET | Session statistics |
 
-### Goals (3 endpoints)
+### Goals (2 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/goals/` | GET | List goals |
-| `/goals/` | POST | Create new goal |
-| `/goals/{id}/` | GET/PATCH/DELETE | Get/update/delete goal |
+| `/goals/` | GET/POST | List goals / Create new goal |
+| `/goals/<uuid:pk>/` | GET/PATCH/DELETE | Get/update/delete goal |
 
 ### Inspiration (1 endpoint)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/inspiration/` | GET | Get daily inspiration quote |
 
-### Notifications (7 endpoints)
+### Notifications (6 endpoints)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/notifications/` | GET | List notifications |
-| `/notifications/{id}/` | DELETE | Delete notification |
-| `/notifications/{id}/read/` | POST | Mark as read |
+| `/notifications/<uuid:pk>/` | DELETE | Delete notification |
+| `/notifications/<uuid:notification_id>/read/` | POST | Mark as read |
 | `/notifications/mark-all-read/` | POST | Mark all as read |
 | `/notifications/unread-count/` | GET | Get unread count |
 | `/notifications/preferences/` | GET/PUT | Manage preferences |
@@ -303,13 +297,13 @@ Check these files for working examples:
 ## 📊 Total Endpoint Count
 
 - **Dashboard:** 1 endpoint
-- **Mood:** 6 endpoints
-- **Journal:** 7 endpoints
-- **Activities:** 4 endpoints
-- **Emotions:** 4 endpoints
-- **Relaxation:** 8 endpoints
-- **Goals:** 3 endpoints
+- **Mood:** 5 endpoints
+- **Journal:** 5 endpoints
+- **Activities:** 3 endpoints
+- **Emotions:** 3 endpoints
+- **Relaxation:** 6 endpoints
+- **Goals:** 2 endpoints
 - **Inspiration:** 1 endpoint
-- **Notifications:** 7 endpoints
+- **Notifications:** 6 endpoints
 
-**Total: 41 endpoints** 🎉
+**Total: 32 endpoints** 🎉
