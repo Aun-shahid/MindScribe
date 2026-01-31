@@ -72,4 +72,5 @@ urlpatterns = [
     # Mood alerts and summaries
     path('mood-alerts/', TherapistMoodAlertsView.as_view(), name='therapist_mood_alerts'),
     path('mood-summary/', PatientMoodSummaryView.as_view(), name='patient_mood_summary'),
+    path('mood-trend/', TherapistPatientMoodTrendView.as_view(), name='therapist_patient_mood_trend'),
 ]

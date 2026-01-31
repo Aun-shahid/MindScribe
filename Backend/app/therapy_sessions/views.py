@@ -40,6 +40,74 @@ from django.conf import settings
 User = get_user_model()
 
 
+# TherapistPatientMoodTrendView: Fetch 7-day mood trend for a patient
+from patients.models import MoodEntry
+
+@extend_schema(
+    tags=["Therapist - Mood"],
+    summary="Get 7-day mood trend for a patient",
+    description="Fetches the daily dominant mood and average intensity for the past 7 days for a given patient.",
+    parameters=[
+        OpenApiParameter(name="patient_id", description="UUID of the patient", required=True, type=str),
+    ],
+    responses={
+        200: OpenApiResponse(description="7-day mood trend data for the patient."),
+        403: OpenApiResponse(description="Only therapists can access this endpoint."),
+        404: OpenApiResponse(description="Patient not found or not connected to therapist."),
+    }
+)
+class TherapistPatientMoodTrendView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if not hasattr(user, "therapist_profile"):
+            return Response({"detail": "Only therapists can access this endpoint."}, status=403)
+
+        patient_id = request.query_params.get("patient_id")
+        if not patient_id:
+            return Response({"detail": "Missing patient_id parameter."}, status=400)
+
+        # Ensure the patient is connected to this therapist
+        try:
+            patient_profile = PatientProfile.objects.get(user__id=patient_id)
+            if patient_profile not in user.therapist_profile.patients.all():
+                return Response({"detail": "Patient not connected to therapist."}, status=404)
+        except PatientProfile.DoesNotExist:
+            return Response({"detail": "Patient not found."}, status=404)
+
+        today = timezone.now().date()
+        days = 7
+        trend = []
+        for i in range(days):
+            date = today - timedelta(days=days - i - 1)
+            entries = MoodEntry.objects.filter(patient=patient_profile.user, mood_date=date)
+            if entries.exists():
+                # Use the entry with the highest average intensity if multiple
+                entry = max(entries, key=lambda e: e.average_intensity)
+                intensities = entry.mood_intensities or {}
+                if intensities:
+                    max_intensity = max(intensities.values())
+                    dominant_moods = [m for m, v in intensities.items() if v == max_intensity]
+                else:
+                    dominant_moods = []
+                trend.append({
+                    "date": date.isoformat(),
+                    "dominant_moods": dominant_moods,
+                    "average_intensity": entry.average_intensity,
+                    "mood_intensities": intensities,
+                })
+            else:
+                trend.append({
+                    "date": date.isoformat(),
+                    "dominant_moods": [],
+                    "average_intensity": None,
+                    "mood_intensities": {},
+                })
+
+        return Response({"trend": trend}, status=200)
+
+
 @extend_schema(
     tags=['Therapy Sessions'],
     summary="Create therapy sessions",
@@ -3078,8 +3146,11 @@ class SessionTranscriptionView(generics.GenericAPIView):
                         "patient_id": "123e4567-e89b-12d3-a456-426614174000",
                         "patient_name": "John Smith",
                         "severity": "high",
-                        "mood_score": 2,
-                        "message": "Patient reported very low mood",
+                        "dominant_mood": "sad",
+                        "average_intensity": 2.0,
+                        "mood_intensities": {"sad": 4, "anxious": 3},
+                        "triggers": ["work", "sleep"],
+                        "message": "Patient reported very low mood intensity",
                         "created_at": "2024-01-15T10:00:00Z"
                     }
                 ],
@@ -3087,7 +3158,9 @@ class SessionTranscriptionView(generics.GenericAPIView):
                     "total_alerts": 3,
                     "critical_alerts": 1,
                     "high_alerts": 1,
-                    "patients_needing_attention": 2
+                    "patients_needing_attention": 2,
+                    "total_mood_entries": 45,
+                    "average_mood_intensity": 3.2
                 }
             },
             response_only=True,
@@ -3130,8 +3203,8 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
         
         patient_ids = [p.user_id for p in patient_profiles]
         
-        # Import MoodEntry from history app
-        from history.models import MoodEntry
+        # Import MoodEntry from patients app
+        from patients.models import MoodEntry
         
         # Get mood entries for the past N days
         start_date = timezone.now() - timedelta(days=days)
@@ -3143,7 +3216,7 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
         # Generate alerts based on mood scores
         alerts = []
         for entry in mood_entries:
-            severity = self._calculate_severity(entry.mood_score)
+            severity = self._calculate_severity(entry.average_intensity)
             if severity_filter and severity != severity_filter:
                 continue
             
@@ -3154,12 +3227,10 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
                     'patient_id': str(patient.id),
                     'patient_name': patient.full_name,
                     'severity': severity,
-                    'mood': entry.mood,
-                    'mood_score': entry.mood_score,
-                    'energy_level': entry.energy_level,
-                    'anxiety_level': entry.anxiety_level,
-                    'stress_level': entry.stress_level,
-                    'triggers': entry.get_triggers_list(),
+                    'dominant_mood': entry.dominant_mood,
+                    'average_intensity': entry.average_intensity,
+                    'mood_intensities': entry.mood_intensities,
+                    'triggers': entry.triggers_list,
                     'notes': entry.notes,
                     'created_at': entry.created_at,
                     'message': self._generate_alert_message(entry),
@@ -3173,8 +3244,8 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
                 'id': str(entry.id),
                 'patient_id': str(patient.id),
                 'patient_name': patient.full_name,
-                'mood': entry.mood,
-                'mood_score': entry.mood_score,
+                'dominant_mood': entry.dominant_mood,
+                'average_intensity': entry.average_intensity,
                 'created_at': entry.created_at,
             })
         
@@ -3186,7 +3257,7 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
             'medium_alerts': len([a for a in alerts if a['severity'] == 'medium']),
             'patients_needing_attention': len(set(a['patient_id'] for a in alerts if a['severity'] in ['critical', 'high'])),
             'total_mood_entries': mood_entries.count(),
-            'average_mood_score': mood_entries.aggregate(avg=Avg('mood_score'))['avg'] or 0,
+            'average_mood_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
         }
         
         return Response({
@@ -3210,15 +3281,16 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
         """Generate alert message based on entry data"""
         messages = []
         
-        if entry.mood_score <= 2:
-            messages.append('Patient reported very low mood')
-        elif entry.mood_score <= 4:
-            messages.append('Patient reported low mood')
+        if entry.average_intensity <= 2:
+            messages.append('Patient reported very low mood intensity')
+        elif entry.average_intensity <= 3:
+            messages.append('Patient reported low mood intensity')
         
-        if entry.anxiety_level and entry.anxiety_level >= 8:
+        # Check for anxiety or stress in mood intensities
+        if 'anxious' in entry.mood_intensities and entry.mood_intensities['anxious'] >= 4:
             messages.append('High anxiety levels reported')
         
-        if entry.stress_level and entry.stress_level >= 8:
+        if 'stressed' in entry.mood_intensities and entry.mood_intensities['stressed'] >= 4:
             messages.append('High stress levels reported')
         
         return '. '.join(messages) if messages else 'Mood check-in recorded'
@@ -3258,7 +3330,7 @@ class PatientMoodSummaryView(generics.GenericAPIView):
         days = int(request.query_params.get('days', 30))
         start_date = timezone.now() - timedelta(days=days)
         
-        from history.models import MoodEntry
+        from patients.models import MoodEntry
         
         mood_entries = MoodEntry.objects.filter(
             patient=user,
@@ -3270,20 +3342,19 @@ class PatientMoodSummaryView(generics.GenericAPIView):
         for entry in mood_entries:
             mood_trend.append({
                 'date': entry.created_at.date().isoformat(),
-                'mood': entry.mood,
-                'mood_score': entry.mood_score,
-                'energy_level': entry.energy_level,
-                'anxiety_level': entry.anxiety_level,
+                'dominant_mood': entry.dominant_mood,
+                'average_intensity': entry.average_intensity,
+                'mood_intensities': entry.mood_intensities,
+                'triggers': entry.triggers_list,
             })
         
         # Statistics
         stats = {
             'total_entries': mood_entries.count(),
-            'average_mood_score': mood_entries.aggregate(avg=Avg('mood_score'))['avg'] or 0,
-            'average_energy': mood_entries.aggregate(avg=Avg('energy_level'))['avg'] or 0,
-            'average_anxiety': mood_entries.aggregate(avg=Avg('anxiety_level'))['avg'] or 0,
-            'highest_mood': mood_entries.order_by('-mood_score').first().mood_score if mood_entries.exists() else 0,
-            'lowest_mood': mood_entries.order_by('mood_score').first().mood_score if mood_entries.exists() else 0,
+            'average_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
+            'highest_intensity': mood_entries.order_by('-average_intensity').first().average_intensity if mood_entries.exists() else 0,
+            'lowest_intensity': mood_entries.order_by('average_intensity').first().average_intensity if mood_entries.exists() else 0,
+            'most_common_mood': self._get_most_common_mood(mood_entries),
         }
         
         # Recent entries
@@ -3292,8 +3363,9 @@ class PatientMoodSummaryView(generics.GenericAPIView):
         for entry in recent:
             recent_entries.append({
                 'id': str(entry.id),
-                'mood': entry.mood,
-                'mood_score': entry.mood_score,
+                'dominant_mood': entry.dominant_mood,
+                'average_intensity': entry.average_intensity,
+                'mood_intensities': entry.mood_intensities,
                 'notes': entry.notes,
                 'created_at': entry.created_at,
             })
@@ -3303,6 +3375,19 @@ class PatientMoodSummaryView(generics.GenericAPIView):
             'statistics': stats,
             'recent_entries': recent_entries,
         }, status=status.HTTP_200_OK)
+    
+    def _get_most_common_mood(self, mood_entries):
+        """Get the most common dominant mood from entries"""
+        if not mood_entries:
+            return None
+        
+        mood_counts = {}
+        for entry in mood_entries:
+            mood = entry.dominant_mood
+            if mood:
+                mood_counts[mood] = mood_counts.get(mood, 0) + 1
+        
+        return max(mood_counts.items(), key=lambda x: x[1])[0] if mood_counts else None
 
 
 # =============================================================================
