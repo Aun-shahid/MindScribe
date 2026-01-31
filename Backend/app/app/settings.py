@@ -109,10 +109,9 @@ ASGI_APPLICATION = "app.asgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # PostgreSQL Database Configuration
-# IMPORTANT: For production, load these from actual environment variables (e.g., in your Elastic Beanstalk config)!
-# The values provided here are for local development defaults.
+# Uses DATABASE_URL from .env for production and development
 DATABASES = {
-    'default': dj_database_url.config()
+    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
 }
 
 
@@ -329,6 +328,8 @@ VERSION = os.environ.get("VERSION", "1.0.0")
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+
 # --- AI Services Configuration ---
-# OpenAI API key for AI-powered mood insights
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:8001")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
