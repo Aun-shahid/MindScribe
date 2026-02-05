@@ -1,7 +1,7 @@
 // src/pages/Register.tsx
 import { useState } from 'react';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Phone, Calendar, FileText, Award } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Register = () => {
@@ -71,6 +71,16 @@ const Register = () => {
       errors.email = 'Please enter a valid email address';
     }
     
+    // Phone number validation (optional field, but must be valid if provided)
+    if (formData.phone_number.trim()) {
+      const phoneDigits = formData.phone_number.replace(/[-\s]/g, ''); // Remove dashes and spaces
+      if (phoneDigits.length  <11 || phoneDigits.length > 15) {
+        errors.phone_number = 'Please enter a valid phone number';
+      } else if (!/^\d+$/.test(phoneDigits)) {
+        errors.phone_number = 'Phone number must contain only digits';
+      }
+    }
+    
     return errors;
   };
 
@@ -123,228 +133,330 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* Back Button */}
-      <button 
-        className="absolute top-12 left-6 z-10 p-2 bg-white rounded-full shadow-sm"
-        onClick={() => window.history.back()}
-        disabled={loading}
-      >
-        <ArrowLeft size={24} className="text-gray-700" />
-      </button>
-
-      {/* Decorative Circles */}
-      <div className="absolute -top-16 -right-16 z-0">
-        <div className="w-32 h-32 bg-purple-200 opacity-80 rounded-full absolute top-12 right-0"></div>
-        <div className="w-36 h-36 bg-purple-200 opacity-60 rounded-full absolute top-20 right-10"></div>
+    <div className="min-h-screen relative flex items-center justify-center overflow-hidden">
+      
+      {/* Full-screen background image */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="/images/login.png"
+          alt="Background"
+          className="w-full h-full object-cover"
+        />
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/40"></div>
       </div>
 
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 py-12">
-        {/* Logo Image */}
-        <div className="mb-6 -mt-8">
-          <img
-            src="/register.png"
-            alt="MindScribe Register"
-            className="w-80 h-80 object-contain"
-          />
-        </div>
+      {/* Back Button */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 z-20 p-2 bg-white/20 rounded-full backdrop-blur-sm hover:bg-white/30 transition"
+      >
+        <ArrowLeft size={22} className="text-gray-800" />
+      </Link>
 
-        {/* Title */}
-        <h1 className="text-2xl font-black text-purple-800 mb-6 text-center">
-          SIGN UP AS THERAPIST
+      {/* Centered register card with light purple transparency */}
+      <div className="relative z-10 w-full max-w-2xl mx-4 my-8 bg-purple-900/40 backdrop-blur-xl rounded-2xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
+        
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">
+          REGISTER
         </h1>
+        <p className="text-white/90 mb-6 text-center">
+          Sign up as a therapist
+        </p>
 
         {/* Error Message */}
         {(error && !Object.keys(validationErrors).length) && (
-          <div className="w-full max-w-md mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
-            <p className="text-red-700 text-sm text-center">{error}</p>
+          <div className="mb-4 p-3 bg-red-500/80 backdrop-blur-sm border-l-4 border-red-700 rounded">
+            <p className="text-white text-sm text-center font-medium">{error}</p>
           </div>
         )}
 
         {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
           {/* Username */}
           <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Username</label>
-            <input
-              name="username"
-              type="text"
-              placeholder="Enter your username"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.username ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.username}
-              onChange={handleChange}
-              disabled={loading}
-            />
+            <label className="block text-white text-sm font-medium mb-2">
+              Username
+            </label>
+            <div
+              className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                validationErrors.username ? 'border-red-500 border-2' : 'border-white/40'
+              }`}
+            >
+              <User size={20} className="text-white/80 mr-3" />
+              <input
+                name="username"
+                type="text"
+                placeholder="Enter your username"
+                className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                value={formData.username}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
             {validationErrors.username && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.username}</p>
+              <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.username}</p>
             )}
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Email</label>
-            <input
-              name="email"
-              type="email"
-              placeholder="Enter your email"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.email ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.email}
-              onChange={handleChange}
-              disabled={loading}
-            />
+            <label className="block text-white text-sm font-medium mb-2">
+              Email
+            </label>
+            <div
+              className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                validationErrors.email ? 'border-red-500 border-2' : 'border-white/40'
+              }`}
+            >
+              <Mail size={20} className="text-white/80 mr-3" />
+              <input
+                name="email"
+                type="email"
+                placeholder="Enter your email"
+                className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
             {validationErrors.email && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>
+              <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.email}</p>
             )}
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Password</label>
-            <input
-              name="password"
-              type="password"
-              placeholder="Enter password"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.password ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.password}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.password && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>
-            )}
+          {/* Password and Confirm Password in 2 columns */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Password */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Password
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.password ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <Lock size={20} className="text-white/80 mr-3" />
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Enter password"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.password && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.password}</p>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Confirm Password
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.password_confirm ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <Lock size={20} className="text-white/80 mr-3" />
+                <input
+                  name="password_confirm"
+                  type="password"
+                  placeholder="Re-enter password"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                  value={formData.password_confirm}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.password_confirm && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.password_confirm}</p>
+              )}
+            </div>
           </div>
 
-          {/* Confirm Password */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Confirm Password</label>
-            <input
-              name="password_confirm"
-              type="password"
-              placeholder="Re-enter password"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.password_confirm ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.password_confirm}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.password_confirm && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.password_confirm}</p>
-            )}
-          </div>
+          {/* First Name and Last Name in 2 columns */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* First Name */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                First Name
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.first_name ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <User size={20} className="text-white/80 mr-3" />
+                <input
+                  name="first_name"
+                  type="text"
+                  placeholder="Enter first name"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.first_name && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.first_name}</p>
+              )}
+            </div>
 
-          {/* First Name */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">First Name</label>
-            <input
-              name="first_name"
-              type="text"
-              placeholder="Enter first name"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.first_name ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.first_name}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.first_name && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>
-            )}
-          </div>
-
-          {/* Last Name */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Last Name</label>
-            <input
-              name="last_name"
-              type="text"
-              placeholder="Enter last name"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.last_name ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.last_name}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.last_name && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>
-            )}
+            {/* Last Name */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Last Name
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.last_name ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <User size={20} className="text-white/80 mr-3" />
+                <input
+                  name="last_name"
+                  type="text"
+                  placeholder="Enter last name"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.last_name && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.last_name}</p>
+              )}
+            </div>
           </div>
 
           {/* License Number */}
           <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">License Number</label>
-            <input
-              name="license_number"
-              type="text"
-              placeholder="Enter license number"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.license_number ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.license_number}
-              onChange={handleChange}
-              disabled={loading}
-            />
+            <label className="block text-white text-sm font-medium mb-2">
+              License Number
+            </label>
+            <div
+              className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                validationErrors.license_number ? 'border-red-500 border-2' : 'border-white/40'
+              }`}
+            >
+              <FileText size={20} className="text-white/80 mr-3" />
+              <input
+                name="license_number"
+                type="text"
+                placeholder="Enter license number"
+                className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                value={formData.license_number}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
             {validationErrors.license_number && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.license_number}</p>
+              <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.license_number}</p>
             )}
           </div>
 
           {/* Specialization */}
           <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Specialization</label>
-            <input
-              name="specialization"
-              type="text"
-              placeholder="e.g., Depression, Anxiety"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.specialization ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.specialization}
-              onChange={handleChange}
-              disabled={loading}
-            />
+            <label className="block text-white text-sm font-medium mb-2">
+              Specialization
+            </label>
+            <div
+              className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                validationErrors.specialization ? 'border-red-500 border-2' : 'border-white/40'
+              }`}
+            >
+              <Award size={20} className="text-white/80 mr-3" />
+              <input
+                name="specialization"
+                type="text"
+                placeholder="e.g., Depression, Anxiety"
+                className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                value={formData.specialization}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
             {validationErrors.specialization && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.specialization}</p>
+              <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.specialization}</p>
             )}
           </div>
 
-          {/* Phone Number */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Phone Number</label>
-            <input
-              name="phone_number"
-              type="tel"
-              placeholder="03xx-xxxxxxx"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.phone_number ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.phone_number}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.phone_number && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.phone_number}</p>
-            )}
-          </div>
+          {/* Phone Number and Date of Birth in 2 columns */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Phone Number */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Phone Number <span className="text-white/60 text-xs">(Optional)</span>
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.phone_number ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <Phone size={20} className="text-white/80 mr-3" />
+                <input
+                  name="phone_number"
+                  type="tel"
+                  placeholder="03xx-xxxxxxx"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
+                  value={formData.phone_number}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.phone_number && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.phone_number}</p>
+              )}
+            </div>
 
-          {/* Date of Birth */}
-          <div>
-            <label className="block text-purple-800 text-sm font-medium mb-1">Date of Birth</label>
-            <input
-              name="date_of_birth"
-              type="date"
-              className={`w-full px-3 py-3 bg-white rounded-lg border ${validationErrors.date_of_birth ? 'border-red-500 border-2' : 'border-black'}`}
-              value={formData.date_of_birth}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {validationErrors.date_of_birth && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.date_of_birth}</p>
-            )}
+            {/* Date of Birth */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Date of Birth <span className="text-white/60 text-xs">(Optional)</span>
+              </label>
+              <div
+                className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
+                  validationErrors.date_of_birth ? 'border-red-500 border-2' : 'border-white/40'
+                }`}
+              >
+                <Calendar size={20} className="text-white/80 mr-3" />
+                <input
+                  name="date_of_birth"
+                  type="date"
+                  className="flex-1 bg-transparent text-white placeholder-white/60 outline-none [&::-webkit-calendar-picker-indicator]:invert"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              {validationErrors.date_of_birth && (
+                <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{validationErrors.date_of_birth}</p>
+              )}
+            </div>
           </div>
 
           {/* Register Button */}
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-white mt-6 transition-colors ${
-              loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-purple-700 hover:bg-purple-800'
-            }`}
+            className={`
+              w-full py-3 rounded-lg font-semibold text-base
+              transition-all duration-200
+              ${loading
+                ? 'bg-purple-400/50 cursor-not-allowed text-white/60'
+                : 'bg-white text-purple-700 hover:bg-purple-50 hover:shadow-lg'}
+            `}
           >
             {loading ? (
               <div className="flex items-center justify-center">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                <div className="w-4 h-4 border-2 border-purple-700 border-t-transparent rounded-full animate-spin mr-2"></div>
                 Creating account...
               </div>
             ) : (
@@ -357,11 +469,12 @@ const Register = () => {
         <div className="mt-6 text-center">
           <Link
             to="/login"
-            className={`text-purple-700 text-sm underline ${loading ? 'text-gray-400 pointer-events-none' : 'hover:text-purple-800'}`}
+            className="block text-white text-sm hover:text-purple-100 transition-colors"
           >
-            Already have an account? Login
+            Already have an account? <span className="font-semibold">Login</span>
           </Link>
         </div>
+
       </div>
     </div>
   );

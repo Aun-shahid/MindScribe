@@ -84,7 +84,7 @@ const EndSession: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-green-600 text-white">
+      <div className="bg-purple-800 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
@@ -131,14 +131,14 @@ const EndSession: React.FC = () => {
           {/* Session Notes */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <FileText className="text-green-600 mr-3" size={24} />
+              <FileText className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Session Notes</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Document key observations, breakthroughs, and important points from this session
             </p>
             <textarea
-              className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent resize-none"
               placeholder="Enter detailed notes about the session, patient's responses, therapeutic techniques used, and any significant observations..."
               value={sessionNotes}
               onChange={(e) => setSessionNotes(e.target.value)}
@@ -148,14 +148,14 @@ const EndSession: React.FC = () => {
           {/* Patient Goals */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <Target className="text-green-600 mr-3" size={24} />
+              <Target className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Patient Goals</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Document the patient's updated therapeutic goals discussed during this session
             </p>
             <textarea
-              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent resize-none"
               placeholder="Update the patient's therapeutic goals, personal objectives, and desired outcomes discussed in this session..."
               value={patientGoals}
               onChange={(e) => setPatientGoals(e.target.value)}
@@ -165,7 +165,7 @@ const EndSession: React.FC = () => {
           {/* Patient Mood After Session */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <Heart className="text-green-600 mr-3" size={24} />
+              <Heart className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Patient Mood After Session</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
@@ -176,7 +176,7 @@ const EndSession: React.FC = () => {
                 type="number"
                 min="1"
                 max="10"
-                className="w-20 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-lg font-semibold"
+                className="w-20 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent text-center text-lg font-semibold"
                 placeholder="7"
                 value={patientMoodAfter}
                 onChange={(e) => setPatientMoodAfter(e.target.value)}
@@ -189,7 +189,7 @@ const EndSession: React.FC = () => {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div 
-                    className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                    className="bg-purple-700 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${(parseInt(patientMoodAfter) || 5) * 10}%` }}
                   />
                 </div>
@@ -200,14 +200,14 @@ const EndSession: React.FC = () => {
           {/* Homework/Action Items */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <Target className="text-green-600 mr-3" size={24} />
+              <Target className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Homework & Action Items</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Assign specific tasks, exercises, or practices for the patient to work on
             </p>
             <textarea
-              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent resize-none"
               placeholder="List specific homework assignments, exercises, or practices for the patient to complete before the next session..."
               value={homeworkAssigned}
               onChange={(e) => setHomeworkAssigned(e.target.value)}
@@ -217,14 +217,14 @@ const EndSession: React.FC = () => {
           {/* Next Session Goals */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <Target className="text-green-600 mr-3" size={24} />
+              <Target className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Next Session Goals</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Define objectives and focus areas for the upcoming session
             </p>
             <textarea
-              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent resize-none"
               placeholder="Outline specific goals, topics to explore, or therapeutic techniques to implement in the next session..."
               value={nextSessionGoals}
               onChange={(e) => setNextSessionGoals(e.target.value)}
@@ -234,7 +234,7 @@ const EndSession: React.FC = () => {
           {/* Session Effectiveness */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
-              <TrendingUp className="text-green-600 mr-3" size={24} />
+              <TrendingUp className="text-purple-600 mr-3" size={24} />
               <h2 className="text-xl font-semibold text-gray-900">Session Effectiveness</h2>
             </div>
             <p className="text-gray-600 text-sm mb-4">
@@ -245,7 +245,7 @@ const EndSession: React.FC = () => {
                 type="number"
                 min="1"
                 max="10"
-                className="w-20 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-lg font-semibold"
+                className="w-20 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-700 focus:border-transparent text-center text-lg font-semibold"
                 placeholder="8"
                 value={sessionEffectiveness}
                 onChange={(e) => setSessionEffectiveness(e.target.value)}
@@ -258,7 +258,7 @@ const EndSession: React.FC = () => {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div 
-                    className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                    className="bg-purple-700 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${(parseInt(sessionEffectiveness) || 5) * 10}%` }}
                   />
                 </div>
@@ -278,7 +278,7 @@ const EndSession: React.FC = () => {
             
             <button
               onClick={handleCompleteSession}
-              className="flex-1 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50"
               disabled={loading}
             >
               {loading ? (

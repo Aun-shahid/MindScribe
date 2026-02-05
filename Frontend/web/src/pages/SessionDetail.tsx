@@ -234,31 +234,40 @@ const SessionDetailPage: React.FC = () => {
   const sessionDateTime = formatDateTime(session.scheduled_date);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-purple-700 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50">
+      {/* Enhanced Header with Gradient */}
+      <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-purple-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center">
+          <div className="flex items-center justify-between py-8">
+            <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate(-1)}
-                className="mr-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all duration-200 hover:scale-105"
               >
                 <ChevronLeft size={24} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold">Session Details</h1>
-                <p className="text-purple-200">View and manage session information</p>
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-3xl font-bold">Session #{session.id}</h1>
+                  <div className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold border-2 shadow-lg ${getStatusColor(session.status)}`}>
+                    {session.status?.replace('_', ' ').toUpperCase()}
+                  </div>
+                </div>
+                <div className="flex items-center mt-2 text-purple-100">
+                  <User size={16} className="mr-2" />
+                  <p className="text-lg font-medium">{session.patient.full_name}</p>
+                </div>
               </div>
             </div>
             
-            <div className="flex space-x-2">
+            <div className="flex space-x-3">
               <button
                 onClick={handleDeleteSession}
-                className="p-2 bg-red-600/80 rounded-full hover:bg-red-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2.5 bg-red-600/90 backdrop-blur-sm rounded-xl hover:bg-red-700 transition-all duration-200 hover:scale-105 shadow-lg"
                 title="Delete session"
               >
-                <Trash2 size={20} />
+                <Trash2 size={18} />
+                <span className="hidden sm:inline font-medium">Delete</span>
               </button>
             </div>
           </div>
@@ -266,55 +275,51 @@ const SessionDetailPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Session Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Session Overview */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    {session.patient.full_name}
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 px-6 py-4 border-b border-purple-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                    <FileText className="mr-2 text-purple-600" size={22} />
+                    Session Overview
                   </h2>
-                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(session.status)}`}>
-                    {session.status?.replace('_', ' ').toUpperCase()}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {!isEditingDetails ? (
-                    <button
-                      onClick={() => setIsEditingDetails(true)}
-                      className="flex items-center text-purple-600 hover:text-purple-700 text-sm"
-                      title="Edit session details"
-                    >
-                      <Edit3 size={16} className="mr-1" />
-                      Edit Details
-                    </button>
-                  ) : (
-                    <div className="flex space-x-2">
+                  <div className="flex items-center gap-3">
+                    {!isEditingDetails ? (
                       <button
-                        onClick={handleSaveDetails}
-                        disabled={savingDetails}
-                        className="flex items-center bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm"
+                        onClick={() => setIsEditingDetails(true)}
+                        className="flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium"
+                        title="Edit session details"
                       >
-                        <Save size={14} className="mr-1" />
-                        {savingDetails ? 'Saving...' : 'Save'}
+                        <Edit3 size={16} className="mr-1" />
+                        Edit Details
                       </button>
-                      <button
-                        onClick={() => setIsEditingDetails(false)}
-                        className="flex items-center text-gray-600 hover:text-gray-700 text-sm"
-                      >
-                        <X size={14} className="mr-1" />
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                  <div className="text-right text-sm text-gray-500">
-                    Session #{session.id}
+                    ) : (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={handleSaveDetails}
+                          disabled={savingDetails}
+                          className="flex items-center bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                          <Save size={14} className="mr-1" />
+                          {savingDetails ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setIsEditingDetails(false)}
+                          className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                        >
+                          <X size={14} className="mr-1" />
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
+              <div className="p-6">
               {isEditingDetails ? (
                 /* Edit Mode */
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -324,7 +329,7 @@ const SessionDetailPage: React.FC = () => {
                       type="datetime-local"
                       value={detailsData.scheduled_date}
                       onChange={(e) => setDetailsData({ ...detailsData, scheduled_date: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
 
@@ -333,7 +338,7 @@ const SessionDetailPage: React.FC = () => {
                     <select
                       value={detailsData.duration_minutes}
                       onChange={(e) => setDetailsData({ ...detailsData, duration_minutes: parseInt(e.target.value) })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
                       <option value={30}>30 minutes</option>
                       <option value={45}>45 minutes</option>
@@ -350,7 +355,7 @@ const SessionDetailPage: React.FC = () => {
                       value={detailsData.location}
                       onChange={(e) => setDetailsData({ ...detailsData, location: e.target.value })}
                       placeholder="e.g., Clinic Room 1, Home, etc."
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
 
@@ -359,7 +364,7 @@ const SessionDetailPage: React.FC = () => {
                     <select
                       value={detailsData.session_type}
                       onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value as 'individual' | 'group' | 'family' | 'couples' })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
                       <option value="individual">Individual</option>
                       <option value="couples">Couples</option>
@@ -374,7 +379,7 @@ const SessionDetailPage: React.FC = () => {
                         type="checkbox"
                         checked={detailsData.is_online}
                         onChange={(e) => setDetailsData({ ...detailsData, is_online: e.target.checked })}
-                        className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                       />
                       <span className="text-sm font-medium text-gray-900">Online Session</span>
                     </label>
@@ -382,78 +387,89 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               ) : (
                 /* View Mode */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-start">
-                    <Calendar className="text-purple-600 mr-3 mt-1" size={20} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Calendar className="text-green-600" size={20} />
+                    </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Date</p>
-                      <p className="text-gray-600">{sessionDateTime.date}</p>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Date</p>
+                      <p className="text-base font-semibold text-gray-900">{sessionDateTime.date}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start">
-                    <Clock className="text-purple-600 mr-3 mt-1" size={20} />
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Clock className="text-blue-600" size={20} />
+                    </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Time</p>
-                      <p className="text-gray-600">{sessionDateTime.time}</p>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Time</p>
+                      <p className="text-base font-semibold text-gray-900">{sessionDateTime.time}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start">
-                    <MapPin className="text-purple-600 mr-3 mt-1" size={20} />
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <MapPin className="text-purple-600" size={20} />
+                    </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Location</p>
-                      <p className="text-gray-600">{session.location || 'Not specified'} {session.is_online && '(Online)'}</p>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Location</p>
+                      <p className="text-base font-semibold text-gray-900">{session.location || 'Not specified'} {session.is_online && '🌐'}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start">
-                    <Clock className="text-purple-600 mr-3 mt-1" size={20} />
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Clock className="text-orange-600" size={20} />
+                    </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Duration</p>
-                      <p className="text-gray-600">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
+                      <p className="text-base font-semibold text-gray-900">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
                     </div>
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             {/* Session Notes */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between p-6 border-b">
-                <div className="flex items-center">
-                  <FileText className="text-purple-600 mr-2" size={20} />
-                  <h3 className="text-lg font-semibold text-gray-900">Session Notes</h3>
-                </div>
-                {!isEditingNotes ? (
-                  <button
-                    onClick={() => setIsEditingNotes(true)}
-                    className="flex items-center text-purple-600 hover:text-purple-700"
-                  >
-                    <Edit3 size={16} className="mr-1" />
-                    Edit
-                  </button>
-                ) : (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={handleSaveNotes}
-                      className="flex items-center bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700"
-                    >
-                      <Save size={16} className="mr-1" />
-                      Save
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsEditingNotes(false);
-                        setNoteText(session.session_notes || '');
-                      }}
-                      className="flex items-center text-gray-600 hover:text-gray-700"
-                    >
-                      <X size={16} className="mr-1" />
-                      Cancel
-                    </button>
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FileText className="text-blue-600 mr-2" size={20} />
+                    <h3 className="text-lg font-bold text-gray-900">Session Notes</h3>
                   </div>
-                )}
+                  {!isEditingNotes ? (
+                    <button
+                      onClick={() => setIsEditingNotes(true)}
+                      className="flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                    >
+                      <Edit3 size={16} className="mr-1" />
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSaveNotes}
+                        className="flex items-center bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      >
+                        <Save size={16} className="mr-1" />
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingNotes(false);
+                          setNoteText(session.session_notes || '');
+                        }}
+                        className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                      >
+                        <X size={16} className="mr-1" />
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="p-6">
@@ -461,13 +477,13 @@ const SessionDetailPage: React.FC = () => {
                   <textarea
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
-                    className="w-full h-48 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                    className="w-full h-48 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base"
                     placeholder="Enter your session notes here..."
                   />
                 ) : (
                   <div className="min-h-[12rem]">
                     {session.session_notes ? (
-                      <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-base bg-gray-50 rounded-xl p-4">
                         {session.session_notes}
                       </div>
                     ) : (
@@ -476,7 +492,7 @@ const SessionDetailPage: React.FC = () => {
                         <p>No notes have been added for this session yet.</p>
                         <button
                           onClick={() => setIsEditingNotes(true)}
-                          className="mt-2 text-purple-600 hover:text-purple-700"
+                          className="mt-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
                         >
                           Add notes
                         </button>
@@ -489,41 +505,42 @@ const SessionDetailPage: React.FC = () => {
 
             {/* Session Summary Section - Only for COMPLETED or IN_PROGRESS sessions */}
             {(session.status === 'COMPLETED' || session.status === 'IN_PROGRESS') && (
-              <div className="bg-white rounded-lg shadow-sm border mt-6">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div className="flex items-center">
-                    <FileText className="text-purple-600 mr-2" size={20} />
-                    <h3 className="text-lg font-semibold text-gray-900">Session Summary</h3>
-                  </div>
-                  {!isEditingSummary ? (
-                    <button
-                      onClick={() => setIsEditingSummary(true)}
-                      className="flex items-center text-purple-600 hover:text-purple-700"
-                    >
-                      <Edit size={16} className="mr-1" />
-                      Edit
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3">
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 px-6 py-4 border-b border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="text-amber-600 mr-2" size={20} />
+                      <h3 className="text-lg font-bold text-gray-900">Session Summary</h3>
+                    </div>
+                    {!isEditingSummary ? (
                       <button
-                        onClick={handleSaveSummary}
-                        disabled={savingSummary}
-                        className="flex items-center text-green-600 hover:text-green-700 disabled:opacity-50"
+                        onClick={() => setIsEditingSummary(true)}
+                        className="flex items-center px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors text-sm font-medium"
                       >
-                        <Save size={16} className="mr-1" />
-                        {savingSummary ? 'Saving...' : 'Save'}
+                        <Edit size={16} className="mr-1" />
+                        Edit
                       </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingSummary(false);
-                          setSummaryData({
-                            session_summary: session.session_summary || '',
-                            patient_goals: session.patient_goals || '',
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleSaveSummary}
+                          disabled={savingSummary}
+                          className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                          <Save size={16} className="mr-1" />
+                          {savingSummary ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingSummary(false);
+                            setSummaryData({
+                              session_summary: session.session_summary || '',
+                              patient_goals: session.patient_goals || '',
                             homework_assigned: session.homework_assigned || '',
                             next_session_goals: session.next_session_goals || '',
                           });
                         }}
-                        className="flex items-center text-gray-600 hover:text-gray-700"
+                        className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                       >
                         <X size={16} className="mr-1" />
                         Cancel
@@ -531,78 +548,87 @@ const SessionDetailPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
                 
-                <div className="p-6 space-y-6">
+              <div className="p-6 space-y-6">
                   {isEditingSummary ? (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Session Summary
                         </label>
                         <textarea
                           value={summaryData.session_summary}
                           onChange={(e) => setSummaryData({ ...summaryData, session_summary: e.target.value })}
-                          className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                          className="w-full h-32 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none text-base"
                           placeholder="Summarize what was discussed in this session..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Patient Goals
                         </label>
                         <textarea
                           value={summaryData.patient_goals}
                           onChange={(e) => setSummaryData({ ...summaryData, patient_goals: e.target.value })}
-                          className="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                          className="w-full h-24 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none text-base"
                           placeholder="What goals were discussed for the patient..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Homework Assigned
                         </label>
                         <textarea
                           value={summaryData.homework_assigned}
                           onChange={(e) => setSummaryData({ ...summaryData, homework_assigned: e.target.value })}
-                          className="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                          className="w-full h-24 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none text-base"
                           placeholder="Any homework or exercises assigned to the patient..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Goals for Next Session
                         </label>
                         <textarea
                           value={summaryData.next_session_goals}
                           onChange={(e) => setSummaryData({ ...summaryData, next_session_goals: e.target.value })}
-                          className="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                          className="w-full h-24 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none text-base"
                           placeholder="What to focus on in the next session..."
                         />
                       </div>
                     </>
                   ) : (
                     <>
-                      <div>
-                        <p className="font-semibold text-gray-900 mb-2">Session Summary</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="font-semibold text-gray-900 mb-2 flex items-center">
+                          <span className="mr-2">📋</span> Session Summary
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {session.session_summary || <span className="text-gray-400 italic">Not provided</span>}
                         </p>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 mb-2">Patient Goals</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <p className="font-semibold text-gray-900 mb-2 flex items-center">
+                          <span className="mr-2">🎯</span> Patient Goals
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {session.patient_goals || <span className="text-gray-400 italic">Not provided</span>}
                         </p>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 mb-2">Homework Assigned</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="font-semibold text-gray-900 mb-2 flex items-center">
+                          <span className="mr-2">📝</span> Homework Assigned
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {session.homework_assigned || <span className="text-gray-400 italic">Not provided</span>}
                         </p>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 mb-2">Goals for Next Session</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                        <p className="font-semibold text-gray-900 mb-2 flex items-center">
+                          <span className="mr-2">🔮</span> Goals for Next Session
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {session.next_session_goals || <span className="text-gray-400 italic">Not provided</span>}
                         </p>
                       </div>
@@ -614,26 +640,26 @@ const SessionDetailPage: React.FC = () => {
 
             {/* Mood & Effectiveness Section - Only for COMPLETED sessions */}
             {session.status === 'COMPLETED' && (
-              <div className="bg-white rounded-lg shadow-sm border mt-6">
-                <div className="flex items-center p-4 border-b">
-                  <Activity className="text-purple-600 mr-2" size={20} />
-                  <h3 className="text-lg font-semibold text-gray-900">Session Metrics</h3>
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-pink-50 to-pink-100/50 px-6 py-4 border-b border-pink-200">
+                  <div className="flex items-center">
+                    <Activity className="text-pink-600 mr-2" size={20} />
+                    <h3 className="text-lg font-bold text-gray-900">Session Metrics</h3>
+                  </div>
                 </div>
                 <div className="p-6 space-y-6">
                   {/* Patient Mood Before */}
                   {session.patient_mood_before !== null && (
                     <div>
-                      <p className="font-semibold text-gray-900 mb-2">Patient Mood (Before)</p>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="bg-blue-500 h-3 rounded-full transition-all"
-                            style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
-                          />
-                        </div>
-                        <span className="font-semibold text-blue-600 min-w-[3rem] text-right">
-                          {session.patient_mood_before}/10
-                        </span>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Patient Mood (Before)</span>
+                        <span className="text-2xl font-bold text-gray-900">{session.patient_mood_before}<span className="text-base text-gray-500">/10</span></span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-3 rounded-full bg-gradient-to-r from-red-400 to-orange-400 transition-all duration-500"
+                          style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
+                        />
                       </div>
                     </div>
                   )}
@@ -641,51 +667,55 @@ const SessionDetailPage: React.FC = () => {
                   {/* Patient Mood After */}
                   {session.patient_mood_after !== null && (
                     <div>
-                      <p className="font-semibold text-gray-900 mb-2">Patient Mood (After)</p>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="bg-green-500 h-3 rounded-full transition-all"
-                            style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
-                          />
-                        </div>
-                        <span className="font-semibold text-green-600 min-w-[3rem] text-right">
-                          {session.patient_mood_after}/10
-                        </span>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Patient Mood (After)</span>
+                        <span className="text-2xl font-bold text-gray-900">{session.patient_mood_after}<span className="text-base text-gray-500">/10</span></span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
+                          style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
+                        />
                       </div>
                     </div>
                   )}
 
                   {/* Mood Improvement */}
                   {session.mood_improvement !== null && session.mood_improvement !== 0 && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="font-semibold text-gray-900 mb-1">Mood Change</p>
-                      <p className={`text-2xl font-bold ${session.mood_improvement > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`rounded-xl p-4 ${session.mood_improvement > 0 ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'}`}>
+                      <p className="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Mood Change</p>
+                      <p className={`text-3xl font-bold ${session.mood_improvement > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement} points
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {session.mood_improvement > 0 ? '↑ Improved' : '↓ Decreased'}
+                      <p className={`text-sm font-semibold mt-2 ${session.mood_improvement > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {session.mood_improvement >= 3 ? '🎉 Significant Improvement' :
+                         session.mood_improvement >= 1 ? '✅ Positive Progress' : '⚠️ Needs Attention'}
                       </p>
                     </div>
                   )}
 
                   {/* Session Effectiveness */}
                   {session.session_effectiveness !== null && (
-                    <div>
-                      <p className="font-semibold text-gray-900 mb-2">Session Effectiveness</p>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="bg-purple-600 h-3 rounded-full transition-all"
-                            style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
-                          />
-                        </div>
-                        <span className="font-semibold text-purple-600 min-w-[3rem] text-right">
-                          {session.session_effectiveness}/10
-                        </span>
+                    <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl p-5 border border-purple-200">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Session Effectiveness</span>
+                        <span className="text-3xl font-bold text-purple-600">{session.session_effectiveness}<span className="text-lg text-gray-500">/10</span></span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Therapist's rating of session effectiveness
+                      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                        <div 
+                          className={`h-4 rounded-full transition-all duration-500 ${
+                            session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' : 
+                            session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'
+                          }`}
+                          style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
+                        />
+                      </div>
+                      <p className={`text-center text-sm font-bold uppercase tracking-wider px-3 py-2 rounded-lg mt-3 inline-block ${
+                        session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
+                        session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {session.session_effectiveness >= 8 ? '⭐ Highly Effective' :
+                         session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
                       </p>
                     </div>
                   )}
@@ -704,27 +734,30 @@ const SessionDetailPage: React.FC = () => {
           </div>
 
           {/* Sidebar - Patient Info */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-6">
-                <User className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">Patient Information</h3>
+          <div className="lg:col-span-1 space-y-6">
+            {/* Patient Information Card */}
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden sticky top-6">
+              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 px-6 py-4 border-b border-indigo-200">
+                <div className="flex items-center">
+                  <User className="text-indigo-600 mr-2" size={20} />
+                  <h3 className="text-lg font-bold text-gray-900">Patient Information</h3>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <p className="font-semibold text-gray-900 mb-1">Name</p>
-                  <p className="text-gray-600">{session.patient.full_name}</p>
+              <div className="p-6 space-y-5">
+                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <p className="text-sm font-medium text-gray-500 mb-1">Patient Name</p>
+                  <p className="text-lg font-bold text-gray-900">{session.patient.full_name}</p>
                 </div>
 
                 {session.patient.email && (
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Email</p>
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-sm font-medium text-gray-500 mb-2">Email</p>
                     <div className="flex items-center">
-                      <Mail size={16} className="text-gray-400 mr-2" />
+                      <Mail size={16} className="text-indigo-600 mr-2" />
                       <a 
                         href={`mailto:${session.patient.email}`}
-                        className="text-purple-600 hover:text-purple-700"
+                        className="text-indigo-600 hover:text-indigo-700 font-medium break-all"
                       >
                         {session.patient.email}
                       </a>
@@ -733,13 +766,13 @@ const SessionDetailPage: React.FC = () => {
                 )}
 
                 {session.patient.phone_number && (
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Phone</p>
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-sm font-medium text-gray-500 mb-2">Phone</p>
                     <div className="flex items-center">
-                      <Phone size={16} className="text-gray-400 mr-2" />
+                      <Phone size={16} className="text-indigo-600 mr-2" />
                       <a 
                         href={`tel:${session.patient.phone_number}`}
-                        className="text-purple-600 hover:text-purple-700"
+                        className="text-indigo-600 hover:text-indigo-700 font-medium"
                       >
                         {session.patient.phone_number}
                       </a>
@@ -747,14 +780,14 @@ const SessionDetailPage: React.FC = () => {
                   </div>
                 )}
 
-                <div>
-                  <p className="font-semibold text-gray-900 mb-1">Session Type</p>
-                  <p className="text-gray-600">{session.session_type}</p>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-medium text-gray-500 mb-1">Session Type</p>
+                  <p className="text-base font-semibold text-gray-900 capitalize">{session.session_type}</p>
                 </div>
 
-                <div>
-                  <p className="font-semibold text-gray-900 mb-1">Created</p>
-                  <p className="text-gray-600">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm font-medium text-gray-500 mb-1">Created</p>
+                  <p className="text-base font-semibold text-gray-900">
                     {new Date(session.scheduled_date).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
@@ -762,47 +795,47 @@ const SessionDetailPage: React.FC = () => {
                     })}
                   </p>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="mt-8 space-y-3">
-                {(() => {
-                  const sessionTime = new Date(session.scheduled_date);
-                  const isSessionTimeReached = currentTime >= sessionTime;
-                  const isCompleted = session.status === 'COMPLETED';
-                  const isCancelled = session.status === 'CANCELLED';
-                  // Allow immediate start if coming from "Start Right Now" flow
-                  const canStart = startImmediately || isSessionTimeReached;
-                  const isDisabled = isCompleted || isCancelled || !canStart;
+                {/* Action Buttons */}
+                <div className="pt-4 space-y-3">
+                  {(() => {
+                    const sessionTime = new Date(session.scheduled_date);
+                    const isSessionTimeReached = currentTime >= sessionTime;
+                    const isCompleted = session.status === 'COMPLETED';
+                    const isCancelled = session.status === 'CANCELLED';
+                    // Allow immediate start if coming from "Start Right Now" flow
+                    const canStart = startImmediately || isSessionTimeReached;
+                    const isDisabled = isCompleted || isCancelled || !canStart;
+                    
+                    let buttonText = 'Start Session';
+                    if (isCompleted) buttonText = 'Session Completed';
+                    else if (isCancelled) buttonText = 'Session Cancelled';
+                    else if (!canStart) {
+                      buttonText = `Available at ${sessionTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                    }
+                    
+                    return (
+                      <button 
+                        onClick={() => navigate(`/sessions/${id}/active`)}
+                        className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${
+                          isDisabled 
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl hover:scale-105'
+                        }`}
+                        disabled={isDisabled}
+                      >
+                        {buttonText}
+                      </button>
+                    );
+                  })()}
                   
-                  let buttonText = 'Start Session';
-                  if (isCompleted) buttonText = 'Session Completed';
-                  else if (isCancelled) buttonText = 'Session Cancelled';
-                  else if (!canStart) {
-                    buttonText = `Available at ${sessionTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-                  }
-                  
-                  return (
-                    <button 
-                      onClick={() => navigate(`/sessions/${id}/active`)}
-                      className={`w-full py-2 px-4 rounded-lg transition-colors ${
-                        isDisabled 
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                      disabled={isDisabled}
-                    >
-                      {buttonText}
-                    </button>
-                  );
-                })()}
-                
-                <button 
-                  onClick={() => navigate(`/patients/${session.patient.id}`)}
-                  className="w-full bg-white text-purple-600 border border-purple-600 py-2 px-4 rounded-lg hover:bg-purple-50 transition-colors"
-                >
-                  View Patient Profile
-                </button>
+                  <button 
+                    onClick={() => navigate(`/patients/${session.patient.id}`)}
+                    className="w-full bg-white text-indigo-600 border-2 border-indigo-600 py-3 px-4 rounded-xl hover:bg-indigo-50 transition-all duration-200 font-semibold hover:scale-105"
+                  >
+                    View Patient Profile
+                  </button>
+                </div>
               </div>
             </div>
           </div>

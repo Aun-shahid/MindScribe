@@ -386,6 +386,8 @@ class TherapistService {
     }
   }
 
+  
+
   async getPatientDetails(): Promise<PatientDetailsType[]> {
     try {
       console.log('[TherapistService] GET /therapy_sessions/patients/');
@@ -933,15 +935,29 @@ class TherapistService {
   /**
    * Mood Alerts API calls
    */
-  async getMoodAlerts(patientId?: string, severity?: string, days: number = 7): Promise<any> {
+  // async getMoodAlerts(patientId?: string, severity?: string, days: number = 7): Promise<any> {
+  //   try {
+  //     const params = new URLSearchParams();
+  //     if (patientId) params.append('patient_id', patientId);
+  //     if (severity) params.append('severity', severity);
+  //     params.append('days', days.toString());
+
+  //     console.log('[TherapistService] GET /therapy_sessions/mood-alerts/', params.toString());
+  //     const response = await api.get(`/therapy_sessions/mood-alerts/?${params.toString()}`);
+  //     return response.data;
+  //   } catch (error: any) {
+  //     throw this.handleError(error);
+  //   }
+  // }
+
+  /**
+   * Get 7-day mood trend for a patient
+   */
+  async getMoodTrend(patientId: string): Promise<any> {
     try {
       const params = new URLSearchParams();
-      if (patientId) params.append('patient_id', patientId);
-      if (severity) params.append('severity', severity);
-      params.append('days', days.toString());
-
-      console.log('[TherapistService] GET /therapy_sessions/mood-alerts/', params.toString());
-      const response = await api.get(`/therapy_sessions/mood-alerts/?${params.toString()}`);
+      params.append('patient_id', patientId);
+      const response = await api.get(`/therapy_sessions/mood-trend/?${params.toString()}`);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);

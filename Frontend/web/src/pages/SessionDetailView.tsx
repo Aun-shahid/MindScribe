@@ -142,228 +142,304 @@ const SessionDetailView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-purple-700 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50">
+      {/* Enhanced Header with Gradient */}
+      <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-purple-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center">
+          <div className="flex items-center justify-between py-8">
+            <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate(-1)}
-                className="mr-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all duration-200 hover:scale-105"
               >
                 <ChevronLeft size={24} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold">Session #{session.session_number || session.id}</h1>
-                <p className="text-purple-200">{session.patient?.full_name}</p>
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-3xl font-bold">Session #{session.session_number || session.id}</h1>
+                  <div className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold border-2 shadow-lg ${getStatusColor(session.status)}`}>
+                    {session.status?.toUpperCase()}
+                  </div>
+                </div>
+                <div className="flex items-center mt-2 text-purple-100">
+                  <User size={16} className="mr-2" />
+                  <p className="text-lg font-medium">{session.patient?.full_name}</p>
+                </div>
               </div>
             </div>
             
-            <div className="flex space-x-2">
+            <div className="flex space-x-3">
               <button
                 onClick={handleRefresh}
-                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all duration-200 hover:scale-105"
                 title="Refresh"
               >
-                <RefreshCw size={20} />
+                <RefreshCw size={18} />
+                <span className="hidden sm:inline font-medium">Refresh</span>
               </button>
               <button
                 onClick={() => navigate(`/sessions/${id}/edit`)}
-                className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2.5 bg-white text-purple-700 rounded-xl hover:bg-purple-50 transition-all duration-200 hover:scale-105 shadow-lg"
                 title="Edit Notes"
               >
-                <Edit3 size={20} />
+                <Edit3 size={18} />
+                <span className="hidden sm:inline font-medium">Edit Session</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Session Overview */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex items-start justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Session Overview</h2>
-              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(session.status)}`}>
-                {session.status?.toUpperCase()}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Primary Information (2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Session Overview Card - Enhanced */}
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 px-6 py-4 border-b border-purple-200">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <FileText className="mr-2 text-purple-600" size={22} />
+                  Session Overview
+                </h2>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start">
-                <User className="text-purple-600 mr-3 mt-1" size={20} />
-                <div>
-                  <p className="font-medium text-gray-900">Patient:</p>
-                  <p className="text-gray-700">{session.patient?.full_name}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <FileText className="text-purple-600 mr-3 mt-1" size={20} />
-                <div>
-                  <p className="font-medium text-gray-900">Type:</p>
-                  <p className="text-gray-700">
-                    {session.session_type} • {session.is_online ? 'Online' : session.location}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <Calendar className="text-purple-600 mr-3 mt-1" size={20} />
-                <div>
-                  <p className="font-medium text-gray-900">Scheduled:</p>
-                  <p className="text-gray-700">{formatDate(session.scheduled_date)}</p>
-                </div>
-              </div>
-              
-              {session.actual_duration_minutes && (
-                <div className="flex items-start">
-                  <Clock className="text-purple-600 mr-3 mt-1" size={20} />
-                  <div>
-                    <p className="font-medium text-gray-900">Duration:</p>
-                    <p className="text-gray-700">{session.actual_duration_minutes} minutes</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Session Goals */}
-          {session.patient_goals && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-4">
-                <Target className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">🎯 Session Goals</h3>
-              </div>
-              <p className="text-gray-700 leading-relaxed">{session.patient_goals}</p>
-            </div>
-          )}
-
-          {/* Session Notes */}
-          {session.session_notes && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-4">
-                <FileText className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">📝 Session Notes</h3>
-              </div>
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                {session.session_notes}
-              </div>
-            </div>
-          )}
-
-          {/* Therapist Observations */}
-          {session.therapist_observations && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-4">
-                <Eye className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">👁️ Therapist Observations</h3>
-              </div>
-              <p className="text-gray-700 leading-relaxed">{session.therapist_observations}</p>
-            </div>
-          )}
-
-          {/* Mood Analysis */}
-          {(session.patient_mood_before || session.patient_mood_after || session.mood_improvement !== null) && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-6">
-                <Heart className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">😊 Mood Analysis</h3>
-              </div>
-              
-              <div className="space-y-4">
-                {session.patient_mood_before && (
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-700">Before Session:</span>
-                    <span className="text-lg font-bold text-gray-900">{session.patient_mood_before}/10</span>
-                  </div>
-                )}
-                
-                {session.patient_mood_after && (
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-700">After Session:</span>
-                    <span className="text-lg font-bold text-gray-900">{session.patient_mood_after}/10</span>
-                  </div>
-                )}
-                
-                {session.mood_improvement !== null && session.mood_improvement !== undefined && (
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-700">Improvement:</span>
-                    <div className="flex items-center">
-                      <span className={`text-lg font-bold ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement}
-                      </span>
-                      <TrendingUp 
-                        className={`w-4 h-4 ml-1 ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600 rotate-180'}`} 
-                      />
+              <div className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <User className="text-purple-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Patient</p>
+                      <p className="text-base font-semibold text-gray-900">{session.patient?.full_name}</p>
                     </div>
                   </div>
-                )}
+                  
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FileText className="text-blue-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Session Type</p>
+                      <p className="text-base font-semibold text-gray-900">{session.session_type}</p>
+                      <p className="text-sm text-gray-600">{session.is_online ? '🌐 Online' : `📍 ${session.location}`}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Calendar className="text-green-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 mb-1">Scheduled Date</p>
+                      <p className="text-base font-semibold text-gray-900">{formatDate(session.scheduled_date)}</p>
+                    </div>
+                  </div>
+                  
+                  {session.actual_duration_minutes && (
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Clock className="text-orange-600" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
+                        <p className="text-base font-semibold text-gray-900">{session.actual_duration_minutes} minutes</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Homework & Next Steps */}
-          {(session.homework_assigned || session.next_session_goals) && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-6">
-                <BookOpen className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">📚 Homework & Next Steps</h3>
+            {/* Session Goals - Enhanced */}
+            {session.patient_goals && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-blue-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Target className="mr-2 text-blue-600" size={20} />
+                    Session Goals
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-700 leading-relaxed text-base">{session.patient_goals}</p>
+                </div>
               </div>
-              
-              <div className="space-y-4">
-                {session.homework_assigned && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Homework Assigned:</h4>
-                    <p className="text-gray-700 leading-relaxed">{session.homework_assigned}</p>
-                  </div>
-                )}
-                
-                {session.next_session_goals && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Next Session Goals:</h4>
-                    <p className="text-gray-700 leading-relaxed">{session.next_session_goals}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Session Effectiveness */}
-          {session.session_effectiveness && (
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-6">
-                <Star className="text-purple-600 mr-2" size={20} />
-                <h3 className="text-lg font-semibold text-gray-900">⭐ Session Effectiveness</h3>
+            {/* Session Notes - Enhanced */}
+            {session.session_notes && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 px-6 py-4 border-b border-purple-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <FileText className="mr-2 text-purple-600" size={20} />
+                    Session Notes
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-base bg-gray-50 rounded-xl p-4">
+                    {session.session_notes}
+                  </div>
+                </div>
               </div>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-900">Therapist Rating:</span>
-                  <span className="text-xl font-bold text-gray-900">{session.session_effectiveness}/10</span>
+            )}
+
+            {/* Therapist Observations - Enhanced */}
+            {session.therapist_observations && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 px-6 py-4 border-b border-indigo-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Eye className="mr-2 text-indigo-600" size={20} />
+                    Therapist Observations
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-700 leading-relaxed text-base">{session.therapist_observations}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Homework & Next Steps - Enhanced */}
+            {(session.homework_assigned || session.next_session_goals) && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 px-6 py-4 border-b border-amber-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <BookOpen className="mr-2 text-amber-600" size={20} />
+                    Homework & Next Steps
+                  </h3>
+                </div>
+                <div className="p-6 space-y-5">
+                  {session.homework_assigned && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                        <span className="mr-2">📝</span> Homework Assigned
+                      </h4>
+                      <p className="text-gray-700 leading-relaxed">{session.homework_assigned}</p>
+                    </div>
+                  )}
+                  
+                  {session.next_session_goals && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                        <span className="mr-2">🎯</span> Next Session Goals
+                      </h4>
+                      <p className="text-gray-700 leading-relaxed">{session.next_session_goals}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Metrics & Analytics (1/3 width) */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Mood Analysis - Visual Dashboard */}
+            {(session.patient_mood_before || session.patient_mood_after || session.mood_improvement !== null) && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden sticky top-6">
+                <div className="bg-gradient-to-r from-pink-50 to-pink-100/50 px-6 py-4 border-b border-pink-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Heart className="mr-2 text-pink-600" size={20} />
+                    Mood Analysis
+                  </h3>
                 </div>
                 
-                {/* Visual rating bar */}
-                <div className="space-y-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="p-6 space-y-6">
+                  {session.patient_mood_before && (
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Before Session</span>
+                        <span className="text-2xl font-bold text-gray-900">{session.patient_mood_before}<span className="text-base text-gray-500">/10</span></span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-3 rounded-full bg-gradient-to-r from-red-400 to-orange-400 transition-all duration-500"
+                          style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {session.patient_mood_after && (
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">After Session</span>
+                        <span className="text-2xl font-bold text-gray-900">{session.patient_mood_after}<span className="text-base text-gray-500">/10</span></span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
+                          style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {session.mood_improvement !== null && session.mood_improvement !== undefined && (
+                    <div className={`rounded-xl p-4 ${session.mood_improvement >= 0 ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'}`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Improvement</span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-3xl font-bold ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement}
+                          </span>
+                          <TrendingUp 
+                            className={`w-6 h-6 ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600 rotate-180'}`} 
+                          />
+                        </div>
+                      </div>
+                      <p className={`text-center text-sm font-semibold mt-3 ${session.mood_improvement >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {session.mood_improvement >= 3 ? '🎉 Significant Improvement' :
+                         session.mood_improvement >= 1 ? '✅ Positive Progress' :
+                         session.mood_improvement === 0 ? '➡️ Stable' : '⚠️ Needs Attention'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Session Effectiveness - Visual Card */}
+            {session.session_effectiveness && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-yellow-50 to-yellow-100/50 px-6 py-4 border-b border-yellow-200">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Star className="mr-2 text-yellow-600" size={20} />
+                    Session Effectiveness
+                  </h3>
+                </div>
+                
+                <div className="p-6">
+                  <div className="text-center mb-6">
+                    <div className="text-5xl font-bold text-gray-900 mb-2">
+                      {session.session_effectiveness}<span className="text-2xl text-gray-500">/10</span>
+                    </div>
+                    <p className={`text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full inline-block ${
+                      session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
+                      session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {session.session_effectiveness >= 8 ? '⭐ Highly Effective' :
+                       session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
+                    </p>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                     <div 
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        session.session_effectiveness >= 8 ? 'bg-green-500' : 
-                        session.session_effectiveness >= 6 ? 'bg-yellow-500' : 'bg-red-500'
+                      className={`h-4 rounded-full transition-all duration-500 ${
+                        session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' : 
+                        session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'
                       }`}
                       style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
                     ></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 font-medium">
-                    {session.session_effectiveness >= 8 ? 'Highly Effective' :
-                     session.session_effectiveness >= 6 ? 'Moderately Effective' : 'Needs Improvement'}
-                  </p>
+                  
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-medium text-gray-500">
+                    <div>0</div>
+                    <div>5</div>
+                    <div>10</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
