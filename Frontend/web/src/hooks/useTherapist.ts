@@ -567,6 +567,8 @@ export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions =>
   };
 };
 
+
+
 // Profile Hook
 export const useTherapistProfile = () => {
   const [profile, setProfile] = useState<any>(null);

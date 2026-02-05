@@ -2,7 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import Login from './pages/Login';
+import LandingNew from './pages/LandingNew';
+import Login_new from './pages/Login_new';
 import Register from './pages/Register';
 import RequestReset from './pages/RequestReset';
 import ResetConfirm from './pages/ResetConfirm';
@@ -15,13 +16,11 @@ import ActiveSession from './pages/ActiveSession';
 import EndSession from './pages/EndSession';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
-import PatientSessions from './pages/PatientSessions';
 import Profile from './pages/Profile';
 import QRCode from './pages/QRCode';
 import NewSession from './pages/NewSession';
 import NewPatient from './pages/NewPatient';
 import SessionCalendar from './pages/SessionCalendar';
-import Notifications from './pages/Notifications';
 import './App.css';
 
 function App() {
@@ -31,7 +30,9 @@ function App() {
         <div className="App">
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<LandingNew />} />
+            <Route path="/login" element={<Login_new />} />
+            <Route path="/login_new" element={<Login_new />} />
             <Route path="/register" element={<Register />} />
             <Route path="/request-reset" element={<RequestReset />} />
             <Route path="/reset-confirm" element={<ResetConfirm />} />
@@ -51,11 +52,9 @@ function App() {
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />
-                <Route path="/patients/:patientId/sessions" element={<PatientSessions />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}
               </Route>
             </Route>
             

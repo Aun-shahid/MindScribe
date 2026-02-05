@@ -161,44 +161,73 @@ const Sessions = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
-        <div className="flex space-x-3">
-          {selectedSessions.length > 0 && (
-            <>
-              <button
-                onClick={() => handleBulkAction('cancel')}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Cancel ({selectedSessions.length})
-              </button>
-              <button
-                onClick={() => handleBulkAction('reschedule')}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Reschedule ({selectedSessions.length})
-              </button>
-              <button
-                onClick={() => handleBulkAction('update')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Update ({selectedSessions.length})
-              </button>
-            </>
-          )}
-          <Link
-            to="/sessions/calendar"
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center"
-          >
-            📅 Calendar View
-          </Link>
-          <Link
-            to="/sessions/new"
-            className="btn-primary"
-          >
-            New Session
-          </Link>
+    <div className="sessions-page bg-gradient-to-br from-gray-50 to-purple-50 min-h-screen -mt-6 -mx-8 px-8 pt-6">
+      {/* Purple Gradient Header with Image */}
+      <div className="relative w-full h-56 bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-2xl shadow-xl overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/30"></div>
+        <div className="absolute inset-0 backdrop-blur-[2px]">
+          <div className="absolute inset-0 bg-[url('/images/heroo.png')] bg-cover bg-center opacity-20"></div>
+        </div>
+        
+        {/* Header Content */}
+        <div className="relative h-full flex items-center justify-between px-8">
+          <div className="text-white">
+            <h1 className="text-4xl font-bold mb-2 drop-shadow-lg">Therapy Sessions</h1>
+            <p className="text-lg text-purple-100 drop-shadow-md">Manage and organize all your therapy appointments</p>
+          </div>
+          
+          {/* Action Buttons on Header */}
+          <div className="flex space-x-3">
+            {selectedSessions.length > 0 ? (
+              <>
+                <button
+                  onClick={() => handleBulkAction('cancel')}
+                  className="bg-red-600/90 backdrop-blur-sm hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Cancel ({selectedSessions.length})</span>
+                </button>
+                <button
+                  onClick={() => handleBulkAction('reschedule')}
+                  className="bg-yellow-600/90 backdrop-blur-sm hover:bg-yellow-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>Reschedule ({selectedSessions.length})</span>
+                </button>
+                <button
+                  onClick={() => handleBulkAction('update')}
+                  className="bg-blue-600/90 backdrop-blur-sm hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>Update ({selectedSessions.length})</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/sessions/calendar"
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl inline-flex items-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>Calendar View</span>
+                </Link>
+                <Link
+                  to="/sessions/new"
+                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-purple-700 px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg hover:shadow-xl"
+                >
+                  + New Session
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -214,9 +243,23 @@ const Sessions = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Filters</h2>
+      {/* Enhanced Filters Section */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-purple-100">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Filter Sessions</h2>
+          </div>
+          {Object.keys(activeFilter).length > 0 && (
+            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+              {Object.keys(activeFilter).length} filter{Object.keys(activeFilter).length > 1 ? 's' : ''} active
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label htmlFor="status" className="form-label">
@@ -287,34 +330,52 @@ const Sessions = () => {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-6 flex justify-end">
           <button
             onClick={() => {
               setActiveFilter({});
               updateFilter({}, true); // Pass reset=true to fully clear filter
             }}
-            className="btn-secondary text-sm"
+            className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg"
           >
-            Clear Filters
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Clear All Filters</span>
           </button>
         </div>
       </div>
 
-      {/* Sessions List */}
-      <div className="card">
-        {displaySessions.length > 0 && (
-          <div className="mb-4 flex items-center">
-            <input
-              type="checkbox"
-              checked={selectedSessions.length === displaySessions.length && displaySessions.length > 0}
-              onChange={toggleSelectAll}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label className="ml-2 text-sm text-gray-700">
-              Select All ({displaySessions.length} sessions)
-            </label>
+      {/* Enhanced Sessions List */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-purple-100">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">
+              All Sessions
+              <span className="ml-3 text-sm font-normal text-gray-500">({displaySessions.length} total)</span>
+            </h2>
           </div>
-        )}
+          {displaySessions.length > 0 && (
+            <div className="flex items-center space-x-3">
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={selectedSessions.length === displaySessions.length && displaySessions.length > 0}
+                  onChange={toggleSelectAll}
+                  className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-all"
+                />
+                <span className="text-sm font-medium text-gray-700 group-hover:text-purple-600 transition-colors">
+                  Select All
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
         
         <div className="space-y-4">
           {loading ? (
@@ -324,67 +385,115 @@ const Sessions = () => {
             </div>
           ) : displaySessions.length > 0 ? (
             displaySessions.map((session) => (
-              <div key={session.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              <div key={session.id} className="group relative border-2 border-gray-200 hover:border-purple-300 rounded-xl p-5 hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 transition-all duration-200 hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4 flex-1">
                     <input
                       type="checkbox"
                       checked={selectedSessions.includes(session.id)}
                       onChange={() => toggleSessionSelection(session.id)}
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-all"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-start space-x-4">
+                        {/* Session Icon */}
+                        <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-3 rounded-lg shadow-md group-hover:shadow-lg transition-shadow">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        
                         <div>
-                          <h3 className="text-lg font-medium text-gray-900">
+                          <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-700 transition-colors">
                             {session.patient_name || (session as any).patient?.full_name || 'Unknown Patient'}
                           </h3>
-                          <p className="text-sm text-gray-600">
-                            {new Date((session as any).scheduled_date || session.session_date).toLocaleDateString()} • {session.session_type}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {session.duration_minutes} minutes • {session.location}
-                            {session.is_online && ' (Online)'}
-                          </p>
+                          <div className="flex items-center space-x-3 mt-2">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 mr-1.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="font-medium">{new Date((session as any).scheduled_date || session.session_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </div>
+                            <span className="text-gray-300">•</span>
+                            <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold uppercase">
+                              {session.session_type}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-3 mt-2 text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>{session.duration_minutes} min</span>
+                            </div>
+                            <span className="text-gray-300">•</span>
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span>{session.location}</span>
+                              {session.is_online && <span className="ml-1 text-green-600 font-medium">(Online)</span>}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-3">
-                    <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(session.status)}`}>
+                    <span className={`px-4 py-1.5 text-xs font-bold rounded-full shadow-sm ${getStatusColor(session.status)}`}>
                       {session.status}
                     </span>
                     <Link
                       to={`/sessions/${session.id}`}
-                      className="btn-primary text-sm"
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                     >
-                      View Details
+                      <span>View Details</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </Link>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center py-8">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
+            <div className="text-center py-16 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-dashed border-purple-200">
+              <div className="bg-gradient-to-r from-purple-600 to-pink-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
                 No sessions found
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
                 {Object.keys(activeFilter).length > 0 
                   ? 'Try adjusting your filters or create a new session.'
-                  : 'Get started by creating your first session.'
+                  : 'Get started by creating your first therapy session.'
                 }
               </p>
-              <div className="mt-6">
+              <div className="flex justify-center space-x-3">
+                {Object.keys(activeFilter).length > 0 && (
+                  <button
+                    onClick={() => {
+                      setActiveFilter({});
+                      updateFilter({}, true);
+                    }}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg"
+                  >
+                    Clear Filters
+                  </button>
+                )}
                 <Link
                   to="/sessions/new"
-                  className="btn-primary"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-md hover:shadow-lg inline-flex items-center space-x-2"
                 >
-                  Create New Session
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Create New Session</span>
                 </Link>
               </div>
             </div>

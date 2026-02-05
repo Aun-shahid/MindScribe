@@ -320,7 +320,7 @@ const NewSession = () => {
           </div>
 
           {/* Online Session */}
-          <div className="flex items-center">
+          {/* <div className="flex items-center">
             <input
               id="is_online"
               type="checkbox"
@@ -332,10 +332,10 @@ const NewSession = () => {
             <label htmlFor="is_online" className="ml-2 block text-sm text-gray-900">
               This is an online session
             </label>
-          </div>
+          </div> */}
 
           {/* Patient Goals */}
-          <div>
+          {/* <div>
             <label htmlFor="patient_goals" className="form-label">
               Session Goals
             </label>
@@ -351,7 +351,7 @@ const NewSession = () => {
           </div>
 
           {/* Fee */}
-          <div>
+          {/* <div>
             <label htmlFor="fee_charged" className="form-label">
               Fee Charged
             </label>
@@ -366,7 +366,7 @@ const NewSession = () => {
               placeholder="0.00"
               disabled={loading}
             />
-          </div>
+          </div> */} 
 
           {/* Consent Checkboxes */}
           <div className="space-y-3">
@@ -384,7 +384,7 @@ const NewSession = () => {
               </label>
             </div>
 
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               <input
                 id="consent_ai_analysis"
                 type="checkbox"
@@ -396,7 +396,7 @@ const NewSession = () => {
               <label htmlFor="consent_ai_analysis" className="ml-2 block text-sm text-gray-900">
                 Patient coScheduling Session...' : 'Scheduleion
               </label>
-            </div>
+            </div> */}
           </div>
 
           {/* Submit Button */}
@@ -412,7 +412,7 @@ const NewSession = () => {
             <button
               type="submit"
               className="btn-primary"
-              disabled={loading || !selectedPatient}
+              disabled={loading || !selectedPatient||!formData.consent_recording}
             >
               {loading 
                 ? (sessionTiming === 'now' ? 'Creating...' : 'Scheduling...') 

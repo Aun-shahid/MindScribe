@@ -23,7 +23,7 @@ const ActiveSession: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [sessionDuration, setSessionDuration] = useState('00:00');
   const [sessionStartTime] = useState(new Date());
-  const [notes, setNotes] = useState('');
+  // const [notes, setNotes] = useState('');
   const [sessionStarted, setSessionStarted] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
 
@@ -346,7 +346,7 @@ const ActiveSession: React.FC = () => {
               </div>
             </div>
 
-            {/* Session Notes */}
+            {/* Session Notes
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex items-center mb-4">
                 <FileText className="text-purple-600 mr-2" size={24} />
@@ -362,7 +362,7 @@ const ActiveSession: React.FC = () => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-            </div>
+            </div> */}
 
             {/* Patient Info Card */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
