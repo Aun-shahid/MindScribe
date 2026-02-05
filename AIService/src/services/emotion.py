@@ -9,6 +9,10 @@ import logging
 import io
 import tempfile
 import os
+import requests
+import zipfile
+import threading
+import shutil
 
 import numpy as np
 import torch
@@ -21,10 +25,37 @@ from ..schemas import (
 
 logger = logging.getLogger(__name__)
 
-# Model cache
+# Model cache and locks
 _emotion_model = None
 _feature_extractor = None
 _text_emotion_pipeline = None
+_model_lock = threading.Lock()
+
+
+def download_from_gdrive(url: str, dest_path: str):
+    """
+    Robust Google Drive downloader that handles large file confirmation.
+    """
+    def get_confirm_token(response):
+        for key, value in response.cookies.items():
+            if key.startswith('download_warning'):
+                return value
+        return None
+
+    session = requests.Session()
+    response = session.get(url, stream=True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'confirm': token}
+        response = session.get(url, params=params, stream=True)
+
+    response.raise_for_status()
+    
+    with open(dest_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=32768):
+            if chunk:
+                f.write(chunk)
 
 
 def normalize_emotion_label(label: str) -> EmotionLabel:
@@ -69,7 +100,7 @@ def normalize_emotion_label(label: str) -> EmotionLabel:
 def load_emotion_model() -> Tuple[Any, Any]:
     """
     Load the Wav2Vec2 emotion recognition model.
-    Uses the path from environment variable.
+    Uses the path from environment variable. Supports Google Drive URLs.
     
     Returns:
         Tuple of (model, feature_extractor)
@@ -78,32 +109,86 @@ def load_emotion_model() -> Tuple[Any, Any]:
     
     if _emotion_model is not None and _feature_extractor is not None:
         return _emotion_model, _feature_extractor
-    
-    try:
-        from transformers import (
-            Wav2Vec2ForSequenceClassification,
-            AutoFeatureExtractor
-        )
         
-        model_path = settings.emotion_model_path
-        logger.info(f"Loading emotion model from: {model_path}")
-        
-        _emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path)
-        _feature_extractor = AutoFeatureExtractor.from_pretrained(model_path)
-        
-        # Move to GPU if available
-        if torch.cuda.is_available():
-            _emotion_model = _emotion_model.to('cuda')
-            logger.info("Emotion model moved to GPU")
-        
-        _emotion_model.eval()
-        logger.info("Emotion model loaded successfully")
-        
-        return _emotion_model, _feature_extractor
-        
-    except Exception as e:
-        logger.error(f"Failed to load emotion model: {e}")
-        raise
+    with _model_lock:
+        # Check again inside lock to avoid double loading
+        if _emotion_model is not None and _feature_extractor is not None:
+            return _emotion_model, _feature_extractor
+            
+        try:
+            from transformers import (
+                Wav2Vec2ForSequenceClassification,
+                AutoFeatureExtractor
+            )
+            
+            model_path = settings.emotion_model_path
+            logger.info(f"Loading emotion model from: {model_path}")
+            
+            # Handle Hugging Face URLs by converting to model ID
+            if model_path.startswith('https://huggingface.co/'):
+                # Extract model ID: huggingface.co/username/model-name -> username/model-name
+                parts = model_path.replace('https://huggingface.co/', '').split('/')
+                if len(parts) >= 2:
+                    model_path = f"{parts[0]}/{parts[1]}"
+                    logger.info(f"Converted Hugging Face URL to model ID: {model_path}")
+                else:
+                    logger.warning(f"Invalid Hugging Face URL format: {model_path}")
+            
+            # If model_path is a URL, download and extract to cache
+            if model_path.startswith('https://'):
+                cache_dir = os.path.expanduser('~/.cache/mindscribe/models')
+                os.makedirs(cache_dir, exist_ok=True)
+                
+                # Create a unique name based on URL to allow multiple remote models
+                import hashlib
+                url_hash = hashlib.md5(model_path.encode()).hexdigest()[:10]
+                model_local_path = os.path.join(cache_dir, f"emotion_model_{url_hash}")
+                
+                if not os.path.exists(model_local_path):
+                    logger.info(f"Downloading remote model to {model_local_path}")
+                    zip_path = model_local_path + '.zip'
+                    
+                    try:
+                        if 'drive.google.com' in model_path:
+                            download_from_gdrive(model_path, zip_path)
+                        else:
+                            response = requests.get(model_path, stream=True)
+                            response.raise_for_status()
+                            with open(zip_path, 'wb') as f:
+                                for chunk in response.iter_content(chunk_size=8192):
+                                    f.write(chunk)
+                        
+                        # Atomic extraction: Extract to temp then move
+                        temp_extract_path = model_local_path + '_temp'
+                        if os.path.exists(temp_extract_path):
+                            shutil.rmtree(temp_extract_path)
+                            
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            zip_ref.extractall(temp_extract_path)
+                        
+                        os.rename(temp_extract_path, model_local_path)
+                        logger.info(f"Model successfully cached at {model_local_path}")
+                        
+                    finally:
+                        if os.path.exists(zip_path):
+                            os.remove(zip_path)
+                
+                model_path = model_local_path
+            
+            _emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path)
+            _feature_extractor = AutoFeatureExtractor.from_pretrained(model_path)
+            
+            # Move to GPU if available
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            _emotion_model = _emotion_model.to(device)
+            logger.info(f"Emotion model loaded successfully on {device}")
+            
+            _emotion_model.eval()
+            return _emotion_model, _feature_extractor
+            
+        except Exception as e:
+            logger.error(f"Failed to load emotion model: {e}")
+            raise
 
 
 def load_text_emotion_pipeline():
@@ -322,29 +407,38 @@ async def analyze_combined_emotion(
     Returns:
         CombinedEmotionResult with both analyses and final decision
     """
-    # Run both analyses concurrently
-    tasks = []
-    
-    if audio_data:
-        tasks.append(analyze_audio_emotion(audio_data))
-    else:
-        tasks.append(asyncio.coroutine(lambda: AudioEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN,
-            confidence=0.0,
-            all_scores={}
-        ))())
-    
-    if text:
-        tasks.append(analyze_text_emotion(text))
-    else:
-        tasks.append(asyncio.coroutine(lambda: TextEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN,
-            confidence=0.0,
-            all_scores={}
-        ))())
-    
+    # Run both analyses concurrently if available
     try:
-        audio_result, text_result = await asyncio.gather(*tasks)
+        if audio_data and text:
+            audio_result, text_result = await asyncio.gather(
+                analyze_audio_emotion(audio_data),
+                analyze_text_emotion(text)
+            )
+        elif audio_data:
+            audio_result = await analyze_audio_emotion(audio_data)
+            text_result = TextEmotionResult(
+                primary_emotion=EmotionLabel.UNKNOWN,
+                confidence=0.0,
+                all_scores={}
+            )
+        elif text:
+            audio_result = AudioEmotionResult(
+                primary_emotion=EmotionLabel.UNKNOWN,
+                confidence=0.0,
+                all_scores={}
+            )
+            text_result = await analyze_text_emotion(text)
+        else:
+            audio_result = AudioEmotionResult(
+                primary_emotion=EmotionLabel.UNKNOWN,
+                confidence=0.0,
+                all_scores={}
+            )
+            text_result = TextEmotionResult(
+                primary_emotion=EmotionLabel.UNKNOWN,
+                confidence=0.0,
+                all_scores={}
+            )
     except Exception as e:
         logger.error(f"Combined emotion analysis error: {e}")
         audio_result = AudioEmotionResult(

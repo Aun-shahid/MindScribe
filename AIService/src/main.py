@@ -38,17 +38,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database connection failed (non-critical): {e}")
     
-    # Preload models (optional - can be lazy loaded)
-    # This is commented out for faster startup during development
-    # Uncomment for production to avoid first-request latency
-    """
+    # Preload models
     try:
         from .services.emotion import load_emotion_model
-        model_cache['emotion_model'] = load_emotion_model()
-        logger.info("Emotion model loaded")
+        load_emotion_model()
+        logger.info("Emotion model loaded and ready")
     except Exception as e:
         logger.warning(f"Failed to preload emotion model: {e}")
-    """
     
     logger.info(f"AI Service ready on port {settings.ai_service_port}")
     
