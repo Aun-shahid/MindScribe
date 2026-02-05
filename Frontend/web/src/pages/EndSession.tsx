@@ -11,7 +11,6 @@ const EndSession: React.FC = () => {
   
   // Form state (similar to mobile app's useEndSession hook)
   const [loading, setLoading] = useState(false);
-  const [sessionSummary, setSessionSummary] = useState('');
   const [sessionNotes, setSessionNotes] = useState('');
   const [patientGoals, setPatientGoals] = useState('');
   const [patientMoodAfter, setPatientMoodAfter] = useState('7');
@@ -37,30 +36,36 @@ const EndSession: React.FC = () => {
       try {
         setLoading(true);
         
-        // Prepare the session data to match the mobile app format
+        // Prepare the session data - only send fields backend accepts
         const sessionData = {
-          session_summary: sessionSummary,
-          session_notes: sessionNotes,
-          patient_goals: patientGoals,
-          patient_mood_after: parseInt(patientMoodAfter) || 7,
+          session_notes: sessionNotes,          patient_goals: patientGoals,          patient_mood_after: parseInt(patientMoodAfter) || 7,
           homework_assigned: homeworkAssigned,
           next_session_goals: nextSessionGoals,
           session_effectiveness: parseInt(sessionEffectiveness) || 8,
         };
         
-        console.log('Completing session with data:', sessionData);
+        console.log('🚀 [EndSession] Starting to complete session');
+        console.log('   Session ID:', id);
+        console.log('   Session Data:', JSON.stringify(sessionData, null, 2));
         
         // Call the actual API endpoint
-        await therapistService.endSession(id, sessionData);
+        const result = await therapistService.endSession(id, sessionData);
         
-        console.log('✅ Session completed successfully');
+        console.log('✅ [EndSession] Session completed successfully');
+        console.log('   Result:', result);
         
         // Navigate to the session detail view to see the completed data
         navigate(`/sessions/${id}`);
         
       } catch (error: any) {
-        console.error('Failed to complete session:', error);
-        alert(error.message || 'Failed to complete session. Please try again.');
+        console.error('❌ [EndSession] Failed to complete session');
+        console.error('   Error:', error);
+        console.error('   Error message:', error.message);
+        console.error('   Error response:', error.response?.data);
+        console.error('   Error status:', error.response?.status);
+        
+        const errorMessage = error.response?.data?.detail || error.message || 'Failed to complete session. Please try again.';
+        alert(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -72,6 +77,9 @@ const EndSession: React.FC = () => {
       navigate(-1);
     }
   };
+
+  // Check if session is already completed
+  const isAlreadyCompleted = session?.status === 'COMPLETED';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,7 +95,9 @@ const EndSession: React.FC = () => {
                 <ChevronLeft size={24} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold">Complete Session</h1>
+                <h1 className="text-2xl font-bold">
+                  {isAlreadyCompleted ? 'Update Session Notes' : 'Complete Session'}
+                </h1>
                 <p className="text-green-200">
                   {session?.patient.full_name || 'Session Summary'}
                 </p>
@@ -99,22 +109,24 @@ const EndSession: React.FC = () => {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Session Summary */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex items-center mb-4">
-              <FileText className="text-green-600 mr-3" size={24} />
-              <h2 className="text-xl font-semibold text-gray-900">Session Summary</h2>
+          {/* Info Message for already completed sessions */}
+          {isAlreadyCompleted && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Session Already Completed
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    This session has already been completed. You can update the session notes and details below.
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Provide a brief overview of what was discussed and accomplished in this session
-            </p>
-            <textarea
-              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-              placeholder="Summarize the key topics discussed, therapeutic approach used, and overall session progress..."
-              value={sessionSummary}
-              onChange={(e) => setSessionSummary(e.target.value)}
-            />
-          </div>
+          )}
 
           {/* Session Notes */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -130,6 +142,23 @@ const EndSession: React.FC = () => {
               placeholder="Enter detailed notes about the session, patient's responses, therapeutic techniques used, and any significant observations..."
               value={sessionNotes}
               onChange={(e) => setSessionNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Patient Goals */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center mb-4">
+              <Target className="text-green-600 mr-3" size={24} />
+              <h2 className="text-xl font-semibold text-gray-900">Patient Goals</h2>
+            </div>
+            <p className="text-gray-600 text-sm mb-4">
+              Document the patient's updated therapeutic goals discussed during this session
+            </p>
+            <textarea
+              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              placeholder="Update the patient's therapeutic goals, personal objectives, and desired outcomes discussed in this session..."
+              value={patientGoals}
+              onChange={(e) => setPatientGoals(e.target.value)}
             />
           </div>
 
@@ -166,23 +195,6 @@ const EndSession: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Patient Goals */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex items-center mb-4">
-              <Target className="text-green-600 mr-3" size={24} />
-              <h2 className="text-xl font-semibold text-gray-900">Patient Goals</h2>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Document the patient's personal goals discussed or established during this session
-            </p>
-            <textarea
-              className="w-full h-28 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-              placeholder="List the patient's therapeutic goals, personal objectives, and desired outcomes..."
-              value={patientGoals}
-              onChange={(e) => setPatientGoals(e.target.value)}
-            />
           </div>
 
           {/* Homework/Action Items */}
@@ -274,7 +286,10 @@ const EndSession: React.FC = () => {
               ) : (
                 <CheckCircle size={20} className="mr-2" />
               )}
-              {loading ? 'Completing Session...' : 'Complete Session'}
+              {loading 
+                ? (isAlreadyCompleted ? 'Updating Notes...' : 'Completing Session...') 
+                : (isAlreadyCompleted ? 'Update Notes' : 'Complete Session')
+              }
             </button>
           </div>
         </div>

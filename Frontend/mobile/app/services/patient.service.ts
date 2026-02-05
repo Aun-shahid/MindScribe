@@ -1,5 +1,35 @@
 // app/services/patient.service.ts
 import api from '../utils/api';
+import { BASE_URL } from '../config';
+
+// Ensure media URLs returned by backend are absolute. If backend returns a
+// relative path like '/media/sounds/file.mp3', prefix with `BASE_URL` so
+// Expo's audio player can load the file over the network.
+function normalizeMediaUrl(u?: string): string {
+  if (!u) return '';
+  const s = String(u).trim();
+  try {
+    // If backend returned an absolute URL but with a different host (old IP),
+    // prefer serving it from the current `BASE_URL` host so emulator/device can reach it.
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+      const parsed = new URL(s);
+      const base = new URL(BASE_URL);
+      // If path looks like media and host differs, rebuild URL to use BASE_URL
+      if (parsed.pathname && parsed.pathname.startsWith('/media') && parsed.hostname !== base.hostname) {
+        return `${BASE_URL}${parsed.pathname}`;
+      }
+      return s;
+    }
+  } catch (e) {
+    // fall back to string handling below
+    console.warn('[normalizeMediaUrl] failed to parse url', u, e);
+  }
+  if (s.startsWith('//')) return `https:${s}`;
+  if (s.startsWith('/')) return `${BASE_URL}${s}`;
+  // If it's a relative path without leading slash, also prefix
+  if (!s.includes('://')) return `${BASE_URL}/${s}`;
+  return s;
+}
 
 export interface MoodEntry {
   [key: string]: string;
@@ -274,6 +304,14 @@ class PatientService {
   }
 
   /**
+   * Fetch weekly mood trend used by the Weekly Trend screen
+   */
+  async getWeeklyMoodTrend(): Promise<WeeklyMoodTrendResponse> {
+    const response = await api.get<WeeklyMoodTrendResponse>('/patients/mood/weekly-trend/');
+    return response.data;
+  }
+
+  /**
    * Fetch patient profile (includes therapist connection info)
    */
   async getPatientProfile(): Promise<any> {
@@ -425,7 +463,12 @@ class PatientService {
    */
   async getRelaxationContent(filters?: RelaxationFilters): Promise<RelaxationContent[]> {
     const response = await api.get<RelaxationContent[]>('/patients/relaxation/content/', { params: filters });
-    return response.data;
+    const data = response.data || [];
+    // Normalize audio_url to a full URL if backend sent a relative path
+    return data.map((item: any) => ({
+      ...item,
+      audio_url: normalizeMediaUrl(item.audio_url),
+    }));
   }
 
   /**
@@ -433,6 +476,39 @@ class PatientService {
    */
   async getRelaxationContentDetail(id: string): Promise<RelaxationContent> {
     const response = await api.get<RelaxationContent>(`/patients/relaxation/content/${id}/`);
+    const item = response.data;
+    if (item) item.audio_url = normalizeMediaUrl(item.audio_url);
+    return item;
+  }
+
+  /**
+   * Create a new relaxation session record (start/complete session)
+   */
+  async createRelaxationSession(data: {
+    content: string;
+    duration_listened_seconds: number;
+    completed?: boolean;
+    rating?: number | null;
+    mood_before?: string | null;
+    mood_after?: string | null;
+    notes?: string | null;
+  }): Promise<any> {
+    const response = await api.post<any>('/patients/relaxation/sessions/', data);
+    return response.data;
+  }
+
+  /**
+   * Update an existing relaxation session (PATCH)
+   */
+  async updateRelaxationSession(id: string, data: Partial<{
+    duration_listened_seconds: number;
+    completed: boolean;
+    rating: number | null;
+    mood_before: string | null;
+    mood_after: string | null;
+    notes: string | null;
+  }>): Promise<any> {
+    const response = await api.patch<any>(`/patients/relaxation/sessions/${id}/`, data);
     return response.data;
   }
 
@@ -538,3 +614,4 @@ class PatientService {
 }
 
 export default new PatientService();
+

@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme } from '../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import api from '../utils/api';
 
@@ -41,6 +44,19 @@ const moodLabels: { [key: string]: string } = {
   stressed: 'Stressed',
 };
 
+const moodColorMap: { [key: string]: string[] } = {
+  happy: ['#FFD54F', '#FFC107'],
+  sad: ['#64B5F6', '#4FC3F7'],
+  angry: ['#FF8A80', '#FF5252'],
+  anxious: ['#CE93D8', '#AB47BC'],
+  peaceful: ['#81D4FA', '#4FC3F7'],
+  excited: ['#FFAB91', '#FF7043'],
+  grateful: ['#AED581', '#9CCC65'],
+  overwhelmed: ['#B39DDB', '#9575CD'],
+  hopeful: ['#A5D6A7', '#7CB342'],
+  stressed: ['#E57373', '#EF5350'],
+};
+
 interface MoodAnalytics {
   average_intensity: number;
   most_common_mood: string;
@@ -56,7 +72,7 @@ export default function MoodAnalyticsDetail() {
   const [analytics, setAnalytics] = useState<MoodAnalytics | null>(null);
   const [selectedDays, setSelectedDays] = useState(30);
 
-  const dayOptions = [7, 14, 30, 60, 90];
+  const dayOptions = [7, 14, 30, 60];
 
   useEffect(() => {
     loadAnalytics();
@@ -113,7 +129,7 @@ export default function MoodAnalyticsDetail() {
           </Text>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: themeStyle.button }]}
-            onPress={() => router.back()}
+            onPress={() => router.push('/patient/mood')}
           >
             <Text style={[styles.buttonText, { color: themeStyle.buttonText }]}>Go Back</Text>
           </TouchableOpacity>
@@ -134,18 +150,30 @@ export default function MoodAnalyticsDetail() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={[styles.backButton, { color: themeStyle.text }]}>← Back</Text>
+        {/* Header (restored simple header, no grey band) */}
+        <View style={[styles.headerRow, { paddingTop: 12 }] }>
+          <TouchableOpacity
+            style={[
+              styles.backButton,
+              { left: 8, top: Platform.OS === 'android' ? 10 : 14 },
+            ]}
+            onPress={() => router.push('/patient/mood')}
+          >
+            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: themeStyle.title }]}>
-            😊 Mood Analytics
+          <Text style={styles.headerTitleLarge}>
+            <Text style={styles.headerBlue}>Mood </Text>
+            <Text style={styles.headerOrange}>Analytics</Text>
           </Text>
         </View>
 
         {/* Time Period Selector */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Time Period</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.periodButtons}>
@@ -179,18 +207,23 @@ export default function MoodAnalyticsDetail() {
         </View>
 
         {/* Key Metrics */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Key Metrics</Text>
-          <View style={styles.metricsGrid}>
-            <View style={[styles.metricBox, { backgroundColor: themeStyle.background }]}>
-              <Text style={styles.metricEmoji}>📊</Text>
+            <View style={styles.metricsGrid}>
+            <View style={[styles.metricBox, { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 }]}>
+                  <FontAwesome name="bar-chart" size={28} color={themeStyle.progressbarmain} style={{ marginBottom: 8 }} />
               <Text style={[styles.metricValue, { color: themeStyle.text }]}>
                 {totalEntries}
               </Text>
               <Text style={[styles.metricLabel, { color: themeStyle.label }]}>Total Entries</Text>
             </View>
-            <View style={[styles.metricBox, { backgroundColor: themeStyle.background }]}>
-              <Text style={styles.metricEmoji}>⭐</Text>
+            <View style={[styles.metricBox, { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 }]}>
+              <FontAwesome name="star" size={28} color={themeStyle.progressbarside} style={{ marginBottom: 8 }} />
               <Text style={[styles.metricValue, { color: themeStyle.text }]}>
                 {analytics.average_intensity.toFixed(1)}
               </Text>
@@ -203,7 +236,12 @@ export default function MoodAnalyticsDetail() {
 
         {/* Most Common Mood */}
         {analytics.most_common_mood && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
               Most Common Mood
             </Text>
@@ -230,7 +268,12 @@ export default function MoodAnalyticsDetail() {
 
         {/* Mood Distribution */}
         {Object.keys(analytics.mood_distribution).length > 0 && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
               Mood Distribution
             </Text>
@@ -255,14 +298,11 @@ export default function MoodAnalyticsDetail() {
                       <View
                         style={[styles.distributionBarBackground, { backgroundColor: themeStyle.background }]}
                       >
-                        <View
-                          style={[
-                            styles.distributionBar,
-                            {
-                              width: `${percentage}%`,
-                              backgroundColor: themeStyle.progressbarmain,
-                            },
-                          ]}
+                        <LinearGradient
+                          colors={moodColorMap[mood] || [themeStyle.progressbarmain, themeStyle.progressbarside]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.distributionBar, { width: `${percentage}%` }]}
                         />
                       </View>
                     </View>
@@ -272,48 +312,16 @@ export default function MoodAnalyticsDetail() {
           </View>
         )}
 
-        {/* Weekly Trend */}
-        {analytics.weekly_trend.length > 0 && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
-              Weekly Intensity Trend
-            </Text>
-            <View style={styles.trendContainer}>
-              {analytics.weekly_trend.map((day, index) => {
-                const maxIntensity = Math.max(
-                  ...analytics.weekly_trend.map((d) => d.average_intensity)
-                );
-                const heightPercentage =
-                  maxIntensity > 0 ? (day.average_intensity / maxIntensity) * 100 : 0;
-                const date = new Date(day.date);
-                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-
-                return (
-                  <View key={index} style={styles.trendBar}>
-                    <View
-                      style={[
-                        styles.trendBarFill,
-                        {
-                          height: `${heightPercentage}%`,
-                          backgroundColor: getIntensityColor(day.average_intensity),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.trendValue}>{day.average_intensity.toFixed(1)}</Text>
-                    </View>
-                    <Text style={[styles.trendLabel, { color: themeStyle.label }]}>
-                      {dayName}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        {/* Weekly Trend removed for this page per UI uniformity request */}
 
         {/* Common Triggers */}
         {analytics.common_triggers.length > 0 && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
               🎯 Common Triggers
             </Text>
@@ -359,20 +367,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 20,
   },
-  header: {
-    marginBottom: 20,
-  },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 0, minHeight: 64, position: 'relative' },
+  /* headerContainer removed to restore original look */
+  backButton: { position: 'absolute', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1 },
+  headerTitleLarge: { fontSize: 26, fontWeight: '800', marginLeft: 0, color: '#524f85', marginTop: 20, marginBottom: 10, textAlign: 'center' },
+  headerBlue: { color: '#524f85' },
+  headerOrange: { color: '#FF9F6B' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -422,22 +424,27 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   periodButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    paddingVertical: 6,
   },
   periodButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 2,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   periodButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   metricsGrid: {
@@ -583,6 +590,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  /* analyticsButton not used in simple header */
   bottomPadding: {
     height: 40,
   },

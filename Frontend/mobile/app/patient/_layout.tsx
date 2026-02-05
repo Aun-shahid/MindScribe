@@ -24,7 +24,16 @@ export default function Layout() {
           // Hide tab bar button for routes not in visibleTabs while keeping route available
           tabBarButton: isVisible ? undefined : () => null,
           // Make tab bar evenly spaced for visible tabs
-          tabBarStyle: { justifyContent: 'space-around', paddingVertical: 6, height: 64 },
+          tabBarStyle: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            height: 64,
+          },
+          tabBarItemStyle: { flex: 1 },
+          tabBarLabelStyle: { fontSize: 11, paddingBottom: 4 },
           headerShown: false,
         };
       }}

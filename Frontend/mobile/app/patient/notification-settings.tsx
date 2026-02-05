@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Switch, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView, View, Text, StyleSheet, Switch, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import PatientService from '../services/patient.service';
 import { useTheme } from '../contexts/ThemeContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Device from 'expo-device';
 
 export default function NotificationSettings() {
   const { themeStyle } = useTheme();
@@ -40,12 +41,54 @@ export default function NotificationSettings() {
     return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={themeStyle.text} />;
   }
 
+  const registerForPush = async () => {
+    // expo-notifications is not available in Expo Go (SDK 53+).
+    // Inform the user to use a dev/build client or a standalone app to enable push.
+    Alert.alert(
+      'Push not available in Expo Go',
+      'Push notifications are not supported in Expo Go. Build a development client or a standalone app to enable push notifications.'
+    );
+    return null;
+  };
+
   return (
     <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }]}> 
       <View style={styles.container}>
         <Text style={[styles.title, { color: themeStyle.title }]}>Notification Settings</Text>
 
-        <SettingRow label="Push Notifications" value={prefs.push_token ? true : false} onToggle={(v) => setPrefs({ ...prefs, push_enabled: v })} themeStyle={themeStyle} />
+        <SettingRow
+          label="Push Notifications"
+          value={prefs.push_enabled ?? !!prefs.push_token}
+          onToggle={async (v: boolean) => {
+            // If enabling, register for push token and persist
+            if (v) {
+              const token = prefs.push_token || await registerForPush();
+              if (token) {
+                const newPrefs = { ...prefs, push_enabled: true, push_token: token };
+                setPrefs(newPrefs);
+                try {
+                  await PatientService.updateNotificationPreferences({ push_token: token, push_enabled: true });
+                } catch (err: any) {
+                  console.error('[NotifySettings] save push token error', err);
+                  Alert.alert('Error', 'Failed to save push token to server');
+                }
+                return;
+              }
+              // If token not obtained, do not enable
+              setPrefs({ ...prefs, push_enabled: false });
+              return;
+            }
+
+            // Disabling: clear push_enabled and optionally remove token on server
+            setPrefs({ ...prefs, push_enabled: false });
+            try {
+              await PatientService.updateNotificationPreferences({ push_enabled: false });
+            } catch (err: any) {
+              console.error('[NotifySettings] disable push error', err);
+            }
+          }}
+          themeStyle={themeStyle}
+        />
 
         <View style={[styles.section, { borderColor: themeStyle.border }]}> 
           <Text style={[styles.sectionTitle, { color: themeStyle.label }]}>Mood Check-in</Text>

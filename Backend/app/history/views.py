@@ -246,7 +246,8 @@ class HistoryEntriesView(generics.GenericAPIView):
                     'type': 'mood',
                     'id': str(entry.id),
                     'data': MoodEntrySerializer(entry).data,
-                    'created_at': entry.created_at
+                    'created_at': entry.created_at,
+                    'mood_date': getattr(entry, 'mood_date', entry.created_at.date())
                 })
             
             for entry in journal_entries:

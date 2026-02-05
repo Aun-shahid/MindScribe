@@ -86,13 +86,14 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    word_count = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = JournalEntry
         fields = [
             'id', 'patient', 'patient_name', 'prompt', 'title', 'content',
             'mood_tags', 'mood_tags_list', 'is_private', 'is_favorite', 
-            'entry_date', 'created_at', 'updated_at'
+            'entry_date', 'created_at', 'updated_at', 'word_count'
         ]
         read_only_fields = ['id', 'patient', 'created_at', 'updated_at']
     
@@ -118,7 +119,17 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         # Add mood_tags as list in response
         data['mood_tags_list'] = instance.mood_tags_list
+        # Provide a compatibility alias used by other parts of the app
+        data['tags_list'] = instance.mood_tags_list
+        # Ensure frontend can read word_count even if model doesn't store it
+        data['word_count'] = self.get_word_count(instance)
         return data
+
+    def get_word_count(self, obj):
+        if not obj or not getattr(obj, 'content', None):
+            return 0
+        # Basic whitespace split; mirrors other places that compute word counts
+        return len(str(obj.content).split())
 
 
 class JournalPromptSerializer(serializers.ModelSerializer):
@@ -260,7 +271,8 @@ class DashboardStatsSerializer(serializers.Serializer):
     active_goals_count = serializers.IntegerField()
     completed_goals_count = serializers.IntegerField()
     mood_trend = serializers.ListField(child=serializers.DictField())
-    recent_journal_entries = JournalEntrySerializer(many=True)
+    # recent_journal_entries are pre-serialized dicts in the view, so accept a list of dicts
+    recent_journal_entries = serializers.ListField(child=serializers.DictField())
     upcoming_sessions = serializers.ListField(child=serializers.DictField())
     daily_inspiration = DailyInspirationSerializer(required=False, allow_null=True)
     relaxation_minutes_this_week = serializers.IntegerField()

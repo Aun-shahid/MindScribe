@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "expo-linear-gradient": "^14.1.5",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-svg": "^15.12.1"
   }

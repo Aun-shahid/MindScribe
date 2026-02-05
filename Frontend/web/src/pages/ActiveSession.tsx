@@ -13,6 +13,7 @@ import {
   StopCircle
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useTherapist';
+import therapistService from '../services/therapist.service';
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,8 @@ const ActiveSession: React.FC = () => {
   const [sessionDuration, setSessionDuration] = useState('00:00');
   const [sessionStartTime] = useState(new Date());
   const [notes, setNotes] = useState('');
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [startingSession, setStartingSession] = useState(false);
 
   // Mock real-time data (similar to mobile app)
   const [emotionData] = useState({
@@ -50,6 +53,49 @@ const ActiveSession: React.FC = () => {
   ]);
 
   const { session, loading, error } = useSessionDetail(id!);
+
+  // Check if session is already completed and redirect to detail page
+  useEffect(() => {
+    if (session && session.status === 'COMPLETED') {
+      console.log('⚠️ Session is already completed, redirecting to detail page');
+      alert('This session has already been completed. You will be redirected to the session details page.');
+      navigate(`/sessions/${id}`);
+    }
+  }, [session, id, navigate]);
+
+  // Start session when component mounts
+  useEffect(() => {
+    const startSession = async () => {
+      if (!id || sessionStarted || startingSession) return;
+      
+      // Don't try to start if session is already completed
+      if (session?.status === 'COMPLETED') {
+        return;
+      }
+      
+      try {
+        setStartingSession(true);
+        console.log('Starting session:', id);
+        await therapistService.startSession(id);
+        setSessionStarted(true);
+        console.log('✅ Session started successfully');
+      } catch (error: any) {
+        console.error('❌ Failed to start session:', error);
+        // Only show error if session is not already in progress or completed
+        if (!error.message?.includes('IN_PROGRESS') && !error.message?.includes('COMPLETED')) {
+          alert(`Failed to start session: ${error.message || 'Unknown error'}`);
+          navigate('/sessions');
+        } else {
+          // Session already in progress or completed, just mark as started
+          setSessionStarted(true);
+        }
+      } finally {
+        setStartingSession(false);
+      }
+    };
+
+    startSession();
+  }, [id, sessionStarted, startingSession, session, navigate]);
 
   // Timer effect
   useEffect(() => {
@@ -81,12 +127,12 @@ const ActiveSession: React.FC = () => {
     }
   }, [id, navigate]);
 
-  if (loading) {
+  if (loading || startingSession) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Loading session...</p>
+          <p className="text-gray-600 mt-4">{startingSession ? 'Starting session...' : 'Loading session...'}</p>
         </div>
       </div>
     );

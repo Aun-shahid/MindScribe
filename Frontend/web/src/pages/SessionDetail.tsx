@@ -14,7 +14,8 @@ import {
   X,
   Trash2,
   Phone,
-  Mail
+  Mail,
+  Activity
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useTherapist';
 import therapistService from '../services/therapist.service';
@@ -32,7 +33,13 @@ const SessionDetailPage: React.FC = () => {
   
   // Session details editing states
   const [isEditingDetails, setIsEditingDetails] = useState(false);
-  const [detailsData, setDetailsData] = useState({
+  const [detailsData, setDetailsData] = useState<{
+    scheduled_date: string;
+    duration_minutes: number;
+    location: string;
+    is_online: boolean;
+    session_type: 'individual' | 'group' | 'family' | 'couples';
+  }>({
     scheduled_date: '',
     duration_minutes: 60,
     location: '',
@@ -88,7 +95,7 @@ const SessionDetailPage: React.FC = () => {
         duration_minutes: session.duration_minutes || session.actual_duration_minutes || 60,
         location: session.location || '',
         is_online: session.is_online || false,
-        session_type: session.session_type || 'individual',
+        session_type: (session.session_type as 'individual' | 'group' | 'family' | 'couples') || 'individual',
       });
     }
   }, [session]);
@@ -351,11 +358,11 @@ const SessionDetailPage: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-900 mb-2">Session Type</label>
                     <select
                       value={detailsData.session_type}
-                      onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value })}
+                      onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value as 'individual' | 'group' | 'family' | 'couples' })}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
                       <option value="individual">Individual</option>
-                      <option value="couple">Couple</option>
+                      <option value="couples">Couples</option>
                       <option value="group">Group</option>
                       <option value="family">Family</option>
                     </select>
@@ -600,6 +607,96 @@ const SessionDetailPage: React.FC = () => {
                         </p>
                       </div>
                     </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Mood & Effectiveness Section - Only for COMPLETED sessions */}
+            {session.status === 'COMPLETED' && (
+              <div className="bg-white rounded-lg shadow-sm border mt-6">
+                <div className="flex items-center p-4 border-b">
+                  <Activity className="text-purple-600 mr-2" size={20} />
+                  <h3 className="text-lg font-semibold text-gray-900">Session Metrics</h3>
+                </div>
+                <div className="p-6 space-y-6">
+                  {/* Patient Mood Before */}
+                  {session.patient_mood_before !== null && (
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-2">Patient Mood (Before)</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-blue-500 h-3 rounded-full transition-all"
+                            style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold text-blue-600 min-w-[3rem] text-right">
+                          {session.patient_mood_before}/10
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Patient Mood After */}
+                  {session.patient_mood_after !== null && (
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-2">Patient Mood (After)</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-green-500 h-3 rounded-full transition-all"
+                            style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold text-green-600 min-w-[3rem] text-right">
+                          {session.patient_mood_after}/10
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mood Improvement */}
+                  {session.mood_improvement !== null && session.mood_improvement !== 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="font-semibold text-gray-900 mb-1">Mood Change</p>
+                      <p className={`text-2xl font-bold ${session.mood_improvement > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement} points
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {session.mood_improvement > 0 ? '↑ Improved' : '↓ Decreased'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Session Effectiveness */}
+                  {session.session_effectiveness !== null && (
+                    <div>
+                      <p className="font-semibold text-gray-900 mb-2">Session Effectiveness</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-purple-600 h-3 rounded-full transition-all"
+                            style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold text-purple-600 min-w-[3rem] text-right">
+                          {session.session_effectiveness}/10
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Therapist's rating of session effectiveness
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Show message if no metrics available */}
+                  {session.patient_mood_before === null && 
+                   session.patient_mood_after === null && 
+                   session.session_effectiveness === null && (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400 italic">No session metrics recorded</p>
+                    </div>
                   )}
                 </div>
               </div>

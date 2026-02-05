@@ -22,11 +22,7 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
-    "baseUrl": "./",
-    "paths": {
-      "@models/*": ["src/models/*"]
-    }
+    "noUncheckedSideEffectImports": true
   },
   "include": ["src"]
 }

@@ -35,11 +35,27 @@ export default function BreathingExercisesScreen() {
 
   const setupAudio = async () => {
     try {
-      await Audio.setAudioModeAsync({
+      const mode: any = {
+        allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-      });
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      };
+
+      if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX !== 'undefined') {
+        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX;
+      } else if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS !== 'undefined') {
+        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS;
+      }
+
+      if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX !== 'undefined') {
+        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX;
+      } else if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS !== 'undefined') {
+        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS;
+      }
+
+      await Audio.setAudioModeAsync(mode);
     } catch (err) {
       console.error('Error setting up audio:', err);
     }
@@ -55,17 +71,20 @@ export default function BreathingExercisesScreen() {
     try {
       setLoading(true);
       setError(null);
-      // Get only breathing and meditation content types
-      const data = await PatientService.getRelaxationContent({ 
-        category: 'meditation' 
+      // Fetch all content and filter locally so body-scan items (category 'body_scan')
+      // are not excluded by backend query params. This ensures the 10-minute Body Scan appears.
+      const data = await PatientService.getRelaxationContent({});
+
+      // Include items that are breathing or body-scan exercises. Match by
+      // content_type, category, or title heuristics to capture 5/10 minute items.
+      const breathingExercises = data.filter(item => {
+        const t = (item.title || '').toLowerCase();
+        const isBreathingType = item.content_type === 'breathing' || item.category === 'breathing';
+        const isBodyScanType = item.content_type === 'body_scan' || item.category === 'body_scan' || t.includes('body scan') || t.includes('body-scan');
+        const isBreathTitle = t.includes('breath') || t.includes('breathing');
+        return isBreathingType || isBodyScanType || isBreathTitle;
       });
-      
-      // Filter to only include the breathing exercises
-      const breathingExercises = data.filter(item => 
-        item.title === '5-Minute Breathing Exercise' || 
-        item.title === '10-Minute Body Scan'
-      );
-      
+
       setContent(breathingExercises);
     } catch (err: any) {
       console.error('Error loading breathing exercises:', err);
@@ -477,3 +496,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+

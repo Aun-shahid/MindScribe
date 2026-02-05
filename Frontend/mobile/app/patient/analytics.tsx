@@ -68,7 +68,7 @@ export default function AnalyticsHub() {
           title="Journal Analytics"
           description="View your journaling stats, streaks, and tag insights"
           color="#dbeafe"
-          route="./journal-analytics-detail"
+          route="/patient/journal-analytics-detail"
         />
 
         <AnalyticsCard
@@ -76,7 +76,7 @@ export default function AnalyticsHub() {
           title="Mood Analytics"
           description="Explore mood patterns, trends, and common triggers"
           color="#fef3c7"
-          route="./mood-analytics-detail"
+          route="/patient/mood-analytics-detail"
         />
 
         <AnalyticsCard
@@ -84,7 +84,7 @@ export default function AnalyticsHub() {
           title="Emotional Insights Analytics"
           description="Explore emotion patterns, coping strategies, and growth"
           color="#e9d5ff"
-          route="./emotional-insights-analytics"
+          route="/patient/emotional-insights-analytics"
         />
 
         {/* Placeholder for future analytics sections */}

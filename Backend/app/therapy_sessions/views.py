@@ -761,20 +761,10 @@ class SessionsListView(generics.ListAPIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # Filter by session type
-        session_type_filter = self.request.query_params.get('session_type')
-        if session_type_filter:
-            queryset = queryset.filter(session_type=session_type_filter)
-        
-        # Filter by patient ID (for therapists viewing specific patient's sessions)
-        patient_id_filter = self.request.query_params.get('patient_id')
-        if patient_id_filter and user.user_type == 'therapist':
-            queryset = queryset.filter(patient_id=patient_id_filter)
-        
         # Apply limit
         limit = int(self.request.query_params.get('limit', 50))
         
-        return queryset.select_related('patient', 'therapist').order_by('-scheduled_date')[:limit]
+        return queryset.select_related('patient', 'therapist').order_by('scheduled_date')[:limit]
     
     def list(self, request, *args, **kwargs):
         """Override list to add user type and total count"""
@@ -1092,14 +1082,18 @@ class MySessionsView(generics.GenericAPIView):
                     'status_code': 400
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Check if patient has a profile
-            if not hasattr(user, 'patient_profile'):
-                return Response({
-                    'error': True,
-                    'message': 'Patient profile not found',
-                    'details': {'profile': ['Patient profile is required to access sessions']},
-                    'status_code': 404
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Ensure patient has a PatientProfile record. If missing, create a minimal one so
+            # patient-facing endpoints can function (this mirrors behavior used elsewhere).
+            try:
+                patient_profile = user.patient_profile
+            except PatientProfile.DoesNotExist:
+                # Create a lightweight profile with sensible defaults
+                patient_profile, _ = PatientProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'preferred_language': 'en'
+                    }
+                )
             
             now = timezone.now()
             

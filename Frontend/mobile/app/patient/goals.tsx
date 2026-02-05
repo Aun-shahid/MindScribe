@@ -1,8 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, Modal, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
+// import { router } from 'expo-router';
+// import { useTheme } from '../contexts/ThemeContext';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import { LinearGradient } from 'expo-linear-gradient';
 import PatientService, { PatientGoal, CreatePatientGoalData } from '../services/patient.service';
 
+// Helper: convert hex color to rgba string with alpha for RN styles
+const hexWithAlpha = (hex: string, alpha: number) => {
+  try {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(ch => ch + ch).join('') : h;
+    const intVal = parseInt(full, 16);
+    const r = (intVal >> 16) & 255;
+    const g = (intVal >> 8) & 255;
+    const b = intVal & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } catch (e) {
+    return hex; // fallback
+  }
+};
+
+const formatDate = (d?: string | null) => {
+  if (!d) return '';
+  try {
+    const dt = new Date(d);
+    return dt.toLocaleDateString();
+  } catch (e) { return d; }
+};
+
 const GoalsScreen: React.FC = () => {
+  // const { themeStyle } = useTheme();
   const [loading, setLoading] = useState(false);
   const [goals, setGoals] = useState<PatientGoal[]>([]);
   const [createVisible, setCreateVisible] = useState(false);
@@ -135,34 +164,51 @@ const GoalsScreen: React.FC = () => {
 
   const renderGoal = ({ item }: { item: PatientGoal }) => {
     const pct = item.progress_percentage || 0;
+    const accent = item.priority === 'high' ? '#FF6B6B' : item.priority === 'medium' ? '#FF9F6B' : '#34D399';
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, { borderTopColor: accent }]}> 
         <View style={styles.cardHeader}>
           <Text style={styles.title}>{item.title}</Text>
-          <View style={[styles.badge, item.priority === 'high' ? styles.badgeHigh : item.priority === 'medium' ? styles.badgeMed : styles.badgeLow]}>
-            <Text style={styles.badgeText}>{item.priority_display || item.priority}</Text>
+          <View style={[styles.badgePill, { backgroundColor: hexWithAlpha(accent, 0.12), borderColor: accent }]}>
+            <Text style={[styles.badgePillText, { color: accent }]}>{item.priority_display || item.priority}</Text>
           </View>
         </View>
         {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
+
+        <View style={styles.progressLabelRow}>
+          <Text style={styles.progressLabel}>Progress</Text>
+          <Text style={styles.progressPercent}>{pct}%</Text>
+        </View>
+
         <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+          <LinearGradient colors={[accent, '#60a5fa']} start={[0,0]} end={[1,0]} style={[styles.progressBarFill, { width: `${pct}%` }]} />
         </View>
-        <View style={styles.row}> 
-          <Text style={styles.small}>Progress: {pct}%</Text>
-          <Text style={styles.small}>Target: {item.target_date || '—'}</Text>
+
+        <View style={styles.targetPillRow}>
+          <View style={styles.targetPill}><FontAwesome name="calendar" size={14} color="#06b6d4" style={{ marginRight: 8 }} /><Text style={styles.targetPillText}>Target: {item.target_date || '—'}</Text></View>
         </View>
-        <View style={styles.rowRight}>
-          <View style={styles.smallActionRow}>
-            <TouchableOpacity style={[styles.smallBtn, styles.actionBtn]} onPress={() => openUpdateProgress(item)}>
-              <Text style={styles.smallBtnText}>Update</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallBtn, styles.editBtn]} onPress={() => openEdit(item)}>
-              <Text style={styles.smallBtnText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallBtn, styles.deleteBtn]} onPress={() => handleDelete(item)}>
-              <Text style={styles.smallBtnText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
+
+        <View style={styles.actionRowContainer}>
+          <TouchableOpacity style={[styles.actionWrapper]} onPress={() => openUpdateProgress(item)} activeOpacity={0.9}>
+            <LinearGradient colors={[ '#ff6ea5', '#ff9f6b' ]} start={[0,0]} end={[1,0]} style={styles.actionGradient}>
+              <FontAwesome5 name="chart-line" size={14} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.actionText}>Update</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.actionWrapper]} onPress={() => openEdit(item)} activeOpacity={0.9}>
+            <View style={[styles.editButton]}> 
+              <FontAwesome name="pencil" size={14} color="#1e3a8a" style={{ marginRight: 8 }} />
+              <Text style={[styles.editText]}>Edit</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.actionWrapper]} onPress={() => handleDelete(item)} activeOpacity={0.9}>
+            <View style={[styles.deleteButton]}> 
+              <FontAwesome name="trash" size={14} color="#dc2626" style={{ marginRight: 8 }} />
+              <Text style={[styles.deleteText]}>Delete</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -172,10 +218,24 @@ const GoalsScreen: React.FC = () => {
   const completedGoals = goals.filter(g => g.status === 'completed');
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container}> 
       <View style={styles.headerRow}>
-        <Text style={styles.header}>Goals</Text>
-        <TouchableOpacity onPress={openCreate} style={styles.addBtn}><Text style={styles.addBtnText}>＋</Text></TouchableOpacity>
+        <Text style={styles.header}>My Goals</Text>
+      </View>
+
+      <View style={styles.ctaWrap}> 
+        <TouchableOpacity onPress={openCreate} activeOpacity={0.9}>
+          <LinearGradient colors={[ '#FF6EA5', '#FFB870', '#2BD3B6' ]} start={[0,0]} end={[1,0]} style={styles.ctaButton}>
+            <Text style={styles.ctaText}>+ Add New Goal</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ height: 14 }} />
+
+      <View style={styles.sectionHeader}> 
+        <LinearGradient colors={[ '#FF6EA5', '#FFB870', '#2BD3B6' ]} start={[0,0]} end={[0,1]} style={styles.sectionAccent} />
+        <Text style={styles.sectionTitle}>Active Goals ({activeGoals.length})</Text>
       </View>
 
       {loading ? <ActivityIndicator size="large" /> : (
@@ -189,14 +249,30 @@ const GoalsScreen: React.FC = () => {
 
       {completedGoals.length > 0 && (
         <View style={styles.completedSection}>
-          <Text style={styles.subHeader}>Completed</Text>
+          <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Completed Goals ({completedGoals.length})</Text>
+            </View>
+
           <FlatList
             data={completedGoals}
             keyExtractor={g => g.id}
             renderItem={({ item }) => (
-              <View style={[styles.card, styles.completedCard]}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.small}>{item.completed_date ? `Completed: ${item.completed_date}` : 'Completed'}</Text>
+              <View style={styles.completedCardWrapper}>
+                <View style={[styles.completedCardInner, { borderTopWidth: 6, borderTopColor: '#10B981' }]}>
+                    <View style={styles.completedCardContent}>
+                      <View style={styles.completedIconWrap}>
+                        <View style={styles.completedIconCircle}><FontAwesome5 name="bullseye" size={18} color="#fff" /></View>
+                      </View>
+
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.title}>{item.title}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                          <View style={styles.completedBadge}><FontAwesome name="check" size={12} color="#065f46" style={{ marginRight: 6 }} /><Text style={styles.completedBadgeText}>Completed</Text></View>
+                          <Text style={[styles.small, { marginLeft: 12, color: '#6b7280' }]}>{formatDate(item.completed_date || item.updated_at)}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
               </View>
             )}
           />
@@ -265,40 +341,68 @@ export default GoalsScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  header: { fontSize: 24, fontWeight: '700' },
-  addBtn: { backgroundColor: '#2b6cb0', borderRadius: 20, padding: 8, marginTop: 20 },
-  addBtnText: { color: '#fff', fontSize: 20 },
-  card: { backgroundColor: '#f7f7f8', padding: 12, borderRadius: 8, marginBottom: 10 },
+  headerRow: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  header: { fontSize: 20, fontWeight: '800', color: '#524f85' },
+  ctaWrap: { paddingHorizontal: 6, marginBottom: 12 },
+  
+  ctaButton: { paddingVertical: 12, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 4 },
+  ctaText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  sectionHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8, paddingHorizontal: 4 },
+  sectionAccent: { width: 4, height: 22, borderRadius: 4 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#374151', marginLeft: 8 },
+  targetPillRow: { marginTop: 10 },
+  targetPill: { backgroundColor: '#E6FFFA', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
+  targetPillText: { color: '#0ea5a0', fontWeight: '600' },
+  progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  progressLabel: { color: '#6b7280', fontWeight: '600' },
+  progressPercent: { color: '#374151', fontWeight: '800' },
+  actionRowContainer: { flexDirection: 'row', marginTop: 14, justifyContent: 'space-between' },
+  actionWrapper: { flex: 1, marginHorizontal: 6 },
+  actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10 },
+  actionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  editButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#1e3a8a' },
+  editText: { color: '#1e3a8a', fontWeight: '800', fontSize: 13 },
+  deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#fecaca' },
+  deleteText: { color: '#dc2626', fontWeight: '800', fontSize: 13 },
+  card: { backgroundColor: '#fff', padding: 16, borderRadius: 14, marginBottom: 14, borderTopWidth: 6, borderTopColor: '#60a5fa', shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 3 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 16, fontWeight: '600' },
-  desc: { marginTop: 6, color: '#333' },
-  progressBarBackground: { height: 8, backgroundColor: '#e6e6e6', borderRadius: 4, marginTop: 10, overflow: 'hidden' },
-  progressBarFill: { height: 8, backgroundColor: '#48bb78' },
+  title: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  desc: { marginTop: 8, color: '#6b7280' },
+  progressBarBackground: { height: 10, backgroundColor: '#f1f5f9', borderRadius: 6, marginTop: 12, overflow: 'hidden' },
+  progressBarFill: { height: 10, borderRadius: 6 },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   rowRight: { alignItems: 'flex-end', marginTop: 8 },
-  small: { fontSize: 12, color: '#666' },
-  smallBtn: { backgroundColor: '#3182ce', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
-  smallBtnText: { color: '#fff', fontSize: 12 },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  badgeText: { color: '#fff', fontSize: 12 },
-  badgeHigh: { backgroundColor: '#e53e3e' },
-  badgeMed: { backgroundColor: '#dd6b20' },
-  badgeLow: { backgroundColor: '#718096' },
-  empty: { textAlign: 'center', marginTop: 40, color: '#666' },
-  completedSection: { marginTop: 12 },
-  completedCard: { backgroundColor: '#eef2ff' },
-  subHeader: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
+  small: { fontSize: 12, color: '#64748b' },
+  smallBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, marginLeft: 8 },
+  smallBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  badgePill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  badgePillText: { fontSize: 12, fontWeight: '700' },
+  empty: { textAlign: 'center', marginTop: 40, color: '#9ca3af' },
+  completedSection: { marginTop: 20 },
+  completedCardWrapper: { marginBottom: 12 },
+  completedCardInner: { backgroundColor: '#fff', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 2 },
+  completedCardContent: { flexDirection: 'row', alignItems: 'center' },
+  completedIconWrap: { marginLeft: 0 },
+  completedIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' },
+  completedBadge: { backgroundColor: '#ECFDF5', borderColor: '#10B981', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
+  completedBadgeText: { color: '#065f46', fontWeight: '700', fontSize: 13 },
+  
+  
+  
+  /* removed duplicate left-border style to match mock */
+  completedCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 2 },
+  completedCardWrapper: { marginBottom: 12 },
+  subHeader: { fontSize: 16, fontWeight: '700', marginBottom: 12, color: '#374151' },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   modalInner: { width: '92%', backgroundColor: '#fff', borderRadius: 8, padding: 16 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 8, marginBottom: 8 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 },
   cancelBtn: { padding: 8, marginRight: 8 },
-  saveBtn: { backgroundColor: '#2b6cb0', padding: 8, borderRadius: 6 },
+  saveBtn: { backgroundColor: '#10b981', padding: 8, borderRadius: 6 },
   priorityToggle: { padding: 8, marginLeft: 8, backgroundColor: '#f1f5f9', borderRadius: 6 },
   smallActionRow: { flexDirection: 'row', alignItems: 'center' },
-  actionBtn: { backgroundColor: '#3182ce', marginLeft: 8 },
-  editBtn: { backgroundColor: '#f6ad55', marginLeft: 8 },
-  deleteBtn: { backgroundColor: '#e53e3e', marginLeft: 8 },
+  actionBtn: { marginLeft: 8 },
+  editBtn: { marginLeft: 8 },
+  deleteBtn: { marginLeft: 8 },
 });

@@ -144,6 +144,13 @@ export const useAuth = (): AuthState & AuthActions => {
     try {
       setLoading(true);
       clearError();
+      // Clear any existing stored tokens to avoid stale refresh attempts
+      try {
+        await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'user_data']);
+        console.log('🔐 [AUTH] Cleared existing tokens before login');
+      } catch (e) {
+        console.warn('[AUTH] Failed to clear tokens before login', e);
+      }
       
       console.log('🔐 [AUTH] Starting login process...');
       const response = await authService.login(credentials);
