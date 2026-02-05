@@ -87,6 +87,29 @@ class RelaxationSessionListCreateView(generics.ListCreateAPIView):
         # Increment play count
         session.content.play_count = F('play_count') + 1
         session.content.save()
+        try:
+            session.content.refresh_from_db()
+        except Exception:
+            # If refresh fails for any reason, fallback to explicit update
+            from django.db import transaction
+            try:
+                with transaction.atomic():
+                    RelaxationContent.objects.filter(pk=session.content.pk).update(play_count=F('play_count') + 1)
+                    session.content.refresh_from_db()
+            except Exception:
+                logging.exception('Failed to refresh or update play_count after session create')
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            logging.exception("Error creating RelaxationSession")
+            tb = traceback.format_exc()
+            return Response({
+                'detail': 'Error creating relaxation session',
+                'error': str(e),
+                'traceback': tb
+            }, status=500)
 
 
 @extend_schema_view(

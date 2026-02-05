@@ -10,8 +10,10 @@ import {
   SafeAreaView,
   Dimensions
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme } from '../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { router } from 'expo-router';
 
@@ -82,6 +84,11 @@ const JournalEntry = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'favorites'>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'recently_updated'>('newest');
 
   const fetchJournalHistory = async () => {
     if (historyLoaded) return;
@@ -103,6 +110,11 @@ const JournalEntry = () => {
     if (!showHistory && !historyLoaded) {
       fetchJournalHistory();
     }
+  };
+
+  const openNewEntry = () => {
+    // scroll to top where the entry form exists
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const formatDate = (dateString: string) => {
@@ -215,12 +227,51 @@ const JournalEntry = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.promptCard, { backgroundColor: themeStyle.dashboardcard }]}>
           <Text style={[styles.promptLabel, { color: themeStyle.label }]}>✨ Daily Prompt</Text>
           <Text style={[styles.promptText, { color: themeStyle.text }]}>
             {currentPrompt}
           </Text>
+        </View>
+
+        {/* New Entry CTA + Search + Filters */}
+        <View style={styles.topActions}>
+          <TouchableOpacity style={styles.newEntryButton} onPress={openNewEntry} activeOpacity={0.9}>
+            <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} start={[0,0]} end={[1,0]} style={styles.newEntryGradient}>
+              <FontAwesome name="plus" size={18} color="#fff" style={{ marginRight: 10 }} />
+              <Text style={styles.newEntryText}>New Journal Entry</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <View style={styles.searchRow}>
+            <View style={[styles.searchBox, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}> 
+              <FontAwesome name="search" size={16} color={themeStyle.label} style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Search journals..."
+                placeholderTextColor={themeStyle.label}
+                style={[styles.searchInput, { color: themeStyle.text }]}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
+            <TouchableOpacity style={[styles.sortButton, { borderColor: themeStyle.border }]} onPress={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}>
+              <Text style={[styles.sortButtonText, { color: themeStyle.text }]}>{sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.filterRow}>
+            <TouchableOpacity style={[styles.filterPill, activeFilter === 'all' && styles.filterPillActive]} onPress={() => setActiveFilter('all')}>
+              <FontAwesome name="star" size={12} color={activeFilter === 'all' ? '#fff' : '#6B7280'} style={{ marginRight: 6 }} />
+              <Text style={[styles.filterPillText, activeFilter === 'all' && styles.filterPillTextActive]}>All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.filterPill, activeFilter === 'favorites' && styles.filterPillActive]} onPress={() => setActiveFilter('favorites')}>
+              <FontAwesome name="star" size={12} color={activeFilter === 'favorites' ? '#fff' : '#6B7280'} style={{ marginRight: 6 }} />
+              <Text style={[styles.filterPillText, activeFilter === 'favorites' && styles.filterPillTextActive]}>Favorites</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
@@ -405,7 +456,22 @@ const JournalEntry = () => {
                 </View>
               ) : journalHistory.length > 0 ? (
                 <View style={styles.historyList}>
-                  {journalHistory.map((entry) => (
+                      {(() => {
+                        // apply UI-only filters and search/sort for display
+                        let entries = [...journalHistory];
+                        if (activeFilter === 'favorites') {
+                          entries = entries.filter((e) => e.is_favorite);
+                        }
+                        if (searchQuery.trim()) {
+                          const q = searchQuery.toLowerCase();
+                          entries = entries.filter((e) => (e.title || '').toLowerCase().includes(q) || (e.content || '').toLowerCase().includes(q));
+                        }
+                        if (sortOrder === 'newest') {
+                          entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                        } else if (sortOrder === 'oldest') {
+                          entries.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                        }
+                        return entries.map((entry) => (
                     <View key={entry.id} style={[styles.historyCard, { backgroundColor: themeStyle.background }]}>
                       <View style={styles.historyCardHeader}>
                         <View style={styles.historyCardTitle}>
@@ -478,7 +544,8 @@ const JournalEntry = () => {
                         </View>
                       </View>
                     </View>
-                  ))}
+                    ));
+                  })()}
                 </View>
               ) : (
                 <View style={styles.emptyHistory}>
@@ -785,6 +852,89 @@ const styles = StyleSheet.create({
   historyList: {
     gap: 16,
   },
+  topActions: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  newEntryButton: {
+    marginHorizontal: 8,
+    marginBottom: 12,
+  },
+  newEntryGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    justifyContent: 'center',
+    shadowColor: '#FF7A7A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  newEntryText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 8,
+    marginBottom: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+  },
+  sortButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterPillActive: {
+    backgroundColor: '#fff',
+    borderColor: '#EFE7FF',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  filterPillText: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
+  filterPillTextActive: { color: '#6C5CE7' },
   historyCard: {
     borderRadius: 12,
     padding: 16,

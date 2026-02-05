@@ -10,6 +10,9 @@ import {
   Animated,
   Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
@@ -48,14 +51,35 @@ export default function JournalDetail() {
   const getPrivacyLabel = (privacyLevel: string) => {
     switch (privacyLevel) {
       case 'private':
-        return { icon: '🔒', label: 'Private (Only Me)' };
+        return { name: 'lock', label: 'Private (Only Me)' };
       case 'therapist':
-        return { icon: '👨‍⚕️', label: 'Shared with Therapist' };
+        return { name: 'user-md', label: 'Shared with Therapist' };
       case 'anonymous':
-        return { icon: '🌐', label: 'Anonymous Sharing' };
+        return { name: 'globe', label: 'Anonymous Sharing' };
       default:
-        return { icon: '📝', label: 'Not Set' };
+        return { name: 'pen-fancy', label: 'Not Set' };
     }
+  };
+
+  const tagStyleFor = (tag: string) => {
+    const t = (tag || '').toLowerCase();
+    if (t.includes('sad')) return { bg: '#E3F2FD', color: '#1976D2' };
+    if (t.includes('anx') || t.includes('anxious')) return { bg: '#FFF3E0', color: '#FB8C00' };
+    if (t.includes('stress') || t.includes('stressed')) return { bg: '#FFE6EA', color: '#D32F2F' };
+    if (t.includes('happy') || t.includes('joy') || t.includes('joyful') || t.includes('glad')) return { bg: '#E8F5E9', color: '#2e7d32' };
+    if (t.includes('calm') || t.includes('relax')) return { bg: '#E8F5FF', color: '#0277BD' };
+    return { bg: '#F5F5F5', color: '#616161' };
+  };
+
+  const hexToRgba = (hex: string, alpha = 0.16) => {
+    if (!hex) return `rgba(0,0,0,${alpha})`;
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const bigint = parseInt(full, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
   const getEntryTypeLabel = (entryType: string) => {
@@ -151,40 +175,48 @@ export default function JournalDetail() {
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backText}>← Back</Text>
+          <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}
+            onPress={() => router.push('./journal-list')}
+          >
+            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
           </TouchableOpacity>
+
+          <View style={styles.headerTitleCenter}>
+            <Text style={styles.headerTitle}>
+              <Text style={styles.headerBlue}>View</Text>
+              <Text style={styles.headerOrange}> Journal</Text>
+            </Text>
+          </View>
+
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => router.push(`./journal-edit?id=${entry.id}` as any)}
-              disabled={deleting}
-            >
-              <Text style={styles.editButtonText}>✏️ Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={handleDelete}
-              disabled={deleting}
-            >
-              <Text style={styles.deleteButtonText}>
-                {deleting ? '⏳' : '🗑️ Delete'}
-              </Text>
-            </TouchableOpacity>
-            {entry.is_favorite && <Text style={styles.favoriteIcon}>⭐</Text>}
+            {entry.is_favorite ? (
+              <FontAwesome name="star" size={20} color="#FFD54F" style={styles.favoriteIcon} />
+            ) : null}
           </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Date & Time */}
           <View style={[styles.metaCard, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.dateText, { color: themeStyle.title }]}>
-              {formattedDate}
-            </Text>
-            <Text style={[styles.timeText, { color: themeStyle.label }]}>
-              {formattedTime}
-            </Text>
+            <LinearGradient
+              colors={["#FF6EA5", "#FFB870", "#2BD3B6"]}
+              start={[0,0]}
+              end={[1,0]}
+              style={styles.metaCardGrad}
+            />
+            <View style={styles.metaPills}
+            >
+              <View style={[styles.metaPill, { backgroundColor: themeStyle.background }]}>
+                <FontAwesome5 name="calendar-alt" size={14} color="#FF6EA5" />
+                <Text style={[styles.metaPillText, { color: themeStyle.title }]}>{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+              </View>
+              <View style={[styles.metaPill, { backgroundColor: themeStyle.background }]}>
+                <FontAwesome5 name="clock" size={14} color="#FFB870" />
+                <Text style={[styles.metaPillText, { color: themeStyle.title }]}>{formattedTime}</Text>
+              </View>
+            </View>
           </View>
 
           {/* Title */}
@@ -192,6 +224,7 @@ export default function JournalDetail() {
             <Text style={[styles.title, { color: themeStyle.title }]}>
               {entry.title}
             </Text>
+            <FontAwesome5 name="pen-fancy" size={26} color="#E1C8FF" style={styles.titleIcon} />
           </View>
 
           {/* Content */}
@@ -204,88 +237,31 @@ export default function JournalDetail() {
           {/* Mood Tags */}
           {entry.tags_list && entry.tags_list.length > 0 && (
             <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-              <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>
-                🎭 Tags
+              <Text style={[styles.sectionTitle, { color: themeStyle.title }]}> 
+                <FontAwesome5 name="theater-masks" size={14} color={themeStyle.title} />{' '}
+                Mood Tags
               </Text>
               <View style={styles.tagsContainer}>
-                {entry.tags_list.map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
+                {entry.tags_list.map((tag, index) => {
+                  const ts = tagStyleFor(tag);
+                  return (
+                    <View key={index} style={[styles.tag, { backgroundColor: ts.bg, borderColor: hexToRgba(ts.color, 0.16) }]}>
+                      <Text style={[styles.tagText, { color: ts.color }]}>{tag}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           )}
 
           {/* Mood & Entry Type */}
-          <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>
-              😊 Mood & Type
-            </Text>
-            
-            <View style={styles.moodRow}>
-              <View style={styles.moodItem}>
-                <Text style={styles.metaLabel}>Entry Type</Text>
-                <Text style={[styles.entryTypeText, { color: themeStyle.title }]}>
-                  {getEntryTypeLabel(entry.entry_type)}
-                </Text>
-              </View>
-            </View>
-
-            {(entry.mood_before || entry.mood_after) && (
-              <View style={styles.moodScoresRow}>
-                {entry.mood_before && (
-                  <View style={styles.moodScoreItem}>
-                    <Text style={styles.metaLabel}>Mood Before</Text>
-                    <View style={styles.moodScoreCircle}>
-                      <Text style={styles.moodScoreValue}>{entry.mood_before}</Text>
-                      <Text style={styles.moodScoreMax}>/10</Text>
-                    </View>
-                  </View>
-                )}
-                
-                {entry.mood_after && (
-                  <View style={styles.moodScoreItem}>
-                    <Text style={styles.metaLabel}>Mood After</Text>
-                    <View style={styles.moodScoreCircle}>
-                      <Text style={styles.moodScoreValue}>{entry.mood_after}</Text>
-                      <Text style={styles.moodScoreMax}>/10</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {entry.mood_improvement !== 0 && entry.mood_before && entry.mood_after && (
-              <View style={styles.improvementSection}>
-                <Text style={styles.metaLabel}>Mood Improvement</Text>
-                <View
-                  style={[
-                    styles.moodBadge,
-                    {
-                      backgroundColor: entry.mood_improvement > 0 ? '#E8F5E9' : '#FFEBEE',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.moodText,
-                      {
-                        color: entry.mood_improvement > 0 ? '#2e7d32' : '#c62828',
-                      },
-                    ]}
-                  >
-                    {entry.mood_improvement > 0 ? '↑' : '↓'} {Math.abs(entry.mood_improvement)} points
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
+          {/* Mood & Entry Type removed as requested */}
 
           {/* Metadata Grid */}
           <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>
-              📊 Details
+            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}> 
+              <FontAwesome5 name="info-circle" size={14} color={themeStyle.title} />{' '}
+              Details
             </Text>
             <View style={styles.metaGrid}>
               <View style={styles.metaItem}>
@@ -297,8 +273,8 @@ export default function JournalDetail() {
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>Privacy</Text>
                 <View style={styles.privacyBadge}>
-                  <Text style={styles.privacyIcon}>{privacy.icon}</Text>
-                  <Text style={[styles.privacyText, { color: themeStyle.title }]}>
+                  <FontAwesome5 name={privacy.name as any} size={14} color={themeStyle.title} style={styles.privacyIcon} />
+                  <Text style={[styles.privacyText, { color: themeStyle.title }]}> 
                     {privacy.label}
                   </Text>
                 </View>
@@ -327,14 +303,25 @@ export default function JournalDetail() {
             )}
           </View>
 
-          {/* Action Buttons */}
+          {/* Action Buttons (Edit/Delete centered, then Back) */}
           <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.actionButtonText}>📚 Back to List</Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+              <TouchableOpacity onPress={() => router.push(`./journal-edit?id=${entry.id}` as any)} disabled={deleting}>
+                <LinearGradient colors={["#FF5AA8", "#FFB36B"]} style={styles.editBtn} start={[0,0]} end={[1,0]}> 
+                  <FontAwesome5 name="edit" size={16} color="#fff" style={{ marginRight: 10 }} />
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleDelete} disabled={deleting}>
+                <View style={styles.deleteBtn}> 
+                  <FontAwesome5 name="trash-alt" size={16} color="#D32F2F" style={{ marginRight: 10 }} />
+                  <Text style={styles.deleteButtonText}>{deleting ? '⏳ Deleting' : 'Delete'}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Back to List removed: top-left back icon navigates to list now */}
           </View>
         </ScrollView>
       </Animated.View>
@@ -364,10 +351,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 14,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    marginBottom: 14,
   },
+  headerTitleCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  headerBlue: { color: '#524f85' },
+  headerOrange: { color: '#FF9F6B' },
   backText: {
     fontSize: 16,
     color: '#524f85',
@@ -377,6 +381,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    position: 'absolute',
+    right: 18,
+    top: 42,
   },
   editButton: {
     backgroundColor: '#524f85',
@@ -386,8 +393,8 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   deleteButton: {
     backgroundColor: '#f44336',
@@ -396,12 +403,92 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   deleteButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#D32F2F',
+    fontSize: 16,
+    fontWeight: '700',
   },
   favoriteIcon: {
     fontSize: 24,
+  },
+  backBtnCircle: {
+    position: 'absolute',
+    left: 18,
+    top: 42,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  gradientBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    marginRight: 12,
+    minWidth: 140,
+    shadowColor: '#FF6EA5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    backgroundColor: '#FFF5F6',
+    borderWidth: 1,
+    borderColor: 'rgba(211,47,47,0.08)',
+    minWidth: 120,
+  },
+  metaPills: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  metaPillText: {
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  titleIcon: {
+    position: 'absolute',
+    right: 18,
+    top: 22,
   },
   scrollContent: {
     padding: 20,
@@ -417,6 +504,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
+    overflow: 'hidden',
+  },
+
+  metaCardGrad: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 10,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   dateText: {
     fontSize: 18,
@@ -470,6 +568,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F6B',
+    paddingLeft: 12,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -477,10 +578,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: '#E8F5E9',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
   },
   tagText: {
     fontSize: 14,
@@ -601,6 +703,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
   },
   backButton: {
     backgroundColor: '#524f85',

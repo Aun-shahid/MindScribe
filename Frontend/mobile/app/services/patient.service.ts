@@ -1,5 +1,35 @@
 // app/services/patient.service.ts
 import api from '../utils/api';
+import { BASE_URL } from '../config';
+
+// Ensure media URLs returned by backend are absolute. If backend returns a
+// relative path like '/media/sounds/file.mp3', prefix with `BASE_URL` so
+// Expo's audio player can load the file over the network.
+function normalizeMediaUrl(u?: string): string {
+  if (!u) return '';
+  const s = String(u).trim();
+  try {
+    // If backend returned an absolute URL but with a different host (old IP),
+    // prefer serving it from the current `BASE_URL` host so emulator/device can reach it.
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+      const parsed = new URL(s);
+      const base = new URL(BASE_URL);
+      // If path looks like media and host differs, rebuild URL to use BASE_URL
+      if (parsed.pathname && parsed.pathname.startsWith('/media') && parsed.hostname !== base.hostname) {
+        return `${BASE_URL}${parsed.pathname}`;
+      }
+      return s;
+    }
+  } catch (e) {
+    // fall back to string handling below
+    console.warn('[normalizeMediaUrl] failed to parse url', u, e);
+  }
+  if (s.startsWith('//')) return `https:${s}`;
+  if (s.startsWith('/')) return `${BASE_URL}${s}`;
+  // If it's a relative path without leading slash, also prefix
+  if (!s.includes('://')) return `${BASE_URL}/${s}`;
+  return s;
+}
 
 export interface MoodEntry {
   [key: string]: string;
@@ -214,6 +244,48 @@ export interface DashboardData {
   emotional_insights_count: number;
 }
 
+export interface PatientGoal {
+  id: string;
+  patient: string;
+  patient_name?: string;
+  title: string;
+  description: string;
+  status: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
+  status_display?: string;
+  priority: 'low' | 'medium' | 'high';
+  priority_display?: string;
+  target_date?: string | null;
+  completed_date?: string | null;
+  progress_percentage: number;
+  milestones?: string | null;
+  created_by_therapist?: boolean;
+  therapist_notes?: string | null;
+  days_remaining?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePatientGoalData {
+  title: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high';
+  target_date?: string; // YYYY-MM-DD
+  progress_percentage?: number;
+  milestones?: string;
+}
+
+export interface UpdatePatientGoalData {
+  title?: string;
+  description?: string;
+  status?: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
+  priority?: 'low' | 'medium' | 'high';
+  target_date?: string | null;
+  completed_date?: string | null;
+  progress_percentage?: number;
+  milestones?: string | null;
+  therapist_notes?: string | null;
+}
+
 class PatientService {
   /**
    * Create a new mood entry for today
@@ -228,6 +300,22 @@ class PatientService {
    */
   async getDashboardData(): Promise<DashboardData> {
     const response = await api.get<DashboardData>('/patients/dashboard/');
+    return response.data;
+  }
+
+  /**
+   * Fetch weekly mood trend used by the Weekly Trend screen
+   */
+  async getWeeklyMoodTrend(): Promise<WeeklyMoodTrendResponse> {
+    const response = await api.get<WeeklyMoodTrendResponse>('/patients/mood/weekly-trend/');
+    return response.data;
+  }
+
+  /**
+   * Fetch patient profile (includes therapist connection info)
+   */
+  async getPatientProfile(): Promise<any> {
+    const response = await api.get<any>('/users/patient-profile/');
     return response.data;
   }
 
@@ -248,6 +336,23 @@ class PatientService {
     }
 
     const response = await api.get<EmotionalInsight[]>('/patients/emotions/', { params });
+    return response.data;
+  }
+
+  /**
+   * Get sessions for the current user (patient) — uses therapist/patient unified endpoint
+   */
+  async getMySessions(filter: 'upcoming' | 'past' = 'upcoming', limit = 50, offset = 0): Promise<any> {
+    const params: Record<string, any> = { filter, limit, offset };
+    const response = await api.get<any>('/therapy_sessions/sessions/my/', { params });
+    return response.data;
+  }
+
+  /**
+   * Get a single session detail (includes session summary for patients)
+   */
+  async getSession(sessionId: string): Promise<any> {
+    const response = await api.get<any>(`/therapy_sessions/sessions/${sessionId}/`);
     return response.data;
   }
 
@@ -358,7 +463,12 @@ class PatientService {
    */
   async getRelaxationContent(filters?: RelaxationFilters): Promise<RelaxationContent[]> {
     const response = await api.get<RelaxationContent[]>('/patients/relaxation/content/', { params: filters });
-    return response.data;
+    const data = response.data || [];
+    // Normalize audio_url to a full URL if backend sent a relative path
+    return data.map((item: any) => ({
+      ...item,
+      audio_url: normalizeMediaUrl(item.audio_url),
+    }));
   }
 
   /**
@@ -366,8 +476,142 @@ class PatientService {
    */
   async getRelaxationContentDetail(id: string): Promise<RelaxationContent> {
     const response = await api.get<RelaxationContent>(`/patients/relaxation/content/${id}/`);
+    const item = response.data;
+    if (item) item.audio_url = normalizeMediaUrl(item.audio_url);
+    return item;
+  }
+
+  /**
+   * Create a new relaxation session record (start/complete session)
+   */
+  async createRelaxationSession(data: {
+    content: string;
+    duration_listened_seconds: number;
+    completed?: boolean;
+    rating?: number | null;
+    mood_before?: string | null;
+    mood_after?: string | null;
+    notes?: string | null;
+  }): Promise<any> {
+    const response = await api.post<any>('/patients/relaxation/sessions/', data);
     return response.data;
+  }
+
+  /**
+   * Update an existing relaxation session (PATCH)
+   */
+  async updateRelaxationSession(id: string, data: Partial<{
+    duration_listened_seconds: number;
+    completed: boolean;
+    rating: number | null;
+    mood_before: string | null;
+    mood_after: string | null;
+    notes: string | null;
+  }>): Promise<any> {
+    const response = await api.patch<any>(`/patients/relaxation/sessions/${id}/`, data);
+    return response.data;
+  }
+
+  /* Goals API */
+  async getGoals(status?: string): Promise<PatientGoal[]> {
+    const params: Record<string, any> = {};
+    if (status) params.status = status;
+    const response = await api.get<PatientGoal[]>('/patients/goals/', { params });
+    return response.data;
+  }
+
+  async createGoal(data: CreatePatientGoalData): Promise<PatientGoal> {
+    const response = await api.post<PatientGoal>('/patients/goals/', data);
+    return response.data;
+  }
+
+  async updateGoal(id: string, data: UpdatePatientGoalData): Promise<PatientGoal> {
+    const response = await api.put<PatientGoal>(`/patients/goals/${id}/`, data);
+    return response.data;
+  }
+
+  async partialUpdateGoal(id: string, data: Partial<UpdatePatientGoalData>): Promise<PatientGoal> {
+    const response = await api.patch<PatientGoal>(`/patients/goals/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteGoal(id: string): Promise<void> {
+    await api.delete(`/patients/goals/${id}/`);
+  }
+
+  /* Notifications API - patient side */
+  async getNotificationPreferences(): Promise<any> {
+    const response = await api.get('/patients/notifications/preferences/');
+    return response.data;
+  }
+
+  async updateNotificationPreferences(data: any): Promise<any> {
+    const response = await api.put('/patients/notifications/preferences/', data);
+    return response.data;
+  }
+
+  async getNotifications(params?: Record<string, any>): Promise<any[]> {
+    const response = await api.get<any[]>('/patients/notifications/', { params });
+    return response.data;
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    const response = await api.get<{ count: number }>('/patients/notifications/unread-count/');
+    return response.data?.count ?? 0;
+  }
+
+  async markNotificationRead(notificationId: string): Promise<any> {
+    const response = await api.post(`/patients/notifications/${notificationId}/read/`);
+    return response.data;
+  }
+
+  async markAllNotificationsRead(): Promise<any> {
+    const response = await api.post('/patients/notifications/mark-all-read/');
+    return response.data;
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    await api.delete(`/patients/notifications/${id}/`);
+  }
+
+  /**
+   * Send connection request to a therapist using their PIN
+   */
+  async connectTherapist(therapist_pin: string, message?: string): Promise<any> {
+    // sanitize therapist_pin: remove surrounding quotes and whitespace
+    let sanitizedPin = therapist_pin?.toString() ?? '';
+    sanitizedPin = sanitizedPin.trim();
+    // strip surrounding double or single quotes that sometimes appear when copying
+    sanitizedPin = sanitizedPin.replace(/^['"]+|['"]+$/g, '');
+    const body = { therapist_pin: sanitizedPin, message };
+    try {
+      console.log('[PatientService] connectTherapist original pin:', therapist_pin);
+      console.log('[PatientService] connectTherapist sanitized pin:', sanitizedPin);
+      console.log('[PatientService] connectTherapist request body:', body);
+      const response = await api.post('/users/connect-therapist/', body);
+      console.log('[PatientService] connectTherapist response:', response.status, response.data);
+      return response.data;
+    } catch (err: any) {
+      console.error('[PatientService] connectTherapist error:', err?.response?.status, err?.response?.data || err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Disconnect from current therapist
+   */
+  async disconnectTherapist(): Promise<any> {
+    try {
+      console.log('[PatientService] disconnectTherapist request');
+      const response = await api.post('/users/disconnect-therapist/');
+      console.log('[PatientService] disconnectTherapist response:', response.status, response.data);
+      return response.data;
+    } catch (err: any) {
+      console.error('[PatientService] disconnectTherapist error:', err?.response?.status, err?.response?.data || err.message);
+      throw err;
+    }
   }
 }
 
 export default new PatientService();
+

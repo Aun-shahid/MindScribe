@@ -14,8 +14,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
+import eventBus from '../utils/eventBus';
 import type { CreateJournalEntryData, JournalPrompt } from '../services/patient.service';
 
 const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
@@ -28,16 +31,20 @@ export default function CreateJournal() {
   const [todayPrompt, setTodayPrompt] = useState<JournalPrompt | null>(null);
   const [promptError, setPromptError] = useState<'none' | 'no_prompts' | 'error'>('none');
   
-  const [formData, setFormData] = useState<CreateJournalEntryData>({
+  const initialFormData: CreateJournalEntryData = {
     title: '',
     content: '',
     mood_tags_list: [],
     is_private: true,
     is_favorite: false,
     entry_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-  });
+  };
+
+  const [formData, setFormData] = useState<CreateJournalEntryData>(initialFormData);
 
   useEffect(() => {
+    // Reset form to a clean state when the screen mounts so previous entries don't persist
+    setFormData({ ...initialFormData, entry_date: new Date().toISOString().split('T')[0] });
     loadTodayPrompt();
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -99,6 +106,9 @@ export default function CreateJournal() {
     setSubmitting(true);
     try {
       await PatientService.createJournalEntry(formData);
+      // Notify other parts of the app to refresh
+      eventBus.emit('journalUpdated');
+      eventBus.emit('refreshDashboard');
       Alert.alert('Success', 'Journal entry saved successfully!', [
         {
           text: 'OK',
@@ -159,16 +169,17 @@ export default function CreateJournal() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()}>
-                <Text style={styles.backButton}>← Back</Text>
+            <View style={[styles.headerContainer, { backgroundColor: themeStyle.card }]}> 
+              <TouchableOpacity onPress={() => router.push('./journal-list')} style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}> 
+                <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
               </TouchableOpacity>
-              <Text style={[styles.title, { color: themeStyle.title }]}>
-                ✍️ New Journal Entry
-              </Text>
-              <Text style={[styles.subtitle, { color: themeStyle.label }]}>
-                Express your thoughts and feelings
-              </Text>
+
+              <View style={styles.headerInner}> 
+                <Text style={[styles.headerTitle, { color: themeStyle.title }]}> 
+                  <Text style={styles.headerBlue}>New </Text>
+                  <Text style={styles.headerOrange}>Journal</Text>
+                </Text>
+              </View>
             </View>
 
             {/* Today's Prompt Section */}
@@ -198,18 +209,9 @@ export default function CreateJournal() {
                   )}
                 </View>
               </View>
-            ) : promptError === 'no_prompts' ? (
+            ) : promptError === 'no_prompts' ? null : promptError === 'error' ? (
               <View style={styles.todayPromptSection}>
-                <View style={[styles.fallbackCard, { backgroundColor: '#F5F5F5' }]}>
-                  <Text style={styles.fallbackIcon}>✍️</Text>
-                  <Text style={styles.fallbackText}>
-                    Write about one thing that's been on your mind
-                  </Text>
-                </View>
-              </View>
-            ) : promptError === 'error' ? (
-              <View style={styles.todayPromptSection}>
-                <View style={[styles.fallbackCard, { backgroundColor: '#FFF3E0' }]}>
+                <View style={[styles.fallbackCard, { backgroundColor: '#FFF3E0' }]}>    
                   <Text style={styles.fallbackIcon}>📝</Text>
                   <Text style={styles.fallbackText}>
                     Unable to load today's prompt, but you can still write freely!
@@ -220,130 +222,135 @@ export default function CreateJournal() {
 
             {/* Title Input */}
             <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
-                Title *
-              </Text>
-              <TextInput
-                style={[styles.titleInput, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text }]}
-                placeholder="Give your entry a title..."
-                placeholderTextColor={themeStyle.label}
-                value={formData.title}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
-              />
+              <View style={[styles.card, { backgroundColor: '#ffffff' }]}> 
+                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>Title</Text>
+                <View style={styles.inputBox}> 
+                  <TextInput
+                    style={[styles.titleInput, { backgroundColor: 'transparent', color: themeStyle.text }]}
+                    placeholder="Give your entry a title..."
+                    placeholderTextColor={themeStyle.label}
+                    value={formData.title}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
+                  />
+                </View>
+              </View>
             </View>
 
             {/* Content Input - Large */}
             <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
-                What's on your mind? *
-              </Text>
-              <TextInput
-                style={[styles.contentInput, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text }]}
-                placeholder="Start writing... Express yourself freely."
-                placeholderTextColor={themeStyle.label}
-                value={formData.content}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
-                multiline
-                numberOfLines={12}
-                textAlignVertical="top"
-              />
-              <Text style={[styles.wordCount, { color: themeStyle.label }]}>
-                {formData.content.trim().split(/\s+/).filter(w => w).length} words
-              </Text>
+              <View style={[styles.card, { backgroundColor: '#ffffff' }]}> 
+                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>What's on your mind?</Text>
+                <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>Express your thoughts and feelings</Text>
+                <View style={styles.inputBoxLarge}> 
+                  <TextInput
+                    style={[styles.contentInput, { backgroundColor: 'transparent', color: themeStyle.text }]}
+                    placeholder="Start writing... Express yourself freely."
+                    placeholderTextColor={themeStyle.label}
+                    value={formData.content}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
+                    multiline
+                    numberOfLines={12}
+                    textAlignVertical="top"
+                  />
+                </View>
+                <Text style={[styles.wordCount, { color: themeStyle.label }]}> 
+                  {formData.content.trim().split(/\s+/).filter(w => w).length} words
+                </Text>
+              </View>
             </View>
 
             {/* Tags */}
             <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
-                🎨 Tags (Optional)
-              </Text>
-              <Text style={[styles.subtitle, { color: themeStyle.label }]}>
-                Select tags that describe your current state
-              </Text>
-              <View style={styles.moodTagsContainer}>
-                {MOOD_TAGS.map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[
-                      styles.moodTag,
-                      { backgroundColor: themeStyle.dashboardcard },
-                      formData.mood_tags_list?.includes(tag) && styles.moodTagSelected,
-                    ]}
-                    onPress={() => toggleMoodTag(tag)}
-                  >
-                    <Text
+              <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}> 
+                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>Optional Tags</Text>
+                <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>Select tags that describe your current state</Text>
+                <View style={styles.moodTagsContainerTop}> 
+                  {MOOD_TAGS.map((tag) => (
+                    <TouchableOpacity
+                      key={tag}
                       style={[
-                        styles.moodTagText,
-                        { color: themeStyle.text },
-                        formData.mood_tags_list?.includes(tag) && styles.moodTagTextSelected,
+                        styles.moodTagPill,
+                        formData.mood_tags_list?.includes(tag) && styles.moodTagSelected,
                       ]}
+                      onPress={() => toggleMoodTag(tag)}
                     >
-                      {tag}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.moodTagText,
+                          formData.mood_tags_list?.includes(tag) && styles.moodTagTextSelected,
+                        ]}
+                      >
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
 
             {/* Privacy & Favorite */}
             <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.switchRow}
-                onPress={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-              >
-                <View style={styles.switchLeft}>
-                  <Text style={styles.switchEmoji}>⭐</Text>
-                  <Text style={[styles.switchLabel, { color: themeStyle.text }]}>
-                    Mark as Favorite
-                  </Text>
-                </View>
-                <View style={[
-                  styles.switch,
-                  { backgroundColor: formData.is_favorite ? '#4caf50' : '#ccc' },
-                ]}>
-                  <View style={[
-                    styles.switchThumb,
-                    { transform: [{ translateX: formData.is_favorite ? 22 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.switchRow}
-                onPress={() => setFormData(prev => ({ ...prev, is_private: !prev.is_private }))}
-              >
-                <View style={styles.switchLeft}>
-                  <Text style={styles.switchEmoji}>🔒</Text>
-                  <View>
-                    <Text style={[styles.switchLabel, { color: themeStyle.text }]}>
-                      Keep Private
-                    </Text>
-                    <Text style={[styles.privacySubtext, { color: themeStyle.label }]}>
-                      {formData.is_private ? 'Only you can see' : 'Therapist can view'}
-                    </Text>
+              <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}> 
+                <TouchableOpacity
+                  style={styles.switchRow}
+                  onPress={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
+                >
+                  <View style={styles.switchLeft}>
+                    <Text style={styles.switchEmoji}>⭐</Text>
+                    <Text style={[styles.switchLabel, { color: themeStyle.text }]}>Mark as Favorite</Text>
                   </View>
-                </View>
-                <View style={[
-                  styles.switch,
-                  { backgroundColor: formData.is_private ? '#4caf50' : '#ccc' },
-                ]}>
                   <View style={[
-                    styles.switchThumb,
-                    { transform: [{ translateX: formData.is_private ? 22 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
+                    styles.switch,
+                    { backgroundColor: formData.is_favorite ? '#4caf50' : '#ccc' },
+                  ]}>
+                    <View style={[
+                      styles.switchThumb,
+                      { transform: [{ translateX: formData.is_favorite ? 22 : 2 }] },
+                    ]} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchRow}
+                  onPress={() => setFormData(prev => ({ ...prev, is_private: !prev.is_private }))}
+                >
+                  <View style={styles.switchLeft}>
+                    <Text style={styles.switchEmoji}>🔒</Text>
+                    <View>
+                      <Text style={[styles.switchLabel, { color: themeStyle.text }]}>Keep Private</Text>
+                      <Text style={[styles.privacySubtext, { color: themeStyle.label }]}> 
+                        {formData.is_private ? 'Only you can see' : 'Therapist can view'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[
+                    styles.switch,
+                    { backgroundColor: formData.is_private ? '#4caf50' : '#ccc' },
+                  ]}>
+                    <View style={[
+                      styles.switchThumb,
+                      { transform: [{ translateX: formData.is_private ? 22 : 2 }] },
+                    ]} />
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-              onPress={() => handleSubmit(0)}
-              disabled={submitting}
-            >
-              <Text style={styles.submitButtonText}>
-                {submitting ? '✨ Saving...' : '💾 Save Journal Entry'}
-              </Text>
+            <TouchableOpacity onPress={() => handleSubmit(0)} disabled={submitting} activeOpacity={0.9}>
+              <LinearGradient
+                colors={[ '#ff3c97', '#ff9f3b', '#29d2c6' ]}
+                start={[0,0]}
+                end={[1,0]}
+                style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <FontAwesome name={submitting ? 'spinner' : 'save'} size={18} color="#fff" style={{ marginRight: 10 }} />
+                  <Text style={styles.submitButtonText}>
+                    {submitting ? '✨ Saving...' : 'Save Journal Entry'}
+                  </Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
         </ScrollView>
@@ -361,7 +368,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 24,    paddingTop: 30,  },
+    marginBottom: 24,
+    paddingTop: 30,
+  },
   backButton: {
     fontSize: 16,
     color: '#524f85',
@@ -377,6 +386,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontStyle: 'italic',
   },
+  headerContainer: {
+    paddingTop: 48,
+    paddingHorizontal: 0,
+    paddingBottom: 18,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 18,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    marginHorizontal: -20,
+  },
+  backBtnCircle: {
+    position: 'absolute',
+    left: 18,
+    top: 52,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  headerInner: {
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  headerBlue: { color: '#524f85' },
+  headerOrange: { color: '#FF9F6B' },
   section: {
     marginBottom: 24,
   },
@@ -496,28 +544,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   titleInput: {
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 18,
-    fontWeight: '600',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
-  contentInput: {
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    height: 44,
     borderRadius: 12,
     fontSize: 16,
-    minHeight: 250,
+    fontWeight: '600',
+  },
+  contentInput: {
+    padding: 12,
+    borderRadius: 12,
+    fontSize: 15,
+    minHeight: 180,
     textAlignVertical: 'top',
-    lineHeight: 24,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
+    lineHeight: 22,
   },
   wordCount: {
     marginTop: 8,
@@ -609,6 +649,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  moodTagsContainerTop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+  },
+  moodTagPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    marginBottom: 8,
+  },
   moodTag: {
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -632,6 +686,39 @@ const styles = StyleSheet.create({
   },
   moodTagTextSelected: {
     color: '#2e7d32',
+  },
+  card: {
+    padding: 16,
+    borderRadius: 14,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  inputBox: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#FBFBFD',
+  },
+  inputBoxLarge: {
+    padding: 14,
+    borderRadius: 12,
+    minHeight: 180,
+    justifyContent: 'flex-start',
+    backgroundColor: '#FBFBFD',
   },
   switchRow: {
     flexDirection: 'row',
@@ -684,7 +771,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   submitButton: {
-    backgroundColor: '#524f85',
     padding: 18,
     borderRadius: 16,
     alignItems: 'center',

@@ -21,6 +21,8 @@ from .relaxation import (
 from .goals import PatientGoalListCreateView, PatientGoalDetailView
 from .inspiration import DailyInspirationView
 from .dashboard import PatientDashboardView
+from .activities import ActivityLogListCreateView, ActivityLogDetailView, ActivityAnalyticsView
+
 from .notifications import (
     NotificationPreferenceView, NotificationListView, UnreadNotificationCountView,
     MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView
@@ -54,6 +56,10 @@ __all__ = [
     # Goals views
     'PatientGoalListCreateView',
     'PatientGoalDetailView',
+     # Activity views
+    'ActivityLogListCreateView',
+    'ActivityLogDetailView',
+    'ActivityAnalyticsView',
     # Inspiration views
     'DailyInspirationView',
     # Dashboard views

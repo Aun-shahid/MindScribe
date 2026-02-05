@@ -54,18 +54,21 @@ import React, { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '../contexts/ThemeContext'
 import api from '../utils/api'
+import { useSessionDetail } from '../hooks/useTherapist';
 
 const StartSession = () => {
-  const { themeStyle } = useTheme()
-  const { patientId, sessionId: existingSessionId, sessionStarted: alreadyStarted } = useLocalSearchParams()
-  
-  const [loading, setLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(existingSessionId as string || null)
-  const [sessionStarted, setSessionStarted] = useState(alreadyStarted === 'true')
-  const [isRecording, setIsRecording] = useState(false)
-  const [sessionDuration, setSessionDuration] = useState('00:00')
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(alreadyStarted === 'true' ? new Date() : null)
-  const [notes, setNotes] = useState('')
+  const { themeStyle } = useTheme();
+  const { patientId, sessionId: existingSessionId, sessionStarted: alreadyStarted } = useLocalSearchParams();
+
+  const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(existingSessionId as string || null);
+  const [sessionStarted, setSessionStarted] = useState(alreadyStarted === 'true');
+  const [isRecording, setIsRecording] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState('00:00');
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(alreadyStarted === 'true' ? new Date() : null);
+  const [notes, setNotes] = useState('');
+
+  const { refetch: fetchSession } = useSessionDetail(sessionId || '');
 
   // Debug logs to track the session state
   useEffect(() => {
@@ -117,66 +120,72 @@ const StartSession = () => {
     return () => clearInterval(interval)
   }, [sessionStarted, sessionStartTime, isRecording])
 
-  // ...existing code...
-const handleStartSession = async () => {
-  if (!patientId) {
-    Alert.alert('Error', 'No patient selected')
-    return
+  const handleStartSession = async () => {
+    if (!patientId) {
+      Alert.alert('Error', 'No patient selected')
+      return
+    }
+
+    try {
+      setLoading(true)
+      console.log('🔍 Creating session for patient:', patientId)
+      
+      // Fix: Use the correct endpoint and data structure
+      const sessionData = {
+        patient: patientId, // Changed from patient_id to patient
+        session_type: 'individual',
+        status: 'IN_PROGRESS',
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        duration: 50,
+        location: 'Office',
+        notes: ''
+      }
+      
+      console.log('📤 Sending session data:', sessionData)
+      
+      // Use the standard sessions endpoint
+      const createResponse = await api.post('/therapy_sessions/sessions/', sessionData)
+      
+      console.log('✅ Session created:', createResponse.data)
+      
+      const newSessionId = createResponse.data.id
+      console.log('🆔 Session ID set to:', newSessionId) // Debug log
+      
+      setSessionId(newSessionId)
+      setSessionStarted(true)
+      setSessionStartTime(new Date())
+      
+      console.log('🎉 Session started successfully with ID:', newSessionId)
+
+      await fetchSession();
+      console.log('🔄 Session details refreshed after starting session')
+
+      // Debug log to check session state after fetching details
+      console.log('🔄 Updated session details:', createResponse.data);
+      console.log('🔄 Updated session state:', sessionStarted);
+
+    } catch (error: any) {
+      console.error('💥 Failed to start session:', error)
+      
+      if (error.response) {
+        console.error('📄 Error response data:', error.response.data)
+        console.error('🔢 Error status:', error.response.status)
+      }
+      
+      let errorMessage = 'Failed to start session. Please try again.'
+      if (error.response?.status === 400) {
+        errorMessage = `Invalid data: ${JSON.stringify(error.response.data)}`
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please check backend.'
+      }
+      
+      Alert.alert('Error', errorMessage)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  try {
-    setLoading(true)
-    console.log('🔍 Creating session for patient:', patientId)
-    
-    // Fix: Use the correct endpoint and data structure
-    const sessionData = {
-      patient: patientId, // Changed from patient_id to patient
-      session_type: 'individual',
-      status: 'IN_PROGRESS',
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
-      duration: 50,
-      location: 'Office',
-      notes: ''
-    }
-    
-    console.log('📤 Sending session data:', sessionData)
-    
-    // Use the standard sessions endpoint
-    const createResponse = await api.post('/therapy_sessions/sessions/', sessionData)
-    
-    console.log('✅ Session created:', createResponse.data)
-    
-    const newSessionId = createResponse.data.id
-    console.log('🆔 Session ID set to:', newSessionId) // Debug log
-    
-    setSessionId(newSessionId)
-    setSessionStarted(true)
-    setSessionStartTime(new Date())
-    
-    console.log('🎉 Session started successfully with ID:', newSessionId)
-    
-  } catch (error: any) {
-    console.error('💥 Failed to start session:', error)
-    
-    if (error.response) {
-      console.error('📄 Error response data:', error.response.data)
-      console.error('🔢 Error status:', error.response.status)
-    }
-    
-    let errorMessage = 'Failed to start session. Please try again.'
-    if (error.response?.status === 400) {
-      errorMessage = `Invalid data: ${JSON.stringify(error.response.data)}`
-    } else if (error.response?.status === 500) {
-      errorMessage = 'Server error. Please check backend.'
-    }
-    
-    Alert.alert('Error', errorMessage)
-  } finally {
-    setLoading(false)
-  }
-}
-// ...existing code...
   const handleStopRecording = async () => {
     console.log('🛑 Attempting to stop recording...')
     console.log('   Current sessionId:', sessionId)

@@ -9,32 +9,34 @@ import { Feather } from '@expo/vector-icons';
 export default function Layout() {
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: '#524f85',
-        tabBarInactiveTintColor: '#9e9e9e',
-        tabBarIcon: ({ color, size }) => {
-          if (route.name === 'dashboard') {
-            return <MaterialIcons name="dashboard" size={size} color={color} />;
-          }
-          if (route.name === 'analytics') {
-            return <MaterialIcons name="analytics" size={size} color={color} />;
-          }
-          if (route.name === 'profile') {
-            return <FontAwesome name="user" size={size} color={color} />;
-          }
-          // if (route.name === 'patients') {
-          //   return <FontAwesome5 name="user-friends" size={size} color={color} />;
-          // }
-          // if (route.name === 'tools') {
-          //   return <Feather name="tool" size={size} color={color} />;
-          // }
-          // if (route.name === 'sessions') {
-          //   return <MaterialIcons name="event-note" size={size} color={color} />;
-          // }
-          return null;
-        },
-        headerShown: false,
-      })}
+      screenOptions={({ route }) => {
+        const visibleTabs = ['dashboard', 'analytics', 'profile'];
+        const isVisible = visibleTabs.includes(route.name);
+        return {
+          tabBarActiveTintColor: '#524f85',
+          tabBarInactiveTintColor: '#9e9e9e',
+          tabBarIcon: ({ color, size }: any) => {
+            if (route.name === 'dashboard') return <MaterialIcons name="dashboard" size={size} color={color} />;
+            if (route.name === 'analytics') return <MaterialIcons name="analytics" size={size} color={color} />;
+            if (route.name === 'profile') return <FontAwesome name="user" size={size} color={color} />;
+            return null;
+          },
+          // Hide tab bar button for routes not in visibleTabs while keeping route available
+          tabBarButton: isVisible ? undefined : () => null,
+          // Make tab bar evenly spaced for visible tabs
+          tabBarStyle: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            height: 64,
+          },
+          tabBarItemStyle: { flex: 1 },
+          tabBarLabelStyle: { fontSize: 11, paddingBottom: 4 },
+          headerShown: false,
+        };
+      }}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
       <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
@@ -58,9 +60,7 @@ export default function Layout() {
       <Tabs.Screen name="mood-analytics-detail" options={{ href: null }} />
       <Tabs.Screen name="mood-weekly-trend" options={{ href: null }} />
       <Tabs.Screen name="history-dashboard" options={{ href: null }} />
-      <Tabs.Screen name="create-emotional-insight" options={{ href: null }} />
-      <Tabs.Screen name="emotional-insights-history" options={{ href: null }} />
-      <Tabs.Screen name="emotional-insights-analytics" options={{ href: null }} />
+      
     
     </Tabs>
   );

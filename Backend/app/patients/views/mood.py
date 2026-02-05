@@ -145,27 +145,50 @@ class MoodAnalyticsView(APIView):
             patient=request.user,
             mood_date__gte=start_date
         )
+                # Calculate statistics using new mood_intensities structure
+        # Get all mood intensities and calculate average
+        all_intensities = []
+        all_mood_counts = Counter()
         
+        for mood_entry in moods:
+            if mood_entry.mood_intensities:
+                for mood, intensity in mood_entry.mood_intensities.items():
+                    all_intensities.append(intensity)
+                    all_mood_counts[mood] += 1
+        
+        avg_intensity = sum(all_intensities) / len(all_intensities) if all_intensities else 0
+
         # Calculate statistics
         avg_intensity = moods.aggregate(Avg('intensity'))['intensity__avg'] or 0
         
         # Most common mood
+        most_common_mood = all_mood_counts.most_common(1)[0][0] if all_mood_counts else None
         mood_counts = moods.values('mood').annotate(count=Count('mood')).order_by('-count')
         most_common_mood = mood_counts.first()['mood'] if mood_counts else None
         
         # Mood distribution
+        mood_distribution = dict(all_mood_counts)
         mood_distribution = {item['mood']: item['count'] for item in mood_counts}
         
         # Weekly trend
         weekly_trend = []
         for i in range(7):
             date = timezone.now().date() - timedelta(days=i)
+            day_data = MoodEntry.get_dominant_mood_for_day(request.user, date)
+
             day_moods = moods.filter(mood_date=date)
             if day_moods.exists():
-                avg = day_moods.aggregate(Avg('intensity'))['intensity__avg']
+                avg = day_moods.aggregate(Avg('intensity'))['intensity__avg'] or 0
                 weekly_trend.append({
                     'date': str(date),
-                    'average_intensity': round(avg, 2)
+                    'average_intensity': round(avg, 2),
+                    'dominant_mood': day_data['dominant_mood'] if day_data else None
+                })
+            else:
+                weekly_trend.append({
+                    'date': str(date),
+                    'average_intensity': 0,
+                    'dominant_mood': None
                 })
         
         # Common triggers
@@ -177,7 +200,7 @@ class MoodAnalyticsView(APIView):
         
         data = {
             'average_intensity': round(avg_intensity, 2),
-            'most_common_mood': most_common_mood,
+            'most_common_mood': most_common_mood or 'N/A',
             'mood_distribution': mood_distribution,
             'weekly_trend': weekly_trend[::-1],
             'monthly_comparison': {},

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     MoodEntry, JournalEntry, EmotionalInsight, 
     RelaxationContent, RelaxationSession, DailyInspiration, PatientGoal, RelaxationTip, JournalPrompt,
-    NotificationPreference, Notification
+    NotificationPreference, Notification, ActivityLog
 )
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -86,13 +86,13 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    
+    word_count = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = JournalEntry
         fields = [
             'id', 'patient', 'patient_name', 'prompt', 'title', 'content',
             'mood_tags', 'mood_tags_list', 'is_private', 'is_favorite', 
-            'entry_date', 'created_at', 'updated_at'
+            'entry_date', 'created_at', 'updated_at', 'word_count'
         ]
         read_only_fields = ['id', 'patient', 'created_at', 'updated_at']
     
@@ -118,8 +118,17 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         # Add mood_tags as list in response
         data['mood_tags_list'] = instance.mood_tags_list
-        return data
+                # Provide a compatibility alias used by other parts of the app
+        data['tags_list'] = instance.mood_tags_list
+        # Ensure frontend can read word_count even if model doesn't store it
+        data['word_count'] = self.get_word_count(instance)
 
+        return data
+    def get_word_count(self, obj):
+        if not obj or not getattr(obj, 'content', None):
+            return 0
+        # Basic whitespace split; mirrors other places that compute word counts
+        return len(str(obj.content).split())
 
 class JournalPromptSerializer(serializers.ModelSerializer):
     """Serializer for journal prompts"""
@@ -260,7 +269,7 @@ class DashboardStatsSerializer(serializers.Serializer):
     active_goals_count = serializers.IntegerField()
     completed_goals_count = serializers.IntegerField()
     mood_trend = serializers.ListField(child=serializers.DictField())
-    recent_journal_entries = JournalEntrySerializer(many=True)
+    recent_journal_entries = serializers.ListField(child=serializers.DictField())
     upcoming_sessions = serializers.ListField(child=serializers.DictField())
     daily_inspiration = DailyInspirationSerializer(required=False, allow_null=True)
     relaxation_minutes_this_week = serializers.IntegerField()
@@ -367,4 +376,43 @@ class NotificationSerializer(serializers.ModelSerializer):
             return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
         else:
             return "Just now"
+        
+class ActivityLogSerializer(serializers.ModelSerializer):
+    """Serializer for activity logs"""
+    mood_impact = serializers.CharField(read_only=True)
+    energy_impact = serializers.CharField(read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    
+    class Meta:
+        model = ActivityLog
+        fields = [
+            'id', 'patient', 'patient_name',
+            'activity_type', 'activity_name', 'description',
+            'duration_minutes', 'intensity', 
+            'mood_before', 'mood_after', 'mood_impact',
+            'energy_before', 'energy_after', 'energy_impact',
+            'location', 'with_others', 'notes', 
+            'activity_date', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'patient', 'created_at', 'updated_at', 'mood_impact', 'energy_impact']
+    
+    def create(self, validated_data):
+        validated_data['patient'] = self.context['request'].user
+        return super().create(validated_data)
 
+
+class ActivityAnalyticsSerializer(serializers.Serializer):
+    """Serializer for activity analytics"""
+    total_activities = serializers.IntegerField()
+    this_week = serializers.IntegerField()
+    this_month = serializers.IntegerField()
+    average_duration = serializers.FloatField()
+    average_mood_improvement = serializers.FloatField()
+    average_energy_improvement = serializers.FloatField()
+    most_common_type = serializers.CharField()
+    most_common_type_count = serializers.IntegerField()
+    top_activities = serializers.ListField()
+    activity_type_distribution = serializers.DictField()
+
+
+    

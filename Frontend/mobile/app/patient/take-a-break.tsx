@@ -58,6 +58,24 @@ export default function TakeABreakScreen() {
             <Text style={[styles.badgeText, { color: themeStyle.text }]}>2 Exercises Available</Text>
           </View>
         </TouchableOpacity>
+
+        {/* Visualization Journeys Option */}
+        <TouchableOpacity
+          style={[styles.optionCard, styles.visualizationCard, { backgroundColor: themeStyle.card }]}
+          onPress={() => router.push('./visualization-journeys')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.cardIcon, { backgroundColor: themeStyle.background }]}>
+            <Text style={styles.iconText}>🌀</Text>
+          </View>
+          <Text style={[styles.cardTitle, { color: themeStyle.title }]}>Visualization Journeys</Text>
+          <Text style={[styles.cardDescription, { color: themeStyle.text }]}>
+            Guided visualization journeys to support relaxation and mental imagery
+          </Text>
+          <View style={[styles.cardBadge, { backgroundColor: themeStyle.background }]}>
+            <Text style={[styles.badgeText, { color: themeStyle.text }]}>3 Journeys Available</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.infoBox, { backgroundColor: themeStyle.card }]}>
@@ -112,6 +130,10 @@ const styles = StyleSheet.create({
   breathingCard: {
     borderLeftWidth: 4,
     borderLeftColor: '#8b5cf6',
+  },
+  visualizationCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#06b6d4',
   },
   cardIcon: {
     width: 80,
