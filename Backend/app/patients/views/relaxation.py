@@ -87,7 +87,6 @@ class RelaxationSessionListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         session = serializer.save()
         # Increment play count
-        # Use F-expression to increment atomically, then refresh the in-memory instance
         session.content.play_count = F('play_count') + 1
         session.content.save()
         try:

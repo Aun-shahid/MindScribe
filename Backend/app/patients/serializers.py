@@ -124,13 +124,11 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         # Ensure frontend can read word_count even if model doesn't store it
         data['word_count'] = self.get_word_count(instance)
         return data
-
     def get_word_count(self, obj):
         if not obj or not getattr(obj, 'content', None):
             return 0
         # Basic whitespace split; mirrors other places that compute word counts
         return len(str(obj.content).split())
-
 
 class JournalPromptSerializer(serializers.ModelSerializer):
     """Serializer for journal prompts"""
@@ -271,7 +269,6 @@ class DashboardStatsSerializer(serializers.Serializer):
     active_goals_count = serializers.IntegerField()
     completed_goals_count = serializers.IntegerField()
     mood_trend = serializers.ListField(child=serializers.DictField())
-    # recent_journal_entries are pre-serialized dicts in the view, so accept a list of dicts
     recent_journal_entries = serializers.ListField(child=serializers.DictField())
     upcoming_sessions = serializers.ListField(child=serializers.DictField())
     daily_inspiration = DailyInspirationSerializer(required=False, allow_null=True)

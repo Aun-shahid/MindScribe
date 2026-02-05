@@ -20,7 +20,7 @@ class MoodEntrySerializer(serializers.ModelSerializer):
             'id', 'mood', 'mood_score', 'energy_level', 'sleep_quality',
             'anxiety_level', 'stress_level', 'triggers', 'triggers_list',
             'location', 'weather', 'notes', 'coping_strategies_used',
-            'mood_date', 'created_at', 'updated_at'
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -44,13 +44,13 @@ class MoodEntryCreateSerializer(serializers.ModelSerializer):
         model = MoodEntry
         fields = [
             'mood', 'mood_score', 'energy_level', 'sleep_quality',
-            'anxiety_level', 'stress_level', 'triggers_list', 'mood_date',
+            'anxiety_level', 'stress_level', 'triggers_list','mood_date'
             'location', 'weather', 'notes', 'coping_strategies_used'
         ]
     
     def create(self, validated_data):
         triggers_list = validated_data.pop('triggers_list', [])
-        # If client provided a mood_date (YYYY-MM-DD), allow it; otherwise default to today
+         # If client provided a mood_date (YYYY-MM-DD), allow it; otherwise default to today
         mood_date = validated_data.pop('mood_date', None)
         if mood_date:
             validated_data['mood_date'] = mood_date
