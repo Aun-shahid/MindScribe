@@ -829,7 +829,7 @@ const SessionDetailPage: React.FC = () => {
                 </div>
                 <div className="p-6">
                   <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {transcription.segments.map((segment, index) => (
+                    {transcription.segments.map((segment) => (
                       <div key={segment.id} className="flex gap-4">
                         <div className="flex-shrink-0 w-20 text-xs text-gray-500 pt-1">
                           {Math.floor(segment.start_time / 60)}:{String(Math.floor(segment.start_time % 60)).padStart(2, '0')}

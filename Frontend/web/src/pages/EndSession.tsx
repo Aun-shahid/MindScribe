@@ -19,7 +19,7 @@ const EndSession: React.FC = () => {
 
   // Use hooks
   const { session } = useSessionDetail(id!);
-  const { endSession, loading, error: endSessionError, result } = useEndSession();
+  const { endSession, loading, error: endSessionError } = useEndSession();
 
   const handleCompleteSession = async () => {
     if (!id) {
