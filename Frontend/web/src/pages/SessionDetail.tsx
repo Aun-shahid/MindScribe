@@ -18,6 +18,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useTherapist';
+import { useSessionAnalysis, useSessionTranscription } from '../hooks/useSessions';
 import therapistService from '../services/therapist.service';
 
 const SessionDetailPage: React.FC = () => {
@@ -65,6 +66,19 @@ const SessionDetailPage: React.FC = () => {
     updateSessionNotes,
     fetchSession
   } = useSessionDetail(id!);
+
+  // Fetch AI analysis and transcription for completed sessions
+  const { 
+    analysis, 
+    loading: analysisLoading, 
+    error: analysisError 
+  } = useSessionAnalysis(session?.status === 'COMPLETED' ? id! : '');
+  
+  const { 
+    transcription, 
+    loading: transcriptionLoading, 
+    error: transcriptionError 
+  } = useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
 
   // Auto-refresh current time every 30 seconds to check if session time is reached
   useEffect(() => {
@@ -729,6 +743,118 @@ const SessionDetailPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Emotional Analysis Section - Only for COMPLETED sessions */}
+            {session.status === 'COMPLETED' && analysis && !analysisError && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-blue-200">
+                  <div className="flex items-center">
+                    <Activity className="text-blue-600 mr-2" size={20} />
+                    <h3 className="text-lg font-bold text-gray-900">Emotional Analysis</h3>
+                    {analysis.is_mock_data && (
+                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Mock Data</span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-6 space-y-6">
+                  {/* Overall Mood */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Overall Mood</p>
+                    <p className="text-2xl font-bold text-blue-600">{analysis.overall_mood}</p>
+                    <p className="text-sm text-gray-600 mt-1">Mood Score: {analysis.mood_score}/10</p>
+                  </div>
+
+                  {/* Mood Distribution */}
+                  {analysis.mood_distribution && Object.keys(analysis.mood_distribution).length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Mood Distribution</p>
+                      <div className="space-y-2">
+                        {Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => (
+                          <div key={emotion}>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm text-gray-600 capitalize">{emotion}</span>
+                              <span className="text-sm font-medium text-gray-900">{percentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Key Moments */}
+                  {analysis.key_moments && analysis.key_moments.length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Key Emotional Moments</p>
+                      <div className="space-y-3">
+                        {analysis.key_moments.map((moment, index) => (
+                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-blue-600 uppercase">{moment.emotion}</span>
+                              <span className="text-xs text-gray-500">{Math.floor(moment.timestamp / 60)}:{String(Math.floor(moment.timestamp % 60)).padStart(2, '0')}</span>
+                            </div>
+                            <p className="text-sm text-gray-700">{moment.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Transcription Section - Only for COMPLETED sessions */}
+            {session.status === 'COMPLETED' && transcription && !transcriptionError && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-green-50 to-green-100/50 px-6 py-4 border-b border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="text-green-600 mr-2" size={20} />
+                      <h3 className="text-lg font-bold text-gray-900">Session Transcription</h3>
+                      {transcription.is_mock_data && (
+                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Mock Data</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Duration: {Math.floor(transcription.total_duration / 60)}:{String(Math.floor(transcription.total_duration % 60)).padStart(2, '0')}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {transcription.segments.map((segment, index) => (
+                      <div key={segment.id} className="flex gap-4">
+                        <div className="flex-shrink-0 w-20 text-xs text-gray-500 pt-1">
+                          {Math.floor(segment.start_time / 60)}:{String(Math.floor(segment.start_time % 60)).padStart(2, '0')}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">{segment.speaker}</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{segment.text}</p>
+                          {segment.emotion && (
+                            <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                              {segment.emotion}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading states */}
+            {session.status === 'COMPLETED' && (analysisLoading || transcriptionLoading) && (
+              <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                <p className="text-gray-600 text-sm">Loading AI analysis and transcription...</p>
               </div>
             )}
           </div>

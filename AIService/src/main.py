@@ -38,13 +38,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database connection failed (non-critical): {e}")
     
-    # Preload models
-    try:
-        from .services.emotion import load_emotion_model
-        load_emotion_model()
-        logger.info("Emotion model loaded and ready")
-    except Exception as e:
-        logger.warning(f"Failed to preload emotion model: {e}")
+    # Preload models (can be disabled in development to speed up reloads)
+    if settings.preload_models:
+        try:
+            from .services.emotion import load_emotion_model
+            load_emotion_model()
+            logger.info("Emotion model loaded and ready")
+        except Exception as e:
+            logger.warning(f"Failed to preload emotion model: {e}")
+    else:
+        logger.info("Model preloading skipped (PRELOAD_MODELS=False)")
     
     logger.info(f"AI Service ready on port {settings.ai_service_port}")
     

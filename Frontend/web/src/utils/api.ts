@@ -77,9 +77,10 @@
 
 
 import axios from 'axios';
+import { backendUrl } from '../config';
 
 const api = axios.create({
-  baseURL: 'https://mindscribe-backend-production-ca1e.up.railway.app/api',  // Production backend
+  baseURL: `${backendUrl}/api`,  // Using backendUrl from config
   headers: {
     'Content-Type': 'application/json',
   },
@@ -123,7 +124,7 @@ api.interceptors.response.use(
 
         console.log('[API] Refreshing access token...');
         const response = await axios.post(
-          'https://mindscribe-backend-production-ca1e.up.railway.app/api/authenticator/token/refresh/',
+          `${backendUrl}/api/authenticator/token/refresh/`,
           { refresh: refreshToken }
         );
 

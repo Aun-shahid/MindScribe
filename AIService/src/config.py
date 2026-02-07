@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     # Service Configuration
     ai_service_port: int = Field(default=8080, alias="PORT")
     debug: bool = Field(default=False, alias="DEBUG")
+    preload_models: bool = Field(default=True, alias="PRELOAD_MODELS")
     
     # CORS
     cors_origins: str = Field(

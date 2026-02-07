@@ -44,7 +44,7 @@ class MoodEntryCreateSerializer(serializers.ModelSerializer):
         model = MoodEntry
         fields = [
             'mood', 'mood_score', 'energy_level', 'sleep_quality',
-            'anxiety_level', 'stress_level', 'triggers_list','mood_date'
+            'anxiety_level', 'stress_level', 'triggers_list', 'mood_date',
             'location', 'weather', 'notes', 'coping_strategies_used'
         ]
     

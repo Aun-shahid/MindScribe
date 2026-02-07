@@ -384,7 +384,7 @@ const NewSession = () => {
               </label>
             </div>
 
-            {/* <div className="flex items-center">
+            <div className="flex items-center">
               <input
                 id="consent_ai_analysis"
                 type="checkbox"
@@ -394,9 +394,9 @@ const NewSession = () => {
                 disabled={loading}
               />
               <label htmlFor="consent_ai_analysis" className="ml-2 block text-sm text-gray-900">
-                Patient coScheduling Session...' : 'Scheduleion
+                Patient consents to AI analysis and transcription
               </label>
-            </div> */}
+            </div>
           </div>
 
           {/* Submit Button */}

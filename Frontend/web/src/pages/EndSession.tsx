@@ -3,14 +3,13 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useTherapist';
-import therapistService from '../services/therapist.service';
+import { useEndSession } from '../hooks/useSessions';
 
 const EndSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  // Form state (similar to mobile app's useEndSession hook)
-  const [loading, setLoading] = useState(false);
+  // Form state
   const [sessionNotes, setSessionNotes] = useState('');
   const [patientGoals, setPatientGoals] = useState('');
   const [patientMoodAfter, setPatientMoodAfter] = useState('7');
@@ -18,7 +17,9 @@ const EndSession: React.FC = () => {
   const [nextSessionGoals, setNextSessionGoals] = useState('');
   const [sessionEffectiveness, setSessionEffectiveness] = useState('8');
 
+  // Use hooks
   const { session } = useSessionDetail(id!);
+  const { endSession, loading, error: endSessionError, result } = useEndSession();
 
   const handleCompleteSession = async () => {
     if (!id) {
@@ -33,41 +34,36 @@ const EndSession: React.FC = () => {
     }
 
     if (window.confirm('Are you sure you want to complete this session? This action cannot be undone.')) {
-      try {
-        setLoading(true);
-        
-        // Prepare the session data - only send fields backend accepts
-        const sessionData = {
-          session_notes: sessionNotes,          patient_goals: patientGoals,          patient_mood_after: parseInt(patientMoodAfter) || 7,
-          homework_assigned: homeworkAssigned,
-          next_session_goals: nextSessionGoals,
-          session_effectiveness: parseInt(sessionEffectiveness) || 8,
-        };
-        
-        console.log('🚀 [EndSession] Starting to complete session');
-        console.log('   Session ID:', id);
-        console.log('   Session Data:', JSON.stringify(sessionData, null, 2));
-        
-        // Call the actual API endpoint
-        const result = await therapistService.endSession(id, sessionData);
-        
+      // Prepare the session data - only send fields backend accepts
+      const sessionData = {
+        session_notes: sessionNotes,
+        patient_goals: patientGoals,
+        patient_mood_after: parseInt(patientMoodAfter) || 7,
+        homework_assigned: homeworkAssigned,
+        next_session_goals: nextSessionGoals,
+        session_effectiveness: parseInt(sessionEffectiveness) || 8,
+      };
+      
+      console.log('🚀 [EndSession] Starting to complete session');
+      console.log('   Session ID:', id);
+      console.log('   Session Data:', JSON.stringify(sessionData, null, 2));
+      
+      // Use the endSession hook
+      const response = await endSession(id, sessionData);
+      
+      if (response) {
         console.log('✅ [EndSession] Session completed successfully');
-        console.log('   Result:', result);
+        console.log('   Result:', response);
+        console.log('   AI Analysis:', response.ai_analysis);
         
         // Navigate to the session detail view to see the completed data
         navigate(`/sessions/${id}`);
-        
-      } catch (error: any) {
+      } else if (endSessionError) {
         console.error('❌ [EndSession] Failed to complete session');
-        console.error('   Error:', error);
-        console.error('   Error message:', error.message);
-        console.error('   Error response:', error.response?.data);
-        console.error('   Error status:', error.response?.status);
+        console.error('   Error:', endSessionError);
         
-        const errorMessage = error.response?.data?.detail || error.message || 'Failed to complete session. Please try again.';
+        const errorMessage = endSessionError.message || 'Failed to complete session. Please try again.';
         alert(errorMessage);
-      } finally {
-        setLoading(false);
       }
     }
   };

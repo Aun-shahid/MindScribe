@@ -117,7 +117,7 @@ class TherapySessionConsumer(AsyncWebsocketConsumer):
             
             # Validate session is still active
             session = await self.get_session()
-            if not session or session.status not in ['scheduled', 'in_progress']:
+            if not session or session.status not in ['UPCOMING', 'IN_PROGRESS', 'REQUESTED', 'RESCHEDULED']:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'message': 'Session is not active',
@@ -189,14 +189,14 @@ class TherapySessionConsumer(AsyncWebsocketConsumer):
             return
         
         if action == 'start_session':
-            if session.status == 'scheduled':
-                await self.start_session(session)
+            if session.status in ('UPCOMING', 'REQUESTED', 'RESCHEDULED'):
+                await self.do_start_session(session)
         elif action == 'end_session':
-            if session.status == 'in_progress':
-                await self.end_session(session)
+            if session.status == 'IN_PROGRESS':
+                await self.do_end_session(session)
         elif action == 'pause_session':
-            # Handle session pause logic
-            await self.pause_session(session)
+            if session.status == 'IN_PROGRESS':
+                await self.do_pause_session(session)
         else:
             await self.send(text_data=json.dumps({
                 'type': 'error',
@@ -309,35 +309,46 @@ class TherapySessionConsumer(AsyncWebsocketConsumer):
         session.save(update_fields=['websocket_active'])
     
     @database_sync_to_async
-    def start_session(self, session):
-        """Start the therapy session"""
+    def _db_start_session(self, session):
+        """Start the therapy session in DB"""
         session.start_session()
-        # Notify all participants
-        self.channel_layer.group_send(
+
+    async def do_start_session(self, session):
+        """Start the therapy session and notify participants"""
+        await self._db_start_session(session)
+        await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'session_status_changed',
-                'status': 'in_progress',
+                'status': 'IN_PROGRESS',
                 'timestamp': timezone.now().isoformat()
             }
         )
     
     @database_sync_to_async
-    def end_session(self, session):
-        """End the therapy session"""
+    def _db_end_session(self, session):
+        """End the therapy session in DB"""
         session.end_session()
-        # Notify all participants
-        self.channel_layer.group_send(
+
+    async def do_end_session(self, session):
+        """End the therapy session and notify participants"""
+        await self._db_end_session(session)
+        await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'session_status_changed',
-                'status': 'completed',
+                'status': 'COMPLETED',
                 'timestamp': timezone.now().isoformat()
             }
         )
     
-    @database_sync_to_async
-    def pause_session(self, session):
-        """Pause the therapy session"""
-        # Add pause logic if needed
-        pass
+    async def do_pause_session(self, session):
+        """Pause the therapy session and notify participants"""
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'session_status_changed',
+                'status': 'PAUSED',
+                'timestamp': timezone.now().isoformat()
+            }
+        )

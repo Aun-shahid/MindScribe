@@ -139,6 +139,10 @@ export interface SessionDetail {
   mood_improvement: number | null;
   therapist_observations: string | null;
   session_effectiveness: number | null;
+  websocket_room_id?: string;
+  websocket_active?: boolean;
+  websocket_url?: string | null;
+  can_start_websocket?: boolean;
 }
 
 export interface PatientWithSessions {

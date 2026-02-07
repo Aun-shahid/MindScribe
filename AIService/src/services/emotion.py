@@ -175,8 +175,23 @@ def load_emotion_model() -> Tuple[Any, Any]:
                 
                 model_path = model_local_path
             
-            _emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path)
-            _feature_extractor = AutoFeatureExtractor.from_pretrained(model_path)
+            _emotion_model = None
+            _feature_extractor = None
+            
+            # Try loading from local files first to avoid network checks during dev reloads
+            try:
+                _emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(
+                    model_path, local_files_only=True
+                )
+                _feature_extractor = AutoFeatureExtractor.from_pretrained(
+                    model_path, local_files_only=True
+                )
+                logger.info("Loaded emotion model from local cache (offline mode)")
+            except Exception:
+                # If local load fails, attempt normal load (may involve downloading)
+                logger.info("Model not found in local cache, performing network check...")
+                _emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path)
+                _feature_extractor = AutoFeatureExtractor.from_pretrained(model_path)
             
             # Move to GPU if available
             device = "cuda" if torch.cuda.is_available() else "cpu"

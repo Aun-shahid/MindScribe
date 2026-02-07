@@ -54,6 +54,9 @@ class MoodEntry(models.Model):
     notes = models.TextField(blank=True, null=True)
     coping_strategies_used = models.TextField(blank=True, null=True)
     
+    # Date for the mood entry
+    mood_date = models.DateField(default=timezone.now)
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

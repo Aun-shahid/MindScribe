@@ -31,6 +31,7 @@ HF_TOKEN=hf_your-token
 AI_SERVICE_SECRET_KEY=your-shared-secret-with-django
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/mindscribe
 EMOTION_MODEL_PATH=path/to/fine_tuned_wav2vec2
+PRELOAD_MODELS=false # Set to false in local dev to speed up server reloads
 ```
 
 ### 3. Run the Service
