@@ -124,8 +124,10 @@ async def start_session(
     
     # Mode 1: Scheduled session with existing session_id
     if session_id:
-        # Validate session access
-        validate_session_access(session, session_id)
+        # Note: We skip validate_session_access for access tokens since they don't have session_id
+        # Only validate if the token has a session_id (i.e., it's a session token)
+        if session.session_id:
+            validate_session_access(session, session_id)
         
         # Check if session already has active transcription
         existing = session_manager.get_session(session_id)
@@ -139,7 +141,7 @@ async def start_session(
         # This would validate the session exists and get patient info
         # For now, we trust the session_id is valid
         
-        logger.info(f"Starting scheduled session: {session_id}")
+        logger.info(f"Starting scheduled session: {session_id} for therapist: {session.therapist_id}")
     
     # Mode 2: Instant session without session_id
     else:

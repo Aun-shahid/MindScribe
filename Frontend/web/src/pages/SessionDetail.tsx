@@ -1,16 +1,16 @@
 // src/pages/SessionDetail.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  User, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  FileText, 
+import {
+  ChevronLeft,
+  User,
+  Calendar,
+  Clock,
+  MapPin,
+  FileText,
   Edit3,
-  Edit, 
-  Save, 
+  Edit,
+  Save,
   X,
   Trash2,
   Phone,
@@ -18,7 +18,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useTherapist';
-import { useSessionAnalysis, useSessionTranscription } from '../hooks/useSessions';
+import { useSessionAnalysis, useSessionTranscription, useStartSession } from '../hooks/useSessions';
 import therapistService from '../services/therapist.service';
 
 const SessionDetailPage: React.FC = () => {
@@ -28,10 +28,10 @@ const SessionDetailPage: React.FC = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Check if coming from "Start Right Now" flow
   const startImmediately = (location.state as { startImmediately?: boolean })?.startImmediately || false;
-  
+
   // Session details editing states
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [detailsData, setDetailsData] = useState<{
@@ -68,24 +68,27 @@ const SessionDetailPage: React.FC = () => {
   } = useSessionDetail(id!);
 
   // Fetch AI analysis and transcription for completed sessions
-  const { 
-    analysis, 
-    loading: analysisLoading, 
-    error: analysisError 
+  const {
+    analysis,
+    loading: analysisLoading,
+    error: analysisError
   } = useSessionAnalysis(session?.status === 'COMPLETED' ? id! : '');
-  
-  const { 
-    transcription, 
-    loading: transcriptionLoading, 
-    error: transcriptionError 
+
+  const {
+    transcription,
+    loading: transcriptionLoading,
+    error: transcriptionError
   } = useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
+
+  // Hook for starting sessions
+  const { startSession, loading: startingSession } = useStartSession();
 
   // Auto-refresh current time every 30 seconds to check if session time is reached
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 30000); // Check every 30 seconds
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -116,7 +119,7 @@ const SessionDetailPage: React.FC = () => {
 
   const handleSaveDetails = async () => {
     if (!id) return;
-    
+
     setSavingDetails(true);
     try {
       // Convert datetime-local to ISO string with timezone
@@ -140,7 +143,7 @@ const SessionDetailPage: React.FC = () => {
 
   const handleSaveNotes = async () => {
     if (!id) return;
-    
+
     try {
       await updateSessionNotes({ session_notes: noteText });
       setIsEditingNotes(false);
@@ -151,7 +154,7 @@ const SessionDetailPage: React.FC = () => {
 
   const handleSaveSummary = async () => {
     if (!id) return;
-    
+
     setSavingSummary(true);
     try {
       await therapistService.updateSessionSummary(id, summaryData);
@@ -168,7 +171,7 @@ const SessionDetailPage: React.FC = () => {
 
   const handleDeleteSession = async () => {
     if (!id) return;
-    
+
     if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
       try {
         await therapistService.deleteSession(id);
@@ -201,13 +204,13 @@ const SessionDetailPage: React.FC = () => {
     try {
       const date = new Date(dateString);
       return {
-        date: date.toLocaleDateString('en-US', { 
+        date: date.toLocaleDateString('en-US', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         }),
-        time: date.toLocaleTimeString('en-US', { 
+        time: date.toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
           hour12: true
@@ -234,7 +237,7 @@ const SessionDetailPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Failed to load session details</p>
-          <button 
+          <button
             onClick={() => navigate('/sessions')}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
           >
@@ -273,7 +276,7 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
               <button
                 onClick={handleDeleteSession}
@@ -334,115 +337,115 @@ const SessionDetailPage: React.FC = () => {
               </div>
 
               <div className="p-6">
-              {isEditingDetails ? (
-                /* Edit Mode */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Date & Time</label>
-                    <input
-                      type="datetime-local"
-                      value={detailsData.scheduled_date}
-                      onChange={(e) => setDetailsData({ ...detailsData, scheduled_date: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Duration (minutes)</label>
-                    <select
-                      value={detailsData.duration_minutes}
-                      onChange={(e) => setDetailsData({ ...detailsData, duration_minutes: parseInt(e.target.value) })}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value={30}>30 minutes</option>
-                      <option value={45}>45 minutes</option>
-                      <option value={60}>60 minutes</option>
-                      <option value={90}>90 minutes</option>
-                      <option value={120}>120 minutes</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Location</label>
-                    <input
-                      type="text"
-                      value={detailsData.location}
-                      onChange={(e) => setDetailsData({ ...detailsData, location: e.target.value })}
-                      placeholder="e.g., Clinic Room 1, Home, etc."
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Session Type</label>
-                    <select
-                      value={detailsData.session_type}
-                      onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value as 'individual' | 'group' | 'family' | 'couples' })}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="individual">Individual</option>
-                      <option value="couples">Couples</option>
-                      <option value="group">Group</option>
-                      <option value="family">Family</option>
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="flex items-center space-x-2 cursor-pointer">
+                {isEditingDetails ? (
+                  /* Edit Mode */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">Date & Time</label>
                       <input
-                        type="checkbox"
-                        checked={detailsData.is_online}
-                        onChange={(e) => setDetailsData({ ...detailsData, is_online: e.target.checked })}
-                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                        type="datetime-local"
+                        value={detailsData.scheduled_date}
+                        onChange={(e) => setDetailsData({ ...detailsData, scheduled_date: e.target.value })}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
-                      <span className="text-sm font-medium text-gray-900">Online Session</span>
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                /* View Mode */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Calendar className="text-green-600" size={20} />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 mb-1">Date</p>
-                      <p className="text-base font-semibold text-gray-900">{sessionDateTime.date}</p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Clock className="text-blue-600" size={20} />
-                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500 mb-1">Time</p>
-                      <p className="text-base font-semibold text-gray-900">{sessionDateTime.time}</p>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">Duration (minutes)</label>
+                      <select
+                        value={detailsData.duration_minutes}
+                        onChange={(e) => setDetailsData({ ...detailsData, duration_minutes: parseInt(e.target.value) })}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value={30}>30 minutes</option>
+                        <option value={45}>45 minutes</option>
+                        <option value={60}>60 minutes</option>
+                        <option value={90}>90 minutes</option>
+                        <option value={120}>120 minutes</option>
+                      </select>
                     </div>
-                  </div>
 
-                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <MapPin className="text-purple-600" size={20} />
-                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500 mb-1">Location</p>
-                      <p className="text-base font-semibold text-gray-900">{session.location || 'Not specified'} {session.is_online && '🌐'}</p>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">Location</label>
+                      <input
+                        type="text"
+                        value={detailsData.location}
+                        onChange={(e) => setDetailsData({ ...detailsData, location: e.target.value })}
+                        placeholder="e.g., Clinic Room 1, Home, etc."
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
                     </div>
-                  </div>
 
-                  <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Clock className="text-orange-600" size={20} />
-                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
-                      <p className="text-base font-semibold text-gray-900">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">Session Type</label>
+                      <select
+                        value={detailsData.session_type}
+                        onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value as 'individual' | 'group' | 'family' | 'couples' })}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="individual">Individual</option>
+                        <option value="couples">Couples</option>
+                        <option value="group">Group</option>
+                        <option value="family">Family</option>
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={detailsData.is_online}
+                          onChange={(e) => setDetailsData({ ...detailsData, is_online: e.target.checked })}
+                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-900">Online Session</span>
+                      </label>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  /* View Mode */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Calendar className="text-green-600" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-1">Date</p>
+                        <p className="text-base font-semibold text-gray-900">{sessionDateTime.date}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Clock className="text-blue-600" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-1">Time</p>
+                        <p className="text-base font-semibold text-gray-900">{sessionDateTime.time}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <MapPin className="text-purple-600" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-1">Location</p>
+                        <p className="text-base font-semibold text-gray-900">{session.location || 'Not specified'} {session.is_online && '🌐'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Clock className="text-orange-600" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
+                        <p className="text-base font-semibold text-gray-900">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -485,7 +488,7 @@ const SessionDetailPage: React.FC = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="p-6">
                 {isEditingNotes ? (
                   <textarea
@@ -550,21 +553,21 @@ const SessionDetailPage: React.FC = () => {
                             setSummaryData({
                               session_summary: session.session_summary || '',
                               patient_goals: session.patient_goals || '',
-                            homework_assigned: session.homework_assigned || '',
-                            next_session_goals: session.next_session_goals || '',
-                          });
-                        }}
-                        className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                      >
-                        <X size={16} className="mr-1" />
-                        Cancel
-                      </button>
-                    </div>
-                  )}
+                              homework_assigned: session.homework_assigned || '',
+                              next_session_goals: session.next_session_goals || '',
+                            });
+                          }}
+                          className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                        >
+                          <X size={16} className="mr-1" />
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-                
-              <div className="p-6 space-y-6">
+
+                <div className="p-6 space-y-6">
                   {isEditingSummary ? (
                     <>
                       <div>
@@ -670,7 +673,7 @@ const SessionDetailPage: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">{session.patient_mood_before}<span className="text-base text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className="h-3 rounded-full bg-gradient-to-r from-red-400 to-orange-400 transition-all duration-500"
                           style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
                         />
@@ -686,7 +689,7 @@ const SessionDetailPage: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">{session.patient_mood_after}<span className="text-base text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
                           style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
                         />
@@ -703,7 +706,7 @@ const SessionDetailPage: React.FC = () => {
                       </p>
                       <p className={`text-sm font-semibold mt-2 ${session.mood_improvement > 0 ? 'text-green-700' : 'text-red-700'}`}>
                         {session.mood_improvement >= 3 ? '🎉 Significant Improvement' :
-                         session.mood_improvement >= 1 ? '✅ Positive Progress' : '⚠️ Needs Attention'}
+                          session.mood_improvement >= 1 ? '✅ Positive Progress' : '⚠️ Needs Attention'}
                       </p>
                     </div>
                   )}
@@ -716,32 +719,30 @@ const SessionDetailPage: React.FC = () => {
                         <span className="text-3xl font-bold text-purple-600">{session.session_effectiveness}<span className="text-lg text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                        <div 
-                          className={`h-4 rounded-full transition-all duration-500 ${
-                            session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' : 
+                        <div
+                          className={`h-4 rounded-full transition-all duration-500 ${session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' :
                             session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'
-                          }`}
+                            }`}
                           style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
                         />
                       </div>
-                      <p className={`text-center text-sm font-bold uppercase tracking-wider px-3 py-2 rounded-lg mt-3 inline-block ${
-                        session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
+                      <p className={`text-center text-sm font-bold uppercase tracking-wider px-3 py-2 rounded-lg mt-3 inline-block ${session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
                         session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                        }`}>
                         {session.session_effectiveness >= 8 ? '⭐ Highly Effective' :
-                         session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
+                          session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
                       </p>
                     </div>
                   )}
 
                   {/* Show message if no metrics available */}
-                  {session.patient_mood_before === null && 
-                   session.patient_mood_after === null && 
-                   session.session_effectiveness === null && (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400 italic">No session metrics recorded</p>
-                    </div>
-                  )}
+                  {session.patient_mood_before === null &&
+                    session.patient_mood_after === null &&
+                    session.session_effectiveness === null && (
+                      <div className="text-center py-4">
+                        <p className="text-gray-400 italic">No session metrics recorded</p>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
@@ -778,7 +779,7 @@ const SessionDetailPage: React.FC = () => {
                               <span className="text-sm font-medium text-gray-900">{percentage}%</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
+                              <div
                                 className="h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
                                 style={{ width: `${percentage}%` }}
                               />
@@ -881,7 +882,7 @@ const SessionDetailPage: React.FC = () => {
                     <p className="text-sm font-medium text-gray-500 mb-2">Email</p>
                     <div className="flex items-center">
                       <Mail size={16} className="text-indigo-600 mr-2" />
-                      <a 
+                      <a
                         href={`mailto:${session.patient.email}`}
                         className="text-indigo-600 hover:text-indigo-700 font-medium break-all"
                       >
@@ -896,7 +897,7 @@ const SessionDetailPage: React.FC = () => {
                     <p className="text-sm font-medium text-gray-500 mb-2">Phone</p>
                     <div className="flex items-center">
                       <Phone size={16} className="text-indigo-600 mr-2" />
-                      <a 
+                      <a
                         href={`tel:${session.patient.phone_number}`}
                         className="text-indigo-600 hover:text-indigo-700 font-medium"
                       >
@@ -932,30 +933,43 @@ const SessionDetailPage: React.FC = () => {
                     // Allow immediate start if coming from "Start Right Now" flow
                     const canStart = startImmediately || isSessionTimeReached;
                     const isDisabled = isCompleted || isCancelled || !canStart;
-                    
+
                     let buttonText = 'Start Session';
                     if (isCompleted) buttonText = 'Session Completed';
                     else if (isCancelled) buttonText = 'Session Cancelled';
                     else if (!canStart) {
                       buttonText = `Available at ${sessionTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
                     }
-                    
+
+                    const handleStartSession = async () => {
+                      if (!id) return;
+
+                      try {
+                        // Import the hook at the top of the file
+                        const { startSession } = useStartSession();
+                        await startSession(id);
+                        navigate(`/sessions/${id}/active`);
+                      } catch (error) {
+                        console.error('Failed to start session:', error);
+                        alert('Failed to start session. Please try again.');
+                      }
+                    };
+
                     return (
-                      <button 
-                        onClick={() => navigate(`/sessions/${id}/active`)}
-                        className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${
-                          isDisabled 
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                            : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl hover:scale-105'
-                        }`}
+                      <button
+                        onClick={handleStartSession}
+                        className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${isDisabled
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl hover:scale-105'
+                          }`}
                         disabled={isDisabled}
                       >
                         {buttonText}
                       </button>
                     );
                   })()}
-                  
-                  <button 
+
+                  <button
                     onClick={() => navigate(`/patients/${session.patient.id}`)}
                     className="w-full bg-white text-indigo-600 border-2 border-indigo-600 py-3 px-4 rounded-xl hover:bg-indigo-50 transition-all duration-200 font-semibold hover:scale-105"
                   >

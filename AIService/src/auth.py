@@ -18,19 +18,19 @@ security = HTTPBearer()
 
 class TokenPayload(BaseModel):
     """Decoded JWT token payload structure."""
-    session_id: str
+    session_id: Optional[str] = None  # Optional for access tokens
     therapist_id: str
     iat: datetime
     exp: datetime
-    jti: str
+    jti: Optional[str] = None  # Optional for some token types
     type: str = "session_token"
 
 
 class AuthenticatedSession(BaseModel):
     """Authenticated session data passed to endpoints."""
-    session_id: str
+    session_id: Optional[str] = None  # Optional for access tokens
     therapist_id: str
-    token_id: str
+    token_id: Optional[str] = None
 
 
 def verify_token(token: str) -> TokenPayload:
@@ -53,21 +53,36 @@ def verify_token(token: str) -> TokenPayload:
             algorithms=[settings.jwt_algorithm]
         )
         
-        # Validate token type
-        if payload.get("type") != "session_token":
+        # Accept both session tokens and access tokens
+        token_type = payload.get("type", "access")
+        if token_type not in ["session_token", "access"]:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
+                detail=f"Invalid token type: {token_type}"
             )
         
-        return TokenPayload(
-            session_id=payload["session_id"],
-            therapist_id=payload["therapist_id"],
-            iat=datetime.fromtimestamp(payload["iat"]),
-            exp=datetime.fromtimestamp(payload["exp"]),
-            jti=payload["jti"],
-            type=payload["type"]
-        )
+        # For access tokens, extract user_id as therapist_id
+        # For session tokens, use the session_id and therapist_id directly
+        if token_type == "access":
+            # Access token structure: {user_id, email, type: "access"}
+            return TokenPayload(
+                session_id=payload.get("session_id", ""),  # May not exist in access tokens
+                therapist_id=str(payload.get("user_id", "")),
+                iat=datetime.fromtimestamp(payload["iat"]),
+                exp=datetime.fromtimestamp(payload["exp"]),
+                jti=payload.get("jti", ""),
+                type=token_type
+            )
+        else:
+            # Session token structure
+            return TokenPayload(
+                session_id=payload["session_id"],
+                therapist_id=payload["therapist_id"],
+                iat=datetime.fromtimestamp(payload["iat"]),
+                exp=datetime.fromtimestamp(payload["exp"]),
+                jti=payload["jti"],
+                type=payload["type"]
+            )
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -78,6 +93,11 @@ def verify_token(token: str) -> TokenPayload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}"
+        )
+    except KeyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Missing required field in token: {str(e)}"
         )
 
 

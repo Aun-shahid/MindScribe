@@ -22,10 +22,22 @@ export const useStartSession = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('[useSessions] 🚀 Starting AI Service session...');
+
+      // Call AI Service directly
       const data = await sessionsService.startSession(sessionId);
+      console.log('[useSessions] ✅ AI Service session started:', data);
+
+      // Store AI service token if provided
+      if (data.ai_service_token) {
+        localStorage.setItem('ai_service_token', data.ai_service_token);
+        console.log('[useSessions] 💾 Stored AI Service token');
+      }
+
       setResult(data);
       return data;
     } catch (err) {
+      console.error('[useSessions] ❌ Failed to start session:', err);
       setError(err as TherapistError);
       return null;
     } finally {
@@ -59,10 +71,26 @@ export const useEndSession = () => {
       setLoading(true);
       setError(null);
       try {
+        // 1. End session in Django backend
         const response = await sessionsService.endSession(sessionId, data);
+
+        // 2. Stop session in AI Service if token exists
+        const aiToken = localStorage.getItem('ai_service_token');
+        if (aiToken) {
+          console.log('[useSessions] Stopping AI Service session...');
+          try {
+            await sessionsService.stopAISession(sessionId, aiToken);
+            console.log('[useSessions] AI Service session stopped successfully');
+            localStorage.removeItem('ai_service_token');
+          } catch (stopErr) {
+            console.warn('[useSessions] Failed to stop AI Service session (non-critical):', stopErr);
+          }
+        }
+
         setResult(response);
         return response;
       } catch (err) {
+        console.error('[useSessions] Failed to end session:', err);
         setError(err as TherapistError);
         return null;
       } finally {
@@ -285,7 +313,7 @@ export const useAIServiceWebSocket = (
 
   const connect = useCallback(() => {
     console.log('[AI Service WS] Connect called with:', { sessionId, aiServiceToken: aiServiceToken ? 'present' : 'missing' });
-    
+
     if (!sessionId || !aiServiceToken) {
       console.warn('[AI Service WS] Missing required parameters - sessionId:', sessionId, 'token:', aiServiceToken ? 'present' : 'missing');
       return;
@@ -306,7 +334,7 @@ export const useAIServiceWebSocket = (
           setConnected(true);
           setError(null);
           console.log('[AI Service WS] Connected - ready to stream audio');
-          
+
           // Start heartbeat
           heartbeatRef.current = setInterval(() => {
             if (wsRef.current) {

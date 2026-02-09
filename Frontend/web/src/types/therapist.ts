@@ -1,160 +1,4 @@
-// src/types/therapist.ts
 
-// Session-related types
-export interface SessionType {
-  id: string;
-  therapist_name: string;
-  patient_name: string;
-  session_date: string;
-  location: string;
-  status: string;
-  session_type: string;
-  duration_minutes: number;
-  is_online: boolean;
-}
-
-// Session Consent types
-export interface SessionConsentData {
-  session_type: string;
-  duration_minutes: number | string;
-  location: string;
-  patient_goals: string;
-  fee_charged: number;
-  is_online: boolean;
-  consent_recording: boolean;
-  consent_ai_analysis: boolean;
-}
-
-export interface SessionConsentParams {
-  patientId: string;
-  patientName: string;
-  isNewPatient: string;
-}
-
-export interface CreateSessionData {
-  patient_id: string;
-  session_type: string;
-  scheduled_date: string;
-  duration_minutes: number;
-  location: string;
-  is_online: boolean;
-  patient_goals: string;
-  fee_charged: number;
-  consent_recording: boolean;
-  consent_ai_analysis: boolean;
-}
-
-export interface StartSessionData {
-  detail: string;
-  session: {
-    status: string;
-    actual_start_time: string;
-  };
-}
-
-// Session Details types
-export interface SessionDetailsParams {
-  patientId: string;
-  patientName: string;
-}
-
-export interface SessionDetailsData {
-  sessions: Session[];
-  patient: PatientWithSessions | null;
-  loading: boolean;
-  refreshing: boolean;
-}
-
-export interface SessionCardInfo {
-  hasNotes: boolean;
-  hasGoals: boolean;
-  statusColor: string;
-}
-
-export interface SessionNavigationParams {
-  sessionId: string;
-  patientName?: string;
-  patientId: string;
-}
-
-export interface Session {
-  id: string;
-  session_number?: number;
-  session_type: string;
-  status: string;
-  scheduled_date?: string;
-  actual_start_time?: string | null;
-  actual_end_time?: string | null;
-  duration_minutes?: number;
-  actual_duration_minutes?: number | null;
-  location?: string;
-  is_online?: boolean;
-  session_notes?: string;
-  patient_goals?: string;
-  homework_assigned?: string;
-  next_session_goals?: string;
-  patient_mood_before?: number | null;
-  patient_mood_after?: number | null;
-  mood_improvement?: number | null;
-  session_effectiveness?: number | null;
-  created_at?: string;
-  updated_at?: string;
-  // Additional fields that might come from API
-  date?: string;
-  time?: string;
-  duration?: number;
-  notes?: string;
-}
-
-export interface SessionDetail {
-  id: string;
-  patient: {
-    id: string;
-    full_name: string;
-    email: string;
-    phone_number: string;
-    patient_id: string;
-  };
-  therapist: {
-    id: string;
-    full_name: string;
-    email: string;
-    specialization: string;
-  };
-  session_number: number;
-  session_type: string;
-  status: string;
-  location: string;
-  is_online: boolean;
-  scheduled_date: string;
-  duration_minutes?: number;
-  actual_duration_minutes: number;
-  session_notes: string;
-  session_summary: string | null;
-  patient_goals: string;
-  homework_assigned: string;
-  next_session_goals: string;
-  patient_mood_before: number | null;
-  patient_mood_after: number | null;
-  mood_improvement: number | null;
-  therapist_observations: string | null;
-  session_effectiveness: number | null;
-  websocket_room_id?: string;
-  websocket_active?: boolean;
-  websocket_url?: string | null;
-  can_start_websocket?: boolean;
-}
-
-export interface PatientWithSessions {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string;
-  last_session: any;
-  next_session: any;
-  total_sessions: string;
-  created_at: string;
-}
 
 // Patient-related types
 export interface Patient {
@@ -220,73 +64,7 @@ export interface PatientDetailsActions {
   clearError: () => void;
 }
 
-// End Session types
-export interface EndSessionFormData {
-  session_notes: string;
-  patient_goals?: string;
-  patient_mood_after: number;
-  homework_assigned: string;
-  next_session_goals: string;
-  session_effectiveness: number;
-}
 
-export interface EndSessionState {
-  loading: boolean;
-  sessionNotes: string;
-  patientMoodAfter: string;
-  homeworkAssigned: string;
-  nextSessionGoals: string;
-  sessionEffectiveness: string;
-}
-
-export interface EndSessionActions {
-  handleCompleteSession: () => Promise<void>;
-  setSessionNotes: (notes: string) => void;
-  setPatientMoodAfter: (mood: string) => void;
-  setHomeworkAssigned: (homework: string) => void;
-  setNextSessionGoals: (goals: string) => void;
-  setSessionEffectiveness: (effectiveness: string) => void;
-  resetForm: () => void;
-}
-
-export interface EndSessionParams {
-  sessionId: string | string[];
-  patientId: string | string[];
-}
-
-// Dashboard types
-export interface DashboardData {
-  therapist_info?: Record<string, string>;
-  today_sessions?: any[];
-  upcoming_sessions?: any[];
-  patient_stats?: Record<string, string>;
-  session_stats?: Record<string, string>;
-  recent_patients?: any[];
-  mood_alerts?: any[];
-  soap_notes?: any[];
-  session_hours?: {
-    total: number;
-    today: number;
-    thisWeek: number;
-  };
-  progress_data?: {
-    soap_progress: number;
-    patient_moods: any[];
-  };
-}
-
-export interface DashboardState {
-  dashboardData: DashboardData | null;
-  loading: boolean;
-  error: string | null;
-}
-
-export interface DashboardActions {
-  fetchDashboard: () => Promise<void>;
-  refreshDashboard: () => Promise<void>;
-  handleStartSession: () => void;
-  clearError: () => void;
-}
 
 export interface MoodAlert {
   id: number;
@@ -309,42 +87,10 @@ export interface PatientMood {
   color: string;
 }
 
-// Dashboard-related types
-export interface DashboardStats {
-  total_patients: number;
-  upcoming_sessions: number;
-  completed_sessions: number;
-  cancelled_sessions: number;
-}
 
-export interface UpcomingSession {
-  id: string;
-  patient_name: string;
-  session_date: string;
-  session_type: string;
-  location: string;
-  is_online: boolean;
-}
 
-export interface RecentActivity {
-  id: string;
-  type: 'session_completed' | 'patient_added' | 'notes_updated';
-  description: string;
-  timestamp: string;
-  patient_name?: string;
-}
 
 // Form-related types
-export interface SessionFormData {
-  patient_id: string;
-  scheduled_date: string; // Changed from session_date to scheduled_date
-  duration_minutes: number;
-  session_type: string;
-  location: string;
-  is_online: boolean;
-  patient_goals?: string;
-  fee_charged?: number;
-}
 
 export interface PatientFormData {
   full_name: string;
@@ -377,12 +123,6 @@ export interface QRCodeData {
 }
 
 // Filter and search types
-export interface SessionFilter {
-  status?: 'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'CANCELLED' | 'SCHEDULED';
-  date?: string;
-  patient_id?: string;
-  session_type?: string;
-}
 
 export interface PatientFilter {
   search?: string;
@@ -396,12 +136,6 @@ export interface TherapistError {
 }
 
 // API Response types
-export interface SessionsResponse {
-  sessions: SessionType[];
-  total_count: number;
-  page: number;
-  page_size: number;
-}
 
 export interface PatientsResponse {
   patients: Patient[];
@@ -410,61 +144,11 @@ export interface PatientsResponse {
   page_size: number;
 }
 
-export interface DashboardResponse {
-  stats: DashboardStats;
-  upcoming_sessions: UpcomingSession[];
-  recent_activities: RecentActivity[];
-}
 
 // Calendar types
-export interface CalendarSession {
-  id: string;
-  patient_name: string;
-  session_date: string;
-  status: string;
-  session_type: string;
-  location: string;
-  duration_minutes: number;
-}
-
-export interface CalendarData {
-  [date: string]: CalendarSession[];
-}
 
 // Notes and session management types
-export interface SessionNotes {
-  session_notes?: string;
-  patient_mood_before?: number;
-  patient_mood_after?: number;
-  homework_assigned?: string;
-  next_session_goals?: string;
-  session_effectiveness?: number;
-  therapist_observations?: string;
-}
 
-export interface SessionUpdate {
-  session_id?: string;  // Optional - already in URL path
-  status?: string;
-  scheduled_date?: string;
-  duration_minutes?: number;
-  location?: string;
-  session_type?: 'individual' | 'group' | 'family' | 'couples';
-  is_online?: boolean;
-  actual_duration_minutes?: number;
-  session_notes?: string;
-  session_summary?: string;
-  patient_goals?: string;
-  homework_assigned?: string;
-  next_session_goals?: string;
-  patient_mood_before?: number;
-  patient_mood_after?: number;
-  therapist_observations?: string;
-  session_effectiveness?: number;
-  consent_recording?: boolean;
-  consent_ai_analysis?: boolean;
-  fee_charged?: number;
-  payment_status?: string;
-}
 
 // Patient Management Types (for start-new-session)
 export interface PatientProfileData {
@@ -520,11 +204,6 @@ export interface TherapistPinData {
   patient_count?: number;
 }
 
-export interface SessionFormParams {
-  patientId: string;
-  patientName: string;
-  isNewPatient: string;
-}
 
 // Start New Session specific types
 export interface StartNewSessionPatient {
@@ -623,7 +302,6 @@ export interface CreatePatientData {
   preferred_language: string;
 }
 
-export type SessionTab = 'existing' | 'new';
 
 // QR Code related types
 export interface TherapistQRInfo {

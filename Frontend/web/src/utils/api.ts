@@ -1,86 +1,8 @@
-// // src/utils/api.ts
-// import axios from 'axios';
-// import { backendUrl } from '../config';
-
-// // Create axios instance with base configuration
-// const api = axios.create({
-//   baseURL: `${backendUrl}/api`, // Using backendUrl from config
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
-
-// // Request interceptor to add auth token
-// api.interceptors.request.use(
-//   (config) => {
-//     const token = localStorage.getItem('access_token');
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//     }
-//     return config;
-//   },
-//   (error) => {
-//     return Promise.reject(error);
-//   }
-// );
-
-// // Response interceptor to handle token refresh
-// api.interceptors.response.use(
-//   (response) => response,
-//   async (error) => {
-//     const originalRequest = error.config;
-
-//     // Handle 401 Unauthorized (token expired)
-//     if (error.response?.status === 401 && !originalRequest._retry) {
-//       originalRequest._retry = true;
-
-//       try {
-//         const refreshToken = localStorage.getItem('refresh_token');
-//         if (refreshToken) {
-//           const response = await axios.post(`${backendUrl}/api/authenticator/token/refresh/`, {
-//             refresh: refreshToken,
-//           });
-
-//           const { access, refresh } = response.data;
-//           localStorage.setItem('access_token', access);
-//           localStorage.setItem('refresh_token', refresh);
-
-//           // Retry the original request with new token
-//           originalRequest.headers.Authorization = `Bearer ${access}`;
-//           return api(originalRequest);
-//         }
-//       } catch (refreshError) {
-//         // Refresh failed, redirect to login
-//         localStorage.removeItem('access_token');
-//         localStorage.removeItem('refresh_token');
-//         window.location.href = '/login';
-//         return Promise.reject(refreshError);
-//       }
-//     }
-
-//     return Promise.reject(error);
-//   }
-// );
-
-// export default api;
-
-
-
-
-
-
-
-
-
-
-
-
-
 import axios from 'axios';
-import { backendUrl } from '../config';
+import { backendUrl, aiServiceUrl } from '../config';
 
 const api = axios.create({
-  baseURL: `${backendUrl}/api`,  // Using backendUrl from config
+  baseURL: `${backendUrl}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -114,7 +36,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       console.warn('[API] 401 Unauthorized - Attempting token refresh');
-      
+
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
@@ -146,6 +68,30 @@ api.interceptors.response.use(
       }
     }
 
+    return Promise.reject(error);
+  }
+);
+
+// AI Service API instance
+export const aiApi = axios.create({
+  baseURL: `${aiServiceUrl}/api/v1`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+// Request interceptor for AI Service to handle dynamic tokens
+aiApi.interceptors.request.use(
+  (config) => {
+    // Note: ai_service_token can be retrieved from localStorage
+    const token = localStorage.getItem('ai_service_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );

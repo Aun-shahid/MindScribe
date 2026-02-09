@@ -1,6 +1,6 @@
 // src/services/sessions.service.ts
 // Session-specific service for analysis, transcription, WebSocket, and AI integration
-import api from '../utils/api';
+import api, { aiApi } from '../utils/api';
 import { aiServiceUrl, backendUrl } from '../config';
 import type {
   SessionTranscription,
@@ -14,14 +14,67 @@ import type { TherapistError } from '../types/therapist';
 
 class SessionsService {
   /**
-   * Start a therapy session — returns AI service token if consent given
+   * Start a therapy session - calls AI Service directly
+   * Returns AI service token and session info
    */
   async startSession(sessionId: string): Promise<StartSessionResponse> {
     try {
-      const response = await api.post<StartSessionResponse>(
-        `/therapy_sessions/sessions/${sessionId}/start/`
+      console.log('[SessionsService] 🚀 Starting session via AI Service...');
+
+      // Get the access token for authentication
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('No access token found');
+      }
+
+      // Call AI Service start endpoint
+      const response = await aiApi.post<StartSessionResponse>(
+        '/session/start',
+        { session_id: sessionId },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
       );
+
+      console.log('[SessionsService] ✅ AI Service session started:', response.data);
       return response.data;
+    } catch (error) {
+      console.error('[SessionsService] ❌ Failed to start AI session:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Start research/transcription on the AI Service
+   */
+  async startAISession(sessionId: string, token: string): Promise<void> {
+    try {
+      console.log('[SessionsService] 🌐 Calling AI Service start endpoint...');
+      console.log('[SessionsService] URL:', `${aiServiceUrl}/api/v1/session/start`);
+      console.log('[SessionsService] Session ID:', sessionId);
+      console.log('[SessionsService] Token (first 20 chars):', token.substring(0, 20) + '...');
+
+      const response = await aiApi.post(
+        '/session/start',
+        { session_id: sessionId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      console.log('[SessionsService] ✅ AI Service response:', response.data);
+    } catch (error) {
+      console.error('[SessionsService] ❌ AI Service error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Stop research/transcription on the AI Service
+   */
+  async stopAISession(sessionId: string, token: string): Promise<void> {
+    try {
+      await aiApi.post(
+        `/session/${sessionId}/stop`,
+        { save_transcript: true },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
     } catch (error) {
       throw this.handleError(error);
     }
@@ -276,23 +329,23 @@ class SessionsService {
           case 'connection':
             console.log('[AI Service WS] Connection confirmed:', data.message);
             break;
-          
+
           case 'transcription':
             // Handle transcription segment
             if (data.segment) {
               handlers.onTranscription?.(data.segment);
             }
             break;
-          
+
           case 'heartbeat_response':
             // Heartbeat acknowledged
             break;
-          
+
           case 'error':
             console.error('[AI Service WS] Error:', data.message);
             handlers.onError?.({ message: data.message });
             break;
-          
+
           default:
             console.log('[AI Service WS] Unknown message type:', data.type);
         }
