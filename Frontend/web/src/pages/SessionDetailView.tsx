@@ -1,12 +1,12 @@
 // src/pages/SessionDetailView.tsx
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  User, 
-  Calendar, 
-  Clock, 
-  FileText, 
+import {
+  ChevronLeft,
+  User,
+  Calendar,
+  Clock,
+  FileText,
   RefreshCw,
   Target,
   Eye,
@@ -16,7 +16,7 @@ import {
   Star,
   Edit3
 } from 'lucide-react';
-import { useSessionDetail } from '../hooks/useTherapist';
+import { useSessionDetail } from '../hooks/useSessions';
 
 const SessionDetailView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,7 +86,7 @@ const SessionDetailView: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
@@ -119,7 +119,7 @@ const SessionDetailView: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-6xl mb-4">❌</div>
@@ -129,7 +129,7 @@ const SessionDetailView: React.FC = () => {
             <p className="text-gray-600 mb-6">
               The requested session could not be loaded.
             </p>
-            <button 
+            <button
               onClick={() => navigate('/sessions')}
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
             >
@@ -167,7 +167,7 @@ const SessionDetailView: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
               <button
                 onClick={handleRefresh}
@@ -214,7 +214,7 @@ const SessionDetailView: React.FC = () => {
                       <p className="text-base font-semibold text-gray-900">{session.patient?.full_name}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <FileText className="text-blue-600" size={20} />
@@ -225,7 +225,7 @@ const SessionDetailView: React.FC = () => {
                       <p className="text-sm text-gray-600">{session.is_online ? '🌐 Online' : `📍 ${session.location}`}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                     <div className="p-2 bg-green-100 rounded-lg">
                       <Calendar className="text-green-600" size={20} />
@@ -235,7 +235,7 @@ const SessionDetailView: React.FC = () => {
                       <p className="text-base font-semibold text-gray-900">{formatDate(session.scheduled_date)}</p>
                     </div>
                   </div>
-                  
+
                   {session.actual_duration_minutes && (
                     <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                       <div className="p-2 bg-orange-100 rounded-lg">
@@ -316,7 +316,7 @@ const SessionDetailView: React.FC = () => {
                       <p className="text-gray-700 leading-relaxed">{session.homework_assigned}</p>
                     </div>
                   )}
-                  
+
                   {session.next_session_goals && (
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                       <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
@@ -341,7 +341,7 @@ const SessionDetailView: React.FC = () => {
                     Mood Analysis
                   </h3>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                   {session.patient_mood_before && (
                     <div>
@@ -350,14 +350,14 @@ const SessionDetailView: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">{session.patient_mood_before}<span className="text-base text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className="h-3 rounded-full bg-gradient-to-r from-red-400 to-orange-400 transition-all duration-500"
                           style={{ width: `${(session.patient_mood_before / 10) * 100}%` }}
                         ></div>
                       </div>
                     </div>
                   )}
-                  
+
                   {session.patient_mood_after && (
                     <div>
                       <div className="flex justify-between items-center mb-3">
@@ -365,14 +365,14 @@ const SessionDetailView: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">{session.patient_mood_after}<span className="text-base text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
                           style={{ width: `${(session.patient_mood_after / 10) * 100}%` }}
                         ></div>
                       </div>
                     </div>
                   )}
-                  
+
                   {session.mood_improvement !== null && session.mood_improvement !== undefined && (
                     <div className={`rounded-xl p-4 ${session.mood_improvement >= 0 ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'}`}>
                       <div className="flex justify-between items-center">
@@ -381,15 +381,15 @@ const SessionDetailView: React.FC = () => {
                           <span className={`text-3xl font-bold ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement}
                           </span>
-                          <TrendingUp 
-                            className={`w-6 h-6 ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600 rotate-180'}`} 
+                          <TrendingUp
+                            className={`w-6 h-6 ${session.mood_improvement >= 0 ? 'text-green-600' : 'text-red-600 rotate-180'}`}
                           />
                         </div>
                       </div>
                       <p className={`text-center text-sm font-semibold mt-3 ${session.mood_improvement >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                         {session.mood_improvement >= 3 ? '🎉 Significant Improvement' :
-                         session.mood_improvement >= 1 ? '✅ Positive Progress' :
-                         session.mood_improvement === 0 ? '➡️ Stable' : '⚠️ Needs Attention'}
+                          session.mood_improvement >= 1 ? '✅ Positive Progress' :
+                            session.mood_improvement === 0 ? '➡️ Stable' : '⚠️ Needs Attention'}
                       </p>
                     </div>
                   )}
@@ -406,31 +406,29 @@ const SessionDetailView: React.FC = () => {
                     Session Effectiveness
                   </h3>
                 </div>
-                
+
                 <div className="p-6">
                   <div className="text-center mb-6">
                     <div className="text-5xl font-bold text-gray-900 mb-2">
                       {session.session_effectiveness}<span className="text-2xl text-gray-500">/10</span>
                     </div>
-                    <p className={`text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full inline-block ${
-                      session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
-                      session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                    }`}>
+                    <p className={`text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full inline-block ${session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
+                        session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
                       {session.session_effectiveness >= 8 ? '⭐ Highly Effective' :
-                       session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
+                        session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
                     </p>
                   </div>
-                  
+
                   <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                    <div 
-                      className={`h-4 rounded-full transition-all duration-500 ${
-                        session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' : 
-                        session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'
-                      }`}
+                    <div
+                      className={`h-4 rounded-full transition-all duration-500 ${session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                          session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'
+                        }`}
                       style={{ width: `${(session.session_effectiveness / 10) * 100}%` }}
                     ></div>
                   </div>
-                  
+
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-medium text-gray-500">
                     <div>0</div>
                     <div>5</div>

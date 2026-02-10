@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle } from 'lucide-react';
-import { useSessionDetail } from '../hooks/useTherapist';
+import { useSessionDetail } from '../hooks/useSessions';
 import { useEndSession } from '../hooks/useSessions';
 
 const EndSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   // Form state
   const [sessionNotes, setSessionNotes] = useState('');
   const [patientGoals, setPatientGoals] = useState('');
@@ -43,25 +43,25 @@ const EndSession: React.FC = () => {
         next_session_goals: nextSessionGoals,
         session_effectiveness: parseInt(sessionEffectiveness) || 8,
       };
-      
+
       console.log('🚀 [EndSession] Starting to complete session');
       console.log('   Session ID:', id);
       console.log('   Session Data:', JSON.stringify(sessionData, null, 2));
-      
+
       // Use the endSession hook
       const response = await endSession(id, sessionData);
-      
+
       if (response) {
         console.log('✅ [EndSession] Session completed successfully');
         console.log('   Result:', response);
         console.log('   AI Analysis:', response.ai_analysis);
-        
+
         // Navigate to the session detail view to see the completed data
         navigate(`/sessions/${id}`);
       } else if (endSessionError) {
         console.error('❌ [EndSession] Failed to complete session');
         console.error('   Error:', endSessionError);
-        
+
         const errorMessage = endSessionError.message || 'Failed to complete session. Please try again.';
         alert(errorMessage);
       }
@@ -184,7 +184,7 @@ const EndSession: React.FC = () => {
                   <span>Very High</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
+                  <div
                     className="bg-purple-700 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${(parseInt(patientMoodAfter) || 5) * 10}%` }}
                   />
@@ -253,7 +253,7 @@ const EndSession: React.FC = () => {
                   <span>Highly Effective</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
+                  <div
                     className="bg-purple-700 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${(parseInt(sessionEffectiveness) || 5) * 10}%` }}
                   />
@@ -271,7 +271,7 @@ const EndSession: React.FC = () => {
             >
               Cancel
             </button>
-            
+
             <button
               onClick={handleCompleteSession}
               className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50"
@@ -282,8 +282,8 @@ const EndSession: React.FC = () => {
               ) : (
                 <CheckCircle size={20} className="mr-2" />
               )}
-              {loading 
-                ? (isAlreadyCompleted ? 'Updating Notes...' : 'Completing Session...') 
+              {loading
+                ? (isAlreadyCompleted ? 'Updating Notes...' : 'Completing Session...')
                 : (isAlreadyCompleted ? 'Update Notes' : 'Complete Session')
               }
             </button>

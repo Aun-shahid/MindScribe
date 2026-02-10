@@ -17,9 +17,9 @@ import {
   Mail,
   Activity
 } from 'lucide-react';
-import { useSessionDetail } from '../hooks/useTherapist';
-import { useSessionAnalysis, useSessionTranscription, useStartSession } from '../hooks/useSessions';
-import therapistService from '../services/therapist.service';
+import { useSessionDetail, useSessionAnalysis, useSessionTranscription, useStartSession } from '../hooks/useSessions';
+import sessionsService from '../services/sessions.service';
+
 
 const SessionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -81,7 +81,7 @@ const SessionDetailPage: React.FC = () => {
   } = useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
 
   // Hook for starting sessions
-  const { startSession, loading: startingSession } = useStartSession();
+  useStartSession();
 
   // Auto-refresh current time every 30 seconds to check if session time is reached
   useEffect(() => {
@@ -124,7 +124,7 @@ const SessionDetailPage: React.FC = () => {
     try {
       // Convert datetime-local to ISO string with timezone
       const scheduledDate = new Date(detailsData.scheduled_date);
-      await therapistService.updateSession(id, {
+      await sessionsService.updateSession(id, {
         scheduled_date: scheduledDate.toISOString(),
         duration_minutes: detailsData.duration_minutes,
         location: detailsData.location,
@@ -157,7 +157,7 @@ const SessionDetailPage: React.FC = () => {
 
     setSavingSummary(true);
     try {
-      await therapistService.updateSessionSummary(id, summaryData);
+      await sessionsService.updateSessionSummary(id, summaryData);
       // Refetch session to show updated data
       await fetchSession();
       setIsEditingSummary(false);
@@ -174,7 +174,7 @@ const SessionDetailPage: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
       try {
-        await therapistService.deleteSession(id);
+        await sessionsService.deleteSession(id);
         navigate('/sessions');
       } catch (error) {
         console.error('Failed to delete session:', error);

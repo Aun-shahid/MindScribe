@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { usePatientDetail } from '../hooks/useTherapist';
 import { InfoField } from '../components/InfoField';
 import PatientMoodTrend from '../components/PatientMoodTrend';
-import therapistService from '../services/therapist.service';
-import type { SessionType } from '../types/therapist';
+import sessionsService from '../services/sessions.service';
+import type { SessionType } from '../types/session';
 import {
   formatDate,
   formatPhoneNumber,
@@ -26,21 +26,21 @@ const PatientDetail = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const { patient, loading, error, handleStartSession } = usePatientDetail(patientId || '');
-  const [scheduleSuccess, setScheduleSuccess] = useState<{sessions_created: number; sessions: any[]} | null>(null);
+  const [scheduleSuccess, setScheduleSuccess] = useState<{ sessions_created: number; sessions: any[] } | null>(null);
   const [preferences, setPreferences] = useState<any>(null);
-  
+
   // Session history states
   const [pastSessions, setPastSessions] = useState<SessionType[]>([]);
   const [loadingPastSessions, setLoadingPastSessions] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
-  
+
   // Upcoming sessions for this patient
   const [upcomingSessions, setUpcomingSessions] = useState<SessionType[]>([]);
   const [loadingUpcomingSessions, setLoadingUpcomingSessions] = useState(false);
-  
+
   // Schedule modal mode: 'choose' | 'manage' | 'add'
   const [scheduleMode, setScheduleMode] = useState<'choose' | 'manage' | 'add'>('choose');
-  
+
   // Bulk update states
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<'cancel' | 'update_location' | 'update_type' | 'update_duration' | ''>('');
@@ -74,9 +74,9 @@ const PatientDetail = () => {
   // Load patient preferences
   const loadPreferences = async () => {
     if (!patientId) return;
-    
+
     try {
-      const prefs = await therapistService.getPatientSchedulePreferences(patientId);
+      const prefs = await sessionsService.getPatientSchedulePreferences(patientId);
       setPreferences(prefs);
     } catch (err) {
       console.error('Failed to load preferences:', err);
@@ -86,10 +86,10 @@ const PatientDetail = () => {
   // Load upcoming sessions for this patient
   const loadUpcomingSessions = async () => {
     if (!patientId) return;
-    
+
     setLoadingUpcomingSessions(true);
     try {
-      const sessions = await therapistService.getPatientSessions(patientId);
+      const sessions = await sessionsService.getPatientSessions(patientId);
       console.log('Loaded sessions for patient:', sessions);
       // Filter for upcoming sessions only (include UPCOMING, IN_PROGRESS, RESCHEDULED statuses)
       const now = new Date();
@@ -123,8 +123,8 @@ const PatientDetail = () => {
 
   // Toggle session selection for bulk operations
   const toggleSessionSelection = (sessionId: string) => {
-    setSelectedSessions(prev => 
-      prev.includes(sessionId) 
+    setSelectedSessions(prev =>
+      prev.includes(sessionId)
         ? prev.filter(id => id !== sessionId)
         : [...prev, sessionId]
     );
@@ -163,9 +163,9 @@ const PatientDetail = () => {
         payload.new_duration = bulkUpdateData.new_duration;
       }
 
-      const result = await therapistService.bulkUpdateSessions(payload);
+      const result = await sessionsService.bulkUpdateSessions(payload);
       alert(`Success! ${result.updated_sessions} sessions updated.`);
-      
+
       // Reset and reload
       setSelectedSessions([]);
       setBulkAction('');
@@ -187,10 +187,10 @@ const PatientDetail = () => {
   useEffect(() => {
     const loadPastSessions = async () => {
       if (!patientId) return;
-      
+
       setLoadingPastSessions(true);
       try {
-        const sessions = await therapistService.getPastSessions({ patientId, limit: 10 });
+        const sessions = await sessionsService.getPastSessions({ patientId, limit: 10 });
         setPastSessions(sessions);
       } catch (err) {
         console.error('Failed to load past sessions:', err);
@@ -198,7 +198,7 @@ const PatientDetail = () => {
         setLoadingPastSessions(false);
       }
     };
-    
+
     loadPastSessions();
   }, [patientId]);
 
@@ -211,7 +211,7 @@ const PatientDetail = () => {
         const therapyStartDate = new Date(patient.patient_profile.therapy_start_date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // If therapy start date is in the future, use it
         // If it's in the past, use tomorrow
         if (therapyStartDate > today) {
@@ -227,7 +227,7 @@ const PatientDetail = () => {
         tomorrow.setDate(tomorrow.getDate() + 1);
         startDate = tomorrow.toISOString().split('T')[0];
       }
-      
+
       // Pre-fill form with patient preferences
       setRecurringFormData({
         start_date: startDate,
@@ -303,15 +303,15 @@ const PatientDetail = () => {
 
     while (sessionsScheduled < numSessions && iterations < maxIterations) {
       const dayOfWeek = currentDate.getDay();
-      
+
       // Check if current day is a selected day
       if (selectedDayNumbers.includes(dayOfWeek)) {
         // Calculate which week we're in since start
         const daysSinceStart = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const currentWeekNumber = Math.floor(daysSinceStart / 7);
-        
+
         let shouldSchedule = false;
-        
+
         if (frequency === 'weekly') {
           // Every week
           shouldSchedule = true;
@@ -322,7 +322,7 @@ const PatientDetail = () => {
           // Every 4 weeks (weeks 0, 4, 8, 12...)
           shouldSchedule = currentWeekNumber % 4 === 0;
         }
-        
+
         if (shouldSchedule && currentDate >= startDate) {
           sessionsScheduled++;
           if (sessionsScheduled >= numSessions) {
@@ -330,7 +330,7 @@ const PatientDetail = () => {
           }
         }
       }
-      
+
       // Move to next day
       currentDate.setDate(currentDate.getDate() + 1);
       iterations++;
@@ -355,7 +355,7 @@ const PatientDetail = () => {
 
     // Validation
     const errors: Record<string, string> = {};
-    
+
     if (!recurringFormData.start_date) {
       errors.start_date = 'Start date is required';
     } else {
@@ -389,8 +389,8 @@ const PatientDetail = () => {
         errors.general = 'Frequency is required in custom mode';
       }
       if (recurringFormData.override_days.length === 0) {
-        errors.general = errors.general 
-          ? errors.general + '. Preferred days are also required' 
+        errors.general = errors.general
+          ? errors.general + '. Preferred days are also required'
           : 'At least one preferred day is required in custom mode';
       }
     }
@@ -433,10 +433,10 @@ const PatientDetail = () => {
         payload.override_days = recurringFormData.override_days;
       }
 
-      const result = await therapistService.scheduleRecurringSessions(payload);
+      const result = await sessionsService.scheduleRecurringSessions(payload);
       setScheduleSuccess(result);
       setShowRecurringModal(false);
-      
+
       // Update local preferences state with the values used for scheduling
       if (result.schedule_summary) {
         setPreferences((prev: any) => ({
@@ -449,7 +449,7 @@ const PatientDetail = () => {
           upcoming_sessions_count: (prev?.upcoming_sessions_count || 0) + result.sessions_created,
         }));
       }
-      
+
       // Reset form
       setRecurringFormData({
         start_date: '',
@@ -539,7 +539,7 @@ const PatientDetail = () => {
             backgroundSize: '50px 50px'
           }}></div>
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Back Button */}
           <button
@@ -637,7 +637,7 @@ const PatientDetail = () => {
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
                     <p className="text-xs text-white/70 mb-1">Started</p>
                     <p className="font-semibold">
-                      {patient.patient_profile?.therapy_start_date 
+                      {patient.patient_profile?.therapy_start_date
                         ? new Date(patient.patient_profile.therapy_start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                         : 'January 2024'}
                     </p>
@@ -721,7 +721,7 @@ const PatientDetail = () => {
                     </svg>
                   </div>
                   <p className="text-lg font-bold text-blue-700">
-                    {preferences.preferences.preferred_session_days?.length > 0 
+                    {preferences.preferences.preferred_session_days?.length > 0
                       ? preferences.preferences.preferred_session_days.map((d: string) => d.substring(0, 3)).join(', ')
                       : 'Not set'}
                   </p>
@@ -777,22 +777,22 @@ const PatientDetail = () => {
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {patient.patient_profile?.primary_concern && (
-                  <InfoField 
-                    label="Primary Concern" 
-                    value={patient.patient_profile.primary_concern} 
+                  <InfoField
+                    label="Primary Concern"
+                    value={patient.patient_profile.primary_concern}
                     className="md:col-span-2"
                   />
                 )}
                 {patient.patient_profile?.therapy_start_date && (
-                  <InfoField 
-                    label="Therapy Start Date" 
-                    value={formatDate(patient.patient_profile.therapy_start_date)} 
+                  <InfoField
+                    label="Therapy Start Date"
+                    value={formatDate(patient.patient_profile.therapy_start_date)}
                   />
                 )}
                 {patient.patient_profile?.session_frequency && (
-                  <InfoField 
-                    label="Session Frequency" 
-                    value={patient.patient_profile.session_frequency} 
+                  <InfoField
+                    label="Session Frequency"
+                    value={patient.patient_profile.session_frequency}
                   />
                 )}
               </div>
@@ -812,15 +812,15 @@ const PatientDetail = () => {
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {patient.patient_profile?.emergency_contact_name && (
-                  <InfoField 
-                    label="Contact Name" 
-                    value={patient.patient_profile.emergency_contact_name} 
+                  <InfoField
+                    label="Contact Name"
+                    value={patient.patient_profile.emergency_contact_name}
                   />
                 )}
                 {patient.patient_profile?.emergency_contact_phone && (
-                  <InfoField 
-                    label="Contact Phone" 
-                    value={formatPhoneNumber(patient.patient_profile.emergency_contact_phone)} 
+                  <InfoField
+                    label="Contact Phone"
+                    value={formatPhoneNumber(patient.patient_profile.emergency_contact_phone)}
                   />
                 )}
               </div>
@@ -838,25 +838,25 @@ const PatientDetail = () => {
               </h3>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoField 
-                label="Preferred Language" 
-                value={formatPreferredLanguage(patient.patient_profile?.preferred_language)} 
+              <InfoField
+                label="Preferred Language"
+                value={formatPreferredLanguage(patient.patient_profile?.preferred_language)}
               />
               {shouldShowPreferredDays(patient) && (
-                <InfoField 
-                  label="Preferred Session Days" 
-                  value={formatPreferredDays(patient.patient_profile?.preferred_session_days)} 
+                <InfoField
+                  label="Preferred Session Days"
+                  value={formatPreferredDays(patient.patient_profile?.preferred_session_days)}
                   isColumn={true}
                   className="md:col-span-2"
                 />
               )}
-              <InfoField 
-                label="Total Sessions" 
-                value={patient.total_sessions || '0'} 
+              <InfoField
+                label="Total Sessions"
+                value={patient.total_sessions || '0'}
               />
-              <InfoField 
-                label="Member Since" 
-                value={formatDate(patient.created_at)} 
+              <InfoField
+                label="Member Since"
+                value={formatDate(patient.created_at)}
               />
             </div>
           </div>
@@ -950,12 +950,11 @@ const PatientDetail = () => {
                           </p>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <span className={`px-4 py-2 text-xs font-semibold rounded-full ${
-                            session.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' :
+                          <span className={`px-4 py-2 text-xs font-semibold rounded-full ${session.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' :
                             session.status === 'CANCELLED' ? 'bg-red-100 text-red-700 border border-red-200' :
-                            session.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                            'bg-gray-100 text-gray-700 border border-gray-200'
-                          }`}>
+                              session.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                                'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
                             {session.status}
                           </span>
                           <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1018,7 +1017,7 @@ const PatientDetail = () => {
                 </button>
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                {scheduleMode === 'choose' 
+                {scheduleMode === 'choose'
                   ? `Manage sessions for ${patient?.full_name}`
                   : scheduleMode === 'manage'
                     ? `View and manage existing scheduled sessions`
@@ -1044,7 +1043,7 @@ const PatientDetail = () => {
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">Current Status</h3>
                             <p className="text-sm text-gray-600 mt-1">
-                              {upcomingSessions.length > 0 
+                              {upcomingSessions.length > 0
                                 ? `${upcomingSessions.length} upcoming session(s) scheduled`
                                 : 'No upcoming sessions scheduled'
                               }
@@ -1109,22 +1108,21 @@ const PatientDetail = () => {
                             {upcomingSessions.slice(0, 5).map((session) => {
                               const dateStr = session.session_date || (session as any).scheduled_date || (session as any).start_time || '';
                               return (
-                              <div key={session.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-sm">
-                                <span className="text-gray-700">
-                                  {new Date(dateStr).toLocaleDateString('en-US', {
-                                    weekday: 'short', month: 'short', day: 'numeric'
-                                  })}
-                                  {' at '}
-                                  {new Date(dateStr).toLocaleTimeString('en-US', {
-                                    hour: '2-digit', minute: '2-digit'
-                                  })}
-                                </span>
-                                <span className={`px-2 py-0.5 rounded text-xs ${
-                                  session.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {session.status}
-                                </span>
-                              </div>
+                                <div key={session.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-sm">
+                                  <span className="text-gray-700">
+                                    {new Date(dateStr).toLocaleDateString('en-US', {
+                                      weekday: 'short', month: 'short', day: 'numeric'
+                                    })}
+                                    {' at '}
+                                    {new Date(dateStr).toLocaleTimeString('en-US', {
+                                      hour: '2-digit', minute: '2-digit'
+                                    })}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded text-xs ${session.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {session.status}
+                                  </span>
+                                </div>
                               );
                             })}
                             {upcomingSessions.length > 5 && (
@@ -1247,11 +1245,10 @@ const PatientDetail = () => {
                             <button
                               onClick={handleBulkUpdate}
                               disabled={bulkUpdating}
-                              className={`w-full py-2 rounded-lg font-medium text-white transition-colors ${
-                                bulkAction === 'cancel' 
-                                  ? 'bg-red-600 hover:bg-red-700' 
-                                  : 'bg-indigo-600 hover:bg-indigo-700'
-                              } disabled:opacity-50`}
+                              className={`w-full py-2 rounded-lg font-medium text-white transition-colors ${bulkAction === 'cancel'
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-indigo-600 hover:bg-indigo-700'
+                                } disabled:opacity-50`}
                             >
                               {bulkUpdating ? 'Updating...' : `Apply to ${selectedSessions.length} session(s)`}
                             </button>
@@ -1265,53 +1262,51 @@ const PatientDetail = () => {
                           const sessionDate = session.session_date || (session as any).scheduled_date || (session as any).start_time || '';
                           const isSelected = selectedSessions.includes(session.id);
                           return (
-                          <div 
-                            key={session.id} 
-                            className={`flex items-center gap-3 p-4 border rounded-lg transition-all ${
-                              isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white hover:shadow-sm'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSessionSelection(session.id)}
-                              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-gray-900">
-                                {new Date(sessionDate).toLocaleDateString('en-US', {
-                                  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-                                })}
+                            <div
+                              key={session.id}
+                              className={`flex items-center gap-3 p-4 border rounded-lg transition-all ${isSelected ? 'bg-indigo-50 border-indigo-300' : 'bg-white hover:shadow-sm'
+                                }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSessionSelection(session.id)}
+                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">
+                                  {new Date(sessionDate).toLocaleDateString('en-US', {
+                                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+                                  })}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {new Date(sessionDate).toLocaleTimeString('en-US', {
+                                    hour: '2-digit', minute: '2-digit'
+                                  })}
+                                  {' • '}{session.duration_minutes || 60} min
+                                  {' • '}{session.session_type}
+                                  {session.location && ` • ${session.location}`}
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {new Date(sessionDate).toLocaleTimeString('en-US', {
-                                  hour: '2-digit', minute: '2-digit'
-                                })}
-                                {' • '}{session.duration_minutes || 60} min
-                                {' • '}{session.session_type}
-                                {session.location && ` • ${session.location}`}
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${session.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700'
+                                  : session.status === 'RESCHEDULED' ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  {session.status}
+                                </span>
+                                <Link
+                                  to={`/sessions/${session.id}`}
+                                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                                  title="View/Edit Session"
+                                  onClick={() => setShowRecurringModal(false)}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </Link>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                session.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700' 
-                                : session.status === 'RESCHEDULED' ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {session.status}
-                              </span>
-                              <Link
-                                to={`/sessions/${session.id}`}
-                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                                title="View/Edit Session"
-                                onClick={() => setShowRecurringModal(false)}
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                              </Link>
-                            </div>
-                          </div>
                           );
                         })}
                       </div>
@@ -1331,329 +1326,323 @@ const PatientDetail = () => {
               {/* Add Mode - Original scheduling form */}
               {scheduleMode === 'add' && (
                 <>
-              {/* Use Patient Preferences Toggle */}
-              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <label className="flex items-center cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          checked={usePatientPreferences}
-                          onChange={(e) => setUsePatientPreferences(e.target.checked)}
-                          className="sr-only"
-                        />
-                        <div className={`block w-14 h-8 rounded-full transition ${
-                          usePatientPreferences ? 'bg-indigo-600' : 'bg-gray-300'
-                        }`}></div>
-                        <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${
-                          usePatientPreferences ? 'transform translate-x-6' : ''
-                        }`}></div>
+                  {/* Use Patient Preferences Toggle */}
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <label className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={usePatientPreferences}
+                              onChange={(e) => setUsePatientPreferences(e.target.checked)}
+                              className="sr-only"
+                            />
+                            <div className={`block w-14 h-8 rounded-full transition ${usePatientPreferences ? 'bg-indigo-600' : 'bg-gray-300'
+                              }`}></div>
+                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${usePatientPreferences ? 'transform translate-x-6' : ''
+                              }`}></div>
+                          </div>
+                          <div className="ml-3">
+                            <span className="text-sm font-semibold text-gray-900">Use Patient Preferences</span>
+                            <p className="text-xs text-gray-600 mt-1">
+                              {usePatientPreferences
+                                ? '✓ Form pre-filled with patient\'s default preferences'
+                                : 'Custom mode - manually configure all parameters'
+                              }
+                            </p>
+                          </div>
+                        </label>
                       </div>
-                      <div className="ml-3">
-                        <span className="text-sm font-semibold text-gray-900">Use Patient Preferences</span>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {usePatientPreferences 
-                            ? '✓ Form pre-filled with patient\'s default preferences' 
-                            : 'Custom mode - manually configure all parameters'
-                          }
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                  {usePatientPreferences && preferences && (
-                    <div className="ml-4 text-xs text-indigo-700 bg-indigo-100 px-3 py-2 rounded-lg">
-                      <div className="font-medium">Defaults:</div>
-                      <div>{preferences.preferences?.session_frequency || 'No frequency'}</div>
-                      <div>{preferences.preferences?.preferred_session_days?.map((d: string) => d.substring(0, 3)).join(', ') || 'No days set'}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {recurringErrors.general && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                  {recurringErrors.general}
-                </div>
-              )}
-
-              {/* Show what's being used for calculation in Patient Preferences mode */}
-              {usePatientPreferences && preferences && recurringFormData.number_of_sessions && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex items-start">
-                    <svg className="w-4 h-4 text-green-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-xs text-green-800">
-                      <div className="font-medium mb-1">Using patient's preferences for calculation:</div>
-                      <div>• Frequency: {preferences.preferences?.session_frequency || 'Not set'}</div>
-                      <div>• Days: {preferences.preferences?.preferred_session_days?.map((d: string) => d.substring(0, 3)).join(', ') || 'Not set'}</div>
-                      <div>• Sessions: {recurringFormData.number_of_sessions}</div>
+                      {usePatientPreferences && preferences && (
+                        <div className="ml-4 text-xs text-indigo-700 bg-indigo-100 px-3 py-2 rounded-lg">
+                          <div className="font-medium">Defaults:</div>
+                          <div>{preferences.preferences?.session_frequency || 'No frequency'}</div>
+                          <div>{preferences.preferences?.preferred_session_days?.map((d: string) => d.substring(0, 3)).join(', ') || 'No days set'}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Date Range */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date * <span className="text-gray-500 text-xs font-normal">(must be future)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={recurringFormData.start_date}
-                    onChange={(e) => {
-                      setRecurringFormData(prev => ({ ...prev, start_date: e.target.value }));
-                      setRecurringErrors(prev => ({ ...prev, start_date: '' }));
-                    }}
-                    min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
-                      recurringErrors.start_date ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {recurringErrors.start_date && (
-                    <p className="text-red-500 text-sm mt-1">{recurringErrors.start_date}</p>
+                  {recurringErrors.general && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                      {recurringErrors.general}
+                    </div>
                   )}
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Date <span className="text-gray-500 text-xs font-normal">(auto-calculated, editable)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={recurringFormData.end_date}
-                    onChange={(e) => {
-                      setRecurringFormData(prev => ({ ...prev, end_date: e.target.value }));
-                      setRecurringErrors(prev => ({ ...prev, end_date: '', general: '' }));
-                    }}
-                    min={recurringFormData.start_date || new Date().toISOString().split('T')[0]}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
-                      recurringErrors.end_date ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Calculated from sessions"
-                  />
-                  {recurringFormData.end_date && recurringFormData.number_of_sessions && (
-                    <p className="text-green-600 text-xs mt-1">
-                      ✓ Estimated for {recurringFormData.number_of_sessions} sessions (you can adjust)
-                    </p>
+                  {/* Show what's being used for calculation in Patient Preferences mode */}
+                  {usePatientPreferences && preferences && recurringFormData.number_of_sessions && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-start">
+                        <svg className="w-4 h-4 text-green-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="text-xs text-green-800">
+                          <div className="font-medium mb-1">Using patient's preferences for calculation:</div>
+                          <div>• Frequency: {preferences.preferences?.session_frequency || 'Not set'}</div>
+                          <div>• Days: {preferences.preferences?.preferred_session_days?.map((d: string) => d.substring(0, 3)).join(', ') || 'Not set'}</div>
+                          <div>• Sessions: {recurringFormData.number_of_sessions}</div>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  {recurringErrors.end_date && (
-                    <p className="text-red-500 text-sm mt-1">{recurringErrors.end_date}</p>
-                  )}
-                </div>
-              </div>
 
-              {/* Number of Sessions */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Sessions <span className="text-gray-500 text-xs font-normal">(alternative to end date, max 52)</span>
-                </label>
-                <input
-                  type="number"
-                  value={recurringFormData.number_of_sessions}
-                  onChange={(e) => {
-                    setRecurringFormData(prev => ({ ...prev, number_of_sessions: e.target.value }));
-                    setRecurringErrors(prev => ({ ...prev, general: '' }));
-                  }}
-                  min="1"
-                  max="52"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  placeholder="e.g., 10"
-                />
-              </div>
-
-              {/* Session Time and Duration */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Time *
-                  </label>
-                  <input
-                    type="time"
-                    value={recurringFormData.session_time}
-                    onChange={(e) => {
-                      setRecurringFormData(prev => ({ ...prev, session_time: e.target.value }));
-                      setRecurringErrors(prev => ({ ...prev, session_time: '' }));
-                    }}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
-                      recurringErrors.session_time ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {recurringErrors.session_time && (
-                    <p className="text-red-500 text-sm mt-1">{recurringErrors.session_time}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    value={recurringFormData.duration_minutes}
-                    onChange={(e) => setRecurringFormData(prev => ({ ...prev, duration_minutes: e.target.value }))}
-                    min="15"
-                    max="480"
-                    step="15"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              {/* Session Type and Location */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Type
-                  </label>
-                  <select
-                    value={recurringFormData.session_type}
-                    onChange={(e) => setRecurringFormData(prev => ({ ...prev, session_type: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="group">Group</option>
-                    <option value="family">Family</option>
-                    <option value="couples">Couples</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={recurringFormData.location}
-                    onChange={(e) => setRecurringFormData(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="e.g., home, office, clinic"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              {/* Online and Fee */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={recurringFormData.is_online}
-                    onChange={(e) => setRecurringFormData(prev => ({ ...prev, is_online: e.target.checked }))}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 text-sm text-gray-700">
-                    Online Session
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fee Charged (optional)
-                  </label>
-                  <input
-                    type="number"
-                    value={recurringFormData.fee_charged}
-                    onChange={(e) => setRecurringFormData(prev => ({ ...prev, fee_charged: e.target.value }))}
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 100.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              {/* Scheduling Parameters - Only show in Custom Mode */}
-              {!usePatientPreferences && (
-              <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
-                <div className="flex items-start mb-4">
-                  <svg className="w-5 h-5 text-purple-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <div>
-                    <h3 className="text-sm font-semibold text-purple-900">Custom Scheduling Parameters</h3>
-                    <p className="text-xs text-purple-700 mt-1">
-                      Specify frequency and days for this scheduling batch
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Frequency *
-                    </label>
-                    <select
-                      value={recurringFormData.override_frequency}
-                      onChange={(e) => setRecurringFormData(prev => ({ ...prev, override_frequency: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white"
-                    >
-                      <option value="">Select frequency...</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Bi-weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preferred Days *
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => {
-                            setRecurringFormData(prev => ({
-                              ...prev,
-                              override_days: prev.override_days.includes(day)
-                                ? prev.override_days.filter(d => d !== day)
-                                : [...prev.override_days, day]
-                            }));
-                          }}
-                          className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                            recurringFormData.override_days.includes(day)
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  {/* Date Range */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Start Date * <span className="text-gray-500 text-xs font-normal">(must be future)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={recurringFormData.start_date}
+                        onChange={(e) => {
+                          setRecurringFormData(prev => ({ ...prev, start_date: e.target.value }));
+                          setRecurringErrors(prev => ({ ...prev, start_date: '' }));
+                        }}
+                        min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${recurringErrors.start_date ? 'border-red-500' : 'border-gray-300'
                           }`}
-                        >
-                          {day.substring(0, 3)}
-                        </button>
-                      ))}
+                      />
+                      {recurringErrors.start_date && (
+                        <p className="text-red-500 text-sm mt-1">{recurringErrors.start_date}</p>
+                      )}
                     </div>
-                    {recurringFormData.override_days.length === 0 && (
-                      <p className="text-xs text-amber-600 mt-2">
-                        ⚠ Please select at least one day
-                      </p>
-                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        End Date <span className="text-gray-500 text-xs font-normal">(auto-calculated, editable)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={recurringFormData.end_date}
+                        onChange={(e) => {
+                          setRecurringFormData(prev => ({ ...prev, end_date: e.target.value }));
+                          setRecurringErrors(prev => ({ ...prev, end_date: '', general: '' }));
+                        }}
+                        min={recurringFormData.start_date || new Date().toISOString().split('T')[0]}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${recurringErrors.end_date ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        placeholder="Calculated from sessions"
+                      />
+                      {recurringFormData.end_date && recurringFormData.number_of_sessions && (
+                        <p className="text-green-600 text-xs mt-1">
+                          ✓ Estimated for {recurringFormData.number_of_sessions} sessions (you can adjust)
+                        </p>
+                      )}
+                      {recurringErrors.end_date && (
+                        <p className="text-red-500 text-sm mt-1">{recurringErrors.end_date}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-              )}
-              </>
+
+                  {/* Number of Sessions */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Sessions <span className="text-gray-500 text-xs font-normal">(alternative to end date, max 52)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={recurringFormData.number_of_sessions}
+                      onChange={(e) => {
+                        setRecurringFormData(prev => ({ ...prev, number_of_sessions: e.target.value }));
+                        setRecurringErrors(prev => ({ ...prev, general: '' }));
+                      }}
+                      min="1"
+                      max="52"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g., 10"
+                    />
+                  </div>
+
+                  {/* Session Time and Duration */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Session Time *
+                      </label>
+                      <input
+                        type="time"
+                        value={recurringFormData.session_time}
+                        onChange={(e) => {
+                          setRecurringFormData(prev => ({ ...prev, session_time: e.target.value }));
+                          setRecurringErrors(prev => ({ ...prev, session_time: '' }));
+                        }}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${recurringErrors.session_time ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                      />
+                      {recurringErrors.session_time && (
+                        <p className="text-red-500 text-sm mt-1">{recurringErrors.session_time}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Duration (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        value={recurringFormData.duration_minutes}
+                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, duration_minutes: e.target.value }))}
+                        min="15"
+                        max="480"
+                        step="15"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Session Type and Location */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Session Type
+                      </label>
+                      <select
+                        value={recurringFormData.session_type}
+                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, session_type: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="individual">Individual</option>
+                        <option value="group">Group</option>
+                        <option value="family">Family</option>
+                        <option value="couples">Couples</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={recurringFormData.location}
+                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, location: e.target.value }))}
+                        placeholder="e.g., home, office, clinic"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Online and Fee */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={recurringFormData.is_online}
+                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, is_online: e.target.checked }))}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">
+                        Online Session
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Fee Charged (optional)
+                      </label>
+                      <input
+                        type="number"
+                        value={recurringFormData.fee_charged}
+                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, fee_charged: e.target.value }))}
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g., 100.00"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Scheduling Parameters - Only show in Custom Mode */}
+                  {!usePatientPreferences && (
+                    <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+                      <div className="flex items-start mb-4">
+                        <svg className="w-5 h-5 text-purple-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <div>
+                          <h3 className="text-sm font-semibold text-purple-900">Custom Scheduling Parameters</h3>
+                          <p className="text-xs text-purple-700 mt-1">
+                            Specify frequency and days for this scheduling batch
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Frequency *
+                          </label>
+                          <select
+                            value={recurringFormData.override_frequency}
+                            onChange={(e) => setRecurringFormData(prev => ({ ...prev, override_frequency: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white"
+                          >
+                            <option value="">Select frequency...</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="biweekly">Bi-weekly</option>
+                            <option value="monthly">Monthly</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Preferred Days *
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  setRecurringFormData(prev => ({
+                                    ...prev,
+                                    override_days: prev.override_days.includes(day)
+                                      ? prev.override_days.filter(d => d !== day)
+                                      : [...prev.override_days, day]
+                                  }));
+                                }}
+                                className={`px-3 py-1 rounded-full text-sm transition-colors ${recurringFormData.override_days.includes(day)
+                                  ? 'bpurple-600 text-white'
+                                  : 'bgray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                {day.substring(0, 3)}
+                              </button>
+                            ))}
+                          </div>
+                          {recurringFormData.override_days.length === 0 && (
+                            <p className="text-xs text-amber-600 mt-2">
+                              ⚠ Please select at least one day
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Modal Footer - Only show in add mode */}
             {scheduleMode === 'add' && (
-            <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end space-x-3">
-              <button
-                onClick={() => setScheduleMode('choose')}
-                disabled={recurringScheduling}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleRecurringSchedule}
-                disabled={recurringScheduling}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-              >
-                {recurringScheduling ? 'Scheduling...' : 'Schedule Sessions'}
-              </button>
-            </div>
+              <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end space-x-3">
+                <button
+                  onClick={() => setScheduleMode('choose')}
+                  disabled={recurringScheduling}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleRecurringSchedule}
+                  disabled={recurringScheduling}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                >
+                  {recurringScheduling ? 'Scheduling...' : 'Schedule Sessions'}
+                </button>
+              </div>
             )}
           </div>
         </div>

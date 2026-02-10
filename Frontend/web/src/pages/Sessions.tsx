@@ -1,13 +1,13 @@
 // src/pages/Sessions.tsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTherapistSessions } from '../hooks/useTherapist';
-import therapistService from '../services/therapist.service';
-import type { SessionFilter } from '../types/therapist';
+import { useSessions } from '../hooks/useSessions';
+import sessionsService from '../services/sessions.service';
+import type { SessionFilter } from '../types/session';
 
 const Sessions = () => {
   const [activeFilter, setActiveFilter] = useState<SessionFilter>({});
-  const { sessions, loading, error, updateFilter, clearError } = useTherapistSessions(activeFilter);
+  const { sessions, loading, error, updateFilter, clearError } = useSessions(activeFilter);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<'cancel' | 'reschedule' | 'update' | ''>('');
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -65,7 +65,7 @@ const Sessions = () => {
     try {
       // For 'update' action, determine the specific backend action based on filled fields
       let actualAction: string = bulkAction;
-      
+
       if (bulkAction === 'update') {
         // Priority: location > type > duration (if multiple fields filled, use first one)
         if (newLocation) {
@@ -99,21 +99,21 @@ const Sessions = () => {
         if (newSessionType) data.new_session_type = newSessionType;
       }
 
-      const result = await therapistService.bulkUpdateSessions(data);
-      
+      const result = await sessionsService.bulkUpdateSessions(data);
+
       // Workaround: After rescheduling, update status back to UPCOMING
       // Backend sets status to RESCHEDULED which hides sessions from upcoming list
       if (bulkAction === 'reschedule' && result.updated_sessions > 0) {
         console.log('Updating rescheduled sessions status back to UPCOMING...');
         for (const sessionId of selectedSessions) {
           try {
-            await therapistService.updateSession(sessionId, { status: 'UPCOMING' });
+            await sessionsService.updateSession(sessionId, { status: 'UPCOMING' });
           } catch (err) {
             console.warn(`Failed to update status for session ${sessionId}:`, err);
           }
         }
       }
-      
+
       setBulkResult(result);
       setSelectedSessions([]);
       setBulkReason('');
@@ -121,10 +121,10 @@ const Sessions = () => {
       setNewLocation('');
       setNewDuration('');
       setNewSessionType('');
-      
+
       // Refresh sessions list
       updateFilter(activeFilter);
-      
+
       setTimeout(() => {
         setShowBulkModal(false);
         setBulkResult(null);
@@ -168,14 +168,14 @@ const Sessions = () => {
         <div className="absolute inset-0 backdrop-blur-[2px]">
           <div className="absolute inset-0 bg-[url('/images/heroo.png')] bg-cover bg-center opacity-20"></div>
         </div>
-        
+
         {/* Header Content */}
         <div className="relative h-full flex items-center justify-between px-8">
           <div className="text-white">
             <h1 className="text-4xl font-bold mb-2 drop-shadow-lg">Therapy Sessions</h1>
             <p className="text-lg text-purple-100 drop-shadow-md">Manage and organize all your therapy appointments</p>
           </div>
-          
+
           {/* Action Buttons on Header */}
           <div className="flex space-x-3">
             {selectedSessions.length > 0 ? (
@@ -234,7 +234,7 @@ const Sessions = () => {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p>Error loading sessions: {error.message}</p>
-          <button 
+          <button
             onClick={clearError}
             className="mt-2 text-sm underline hover:no-underline"
           >
@@ -269,9 +269,9 @@ const Sessions = () => {
               id="status"
               className="form-input"
               value={activeFilter.status || ''}
-              onChange={(e) => handleFilterChange({ 
-                ...activeFilter, 
-                status: e.target.value ? e.target.value as any : undefined 
+              onChange={(e) => handleFilterChange({
+                ...activeFilter,
+                status: e.target.value ? e.target.value as any : undefined
               })}
             >
               <option value="">All Statuses</option>
@@ -376,7 +376,7 @@ const Sessions = () => {
             </div>
           )}
         </div>
-        
+
         <div className="space-y-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -402,7 +402,7 @@ const Sessions = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
-                        
+
                         <div>
                           <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-700 transition-colors">
                             {session.patient_name || (session as any).patient?.full_name || 'Unknown Patient'}
@@ -440,7 +440,7 @@ const Sessions = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <span className={`px-4 py-1.5 text-xs font-bold rounded-full shadow-sm ${getStatusColor(session.status)}`}>
                       {session.status}
@@ -469,7 +469,7 @@ const Sessions = () => {
                 No sessions found
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                {Object.keys(activeFilter).length > 0 
+                {Object.keys(activeFilter).length > 0
                   ? 'Try adjusting your filters or create a new session.'
                   : 'Get started by creating your first therapy session.'
                 }
@@ -508,7 +508,7 @@ const Sessions = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               {bulkAction === 'cancel' ? 'Cancel Sessions' : bulkAction === 'reschedule' ? 'Reschedule Sessions' : 'Update Sessions'}
             </h3>
-            
+
             {bulkResult ? (
               <div className={`p-4 rounded-lg ${bulkResult.error ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
                 {bulkResult.error ? (
@@ -625,17 +625,16 @@ const Sessions = () => {
                   <button
                     onClick={executeBulkAction}
                     disabled={
-                      bulkLoading || 
-                      (bulkAction === 'reschedule' && !newDate) || 
+                      bulkLoading ||
+                      (bulkAction === 'reschedule' && !newDate) ||
                       (bulkAction === 'update' && !newLocation && !newDuration && !newSessionType)
                     }
-                    className={`px-4 py-2 text-white rounded-lg ${
-                      bulkAction === 'cancel' 
-                        ? 'bg-red-600 hover:bg-red-700' 
-                        : bulkAction === 'reschedule'
+                    className={`px-4 py-2 text-white rounded-lg ${bulkAction === 'cancel'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : bulkAction === 'reschedule'
                         ? 'bg-yellow-600 hover:bg-yellow-700'
                         : 'bg-blue-600 hover:bg-blue-700'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {bulkLoading ? 'Processing...' : `Confirm ${bulkAction === 'cancel' ? 'Cancellation' : bulkAction === 'reschedule' ? 'Reschedule' : 'Update'}`}
                   </button>

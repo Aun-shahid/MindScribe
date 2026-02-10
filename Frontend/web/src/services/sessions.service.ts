@@ -9,6 +9,13 @@ import type {
   EndSessionResponse,
   SessionInsight,
   SessionSummaryUpdate,
+  SessionType,
+  SessionDetail,
+  SessionFilter,
+  SessionFormData,
+  CalendarSession,
+  SessionNotes,
+  SessionUpdate,
 } from '../types/session';
 import type { TherapistError } from '../types/therapist';
 
@@ -142,6 +149,225 @@ class SessionsService {
   ): Promise<void> {
     try {
       await api.put(`/therapy_sessions/sessions/${sessionId}/summary/`, data);
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get sessions with optional filtering
+   */
+  async getSessions(filter: SessionFilter = {}): Promise<SessionType[]> {
+    try {
+      let endpoint = '/therapy_sessions/sessions/';
+      const params = new URLSearchParams();
+
+      if (filter.date) params.append('date', filter.date);
+      if (filter.status && filter.status !== 'ALL') params.append('status', filter.status);
+      if (filter.patient_id) params.append('patient_id', filter.patient_id);
+      if (filter.session_type) params.append('session_type', filter.session_type);
+
+      const queryString = params.toString();
+      if (queryString) {
+        endpoint += `?${queryString}&limit=50`;
+      } else {
+        endpoint += '?limit=50';
+      }
+
+      const response = await api.get(endpoint);
+      let sessionsData = [];
+      if (response.data) {
+        if (Array.isArray(response.data.sessions)) {
+          sessionsData = response.data.sessions;
+        } else if (Array.isArray(response.data)) {
+          sessionsData = response.data;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          sessionsData = response.data.results;
+        }
+      }
+      return sessionsData;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get detailed session info
+   */
+  async getSessionDetail(sessionId: string): Promise<SessionDetail> {
+    try {
+      const response = await api.get<SessionDetail>(`/therapy_sessions/sessions/${sessionId}/`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Schedule/Create a new session
+   */
+  async createSession(sessionData: SessionFormData): Promise<SessionType> {
+    try {
+      const response = await api.post<SessionType>('/therapy_sessions/schedule/', sessionData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update an existing session
+   */
+  async updateSession(sessionId: string, updateData: SessionUpdate): Promise<SessionType> {
+    try {
+      const response = await api.patch<SessionType>(`/therapy_sessions/sessions/${sessionId}/`, updateData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Delete a session
+   */
+  async deleteSession(sessionId: string): Promise<void> {
+    try {
+      await api.delete(`/therapy_sessions/sessions/${sessionId}/`);
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Bulk update sessions (cancel, reschedule, etc.)
+   */
+  async bulkUpdateSessions(data: any): Promise<any> {
+    try {
+      const response = await api.post('/therapy_sessions/sessions/bulk_update/', data);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get session statistics
+   */
+  async getSessionStats(days: number = 30): Promise<any> {
+    try {
+      const response = await api.get(`/therapy_sessions/sessions/stats/?days=${days}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Auto-schedule sessions for a patient
+   */
+  async autoSchedulePatientSessions(patientId: string): Promise<any> {
+    try {
+      const response = await api.post(`/therapy_sessions/patients/${patientId}/auto_schedule/`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get patient's scheduling preferences
+   */
+  async getPatientSchedulePreferences(patientId: string): Promise<any> {
+    try {
+      const response = await api.get(`/therapy_sessions/patients/${patientId}/schedule_preferences/`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get sessions for a specific patient
+   */
+  async getPatientSessions(patientId: string, options: any = {}): Promise<any> {
+    try {
+      let endpoint = `/therapy_sessions/patients/${patientId}/sessions/`;
+      const params = new URLSearchParams();
+      if (options.status) params.append('status', options.status);
+      if (options.limit) params.append('limit', options.limit.toString());
+
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
+
+      const response = await api.get(endpoint);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get past sessions
+   */
+  async getPastSessions(options: { patientId?: string; limit?: number } = {}): Promise<any> {
+    try {
+      let endpoint = '/therapy_sessions/sessions/past/';
+      const params = new URLSearchParams();
+      if (options.patientId) params.append('patient_id', options.patientId);
+      if (options.limit) params.append('limit', options.limit.toString());
+
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
+
+      const response = await api.get(endpoint);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Schedule recurring sessions for a patient
+   */
+  async scheduleRecurringSessions(data: any): Promise<any> {
+    try {
+      const response = await api.post('/therapy_sessions/sessions/schedule_recurring/', data);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update session notes (private to therapist)
+   */
+  async updateSessionNotes(sessionId: string, notesData: SessionNotes): Promise<void> {
+    try {
+      await api.patch(`/therapy_sessions/sessions/${sessionId}/notes/`, notesData);
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get sessions for a calendar view
+   */
+  async getCalendarSessions(date: string): Promise<CalendarSession[]> {
+    try {
+      const response = await api.get(`/therapy_sessions/sessions/?date=${date}&limit=50`);
+      let sessionsData: CalendarSession[] = [];
+      if (response.data && Array.isArray(response.data.sessions)) {
+        sessionsData = response.data.sessions.map((s: SessionType) => ({
+          id: s.id,
+          patient_name: s.patient_name || 'Unknown',
+          session_date: s.session_date || 'Unknown',
+          status: s.status || 'UNKNOWN',
+          session_type: s.session_type || 'General',
+          location: s.location || 'Unknown',
+          duration_minutes: s.duration_minutes || 0,
+        }));
+      }
+      return sessionsData;
     } catch (error) {
       throw this.handleError(error);
     }

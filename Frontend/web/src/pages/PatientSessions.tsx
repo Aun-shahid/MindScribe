@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Calendar, Clock, MapPin, Video, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import therapistService from '../services/therapist.service';
-import type { SessionType } from '../types/therapist';
+import sessionsService from '../services/sessions.service';
+import type { SessionType } from '../types/session';
 
 const PatientSessions = () => {
   const { patientId } = useParams<{ patientId: string }>();
@@ -24,24 +24,24 @@ const PatientSessions = () => {
 
   const fetchPatientSessions = async () => {
     if (!patientId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await therapistService.getPatientSessions(patientId, {
+
+      const response = await sessionsService.getPatientSessions(patientId, {
         include_past: includePast,
         include_upcoming: includeUpcoming,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
       });
-      
+
       console.log('[PatientSessions] API Response:', response);
       console.log('[PatientSessions] Response type:', typeof response);
       console.log('[PatientSessions] Is array:', Array.isArray(response));
-      
+
       // Ensure response is an array
       let sessionsArray = Array.isArray(response) ? response : [];
-      
+
       // Remove duplicates based on session ID
       const uniqueSessions = sessionsArray.reduce((acc: SessionType[], current: SessionType) => {
         const exists = acc.find(session => session.id === current.id);
@@ -50,11 +50,11 @@ const PatientSessions = () => {
         }
         return acc;
       }, []);
-      
+
       console.log('[PatientSessions] Total sessions:', sessionsArray.length);
       console.log('[PatientSessions] Unique sessions:', uniqueSessions.length);
       setSessions(uniqueSessions);
-      
+
       // Get patient name from first session
       if (sessionsArray.length > 0 && sessionsArray[0].patient_name) {
         setPatientName(sessionsArray[0].patient_name);
@@ -92,11 +92,11 @@ const PatientSessions = () => {
     if (!dateString) return 'Date not set';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -104,9 +104,9 @@ const PatientSessions = () => {
     if (!dateString) return 'Time not set';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Invalid time';
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -126,7 +126,7 @@ const PatientSessions = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={() => navigate('/patients')}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
           >
@@ -255,7 +255,7 @@ const PatientSessions = () => {
 
                         <div className="flex items-center">
                           <Clock size={16} className="mr-2 text-gray-400" />
-                          {formatTime(session.session_date || (session as any).scheduled_date || (session as any).start_time)} 
+                          {formatTime(session.session_date || (session as any).scheduled_date || (session as any).start_time)}
                           {session.duration_minutes && ` (${session.duration_minutes} min)`}
                         </div>
 

@@ -1,11 +1,11 @@
 // src/pages/SessionCalendar.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  ChevronLeft, 
-  MapPin, 
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  ChevronLeft,
+  MapPin,
   Timer,
   RefreshCw,
   CalendarDays,
@@ -16,8 +16,8 @@ import {
   User,
   AlertCircle
 } from 'lucide-react';
-import { useSessionCalendar } from '../hooks/useTherapist';
-import type { CalendarSession } from '../types/therapist';
+import { useSessionCalendar } from '../hooks/useSessions';
+import type { CalendarSession } from '../types/session';
 
 // Enhanced Calendar Component
 const EnhancedCalendar: React.FC<{
@@ -25,17 +25,17 @@ const EnhancedCalendar: React.FC<{
   onDayPress: (date: string) => void;
 }> = ({ selectedDate, onDayPress }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  
+
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  
+
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
-  
+
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
@@ -47,24 +47,24 @@ const EnhancedCalendar: React.FC<{
       return newDate;
     });
   };
-  
+
   const getDayString = (day: number) => {
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
     return `${year}-${month}-${dayStr}`;
   };
-  
+
   const isSelectedDate = (day: number) => {
     return getDayString(day) === selectedDate;
   };
-  
+
   const isToday = (day: number) => {
     const today = new Date();
     const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     return dayDate.toDateString() === today.toDateString();
   };
-  
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Calendar Header */}
@@ -76,11 +76,11 @@ const EnhancedCalendar: React.FC<{
           >
             <ChevronLeft size={20} className="text-white" />
           </button>
-          
+
           <h3 className="text-lg font-semibold text-white">
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </h3>
-          
+
           <button
             onClick={() => navigateMonth('next')}
             className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -89,7 +89,7 @@ const EnhancedCalendar: React.FC<{
           </button>
         </div>
       </div>
-      
+
       <div className="p-4">
         {/* Days of Week */}
         <div className="grid grid-cols-7 gap-1 mb-3">
@@ -99,32 +99,31 @@ const EnhancedCalendar: React.FC<{
             </div>
           ))}
         </div>
-        
+
         {/* Calendar Days */}
         <div className="grid grid-cols-7 gap-1">
           {/* Empty cells for days before month starts */}
           {Array.from({ length: firstDayOfMonth }, (_, i) => (
             <div key={`empty-${i}`} className="h-10"></div>
           ))}
-          
+
           {/* Month days */}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             const dayString = getDayString(day);
             const selected = isSelectedDate(day);
             const today = isToday(day);
-            
+
             return (
               <button
                 key={day}
                 onClick={() => onDayPress(dayString)}
-                className={`h-10 w-10 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${
-                  selected
+                className={`h-10 w-10 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${selected
                     ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-300'
                     : today
-                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 ring-1 ring-purple-300'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                      ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 ring-1 ring-purple-300'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 {day}
               </button>
@@ -142,9 +141,9 @@ const SessionCalendar: React.FC = () => {
     new Date().toISOString().slice(0, 10)
   );
 
-  const { 
-    sessions: allSessions, 
-    loading, 
+  const {
+    sessions: allSessions,
+    loading,
     error,
     fetchCalendarSessions
   } = useSessionCalendar();
@@ -152,7 +151,7 @@ const SessionCalendar: React.FC = () => {
   // Filter sessions for the selected date
   const sessionsForDate = useMemo(() => {
     if (!allSessions) return [];
-    
+
     return allSessions.filter(session => {
       const sessionDate = session.session_date?.split('T')[0];
       return sessionDate === selectedDate;
@@ -207,10 +206,10 @@ const SessionCalendar: React.FC = () => {
   const formatTime = (sessionDate: string) => {
     try {
       const date = new Date(sessionDate);
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
-        hour12: true 
+        hour12: true
       });
     } catch {
       return 'Time not set';
@@ -220,9 +219,9 @@ const SessionCalendar: React.FC = () => {
   const formatSelectedDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-US', {
         weekday: 'long',
-        month: 'long', 
+        month: 'long',
         day: 'numeric',
         year: 'numeric'
       });
@@ -364,7 +363,7 @@ const SessionCalendar: React.FC = () => {
                             {session.patient_name}
                           </h3>
                         </div>
-                        
+
                         <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusStyle(session.status)}`}>
                           {getStatusIcon(session.status)}
                           {session.status.toLowerCase().replace('_', ' ')}
@@ -377,12 +376,12 @@ const SessionCalendar: React.FC = () => {
                           <User size={16} className="text-gray-400 mr-2" />
                           <span className="text-sm text-gray-600">{session.session_type}</span>
                         </div>
-                        
+
                         <div className="flex items-center">
                           <MapPin size={16} className="text-gray-400 mr-2" />
                           <span className="text-sm text-gray-600">{session.location}</span>
                         </div>
-                        
+
                         <div className="flex items-center">
                           <Timer size={16} className="text-gray-400 mr-2" />
                           <span className="text-sm text-gray-600">{session.duration_minutes} minutes</span>

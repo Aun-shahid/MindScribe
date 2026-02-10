@@ -1,24 +1,24 @@
 // src/pages/ActiveSession.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  Mic, 
-  Play, 
-  Square, 
-  User, 
+import {
+  ChevronLeft,
+  Mic,
+  Play,
+  Square,
+  User,
   Clock,
   Activity,
   FileText,
   StopCircle
 } from 'lucide-react';
-import { useSessionDetail } from '../hooks/useTherapist';
+import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useLiveSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   // Session state
   const [isRecording, setIsRecording] = useState(false);
   const [sessionDuration, setSessionDuration] = useState('00:00');
@@ -33,7 +33,7 @@ const ActiveSession: React.FC = () => {
   const { analysis } = useSessionAnalysis(sessionStarted ? id! : '');
   // Note: transcription from analysis endpoint is loaded after session completes
   // We use AI Service WebSocket for live transcription instead
-  
+
   // Django WebSocket connection for session control (start/stop/pause)
   const {
     connected: wsConnected,
@@ -66,11 +66,11 @@ const ActiveSession: React.FC = () => {
   // Use live transcription from AI Service WebSocket if available
   const transcript = aiTranscriptionSegments.length > 0
     ? aiTranscriptionSegments.map((seg) => ({
-        speaker: seg.speaker,
-        text: seg.text,
-        time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
-        emotion: seg.emotion,
-      }))
+      speaker: seg.speaker,
+      text: seg.text,
+      time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
+      emotion: seg.emotion,
+    }))
     : [];
 
   // Use analysis data if available
@@ -94,35 +94,35 @@ const ActiveSession: React.FC = () => {
   useEffect(() => {
     const handleStartSession = async () => {
       if (!id || sessionStarted || startingSession) return;
-      
+
       // Don't try to start if session is already completed
       if (session?.status === 'COMPLETED') {
         return;
       }
-      
+
       console.log('🚀 Starting session:', id);
       const result = await startSession(id);
-      
+
       if (result) {
         console.log('✅ Session started successfully');
         console.log('   AI Service Token:', result.ai_service_token ? 'Received' : 'Not provided');
         console.log('   AI Service URL:', result.ai_service_url || 'Using config default');
         console.log('   WebSocket Room:', result.session.websocket_room_id);
         setSessionStarted(true);
-        
+
         // Store WebSocket room ID and AI service token
-        setWebsocketRoomId(result.session.websocket_room_id);
+        setWebsocketRoomId(result.session.websocket_room_id || null);
         if (result.ai_service_token) {
           setAiServiceToken(result.ai_service_token);
           console.log('💾 Stored AI Service token');
         }
-        
+
         // Connect to Django WebSocket for session control
         if (result.session.websocket_room_id) {
           console.log('🔌 Connecting to Django WebSocket...');
           setTimeout(() => connectWebSocket(), 500);
         }
-        
+
         // Connect to AI Service WebSocket for transcription
         if (result.ai_service_token) {
           console.log('🔌 Connecting to AI Service WebSocket...');
@@ -217,7 +217,7 @@ const ActiveSession: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Failed to load session</p>
-          <button 
+          <button
             onClick={() => navigate('/sessions')}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
           >
@@ -232,11 +232,10 @@ const ActiveSession: React.FC = () => {
   const waveformBars = Array.from({ length: 20 }, (_, index) => (
     <div
       key={index}
-      className={`w-1 rounded-full transition-all duration-200 ${
-        isRecording 
-          ? 'bg-purple-600 animate-pulse' 
-          : 'bg-gray-300'
-      }`}
+      className={`w-1 rounded-full transition-all duration-200 ${isRecording
+        ? 'bg-purple-600 animate-pulse'
+        : 'bg-gray-300'
+        }`}
       style={{
         height: isRecording ? `${Math.random() * 40 + 10}px` : '10px',
         animationDelay: `${index * 50}ms`
@@ -262,7 +261,7 @@ const ActiveSession: React.FC = () => {
                 <p className="text-purple-200">{session.patient.full_name}</p>
               </div>
             </div>
-            
+
             <button
               onClick={handleEndSession}
               className="flex items-center bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
@@ -285,11 +284,10 @@ const ActiveSession: React.FC = () => {
         {sessionStarted && (
           <div className="mb-4 space-y-2">
             {/* Django WebSocket Status */}
-            <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${
-              wsConnected 
-                ? 'bg-green-50 border-green-200 text-green-800' 
-                : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-            }`}>
+            <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${wsConnected
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+              }`}>
               <div className="flex items-center">
                 <div className={`w-3 h-3 rounded-full mr-2 ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
                 <p className="font-medium">
@@ -305,14 +303,13 @@ const ActiveSession: React.FC = () => {
                 <span className="text-sm font-medium">Status: {wsSessionStatus}</span>
               )}
             </div>
-            
+
             {/* AI Service WebSocket Status */}
             {aiServiceToken && (
-              <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${
-                aiConnected 
-                  ? 'bg-blue-50 border-blue-200 text-blue-800' 
-                  : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-              }`}>
+              <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${aiConnected
+                ? 'bg-blue-50 border-blue-200 text-blue-800'
+                : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                }`}>
                 <div className="flex items-center">
                   <div className={`w-3 h-3 rounded-full mr-2 ${aiConnected ? 'bg-blue-500 animate-pulse' : 'bg-yellow-500'}`}></div>
                   <p className="font-medium">
@@ -326,7 +323,7 @@ const ActiveSession: React.FC = () => {
             )}
           </div>
         )}
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column */}
           <div className="space-y-6">
@@ -349,7 +346,7 @@ const ActiveSession: React.FC = () => {
                 <Mic className="text-purple-600 mr-2" size={24} />
                 <h2 className="text-xl font-semibold text-gray-900">Audio Recording</h2>
               </div>
-              
+
               <div className="text-center mb-6">
                 <p className="text-gray-600 mb-4">
                   Status: <span className={`font-semibold ${isRecording ? 'text-red-600' : 'text-gray-500'}`}>
@@ -398,7 +395,7 @@ const ActiveSession: React.FC = () => {
                   <span className="text-2xl">😌</span>
                   <span className="font-medium text-gray-900 w-16">Calm</span>
                   <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div 
+                    <div
                       className="bg-green-500 h-3 rounded-full transition-all duration-500"
                       style={{ width: `${emotionData.calm}%` }}
                     />
@@ -410,7 +407,7 @@ const ActiveSession: React.FC = () => {
                   <span className="text-2xl">😰</span>
                   <span className="font-medium text-gray-900 w-16">Anxious</span>
                   <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div 
+                    <div
                       className="bg-orange-500 h-3 rounded-full transition-all duration-500"
                       style={{ width: `${emotionData.anxious}%` }}
                     />
@@ -422,7 +419,7 @@ const ActiveSession: React.FC = () => {
                   <span className="text-2xl">😠</span>
                   <span className="font-medium text-gray-900 w-16">Angry</span>
                   <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div 
+                    <div
                       className="bg-red-500 h-3 rounded-full transition-all duration-500"
                       style={{ width: `${emotionData.angry}%` }}
                     />
@@ -457,21 +454,18 @@ const ActiveSession: React.FC = () => {
                 {transcript.map((item, index) => (
                   <div key={index} className="flex flex-col">
                     <div
-                      className={`p-4 rounded-lg max-w-[85%] ${
-                        item.speaker === 'Therapist'
-                          ? 'bg-purple-600 text-white self-end ml-8'
-                          : 'bg-gray-100 text-gray-900 self-start mr-8'
-                      }`}
+                      className={`p-4 rounded-lg max-w-[85%] ${item.speaker === 'Therapist'
+                        ? 'bg-purple-600 text-white self-end ml-8'
+                        : 'bg-gray-100 text-gray-900 self-start mr-8'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-semibold uppercase tracking-wide ${
-                          item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-600'
-                        }`}>
+                        <span className={`text-xs font-semibold uppercase tracking-wide ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-600'
+                          }`}>
                           {item.speaker}
                         </span>
-                        <span className={`text-xs ${
-                          item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'
-                        }`}>
+                        <span className={`text-xs ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'
+                          }`}>
                           {item.time}
                         </span>
                       </div>

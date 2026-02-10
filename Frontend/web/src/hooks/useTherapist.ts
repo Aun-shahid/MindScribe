@@ -4,30 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import therapistService from '../services/therapist.service';
 import { listenToAppEvent, emitAppEvent } from '../utils/events';
 import type {
-  SessionType,
-  SessionDetail,
   Patient,
-  DashboardResponse,
-  SessionFilter,
   PatientFilter,
-  SessionFormData,
   PatientFormData,
   TherapistError,
-  CalendarSession,
-  SessionNotes,
-  SessionUpdate,
   PatientDetailsType,
   PatientDetailsState,
   PatientDetailsActions,
-  EndSessionState,
-  EndSessionActions,
-  EndSessionParams,
-  EndSessionFormData,
-  SessionConsentData,
-  SessionConsentParams,
   QRCodeState,
   TherapistQRInfo,
 } from '../types/therapist';
+import type { DashboardResponse } from '../types/session';
 
 interface UseTherapistQRCodeActions {
   fetchTherapistInfo: () => Promise<void>;
@@ -57,23 +44,23 @@ export const useTherapistDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-    
+
     // Listen for patient-related events to auto-refresh dashboard
     const cleanupCreated = listenToAppEvent('patient-created', () => {
       console.log('Patient created, refreshing dashboard...');
       fetchDashboard();
     });
-    
+
     const cleanupUpdated = listenToAppEvent('patient-updated', () => {
       console.log('Patient updated, refreshing dashboard...');
       fetchDashboard();
     });
-    
+
     const cleanupDeleted = listenToAppEvent('patient-deleted', () => {
       console.log('Patient deleted, refreshing dashboard...');
       fetchDashboard();
     });
-    
+
     // Return cleanup function for all listeners
     return () => {
       cleanupCreated();
@@ -100,179 +87,11 @@ export const useTherapistDashboard = () => {
   };
 };
 
-// Sessions Hook
-export const useTherapistSessions = (initialFilter: SessionFilter = {}) => {
-  const [sessions, setSessions] = useState<SessionType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<TherapistError | null>(null);
-  const [filter, setFilter] = useState<SessionFilter>(initialFilter);
 
-  const fetchSessions = useCallback(async (filterOverride?: SessionFilter) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const currentFilter = filterOverride || filter;
-      const data = await therapistService.getSessions(currentFilter);
-      setSessions(data);
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Sessions fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
 
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
-  /**
-   * Updates the session filter. If reset=true, replaces filter entirely (for Clear Filters).
-   */
-  const updateFilter = useCallback((newFilter: SessionFilter, reset = false) => {
-    if (reset) {
-      setFilter({ ...newFilter });
-    } else {
-      setFilter(prev => ({ ...prev, ...newFilter }));
-    }
-  }, []);
 
-  const createSession = useCallback(async (sessionData: SessionFormData): Promise<SessionType | null> => {
-    try {
-      setError(null);
-      const newSession = await therapistService.createSession(sessionData);
-      await fetchSessions(); // Refresh list
-      return newSession;
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Session creation error:', err);
-      return null;
-    }
-  }, [fetchSessions]);
 
-  const updateSession = useCallback(async (sessionId: string, updateData: SessionUpdate): Promise<boolean> => {
-    try {
-      setError(null);
-      await therapistService.updateSession(sessionId, updateData);
-      await fetchSessions(); // Refresh list
-      return true;
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Session update error:', err);
-      return false;
-    }
-  }, [fetchSessions]);
-
-  return {
-    sessions,
-    loading,
-    error,
-    filter,
-    updateFilter,
-    fetchSessions,
-    createSession,
-    updateSession,
-    clearError: () => setError(null),
-  };
-};
-
-// Session Detail Hook
-export const useSessionDetail = (sessionId: string) => {
-  const [session, setSession] = useState<SessionDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<TherapistError | null>(null);
-
-  const fetchSessionDetail = useCallback(async () => {
-    if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
-      setError({ message: 'Invalid session ID', code: 'INVALID_ID' });
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('[useSessionDetail] Fetching session detail for:', sessionId);
-      const data = await therapistService.getSessionDetail(sessionId);
-      console.log('[useSessionDetail] Session detail fetched:', data);
-      setSession(data);
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Session detail fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    fetchSessionDetail();
-  }, [fetchSessionDetail]);
-
-  const updateNotes = useCallback(async (notesData: SessionNotes) => {
-    try {
-      setError(null);
-      console.log('[useSessionDetail] Updating notes for session:', sessionId, notesData);
-      await therapistService.updateSessionNotes(sessionId, notesData);
-      console.log('[useSessionDetail] Notes updated successfully, refetching session data...');
-      // Refetch session data to get updated notes
-      await fetchSessionDetail();
-      console.log('[useSessionDetail] Session data refetched successfully');
-    } catch (err) {
-      console.error('[useSessionDetail] Failed to update notes:', err);
-      setError(err as TherapistError);
-      throw err;
-    }
-  }, [sessionId, fetchSessionDetail]);
-
-  return {
-    session,
-    loading,
-    error,
-    fetchSession: fetchSessionDetail,
-    updateSessionNotes: updateNotes,
-    startSession: () => Promise.resolve(), // Placeholder
-    clearError: () => setError(null),
-  };
-};
-
-// Calendar Hook
-export const useSessionCalendar = () => {
-  const [sessions, setSessions] = useState<CalendarSession[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<TherapistError | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-
-  const fetchCalendarSessions = useCallback(async (date: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await therapistService.getCalendarSessions(date);
-      setSessions(data);
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Calendar sessions fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCalendarSessions(selectedDate);
-  }, [selectedDate, fetchCalendarSessions]);
-
-  const changeDate = useCallback((date: string) => {
-    setSelectedDate(date);
-  }, []);
-
-  return {
-    sessions,
-    loading,
-    error,
-    selectedDate,
-    changeDate,
-    fetchCalendarSessions,
-    clearError: () => setError(null),
-  };
-};
 
 // Patients Hook
 export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
@@ -314,12 +133,12 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
   const addPatient = useCallback(async (patientData: PatientFormData): Promise<Patient | null> => {
     try {
       setError(null);
-      const newPatient = await therapistService.addPatient(patientData);
+      const newPatient = await therapistService.createPatient(patientData);
       await fetchPatients(); // Refresh list
-      
+
       // Emit patient creation event to refresh dashboard
       emitAppEvent('patient-created', newPatient);
-      
+
       return newPatient;
     } catch (err) {
       setError(err as TherapistError);
@@ -333,10 +152,10 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
       setError(null);
       await therapistService.updatePatient(patientId, patientData);
       await fetchPatients(); // Refresh list
-      
+
       // Emit patient update event to refresh dashboard
       emitAppEvent('patient-updated', { patientId, patientData });
-      
+
       return true;
     } catch (err) {
       setError(err as TherapistError);
@@ -350,10 +169,10 @@ export const useTherapistPatients = (initialFilter: PatientFilter = {}) => {
       setError(null);
       await therapistService.deletePatient(patientId);
       await fetchPatients(); // Refresh list
-      
+
       // Emit patient deletion event to refresh dashboard
       emitAppEvent('patient-deleted', { patientId });
-      
+
       return true;
     } catch (err) {
       setError(err as TherapistError);
@@ -440,74 +259,7 @@ export const usePatientDetail = (patientId: string): PatientDetailsState & Patie
   };
 };
 
-// Session Consent Hook
-export const useSessionConsent = (params: SessionConsentParams) => {
-  const [formData, setFormData] = useState<SessionConsentData>({
-    session_type: 'individual',
-    duration_minutes: 60,
-    location: '',
-    patient_goals: '',
-    fee_charged: 0,
-    is_online: false,
-    consent_recording: false,
-    consent_ai_analysis: false,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
-  const updateField = useCallback((field: keyof SessionConsentData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleSubmit = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Create session with correct data structure for /therapy_sessions/schedule/
-      const now = new Date();
-      // Add 1 minute to ensure it's in the future (backend validation requirement)
-      const scheduledDate = new Date(now.getTime() + 60000); // Add 1 minute
-      
-      const sessionData: SessionFormData = {
-        patient_id: params.patientId,
-        scheduled_date: scheduledDate.toISOString(), // Must be in the future
-        duration_minutes: Number(formData.duration_minutes),
-        session_type: formData.session_type,
-        location: formData.location || 'Office',
-        is_online: formData.is_online,
-        patient_goals: formData.patient_goals || '',
-        fee_charged: formData.fee_charged || 0,
-      };
-
-      console.log('Creating session with data:', sessionData);
-      const session = await therapistService.createSession(sessionData);
-      
-      if (session) {
-        // Start the session
-        await therapistService.startSession(session.id);
-        navigate(`/sessions/${session.id}`);
-      }
-    } catch (err: any) {
-      console.error('Session consent error:', err);
-      console.error('Error response:', err.response?.data);
-      const errorMessage = err.response?.data?.detail || err.response?.data || err.message || 'Failed to create session';
-      setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
-    } finally {
-      setLoading(false);
-    }
-  }, [formData, params, navigate]);
-
-  return {
-    formData,
-    loading,
-    error,
-    updateField,
-    handleSubmit,
-    clearError: () => setError(null),
-  };
-};
 
 // QR Code Hook
 export const useTherapistQRCode = (): QRCodeState & UseTherapistQRCodeActions => {
@@ -627,7 +379,7 @@ export const useTherapistProfile = () => {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
-      
+
       // Redirect to login
       navigate('/login');
     } catch (err) {
@@ -646,61 +398,7 @@ export const useTherapistProfile = () => {
   };
 };
 
-// End Session Hook
-export const useEndSession = (params: EndSessionParams): EndSessionState & EndSessionActions => {
-  const [loading, setLoading] = useState(false);
-  const [sessionNotes, setSessionNotes] = useState('');
-  const [patientMoodAfter, setPatientMoodAfter] = useState('');
-  const [homeworkAssigned, setHomeworkAssigned] = useState('');
-  const [nextSessionGoals, setNextSessionGoals] = useState('');
-  const [sessionEffectiveness, setSessionEffectiveness] = useState('');
-  const navigate = useNavigate();
 
-  const handleCompleteSession = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      const sessionData: EndSessionFormData = {
-        session_notes: sessionNotes,
-        patient_mood_after: parseInt(patientMoodAfter) || 5,
-        homework_assigned: homeworkAssigned,
-        next_session_goals: nextSessionGoals,
-        session_effectiveness: parseInt(sessionEffectiveness) || 5,
-      };
-
-      await therapistService.endSession(params.sessionId as string, sessionData);
-      navigate('/sessions');
-    } catch (err) {
-      console.error('End session error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionNotes, patientMoodAfter, homeworkAssigned, nextSessionGoals, sessionEffectiveness, params.sessionId, navigate]);
-
-  const resetForm = useCallback(() => {
-    setSessionNotes('');
-    setPatientMoodAfter('');
-    setHomeworkAssigned('');
-    setNextSessionGoals('');
-    setSessionEffectiveness('');
-  }, []);
-
-  return {
-    loading,
-    sessionNotes,
-    patientMoodAfter,
-    homeworkAssigned,
-    nextSessionGoals,
-    sessionEffectiveness,
-    handleCompleteSession,
-    setSessionNotes,
-    setPatientMoodAfter,
-    setHomeworkAssigned,
-    setNextSessionGoals,
-    setSessionEffectiveness,
-    resetForm,
-  };
-};
 
 // Create Patient Hook
 export const useCreatePatient = () => {
@@ -711,7 +409,7 @@ export const useCreatePatient = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Map frontend day names to backend format (lowercase)
       const mapDayToBackendFormat = (day: string) => {
         return day.toLowerCase();
@@ -730,33 +428,32 @@ export const useCreatePatient = () => {
       };
 
       // Sanitize and map data to backend requirements
-      const sanitizedData = {
-        first_name: patientData.first_name,
-        last_name: patientData.last_name,
-        email: patientData.email || '', // Backend expects empty string, not undefined
-        phone_number: patientData.phone_number,
-        date_of_birth: patientData.date_of_birth || null,
+      // PatientFormData requires full_name and nested patient_profile
+      const sanitizedData: PatientFormData = {
+        full_name: `${patientData.first_name} ${patientData.last_name}`,
+        email: patientData.email || '',
+        phone_number: patientData.phone_number || '',
+        date_of_birth: patientData.date_of_birth || '',
         gender: patientData.gender || '',
-        primary_concern: patientData.primary_concern || '',
-        therapy_start_date: patientData.therapy_start_date || null,
-        session_frequency: patientData.session_frequency || 'weekly',
-        preferred_session_days: patientData.preferred_session_days?.map(mapDayToBackendFormat) || [],
-        emergency_contact_name: patientData.emergency_contact_name || '',
-        emergency_contact_phone: patientData.emergency_contact_phone || '',
-        address: patientData.address || '',
-        medical_history: patientData.medical_history || '',
-        current_medications: patientData.current_medications || '',
-        preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
+        patient_profile: {
+          primary_concern: patientData.primary_concern || '',
+          therapy_start_date: patientData.therapy_start_date || '',
+          session_frequency: patientData.session_frequency || 'weekly',
+          preferred_session_days: patientData.preferred_session_days?.map(mapDayToBackendFormat) || [],
+          emergency_contact_name: patientData.emergency_contact_name || '',
+          emergency_contact_phone: patientData.emergency_contact_phone || '',
+          preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
+        }
       };
-      
+
       // Use the correct endpoint for patient creation
-      const response = await therapistService.createSessionPatient(sanitizedData);
-      
+      const response = await therapistService.createPatient(sanitizedData);
+
       // Emit patient creation event to refresh dashboard
       emitAppEvent('patient-created', response);
-      
+
       // Return the created patient data with ID
-      return response.patient || response;
+      return response;
     } catch (err) {
       const error = err as TherapistError;
       setError(error);

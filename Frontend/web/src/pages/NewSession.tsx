@@ -2,25 +2,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTherapistPatients } from '../hooks/useTherapist';
-import therapistService from '../services/therapist.service';
+import sessionsService from '../services/sessions.service';
 
 const NewSession = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { patients, loading: patientsLoading } = useTherapistPatients();
-  
+
   const selectedPatientId = searchParams.get('patientId') || '';
 
   const [selectedPatient, setSelectedPatient] = useState(selectedPatientId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Get current date and time for default values
   const now = new Date();
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(10, 0, 0, 0); // Default to 10:00 AM tomorrow
-  
+
   // Session timing mode: 'now' or 'scheduled'
   const [sessionTiming, setSessionTiming] = useState<'now' | 'scheduled'>('scheduled');
 
@@ -60,7 +60,7 @@ const NewSession = () => {
       alert('Please select a patient');
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
@@ -68,7 +68,7 @@ const NewSession = () => {
       // If "Right Now", use current time + 1 minute to pass backend validation
       // For scheduled sessions, send the datetime-local value directly with seconds appended
       const now = new Date();
-      const scheduledDate = sessionTiming === 'now' 
+      const scheduledDate = sessionTiming === 'now'
         ? new Date(now.getTime() + 60000).toISOString()  // 1 minute in future for "now"
         : formData.scheduled_date + ':00';  // datetime-local format + seconds
 
@@ -86,24 +86,24 @@ const NewSession = () => {
       };
 
       console.log('Scheduling session:', sessionData);
-      const session = await therapistService.createSession(sessionData);
-      
+      const session = await sessionsService.createSession(sessionData);
+
       if (session) {
         if (sessionTiming === 'now') {
           // For "Right Now" sessions, go directly to session detail page to start
           navigate(`/sessions/${session.id}`, {
-            state: { 
+            state: {
               message: 'Session created! You can start it now.',
               startImmediately: true
             }
           });
         } else if (isUpcomingSession()) {
           // For future sessions, go to dashboard with success message
-          navigate('/dashboard', { 
-            state: { 
+          navigate('/dashboard', {
+            state: {
               message: 'Session scheduled successfully!',
-              sessionId: session.id 
-            } 
+              sessionId: session.id
+            }
           });
         } else {
           // For current/immediate sessions, go to session detail page to start
@@ -151,7 +151,7 @@ const NewSession = () => {
               <p className="text-sm text-red-600">{error}</p>
               <p className="text-xs text-red-500 mt-2">Common issues: Invalid date format, patient not found, or missing required fields.</p>
             </div>
-            <button 
+            <button
               onClick={() => setError(null)}
               className="text-red-600 hover:text-red-800 ml-2"
             >
@@ -163,7 +163,7 @@ const NewSession = () => {
 
       <div className="card">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Session Details</h2>
-        
+
         <form onSubmit={onSubmit} className="space-y-6">
           {/* Patient Selection */}
           <div>
@@ -213,11 +213,10 @@ const NewSession = () => {
               When to Start <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-4 mt-2">
-              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                sessionTiming === 'now' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}>
+              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${sessionTiming === 'now'
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}>
                 <input
                   type="radio"
                   name="sessionTiming"
@@ -235,11 +234,10 @@ const NewSession = () => {
                   <p className="text-xs text-gray-500 mt-1">Begin session immediately</p>
                 </div>
               </label>
-              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                sessionTiming === 'scheduled' 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}>
+              <label className={`flex-1 flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${sessionTiming === 'scheduled'
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}>
                 <input
                   type="radio"
                   name="sessionTiming"
@@ -366,7 +364,7 @@ const NewSession = () => {
               placeholder="0.00"
               disabled={loading}
             />
-          </div> */} 
+          </div> */}
 
           {/* Consent Checkboxes */}
           <div className="space-y-3">
@@ -412,10 +410,10 @@ const NewSession = () => {
             <button
               type="submit"
               className="btn-primary"
-              disabled={loading || !selectedPatient||!formData.consent_recording}
+              disabled={loading || !selectedPatient || !formData.consent_recording}
             >
-              {loading 
-                ? (sessionTiming === 'now' ? 'Creating...' : 'Scheduling...') 
+              {loading
+                ? (sessionTiming === 'now' ? 'Creating...' : 'Scheduling...')
                 : (sessionTiming === 'now' ? 'Create & Start Session' : 'Schedule Session')}
             </button>
           </div>

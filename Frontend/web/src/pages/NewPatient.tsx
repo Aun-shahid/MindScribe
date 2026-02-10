@@ -1,18 +1,18 @@
 // src/pages/NewPatient.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  User, 
-  MapPin, 
-  Heart, 
+import {
+  ChevronLeft,
+  User,
+  MapPin,
+  Heart,
   AlertCircle,
   Languages,
   Save,
   X
 } from 'lucide-react';
 import { useCreatePatient } from '../hooks/useTherapist';
-import therapistService from '../services/therapist.service';
+import sessionsService from '../services/sessions.service';
 
 interface NewPatientData {
   first_name: string;
@@ -84,7 +84,7 @@ const NewPatient: React.FC = () => {
 
     // Name validation (letters, spaces, hyphens, apostrophes only)
     const nameRegex = /^[a-zA-Z\s'-]+$/;
-    
+
     if (!patientData.first_name.trim()) {
       errors.first_name = 'First name is required';
     } else if (!nameRegex.test(patientData.first_name.trim())) {
@@ -94,7 +94,7 @@ const NewPatient: React.FC = () => {
     } else if (patientData.first_name.trim().length > 50) {
       errors.first_name = 'First name must not exceed 50 characters';
     }
-    
+
     if (!patientData.last_name.trim()) {
       errors.last_name = 'Last name is required';
     } else if (!nameRegex.test(patientData.last_name.trim())) {
@@ -104,7 +104,7 @@ const NewPatient: React.FC = () => {
     } else if (patientData.last_name.trim().length > 50) {
       errors.last_name = 'Last name must not exceed 50 characters';
     }
-    
+
     // Phone number validation
     if (!patientData.phone_number.trim()) {
       errors.phone_number = 'Phone number is required';
@@ -115,7 +115,7 @@ const NewPatient: React.FC = () => {
     } else if (patientData.phone_number.trim().length > 20) {
       errors.phone_number = 'Phone number must not exceed 20 digits';
     }
-    
+
     // Emergency contact phone validation if provided
     if (patientData.emergency_contact_phone && patientData.emergency_contact_phone.trim()) {
       if (!/^[0-9]+$/.test(patientData.emergency_contact_phone.trim())) {
@@ -126,7 +126,7 @@ const NewPatient: React.FC = () => {
         errors.emergency_contact_phone = 'Emergency contact phone must not exceed 20 digits';
       }
     }
-    
+
     // Emergency contact name validation if provided
     if (patientData.emergency_contact_name && patientData.emergency_contact_name.trim()) {
       if (!nameRegex.test(patientData.emergency_contact_name.trim())) {
@@ -137,12 +137,12 @@ const NewPatient: React.FC = () => {
         errors.emergency_contact_name = 'Emergency contact name must not exceed 100 characters';
       }
     }
-    
+
     // Email validation
     if (patientData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientData.email)) {
       errors.email = 'Please enter a valid email address';
     }
-    
+
     // Date of birth validation if provided
     if (patientData.date_of_birth) {
       const dob = new Date(patientData.date_of_birth);
@@ -150,7 +150,7 @@ const NewPatient: React.FC = () => {
       today.setHours(0, 0, 0, 0);
       const minDate = new Date();
       minDate.setFullYear(today.getFullYear() - 120); // Max age 120 years
-      
+
       if (dob >= today) {
         errors.date_of_birth = 'Date of birth must be in the past';
       } else if (dob < minDate) {
@@ -162,17 +162,17 @@ const NewPatient: React.FC = () => {
         }
       }
     }
-    
+
     // Therapy start date validation if provided
     if (patientData.therapy_start_date) {
       const startDate = new Date(patientData.therapy_start_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (startDate < today) {
         errors.therapy_start_date = 'Therapy start date cannot be in the past';
       }
-      
+
       // Check if date is too far in the future (e.g., more than 1 year)
       const maxFutureDate = new Date();
       maxFutureDate.setFullYear(today.getFullYear() + 1);
@@ -180,7 +180,7 @@ const NewPatient: React.FC = () => {
         errors.therapy_start_date = 'Therapy start date cannot be more than 1 year in the future';
       }
     }
-    
+
     // Primary concern validation if provided
     if (patientData.primary_concern && patientData.primary_concern.trim()) {
       if (patientData.primary_concern.trim().length < 10) {
@@ -189,7 +189,7 @@ const NewPatient: React.FC = () => {
         errors.primary_concern = 'Primary concern must not exceed 1000 characters';
       }
     }
-    
+
     // Address validation if provided
     if (patientData.address && patientData.address.trim()) {
       if (patientData.address.trim().length < 10) {
@@ -229,25 +229,25 @@ const NewPatient: React.FC = () => {
 
     try {
       const createdPatient = await createPatient(patientData);
-      
+
       // Auto-schedule sessions if enabled and patient has preferences
       if (autoScheduleEnabled && patientData.session_frequency && patientData.preferred_session_days.length > 0 && createdPatient?.id) {
         try {
-          const scheduleResult = await therapistService.autoSchedulePatientSessions(createdPatient.id);
+          const scheduleResult = await sessionsService.autoSchedulePatientSessions(createdPatient.id);
           console.log('Auto-schedule result:', scheduleResult);
         } catch (scheduleError) {
           console.error('Failed to auto-schedule sessions:', scheduleError);
           // Don't block navigation if auto-schedule fails
         }
       }
-      
+
       navigate('/patients');
     } catch (err: any) {
       console.error('Failed to create patient:', err);
       console.log('Error details:', err.details);
       console.log('Error message:', err.message);
       console.log('Full error object:', JSON.stringify(err, null, 2));
-      
+
       // Parse backend validation errors and map to fields
       if (err.details && typeof err.details === 'object') {
         const fieldErrors: Record<string, string> = {};
@@ -255,10 +255,10 @@ const NewPatient: React.FC = () => {
           const message = Array.isArray(msgs) ? msgs[0] : msgs;
           fieldErrors[field] = message as string;
         });
-        
+
         console.log('Parsed field errors:', fieldErrors);
         setBackendErrors(fieldErrors);
-        
+
         // Scroll to first error
         const firstErrorField = Object.keys(fieldErrors)[0];
         if (firstErrorField) {
@@ -289,7 +289,7 @@ const NewPatient: React.FC = () => {
                 <p className="text-purple-200">Create a new patient profile</p>
               </div>
             </div>
-            
+
             <div className="flex space-x-2">
               <button
                 onClick={() => navigate(-1)}
@@ -361,9 +361,8 @@ const NewPatient: React.FC = () => {
                   name="first_name"
                   value={patientData.first_name}
                   onChange={(e) => handleInputChange('first_name', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.first_name || backendErrors.first_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.first_name || backendErrors.first_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., user3"
                 />
                 {validationErrors.first_name && (
@@ -383,9 +382,8 @@ const NewPatient: React.FC = () => {
                   name="last_name"
                   value={patientData.last_name}
                   onChange={(e) => handleInputChange('last_name', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.last_name || backendErrors.last_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.last_name || backendErrors.last_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., user3"
                 />
                 {validationErrors.last_name && (
@@ -405,9 +403,8 @@ const NewPatient: React.FC = () => {
                   name="email"
                   value={patientData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.email || backendErrors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.email || backendErrors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., user3@gmail.com"
                 />
                 {validationErrors.email && (
@@ -427,9 +424,8 @@ const NewPatient: React.FC = () => {
                   name="phone_number"
                   value={patientData.phone_number}
                   onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.phone_number || backendErrors.phone_number ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.phone_number || backendErrors.phone_number ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., 03009987654"
                 />
                 {validationErrors.phone_number && (
@@ -450,9 +446,8 @@ const NewPatient: React.FC = () => {
                   value={patientData.date_of_birth}
                   onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.date_of_birth || backendErrors.date_of_birth ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.date_of_birth || backendErrors.date_of_birth ? 'border-red-500' : 'border-gray-300'
+                    }`}
                 />
                 {validationErrors.date_of_birth && (
                   <p className="text-red-500 text-sm mt-1">{validationErrors.date_of_birth}</p>
@@ -472,11 +467,10 @@ const NewPatient: React.FC = () => {
                       key={option.value}
                       type="button"
                       onClick={() => handleInputChange('gender', option.value)}
-                      className={`px-4 py-2 rounded-lg border transition-colors ${
-                        patientData.gender === option.value
-                          ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
-                      }`}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${patientData.gender === option.value
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
+                        }`}
                     >
                       {option.label}
                     </button>
@@ -504,9 +498,8 @@ const NewPatient: React.FC = () => {
                   onChange={(e) => handleInputChange('primary_concern', e.target.value)}
                   rows={3}
                   maxLength={1000}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.primary_concern || backendErrors.primary_concern ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.primary_concern || backendErrors.primary_concern ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="Describe the primary concern or reason for therapy (at least 10 characters)"
                 />
                 {patientData.primary_concern && (
@@ -532,9 +525,8 @@ const NewPatient: React.FC = () => {
                     onChange={(e) => handleInputChange('therapy_start_date', e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     max={new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      validationErrors.therapy_start_date || backendErrors.therapy_start_date ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.therapy_start_date || backendErrors.therapy_start_date ? 'border-red-500' : 'border-gray-300'
+                      }`}
                   />
                   {validationErrors.therapy_start_date && (
                     <p className="text-red-500 text-sm mt-1">{validationErrors.therapy_start_date}</p>
@@ -573,11 +565,10 @@ const NewPatient: React.FC = () => {
                       key={day}
                       type="button"
                       onClick={() => toggleDay(day)}
-                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                        patientData.preferred_session_days.includes(day)
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm transition-colors ${patientData.preferred_session_days.includes(day)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {day.substring(0, 3)}
                     </button>
@@ -624,9 +615,8 @@ const NewPatient: React.FC = () => {
                   value={patientData.emergency_contact_name}
                   onChange={(e) => handleInputChange('emergency_contact_name', e.target.value)}
                   maxLength={100}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.emergency_contact_name || backendErrors.emergency_contact_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.emergency_contact_name || backendErrors.emergency_contact_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., John Doe"
                 />
                 {validationErrors.emergency_contact_name && (
@@ -646,9 +636,8 @@ const NewPatient: React.FC = () => {
                   name="emergency_contact_phone"
                   value={patientData.emergency_contact_phone}
                   onChange={(e) => handleInputChange('emergency_contact_phone', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.emergency_contact_phone || backendErrors.emergency_contact_phone ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.emergency_contact_phone || backendErrors.emergency_contact_phone ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="e.g., 03009987654"
                 />
                 {validationErrors.emergency_contact_phone && (
@@ -679,9 +668,8 @@ const NewPatient: React.FC = () => {
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   rows={3}
                   maxLength={500}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    validationErrors.address || backendErrors.address ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.address || backendErrors.address ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="Enter complete address (at least 10 characters)"
                 />
                 {patientData.address && (

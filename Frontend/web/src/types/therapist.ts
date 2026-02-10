@@ -92,18 +92,23 @@ export interface PatientMood {
 
 // Form-related types
 
+export interface PatientProfileFormData {
+  primary_concern: string;
+  therapy_start_date: string;
+  session_frequency: string;
+  preferred_session_days: string[];
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  preferred_language: string;
+}
+
 export interface PatientFormData {
   full_name: string;
   email: string;
   phone_number: string;
   date_of_birth: string;
   gender: string;
-  primary_concern: string;
-  session_frequency: string;
-  preferred_session_days: string[];
-  emergency_contact_name: string;
-  emergency_contact_phone: string;
-  preferred_language: string;
+  patient_profile: PatientProfileFormData;
 }
 
 // Consent and QR Code types

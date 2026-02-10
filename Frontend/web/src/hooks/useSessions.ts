@@ -1,12 +1,22 @@
 // src/hooks/useSessions.ts
 // Session-specific hooks for live sessions, analysis, and transcription
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import sessionsService from '../services/sessions.service';
 import type {
   SessionTranscription,
   SessionEmotionalAnalysis,
   StartSessionResponse,
   EndSessionResponse,
+  SessionType,
+  SessionDetail,
+  SessionFilter,
+  SessionFormData,
+  CalendarSession,
+  SessionNotes,
+  SessionUpdate,
+  SessionConsentData,
+  SessionConsentParams,
 } from '../types/session';
 import type { TherapistError } from '../types/therapist';
 
@@ -56,6 +66,14 @@ export const useEndSession = () => {
   const [error, setError] = useState<TherapistError | null>(null);
   const [result, setResult] = useState<EndSessionResponse | null>(null);
 
+  // Form states moved from useTherapist.ts
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [patientMoodAfter, setPatientMoodAfter] = useState('');
+  const [homeworkAssigned, setHomeworkAssigned] = useState('');
+  const [nextSessionGoals, setNextSessionGoals] = useState('');
+  const [sessionEffectiveness, setSessionEffectiveness] = useState('');
+  const navigate = useNavigate();
+
   const endSession = useCallback(
     async (
       sessionId: string,
@@ -100,7 +118,49 @@ export const useEndSession = () => {
     []
   );
 
-  return { endSession, result, loading, error, clearError: () => setError(null) };
+  const handleCompleteSession = useCallback(async (sessionId: string) => {
+    const data = {
+      session_notes: sessionNotes,
+      patient_mood_after: parseInt(patientMoodAfter) || 5,
+      homework_assigned: homeworkAssigned,
+      next_session_goals: nextSessionGoals,
+      session_effectiveness: parseInt(sessionEffectiveness) || 5,
+    };
+
+    const res = await endSession(sessionId, data);
+    if (res) {
+      navigate('/sessions');
+    }
+  }, [sessionNotes, patientMoodAfter, homeworkAssigned, nextSessionGoals, sessionEffectiveness, endSession, navigate]);
+
+  const resetForm = useCallback(() => {
+    setSessionNotes('');
+    setPatientMoodAfter('');
+    setHomeworkAssigned('');
+    setNextSessionGoals('');
+    setSessionEffectiveness('');
+  }, []);
+
+  return {
+    endSession,
+    result,
+    loading,
+    error,
+    clearError: () => setError(null),
+    // Form props
+    sessionNotes,
+    patientMoodAfter,
+    homeworkAssigned,
+    nextSessionGoals,
+    sessionEffectiveness,
+    handleCompleteSession,
+    setSessionNotes,
+    setPatientMoodAfter,
+    setHomeworkAssigned,
+    setNextSessionGoals,
+    setSessionEffectiveness,
+    resetForm,
+  };
 };
 
 /**
@@ -159,6 +219,236 @@ export const useSessionTranscription = (sessionId: string) => {
   }, [fetchTranscription]);
 
   return { transcription, loading, error, refetch: fetchTranscription };
+};
+
+/**
+ * Hook for managing all sessions for a therapist
+ */
+export const useSessions = (initialFilter: SessionFilter = {}) => {
+  const [sessions, setSessions] = useState<SessionType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<TherapistError | null>(null);
+  const [filter, setFilter] = useState<SessionFilter>(initialFilter);
+
+  const fetchSessions = useCallback(async (filterOverride?: SessionFilter) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const currentFilter = filterOverride || filter;
+      // Note: sessionsService needs to be updated to support getSessions if not already
+      // For now using api directly or updating sessionsService is required
+      // Since I'm refactoring, I'll assume sessionsService.getSessions exists or I'll add it
+      const data = await sessionsService.getSessions(currentFilter);
+      setSessions(data);
+    } catch (err) {
+      setError(err as TherapistError);
+      console.error('Sessions fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  const updateFilter = useCallback((newFilter: SessionFilter, reset = false) => {
+    if (reset) {
+      setFilter({ ...newFilter });
+    } else {
+      setFilter(prev => ({ ...prev, ...newFilter }));
+    }
+  }, []);
+
+  const createSession = useCallback(async (sessionData: SessionFormData): Promise<SessionType | null> => {
+    try {
+      setError(null);
+      const newSession = await sessionsService.createSession(sessionData);
+      await fetchSessions();
+      return newSession;
+    } catch (err) {
+      setError(err as TherapistError);
+      return null;
+    }
+  }, [fetchSessions]);
+
+  const updateSession = useCallback(async (sessionId: string, updateData: SessionUpdate): Promise<boolean> => {
+    try {
+      setError(null);
+      await sessionsService.updateSession(sessionId, updateData);
+      await fetchSessions();
+      return true;
+    } catch (err) {
+      setError(err as TherapistError);
+      return false;
+    }
+  }, [fetchSessions]);
+
+  return {
+    sessions,
+    loading,
+    error,
+    filter,
+    updateFilter,
+    fetchSessions,
+    createSession,
+    updateSession,
+    clearError: () => setError(null),
+  };
+};
+
+/**
+ * Hook for session detail
+ */
+export const useSessionDetail = (sessionId: string) => {
+  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<TherapistError | null>(null);
+
+  const fetchSessionDetail = useCallback(async () => {
+    if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
+      setError({ message: 'Invalid session ID', code: 'INVALID_ID' });
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await sessionsService.getSessionDetail(sessionId);
+      setSession(data);
+    } catch (err) {
+      setError(err as TherapistError);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    fetchSessionDetail();
+  }, [fetchSessionDetail]);
+
+  const updateNotes = useCallback(async (notesData: SessionNotes) => {
+    try {
+      setError(null);
+      await sessionsService.updateSessionNotes(sessionId, notesData);
+      await fetchSessionDetail();
+    } catch (err) {
+      setError(err as TherapistError);
+      throw err;
+    }
+  }, [sessionId, fetchSessionDetail]);
+
+  return {
+    session,
+    loading,
+    error,
+    fetchSession: fetchSessionDetail,
+    updateSessionNotes: updateNotes,
+    clearError: () => setError(null),
+  };
+};
+
+/**
+ * Hook for session calendar
+ */
+export const useSessionCalendar = () => {
+  const [sessions, setSessions] = useState<CalendarSession[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<TherapistError | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  const fetchCalendarSessions = useCallback(async (date: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await sessionsService.getCalendarSessions(date);
+      setSessions(data);
+    } catch (err) {
+      setError(err as TherapistError);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCalendarSessions(selectedDate);
+  }, [selectedDate, fetchCalendarSessions]);
+
+  return {
+    sessions,
+    loading,
+    error,
+    selectedDate,
+    setSelectedDate,
+    fetchCalendarSessions,
+    clearError: () => setError(null),
+  };
+};
+
+/**
+ * Hook for session consent
+ */
+export const useSessionConsent = (params: SessionConsentParams) => {
+  const [formData, setFormData] = useState<SessionConsentData>({
+    session_type: 'individual',
+    duration_minutes: 60,
+    location: '',
+    patient_goals: '',
+    fee_charged: 0,
+    is_online: false,
+    consent_recording: false,
+    consent_ai_analysis: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const updateField = useCallback((field: keyof SessionConsentData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const now = new Date();
+      const scheduledDate = new Date(now.getTime() + 60000);
+
+      const sessionData: SessionFormData = {
+        patient_id: params.patientId,
+        scheduled_date: scheduledDate.toISOString(),
+        duration_minutes: Number(formData.duration_minutes),
+        session_type: formData.session_type,
+        location: formData.location || 'Office',
+        is_online: formData.is_online,
+        patient_goals: formData.patient_goals || '',
+        fee_charged: formData.fee_charged || 0,
+      };
+
+      const session = await sessionsService.createSession(sessionData);
+
+      if (session) {
+        // AI Session Start is often handled separately now
+        await sessionsService.startSession(session.id);
+        navigate(`/sessions/${session.id}`);
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to create session';
+      setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+    } finally {
+      setLoading(false);
+    }
+  }, [formData, params, navigate]);
+
+  return {
+    formData,
+    loading,
+    error,
+    updateField,
+    handleSubmit,
+    clearError: () => setError(null),
+  };
 };
 
 /**
