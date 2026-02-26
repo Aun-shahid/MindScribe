@@ -1,7 +1,7 @@
 
 
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
 import {
   View,
@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   FlatList,
   Dimensions,
-  
+  Animated,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -77,12 +77,72 @@ export default function Dashboard() {
   const [weeklyTrendData, setWeeklyTrendData] = useState<any[] | null>(null);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const [tooltipVisible, setTooltipVisible] = useState(false);
-  const [animatedValues, setAnimatedValues] = useState<number[]>([]);
+  
+  // Animated values for floating bubbles
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
   const [animationSeed, setAnimationSeed] = useState(0);
 
   // const [refreshing, setRefreshing] = useState(false);
   // const [dashboardData, setDashboardData] = useState<any>(null);
   // const [error, setError] = useState<string | null>(null);
+
+  // Animate floating bubbles
+  useEffect(() => {
+    const createFloatingAnimation = (
+      valueY: Animated.Value,
+      valueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY = 0,
+      delayX = 0
+    ) => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delayY),
+            Animated.timing(valueY, {
+              toValue: 50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: -50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delayX),
+            Animated.timing(valueX, {
+              toValue: 30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      ).start();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
+    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
+  }, []);
 
   // ────────── Load Dashboard Data ──────────
   const loadDashboardData = useCallback(async () => {
@@ -413,27 +473,56 @@ export default function Dashboard() {
 
   const renderCard = ({ item }: { item: DashboardCard }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: themeStyle.dashboardcard || '#ffffff', width: CARD_WIDTH }]}
+      style={[styles.card, { backgroundColor: '#473F5A', width: CARD_WIDTH }]}
       onPress={() => handleCardPress(item.screen)}
     >
-      <Text style={[styles.cardTitle, { color: themeStyle.title }]}>{item.title}</Text>
-      <Text style={[styles.cardSubtitle, { color: themeStyle.text }]}>{item.subtitle}</Text>
+      <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{item.title}</Text>
+      <Text style={[styles.cardSubtitle, { color: '#FFFFFF' }]}>{item.subtitle}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.wrapper, { backgroundColor: '#FFFFFF' }]}>
-      {/* subtle top-right gradient wash across the whole screen */}
+    <View style={[styles.wrapper, { backgroundColor: '#342949' }]}>
+      {/* Custom gradient background */}
       <LinearGradient
-        colors={['rgba(255,230,221,0.95)', 'rgba(231,250,245,0.7)', 'rgba(255,255,255,0.0)']}
-        start={[0.15, 0]}
-        end={[1, 1]}
+        colors={['#342949', '#342949', '#342949']}
+        start={[0, 0]}
+        end={[0, 1]}
         style={[styles.screenGradient, { height: screenHeight } ]}
         pointerEvents="none"
       />
+      {/* Floating bubble decorations with animation */}
+      <View style={styles.floatingBubbles} pointerEvents="none">
+        <Animated.View style={[
+          styles.bubble, 
+          { width: 200, height: 200, top: '10%', left: '-10%', backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+          { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble, 
+          { width: 280, height: 280, top: '25%', right: '-15%', backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+          { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble, 
+          { width: 180, height: 180, top: '50%', left: '10%', backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+          { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble, 
+          { width: 220, height: 220, bottom: '15%', right: '5%', backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+          { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble, 
+          { width: 120, height: 120, bottom: '30%', left: '-5%', backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+          { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+        ]} />
+      </View>
       <FlatList
         data={[]}
-        style={styles.contentAboveGradient}
+        style={[styles.contentAboveGradient, { backgroundColor: 'transparent' }]}
+        contentContainerStyle={{ backgroundColor: 'transparent' }}
         ListHeaderComponent={() => (
           <>
             {/* Top header with greeting and stat cards */}
@@ -444,7 +533,7 @@ export default function Dashboard() {
                 </View>
                 <TouchableOpacity style={{ marginLeft: 12 }} onPress={() => router.push('./notifications' as any)}>
                   <View style={{ position: 'relative', padding: 6, marginTop: -2 }}>
-                    <FontAwesome name="bell" size={22} color={'#524f85'} />
+                    <FontAwesome name="bell" size={22} color={'#FFFFFF'} />
                     {unreadCount > 0 && (
                       <View style={{ position: 'absolute', right: 2, top: 2, backgroundColor: '#ff3b30', borderRadius: 8, minWidth: 16, paddingHorizontal: 4, height: 16, alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unreadCount}</Text>
@@ -483,12 +572,12 @@ export default function Dashboard() {
 
             {/* Daily Inspiration Card */}
             {dashboardData?.daily_inspiration && (
-              <View style={[styles.inspirationCard, { backgroundColor: themeStyle.dashboardcard || '#f0f8ff' }]}>
-                <Text style={[styles.inspirationTitle, { color: themeStyle.title }]}>💡 Daily Inspiration</Text>
-                <Text style={[styles.quote, { color: themeStyle.text }]}>"{dashboardData.daily_inspiration.quote}"</Text>
-                <Text style={[styles.author, { color: themeStyle.label }]}>— {dashboardData.daily_inspiration.author}</Text>
+              <View style={[styles.inspirationCard, { backgroundColor: '#473F5A' }]}>
+                <Text style={[styles.inspirationTitle, { color: '#FFFFFF' }]}>💡 Daily Inspiration</Text>
+                <Text style={[styles.quote, { color: '#FFFFFF' }]}>"{dashboardData.daily_inspiration.quote}"</Text>
+                <Text style={[styles.author, { color: '#FFFFFF' }]}>— {dashboardData.daily_inspiration.author}</Text>
                 {dashboardData.daily_inspiration.reflection_prompt && (
-                  <Text style={[styles.reflection, { color: themeStyle.text }]}>🤔 {dashboardData.daily_inspiration.reflection_prompt}</Text>
+                  <Text style={[styles.reflection, { color: '#FFFFFF' }]}>🤔 {dashboardData.daily_inspiration.reflection_prompt}</Text>
                 )}
               </View>
             )}
@@ -525,10 +614,10 @@ export default function Dashboard() {
 
               if (!weekly || weekly.length === 0) {
                 return (
-                  <View style={[styles.trendWrapper, { backgroundColor: themeStyle.dashboardcard || '#fff' }]}>
-                    <Text style={[styles.trendTitle, { color: themeStyle.title }]}>This Week's Mood</Text>
+                  <View style={[styles.trendWrapper, { backgroundColor: '#473F5A' }]}>
+                    <Text style={[styles.trendTitle, { color: '#FFFFFF' }]}>This Week's Mood</Text>
                     <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: themeStyle.label }}>No mood data yet</Text>
+                      <Text style={{ color: '#FFFFFF' }}>No mood data yet</Text>
                     </View>
                     {/* removed legacy small "View Weekly Trend" button in favor of full chart/cards */}
                   </View>
@@ -540,16 +629,16 @@ export default function Dashboard() {
               const chartWidth = Math.min(screenWidth - 48, 640);
 
               const chartData = {
-                labels,
-                datasets: [{ data: (animatedValues.length === values.length ? animatedValues : values) }]
+                labels: labels.length > 0 ? labels : [''],
+                datasets: [{ data: values.length > 0 ? values : [0] }]
               };
 
               const chartConfig = {
-                backgroundGradientFrom: '#ffffff',
-                backgroundGradientTo: '#ffffff',
+                backgroundGradientFrom: '#473F5A',
+                backgroundGradientTo: '#473F5A',
                 decimalPlaces: 0,
                 color: (opacity = 1) => 'url(#lineGradient)',
-                labelColor: (opacity = 1) => '#8D8BA7',
+                labelColor: (opacity = 1) => '#FFFFFF',
                 style: { borderRadius: 12 },
               };
 
@@ -587,17 +676,22 @@ export default function Dashboard() {
                                       fill: '#FFFFFF',
                                     },
                                     propsForBackgroundLines: {
-                                      stroke: 'rgba(0,0,0,0)'
+                                      stroke: 'rgba(255,255,255,0.1)'
                                     },
                                     decimalPlaces: 0,
                                   }}
                                   style={{ borderRadius: 14, marginVertical: 4 }}
-                                  withInnerLines={false}
+                                  withInnerLines={true}
                                   withShadow={false}
                                   withVerticalLines={false}
                                   formatYLabel={() => ''}
                                   onDataPointClick={(data) => {
                                     if (!hasTrend) {
+                                      setTooltipVisible(false);
+                                      return;
+                                    }
+                                    // Safety check: ensure index is within bounds
+                                    if (data.index >= values.length || data.index < 0) {
                                       setTooltipVisible(false);
                                       return;
                                     }
@@ -618,7 +712,12 @@ export default function Dashboard() {
                                   )}
                                 />
                               </View>
-                              {hasTrend && tooltipVisible && tooltipIndex !== null && values[tooltipIndex] > 0 && (
+                              {hasTrend && 
+                               tooltipVisible && 
+                               tooltipIndex !== null && 
+                               tooltipIndex >= 0 &&
+                               tooltipIndex < values.length &&
+                               values[tooltipIndex] > 0 && (
                                 <View
                                   style={[
                                     styles.tooltip,
@@ -631,7 +730,7 @@ export default function Dashboard() {
                                   <View style={styles.tooltipEmojiBubble}>
                                     <Text style={styles.tooltipEmojiText}>{moodEmojis[tooltipIndex] || '😐'}</Text>
                                   </View>
-                                  <Text style={styles.tooltipMoodText}>{formatMoodName(moods[tooltipIndex])}</Text>
+                                  <Text style={styles.tooltipMoodText}>{formatMoodName(moods[tooltipIndex] || '')}</Text>
                                 </View>
                               )}
                             </View>
@@ -654,23 +753,23 @@ export default function Dashboard() {
             {/* Quick actions grid (no outer card) */}
             <View style={styles.quickActionsSection}>
               <View style={styles.quickActionsHeader}>
-                <Text style={[styles.quickActionsTitle, { color: themeStyle.title }]}>Quick Actions</Text>
+                <Text style={[styles.quickActionsTitle, { color: '#FFFFFF' }]}>Quick Actions</Text>
               </View>
               <View style={styles.quickActionsGrid}>
                 <View style={styles.quickActionsRow}>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => router.push('./connect-with-therapist' as any)}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => router.push('./connect-with-therapist' as any)}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFE7EF' }]}>
                       <FontAwesome name="comment" size={22} color="#FF6B86" />
                     </View>
                     <Text style={styles.quickActionText} numberOfLines={2}>Connect with Therapist</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => handleCardPress('./mood')}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./mood')}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFF1E3' }]}>
                       <MaterialIcons name="local-cafe" size={22} color="#FF9F6B" />
                     </View>
                     <Text style={styles.quickActionText} numberOfLines={2}>Take a Mood Break</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => handleCardPress('./journal-list')}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./journal-list')}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#E8FAF4' }]}>
                       <FontAwesome name="book" size={22} color="#4BC7B0" />
                     </View>
@@ -679,19 +778,19 @@ export default function Dashboard() {
                 </View>
 
                 <View style={styles.quickActionsRow}>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => handleCardPress('./goals')}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./goals')}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#EEE9FF' }]}>
                       <MaterialIcons name="add" size={22} color="#8B7BFF" />
                     </View>
                     <Text style={styles.quickActionText}>Add a Goal</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => openSessionsModal()}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => router.push('./sessions')}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFE7EF' }]}>
                       <FontAwesome name="calendar" size={22} color="#FF6B86" />
                     </View>
                     <Text style={styles.quickActionText}>View Sessions</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => handleCardPress('./take-a-break')}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./take-a-break')}>
                     <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFF1E3' }]}>
                       <MaterialIcons name="local-cafe" size={22} color="#FF9F6B" />
                     </View>
@@ -714,15 +813,15 @@ export default function Dashboard() {
             {dashboardData?.recent_journal_entries && dashboardData.recent_journal_entries.length > 0 && (
               <View style={styles.recentSection}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginHorizontal: 12 }}>
-                  <Text style={[styles.quickActionsTitle, { color: themeStyle.title }]}>Recent Journals</Text>
+                  <Text style={[styles.quickActionsTitle, { color: '#FFFFFF' }]}>Recent Journals</Text>
                   <TouchableOpacity onPress={() => router.push('./journal-list' as any)}>
-                    <Text style={{ color: themeStyle.progressbarmain || '#49467E', fontWeight: '600' }}>View All</Text>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>View All</Text>
                   </TouchableOpacity>
                 </View>
                 {dashboardData.recent_journal_entries.slice(0, 2).map((entry) => (
                   <TouchableOpacity
                     key={entry.id}
-                    style={[styles.journalCard, { backgroundColor: themeStyle.dashboardcard || '#ffffff' }]}
+                    style={[styles.journalCard, { backgroundColor: '#473F5A' }]}
                     onPress={() => router.push(`./journal-detail?id=${entry.id}` as any)}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
@@ -737,15 +836,15 @@ export default function Dashboard() {
 
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={[styles.journalTitle, { color: themeStyle.title }]} numberOfLines={1}>{entry.title}</Text>
+                          <Text style={[styles.journalTitle, { color: '#FFFFFF' }]} numberOfLines={1}>{entry.title}</Text>
                         </View>
 
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                          <FontAwesome name="calendar" size={12} color={themeStyle.label} />
-                          <Text style={[styles.journalDate, { color: themeStyle.label, marginLeft: 6 }]}>{new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                          <FontAwesome name="calendar" size={12} color="#FFFFFF" />
+                          <Text style={[styles.journalDate, { color: '#FFFFFF', marginLeft: 6 }]}>{new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
                         </View>
 
-                        <Text style={[styles.journalContent, { color: themeStyle.text, marginTop: 8 }]} numberOfLines={2}>{entry.content}</Text>
+                        <Text style={[styles.journalContent, { color: '#FFFFFF', marginTop: 8 }]} numberOfLines={2}>{entry.content}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -827,18 +926,18 @@ export default function Dashboard() {
                 )}
                 {groupedSessions.map((group: any, gidx: number) => (
                   <View key={`group-${gidx}-${group.therapist?.id || 'no'}`} style={{ marginBottom: 16 }}>
-                    <View style={[styles.journalCard, { backgroundColor: themeStyle.dashboardcard || '#eef', padding: 12 }] }>
-                      <Text style={[styles.cardTitle, { color: themeStyle.title }]}>{group.therapist ? group.therapist.full_name : 'Other Sessions'}</Text>
+                    <View style={[styles.journalCard, { backgroundColor: '#473F5A', padding: 12 }] }>
+                      <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{group.therapist ? group.therapist.full_name : 'Other Sessions'}</Text>
                       {group.therapist?.specialization && (
-                        <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>{group.therapist.specialization}</Text>
+                        <Text style={[styles.cardSubtitle, { color: '#FFFFFF' }]}>{group.therapist.specialization}</Text>
                       )}
                     </View>
 
                     {group.sessions.map((item: any) => (
-                      <View key={item.id} style={[styles.journalCard, { backgroundColor: themeStyle.dashboardcard || '#fff', marginTop: 8 }]}>
-                        <Text style={[styles.cardTitle, { color: themeStyle.title }]}>{item.session_number ? `Session #${item.session_number}` : 'Session'}</Text>
-                        <Text style={[styles.cardSubtitle, { color: themeStyle.text }]}>{new Date(item.scheduled_date).toLocaleString()}</Text>
-                        <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>{item.status}</Text>
+                      <View key={item.id} style={[styles.journalCard, { backgroundColor: '#473F5A', marginTop: 8 }]}>
+                        <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{item.session_number ? `Session #${item.session_number}` : 'Session'}</Text>
+                        <Text style={[styles.cardSubtitle, { color: '#FFFFFF' }]}>{new Date(item.scheduled_date).toLocaleString()}</Text>
+                        <Text style={[styles.cardSubtitle, { color: '#FFFFFF' }]}>{item.status}</Text>
 
                         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
                           <TouchableOpacity
@@ -894,7 +993,7 @@ export default function Dashboard() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -922,6 +1021,19 @@ const styles = StyleSheet.create({
     height: 360,
     borderRadius: 0,
     zIndex: 0,
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 9999,
   },
   contentAboveGradient: {
     zIndex: 1,
@@ -1319,7 +1431,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 20,
     marginHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#473F5A',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 6 },
@@ -1400,7 +1512,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickActionText: {
-    color: '#4B4A78',
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
@@ -1473,7 +1585,7 @@ const styles = StyleSheet.create({
   graphTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#4B4A78',
+    color: '#FFFFFF',
   },
   headerDecorCircle: {
     position: 'absolute',
@@ -1492,7 +1604,7 @@ const styles = StyleSheet.create({
   headerTitleLarge: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#4B4A78',
+    color: '#FFFFFF',
     marginTop: -14,
     marginLeft: 6,
   },
@@ -1504,7 +1616,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#473F5A',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 6 },
@@ -1522,12 +1634,12 @@ const styles = StyleSheet.create({
   topStatNumber: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#4B4A78',
+    color: '#FFFFFF',
     marginTop: 2,
   },
   topStatLabel: {
     fontSize: 12,
-    color: '#8D8BA7',
+    color: '#FFFFFF',
   },
   headerTitle: {
     fontSize: 28,

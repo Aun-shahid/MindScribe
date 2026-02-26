@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,15 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import api from '../utils/api';
+import { FontAwesome } from '@expo/vector-icons';
 
 // Mood options
 const moods = [
@@ -66,9 +70,69 @@ export default function MoodEditScreen() {
   const [activities, setActivities] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadMoodEntry();
   }, [moodId]);
+
+  useEffect(() => {
+    const screenHeight = Dimensions.get('window').height;
+    const createFloatingAnimation = (
+      animValueY: Animated.Value,
+      animValueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY: number
+    ) => {
+      const animY = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animValueY, {
+            toValue: -50,
+            duration: durationY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValueY, {
+            toValue: 50,
+            duration: durationY,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      const animX = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animValueX, {
+            toValue: 30,
+            duration: durationX,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValueX, {
+            toValue: -30,
+            duration: durationX,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      Animated.parallel([animY, animX]).start();
+      return { animY, animX };
+    };
+
+    const anim1 = createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0);
+    const anim2 = createFloatingAnimation(bubble2Y, bubble2X, 10000, 8000, 1000);
+    const anim3 = createFloatingAnimation(bubble3Y, bubble3X, 9000, 7500, 500);
+    const anim4 = createFloatingAnimation(bubble4Y, bubble4X, 8500, 7200, 800);
+    const anim5 = createFloatingAnimation(bubble5Y, bubble5X, 9500, 8200, 300);
+  }, []);
 
   const loadMoodEntry = async () => {
     try {
@@ -168,10 +232,10 @@ export default function MoodEditScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeStyle.button} />
-          <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
             Loading mood entry...
           </Text>
         </View>
@@ -180,26 +244,62 @@ export default function MoodEditScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={['#342949', '#2A1F3D', '#342949']}
+        style={styles.screenGradient}
+      />
+      {/* Floating Bubbles */}
+      <View style={styles.floatingBubbles} pointerEvents="none">
+        <Animated.View style={[
+          styles.bubble,
+          { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+          { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+          { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+          { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+          { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+          { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+        ]} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={[styles.backButton, { color: themeStyle.text }]}>← Back</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: themeStyle.title }]}>Edit Mood Entry</Text>
+          <Text style={styles.headerTitle}>
+            <Text style={styles.headerBlue}>Edit Mood </Text>
+            <Text style={styles.headerOrange}>Entry</Text>
+          </Text>
         </View>
 
-        <Text style={[styles.subtitle, { color: themeStyle.label }]}>
+        <Text style={[styles.subtitle, { color: '#B8A8E6' }]}>
           Update the intensity of each mood you're experiencing
         </Text>
 
         {/* Mood Intensities */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+        <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
             How intense is each mood?
           </Text>
-          <Text style={[styles.helperText, { color: themeStyle.label }]}>
+          <Text style={[styles.helperText, { color: '#B8A8E6' }]}>
             Slide to rate each mood (1=barely, 5=very intense)
           </Text>
 
@@ -213,8 +313,8 @@ export default function MoodEditScreen() {
                 style={[
                   styles.moodIntensityCard,
                   {
-                    backgroundColor: isActive ? themeStyle.background : 'transparent',
-                    borderColor: isActive ? themeStyle.progressbarmain : themeStyle.border,
+                    backgroundColor: isActive ? '#5B5270' : 'transparent',
+                    borderColor: isActive ? '#FFB36B' : 'rgba(255,255,255,0.1)',
                   },
                 ]}
               >
@@ -225,7 +325,7 @@ export default function MoodEditScreen() {
                       style={[
                         styles.moodName,
                         {
-                          color: isActive ? themeStyle.text : themeStyle.label,
+                          color: isActive ? '#FFFFFF' : '#B8A8E6',
                           fontWeight: isActive ? '700' : '500',
                         },
                       ]}
@@ -239,14 +339,14 @@ export default function MoodEditScreen() {
                       {
                         backgroundColor: isActive
                           ? getIntensityColor(intensity)
-                          : themeStyle.border,
+                          : 'rgba(255,255,255,0.1)',
                       },
                     ]}
                   >
                     <Text
                       style={[
                         styles.intensityBadgeText,
-                        { color: isActive ? '#fff' : themeStyle.label },
+                        { color: isActive ? '#fff' : '#B8A8E6' },
                       ]}
                     >
                       {intensity}
@@ -261,9 +361,9 @@ export default function MoodEditScreen() {
                   step={1}
                   value={intensity}
                   onValueChange={(value) => updateMoodIntensity(mood.value, value)}
-                  minimumTrackTintColor={isActive ? themeStyle.progressbarmain : themeStyle.border}
-                  maximumTrackTintColor={themeStyle.progressbarside}
-                  thumbTintColor={isActive ? themeStyle.button : themeStyle.border}
+                  minimumTrackTintColor={isActive ? '#FFB36B' : 'rgba(255,255,255,0.1)'}
+                  maximumTrackTintColor="#5B5270"
+                  thumbTintColor={isActive ? '#FFB36B' : 'rgba(255,255,255,0.2)'}
                 />
               </View>
             );
@@ -271,8 +371,8 @@ export default function MoodEditScreen() {
         </View>
 
         {/* Triggers */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+        <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
             What triggered these moods?
           </Text>
           <View style={styles.triggersGrid}>
@@ -286,9 +386,9 @@ export default function MoodEditScreen() {
                     styles.triggerChip,
                     {
                       backgroundColor: isSelected
-                        ? themeStyle.progressbarmain
-                        : themeStyle.background,
-                      borderColor: isSelected ? themeStyle.progressbarmain : themeStyle.border,
+                        ? '#FFB36B'
+                        : '#5B5270',
+                      borderColor: isSelected ? '#FFB36B' : 'rgba(255,255,255,0.1)',
                     },
                   ]}
                 >
@@ -296,7 +396,7 @@ export default function MoodEditScreen() {
                     style={[
                       styles.triggerText,
                       {
-                        color: isSelected ? themeStyle.lighttext : themeStyle.text,
+                        color: isSelected ? '#FFFFFF' : '#E5E5E5',
                       },
                     ]}
                   >
@@ -309,19 +409,19 @@ export default function MoodEditScreen() {
         </View>
 
         {/* Activities */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Activities Today</Text>
+        <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Activities Today</Text>
           <TextInput
             style={[
               styles.textInput,
               {
-                backgroundColor: themeStyle.background,
-                color: themeStyle.text,
-                borderColor: themeStyle.border,
+                backgroundColor: '#5B5270',
+                color: '#FFFFFF',
+                borderColor: 'rgba(255,255,255,0.1)',
               },
             ]}
             placeholder="e.g., Yoga, Work meeting, Walk in park..."
-            placeholderTextColor={themeStyle.label}
+            placeholderTextColor="#B8A8E6"
             value={activities}
             onChangeText={setActivities}
             multiline
@@ -329,19 +429,19 @@ export default function MoodEditScreen() {
         </View>
 
         {/* Notes */}
-        <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Additional Notes</Text>
+        <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Additional Notes</Text>
           <TextInput
             style={[
               styles.textArea,
               {
-                backgroundColor: themeStyle.background,
-                color: themeStyle.text,
-                borderColor: themeStyle.border,
+                backgroundColor: '#5B5270',
+                color: '#FFFFFF',
+                borderColor: 'rgba(255,255,255,0.1)',
               },
             ]}
             placeholder="How are you feeling? Any specific thoughts or experiences?"
-            placeholderTextColor={themeStyle.label}
+            placeholderTextColor="#B8A8E6"
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -354,16 +454,16 @@ export default function MoodEditScreen() {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            { backgroundColor: themeStyle.button },
+            { backgroundColor: '#FFB36B' },
             submitting && { opacity: 0.6 },
           ]}
           onPress={handleUpdate}
           disabled={submitting}
         >
           {submitting ? (
-            <ActivityIndicator color={themeStyle.buttonText} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={[styles.submitButtonText, { color: themeStyle.buttonText }]}>
+            <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
               💾 Update Mood Entry
             </Text>
           )}
@@ -381,19 +481,54 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 60,
+  },
+  screenGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    opacity: 1,
   },
   header: {
     marginBottom: 20,
+    alignItems: 'center',
   },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
+  backBtnCircle: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    zIndex: 2,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  headerBlue: {
+    color: '#FFFFFF',
+  },
+  headerOrange: {
+    color: '#B8A8E6',
   },
   subtitle: {
     fontSize: 16,

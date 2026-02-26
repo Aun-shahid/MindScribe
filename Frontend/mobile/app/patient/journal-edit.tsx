@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
@@ -20,25 +21,25 @@ import type { CreateJournalEntryData, JournalEntry } from '../services/patient.s
 
 const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
 
-const PROMPTS = [
-  "What made you smile today?",
-  "Describe a challenge you faced and how you handled it.",
-  "What are you grateful for right now?",
-  "Write about a moment that brought you peace today.",
-  "What's on your mind that you need to process?",
-  "Describe your current emotional state.",
-  "What would make tomorrow better?",
-  "Reflect on something you learned recently.",
-];
-
 export default function JournalEdit() {
   const { themeStyle } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const [originalEntry, setOriginalEntry] = useState<JournalEntry | null>(null);
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
   
   const [formData, setFormData] = useState<CreateJournalEntryData>({
     title: '',
@@ -54,6 +55,69 @@ export default function JournalEdit() {
       loadEntry();
     }
   }, [id]);
+
+  // Bubble animation effect
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
+    const createFloatingAnimation = (
+      animatedValueY: Animated.Value,
+      animatedValueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY: number = 0,
+      delayX: number = 0
+    ) => {
+      const animateY = () => {
+        Animated.sequence([
+          Animated.delay(delayY),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(animatedValueY, {
+                toValue: 50,
+                duration: durationY / 2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animatedValueY, {
+                toValue: -50,
+                duration: durationY / 2,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]).start();
+      };
+
+      const animateX = () => {
+        Animated.sequence([
+          Animated.delay(delayX),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(animatedValueX, {
+                toValue: 50,
+                duration: durationX / 2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animatedValueX, {
+                toValue: -50,
+                duration: durationX / 2,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]).start();
+      };
+
+      animateY();
+      animateX();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 10000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 500, 1000);
+    createFloatingAnimation(bubble3Y, bubble3X, 7500, 9500, 1000, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 9000, 1500, 800);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 2000, 1500);
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const loadEntry = async () => {
     try {
@@ -83,11 +147,6 @@ export default function JournalEdit() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handlePromptSelect = (prompt: string) => {
-    setSelectedPrompt(prompt);
-    setFormData(prev => ({ ...prev, prompt }));
   };
 
   const toggleMoodTag = (tag: string) => {
@@ -133,9 +192,9 @@ export default function JournalEdit() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color="#524f85" />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
+        <ActivityIndicator size="large" color="#FFB36B" />
+        <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
           Loading journal entry...
         </Text>
       </View>
@@ -143,7 +202,89 @@ export default function JournalEdit() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#342949', '#2a1f3d', '#342949']}
+        style={styles.screenGradient}
+      >
+        {/* Floating Bubbles */}
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '10%',
+              left: '-10%',
+              width: 120,
+              height: 120,
+              transform: [
+                { translateY: bubble1Y },
+                { translateX: bubble1X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '30%',
+              right: '-5%',
+              width: 100,
+              height: 100,
+              transform: [
+                { translateY: bubble2Y },
+                { translateX: bubble2X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '50%',
+              left: '-8%',
+              width: 90,
+              height: 90,
+              transform: [
+                { translateY: bubble3Y },
+                { translateX: bubble3X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '70%',
+              right: '-7%',
+              width: 110,
+              height: 110,
+              transform: [
+                { translateY: bubble4Y },
+                { translateX: bubble4X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              bottom: '5%',
+              left: '5%',
+              width: 95,
+              height: 95,
+              transform: [
+                { translateY: bubble5Y },
+                { translateX: bubble5X },
+              ],
+            },
+          ]}
+        />
+      </LinearGradient>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -155,78 +296,57 @@ export default function JournalEdit() {
               <TouchableOpacity onPress={() => router.back()}>
                 <Text style={styles.backButton}>← Cancel</Text>
               </TouchableOpacity>
-              <Text style={[styles.title, { color: themeStyle.title }]}>
-                ✏️ Edit Journal Entry
-              </Text>
-              <Text style={[styles.subtitle, { color: themeStyle.label }]}>
-                Update your thoughts and feelings
-              </Text>
-            </View>
-
-            {/* Prompts Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>
-                💡 Need inspiration?
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptsScroll}>
-                {PROMPTS.map((prompt, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.promptCard,
-                      { backgroundColor: themeStyle.dashboardcard },
-                      selectedPrompt === prompt && styles.promptCardSelected,
-                    ]}
-                    onPress={() => handlePromptSelect(prompt)}
-                  >
-                    <Text style={[styles.promptText, { color: themeStyle.text }]}>
-                      {prompt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.title}>
+                  <Text style={styles.titleWhite}>Edit</Text>
+                  <Text style={styles.titlePurple}> Journal</Text>
+                </Text>
+                <Text style={styles.subtitle}>
+                  Update your thoughts and feelings
+                </Text>
+              </View>
             </View>
 
             {/* Title Input */}
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
+            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+              <Text style={styles.cardTitle}>
                 Title *
               </Text>
               <TextInput
-                style={[styles.titleInput, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text }]}
+                style={styles.cardTextInput}
                 placeholder="Give your entry a title..."
-                placeholderTextColor={themeStyle.label}
+                placeholderTextColor="#B8A8E6"
                 value={formData.title}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
               />
             </View>
 
             {/* Content Input - Large */}
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
+            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+              <Text style={styles.cardTitle}>
                 What's on your mind? *
               </Text>
               <TextInput
-                style={[styles.contentInput, { backgroundColor: themeStyle.dashboardcard, color: themeStyle.text }]}
+                style={[styles.cardTextInput, { minHeight: 250 }]}
                 placeholder="Start writing... Express yourself freely."
-                placeholderTextColor={themeStyle.label}
+                placeholderTextColor="#B8A8E6"
                 value={formData.content}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
                 multiline
                 numberOfLines={12}
                 textAlignVertical="top"
               />
-              <Text style={[styles.wordCount, { color: themeStyle.label }]}>
+              <Text style={styles.wordCount}>
                 {formData.content?.trim().split(/\s+/).filter(w => w).length || 0} words
               </Text>
             </View>
 
             {/* Tags */}
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: themeStyle.title }]}>
+            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+              <Text style={styles.cardTitle}>
                 🎨 Tags (Optional)
               </Text>
-              <Text style={[styles.subtitle, { color: themeStyle.label }]}>
+              <Text style={[styles.subtitle, { textAlign: 'left', marginBottom: 12 }]}>
                 Select tags that describe your current state
               </Text>
               <View style={styles.moodTagsContainer}>
@@ -235,7 +355,6 @@ export default function JournalEdit() {
                     key={tag}
                     style={[
                       styles.moodTag,
-                      { backgroundColor: themeStyle.dashboardcard },
                       formData.mood_tags_list?.includes(tag) && styles.moodTagSelected,
                     ]}
                     onPress={() => toggleMoodTag(tag)}
@@ -243,7 +362,6 @@ export default function JournalEdit() {
                     <Text
                       style={[
                         styles.moodTagText,
-                        { color: themeStyle.text },
                         formData.mood_tags_list?.includes(tag) && styles.moodTagTextSelected,
                       ]}
                     >
@@ -262,7 +380,7 @@ export default function JournalEdit() {
               >
                 <View style={styles.switchLeft}>
                   <Text style={styles.switchEmoji}>⭐</Text>
-                  <Text style={[styles.switchLabel, { color: themeStyle.text }]}>
+                  <Text style={styles.switchLabel}>
                     Mark as Favorite
                   </Text>
                 </View>
@@ -284,10 +402,10 @@ export default function JournalEdit() {
                 <View style={styles.switchLeft}>
                   <Text style={styles.switchEmoji}>🔒</Text>
                   <View>
-                    <Text style={[styles.switchLabel, { color: themeStyle.text }]}>
+                    <Text style={styles.switchLabel}>
                       Keep Private
                     </Text>
-                    <Text style={[styles.privacySubtext, { color: themeStyle.label }]}>
+                    <Text style={styles.privacySubtext}>
                       {formData.is_private ? 'Only you can see' : 'Therapist can view'}
                     </Text>
                   </View>
@@ -321,7 +439,7 @@ export default function JournalEdit() {
                 onPress={() => router.back()}
                 disabled={submitting}
               >
-                <Text style={[styles.cancelButtonText, { color: themeStyle.text }]}>
+                <Text style={styles.cancelButtonText}>
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -329,13 +447,26 @@ export default function JournalEdit() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#342949',
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    backgroundColor: 'rgba(133, 130, 180, 0.15)',
+    borderRadius: 1000,
   },
   centerContainer: {
     flex: 1,
@@ -345,18 +476,23 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
+    color: '#FFFFFF',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 32,
     paddingTop: 30,
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
+    marginTop: 16,
   },
   backButton: {
     fontSize: 16,
-    color: '#524f85',
+    color: '#FFFFFF',
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -364,10 +500,19 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     marginBottom: 8,
+    textAlign: 'center',
+  },
+  titleWhite: {
+    color: '#FFFFFF',
+  },
+  titlePurple: {
+    color: '#B8A8E6',
   },
   subtitle: {
     fontSize: 16,
     fontStyle: 'italic',
+    color: '#B8A8E6',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 24,
@@ -376,95 +521,75 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
+    color: '#FFFFFF',
   },
-  promptsScroll: {
-    marginBottom: 8,
-  },
-  promptCard: {
-    padding: 16,
+  card: {
+    padding: 20,
     borderRadius: 16,
-    marginRight: 12,
-    width: 250,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  promptCardSelected: {
-    borderColor: '#524f85',
-    elevation: 4,
-  },
-  promptText: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  titleInput: {
-    padding: 16,
-    borderRadius: 12,
+  cardTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#FFFFFF',
   },
-  contentInput: {
+  cardTextInput: {
     padding: 16,
     borderRadius: 12,
     fontSize: 16,
-    minHeight: 250,
-    textAlignVertical: 'top',
-    lineHeight: 24,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
+    backgroundColor: '#5B5270',
+    color: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    minHeight: 50,
   },
   wordCount: {
     marginTop: 8,
     fontSize: 13,
     textAlign: 'right',
     fontStyle: 'italic',
+    color: '#B8A8E6',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#FFFFFF',
+  },
+  wordCount: {
+    marginTop: 8,
+    fontSize: 13,
+    textAlign: 'right',
+    fontStyle: 'italic',
+    color: '#B8A8E6',
   },
   moodTagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 8,
   },
   moodTag: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    backgroundColor: '#5B5270',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   moodTagSelected: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4caf50',
-    elevation: 2,
+    backgroundColor: '#FFB36B',
+    borderColor: '#FFB36B',
   },
   moodTagText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   moodTagTextSelected: {
-    color: '#2e7d32',
+    color: '#FFFFFF',
   },
   switchRow: {
     flexDirection: 'row',
@@ -472,7 +597,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   switchLeft: {
     flexDirection: 'row',
@@ -485,10 +610,12 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   privacySubtext: {
     fontSize: 12,
     marginTop: 2,
+    color: '#B8A8E6',
   },
   switch: {
     width: 50,
@@ -512,15 +639,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitButton: {
-    backgroundColor: '#524f85',
+    backgroundColor: '#A78BFA',
     padding: 18,
     borderRadius: 16,
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
   },
   submitButtonDisabled: {
     opacity: 0.6,
@@ -535,10 +657,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

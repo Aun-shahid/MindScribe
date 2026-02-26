@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   TouchableOpacity,
   Animated,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -24,13 +24,88 @@ export default function JournalDetail() {
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [fadeAnim] = useState(new Animated.Value(0));
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (id) {
       loadEntry();
     }
   }, [id]);
+
+  // Bubble animation effect
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
+    const createFloatingAnimation = (
+      animatedValueY: Animated.Value,
+      animatedValueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY: number = 0,
+      delayX: number = 0
+    ) => {
+      const animateY = () => {
+        Animated.sequence([
+          Animated.delay(delayY),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(animatedValueY, {
+                toValue: 50,
+                duration: durationY / 2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animatedValueY, {
+                toValue: -50,
+                duration: durationY / 2,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]).start();
+      };
+
+      const animateX = () => {
+        Animated.sequence([
+          Animated.delay(delayX),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(animatedValueX, {
+                toValue: 50,
+                duration: durationX / 2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animatedValueX, {
+                toValue: -50,
+                duration: durationX / 2,
+                useNativeDriver: true,
+              }),
+            ])
+          ),
+        ]).start();
+      };
+
+      animateY();
+      animateX();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 10000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 500, 1000);
+    createFloatingAnimation(bubble3Y, bubble3X, 7500, 9500, 1000, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 9000, 1500, 800);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 2000, 1500);
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const loadEntry = async () => {
     try {
@@ -132,9 +207,9 @@ export default function JournalDetail() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color="#524f85" />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
+        <ActivityIndicator size="large" color="#FFB36B" />
+        <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
           Loading journal entry...
         </Text>
       </View>
@@ -143,8 +218,8 @@ export default function JournalDetail() {
 
   if (!entry) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <Text style={[styles.errorText, { color: themeStyle.label }]}>
+      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
+        <Text style={[styles.errorText, { color: '#FFFFFF' }]}>
           Entry not found
         </Text>
         <TouchableOpacity
@@ -172,21 +247,103 @@ export default function JournalDetail() {
   const privacy = getPrivacyLabel(entry.privacy_level);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#342949', '#2a1f3d', '#342949']}
+        style={styles.screenGradient}
+      >
+        {/* Floating Bubbles */}
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '10%',
+              left: '-10%',
+              width: 120,
+              height: 120,
+              transform: [
+                { translateY: bubble1Y },
+                { translateX: bubble1X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '30%',
+              right: '-5%',
+              width: 100,
+              height: 100,
+              transform: [
+                { translateY: bubble2Y },
+                { translateX: bubble2X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '50%',
+              left: '-8%',
+              width: 90,
+              height: 90,
+              transform: [
+                { translateY: bubble3Y },
+                { translateX: bubble3X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              top: '70%',
+              right: '-7%',
+              width: 110,
+              height: 110,
+              transform: [
+                { translateY: bubble4Y },
+                { translateX: bubble4X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              bottom: '5%',
+              left: '5%',
+              width: 95,
+              height: 95,
+              transform: [
+                { translateY: bubble5Y },
+                { translateX: bubble5X },
+              ],
+            },
+          ]}
+        />
+      </LinearGradient>
+
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         {/* Header */}
           <View style={styles.header}>
           <TouchableOpacity
-            style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}
-            onPress={() => router.push('./journal-list')}
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
+            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.headerTitleCenter}>
             <Text style={styles.headerTitle}>
-              <Text style={styles.headerBlue}>View</Text>
-              <Text style={styles.headerOrange}> Journal</Text>
+              <Text style={styles.headerWhite}>View</Text>
+              <Text style={styles.headerPurple}> Journal</Text>
             </Text>
           </View>
 
@@ -199,54 +356,53 @@ export default function JournalDetail() {
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Date & Time */}
-          <View style={[styles.metaCard, { backgroundColor: themeStyle.dashboardcard }]}>
+          <View style={styles.metaCard}>
             <LinearGradient
-              colors={["#FF6EA5", "#FFB870", "#2BD3B6"]}
+              colors={["#FFB36B", "#A78BFA", "#FFB36B"]}
               start={[0,0]}
               end={[1,0]}
               style={styles.metaCardGrad}
             />
             <View style={styles.metaPills}
             >
-              <View style={[styles.metaPill, { backgroundColor: themeStyle.background }]}>
-                <FontAwesome5 name="calendar-alt" size={14} color="#FF6EA5" />
-                <Text style={[styles.metaPillText, { color: themeStyle.title }]}>{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+              <View style={styles.metaPill}>
+                <FontAwesome5 name="calendar-alt" size={14} color="#FFB36B" />
+                <Text style={styles.metaPillText}>{new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
               </View>
-              <View style={[styles.metaPill, { backgroundColor: themeStyle.background }]}>
-                <FontAwesome5 name="clock" size={14} color="#FFB870" />
-                <Text style={[styles.metaPillText, { color: themeStyle.title }]}>{formattedTime}</Text>
+              <View style={styles.metaPill}>
+                <FontAwesome5 name="clock" size={14} color="#FFB36B" />
+                <Text style={styles.metaPillText}>{formattedTime}</Text>
               </View>
             </View>
           </View>
 
           {/* Title */}
-          <View style={[styles.titleCard, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.title, { color: themeStyle.title }]}>
+          <View style={styles.titleCard}>
+            <Text style={styles.title}>
               {entry.title}
             </Text>
-            <FontAwesome5 name="pen-fancy" size={26} color="#E1C8FF" style={styles.titleIcon} />
+            <FontAwesome5 name="pen-fancy" size={26} color="#B8A8E6" style={styles.titleIcon} />
           </View>
 
           {/* Content */}
-          <View style={[styles.contentCard, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.content, { color: themeStyle.text }]}>
+          <View style={styles.contentCard}>
+            <Text style={styles.content}>
               {entry.content}
             </Text>
           </View>
 
           {/* Mood Tags */}
           {entry.tags_list && entry.tags_list.length > 0 && (
-            <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-              <Text style={[styles.sectionTitle, { color: themeStyle.title }]}> 
-                <FontAwesome5 name="theater-masks" size={14} color={themeStyle.title} />{' '}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}> 
+                <FontAwesome5 name="theater-masks" size={14} color="#FFFFFF" />{' '}
                 Mood Tags
               </Text>
               <View style={styles.tagsContainer}>
                 {entry.tags_list.map((tag, index) => {
-                  const ts = tagStyleFor(tag);
                   return (
-                    <View key={index} style={[styles.tag, { backgroundColor: ts.bg, borderColor: hexToRgba(ts.color, 0.16) }]}>
-                      <Text style={[styles.tagText, { color: ts.color }]}>{tag}</Text>
+                    <View key={index} style={styles.tag}>
+                      <Text style={styles.tagText}>{tag}</Text>
                     </View>
                   );
                 })}
@@ -258,23 +414,23 @@ export default function JournalDetail() {
           {/* Mood & Entry Type removed as requested */}
 
           {/* Metadata Grid */}
-          <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}> 
-              <FontAwesome5 name="info-circle" size={14} color={themeStyle.title} />{' '}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}> 
+              <FontAwesome5 name="info-circle" size={14} color="#FFFFFF" />{' '}
               Details
             </Text>
             <View style={styles.metaGrid}>
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>Word Count</Text>
-                <Text style={[styles.metaValue, { color: themeStyle.title }]}>
+                <Text style={styles.metaValue}>
                   {entry.word_count}
                 </Text>
               </View>
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>Privacy</Text>
                 <View style={styles.privacyBadge}>
-                  <FontAwesome5 name={privacy.name as any} size={14} color={themeStyle.title} style={styles.privacyIcon} />
-                  <Text style={[styles.privacyText, { color: themeStyle.title }]}> 
+                  <FontAwesome5 name={privacy.name as any} size={14} color="#FFFFFF" style={styles.privacyIcon} />
+                  <Text style={styles.privacyText}> 
                     {privacy.label}
                   </Text>
                 </View>
@@ -283,20 +439,20 @@ export default function JournalDetail() {
           </View>
 
           {/* Timestamps */}
-          <View style={[styles.section, { backgroundColor: themeStyle.dashboardcard }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               ⏰ Timeline
             </Text>
             <View style={styles.timestampRow}>
               <Text style={styles.timestampLabel}>Created:</Text>
-              <Text style={[styles.timestampValue, { color: themeStyle.text }]}>
+              <Text style={styles.timestampValue}>
                 {new Date(entry.created_at).toLocaleString()}
               </Text>
             </View>
             {entry.updated_at !== entry.created_at && (
               <View style={styles.timestampRow}>
                 <Text style={styles.timestampLabel}>Updated:</Text>
-                <Text style={[styles.timestampValue, { color: themeStyle.text }]}>
+                <Text style={styles.timestampValue}>
                   {new Date(entry.updated_at).toLocaleString()}
                 </Text>
               </View>
@@ -307,10 +463,10 @@ export default function JournalDetail() {
           <View style={styles.actionsContainer}>
             <View style={styles.actionRow}>
               <TouchableOpacity onPress={() => router.push(`./journal-edit?id=${entry.id}` as any)} disabled={deleting}>
-                <LinearGradient colors={["#FF5AA8", "#FFB36B"]} style={styles.editBtn} start={[0,0]} end={[1,0]}> 
+                <View style={styles.editBtn}> 
                   <FontAwesome5 name="edit" size={16} color="#fff" style={{ marginRight: 10 }} />
                   <Text style={styles.editButtonText}>Edit</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={handleDelete} disabled={deleting}>
@@ -325,13 +481,26 @@ export default function JournalDetail() {
           </View>
         </ScrollView>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#342949',
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    backgroundColor: 'rgba(133, 130, 180, 0.15)',
+    borderRadius: 1000,
   },
   centerContainer: {
     flex: 1,
@@ -354,7 +523,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 14,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#342949',
     borderRadius: 12,
     marginBottom: 14,
   },
@@ -370,8 +539,8 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 20,
   },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   backText: {
     fontSize: 16,
     color: '#524f85',
@@ -444,11 +613,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginRight: 12,
     minWidth: 140,
-    shadowColor: '#FF6EA5',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
+    backgroundColor: '#A78BFA',
   },
   deleteBtn: {
     flexDirection: 'row',
@@ -473,17 +638,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     gap: 8,
+    backgroundColor: '#5B5270',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   metaPillText: {
     marginLeft: 8,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   titleIcon: {
     position: 'absolute',
@@ -499,11 +661,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    backgroundColor: '#473F5A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
   },
 
@@ -528,49 +688,46 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    backgroundColor: '#473F5A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     lineHeight: 36,
     textAlign: 'center',
+    color: '#FFFFFF',
   },
   contentCard: {
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    backgroundColor: '#473F5A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   content: {
     fontSize: 16,
     lineHeight: 26,
+    color: '#FFFFFF',
   },
   section: {
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    backgroundColor: '#473F5A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9F6B',
+    borderLeftColor: '#FFB36B',
     paddingLeft: 12,
+    color: '#FFFFFF',
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -581,13 +738,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
+    backgroundColor: '#5B5270',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   tagText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2e7d32',
+    color: '#FFB36B',
   },
   metaGrid: {
     flexDirection: 'row',
@@ -599,13 +757,14 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 13,
-    color: '#888',
+    color: '#B8A8E6',
     marginBottom: 6,
     fontWeight: '500',
   },
   metaValue: {
     fontSize: 20,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   privacyBadge: {
     flexDirection: 'row',
@@ -618,6 +777,7 @@ const styles = StyleSheet.create({
   privacyText: {
     fontSize: 15,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   moodRow: {
     marginBottom: 12,
@@ -682,11 +842,12 @@ const styles = StyleSheet.create({
   },
   timestampLabel: {
     fontSize: 14,
-    color: '#888',
+    color: '#B8A8E6',
     fontWeight: '500',
   },
   timestampValue: {
     fontSize: 14,
+    color: '#FFFFFF',
   },
   actionsContainer: {
     gap: 12,
@@ -711,7 +872,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   backButton: {
-    backgroundColor: '#524f85',
+    backgroundColor: '#A78BFA',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,

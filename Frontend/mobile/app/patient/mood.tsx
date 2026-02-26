@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  Animated,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -86,9 +87,23 @@ interface MoodHistoryEntry {
   updated_at: string;
 }
 
+const screenHeight = Dimensions.get('window').height;
+
 export default function MoodTrackerScreen() {
   const { themeStyle } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
+
+  // Animated values for floating bubbles
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'weekly'>('entry');
@@ -127,6 +142,55 @@ export default function MoodTrackerScreen() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showOrderingModal, setShowOrderingModal] = useState(false);
+
+  // Animate floating bubbles
+  useEffect(() => {
+    const createFloatingAnimation = (
+      valueY: Animated.Value,
+      valueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY = 0,
+      delayX = 0
+    ) => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delayY),
+            Animated.timing(valueY, {
+              toValue: 50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: -50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delayX),
+            Animated.timing(valueX, {
+              toValue: 30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      ).start();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
+    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -385,24 +449,60 @@ export default function MoodTrackerScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      {/* Gradient background */}
+      <LinearGradient
+        colors={['#342949', '#342949', '#342949']}
+        start={[0, 0]}
+        end={[0, 1]}
+        style={[styles.screenGradient, { height: screenHeight }]}
+        pointerEvents="none"
+      />
+      {/* Floating bubble decorations with animation */}
+      <View style={styles.floatingBubbles} pointerEvents="none">
+        <Animated.View style={[
+          styles.bubble,
+          { width: 200, height: 200, top: '10%', left: '-10%', backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+          { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 280, height: 280, top: '25%', right: '-15%', backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+          { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 180, height: 180, top: '50%', left: '10%', backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+          { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 220, height: 220, bottom: '15%', right: '5%', backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+          { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 120, height: 120, bottom: '30%', left: '-5%', backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+          { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+        ]} />
+      </View>
       {/* Header */}
-      <View style={[styles.headerContainer, { backgroundColor: themeStyle.card }]}> 
-        <TouchableOpacity onPress={() => router.push('/patient/dashboard')} style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}> 
-          <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
+      <View style={styles.headerContainer}> 
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: themeStyle.title }]}>
+        <Text style={[styles.headerTitle]}>
           <Text style={styles.headerBlue}>Mood </Text>
           <Text style={styles.headerOrange}>Break</Text>
         </Text>
 
         {/* Analytics icon (top-right) */}
         <TouchableOpacity
-          style={[styles.analyticsButton, { backgroundColor: themeStyle.card }]}
+          style={[styles.analyticsButton, { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }]}
           onPress={() => router.push('/patient/mood-analytics-detail')}
         >
-          <FontAwesome name="bar-chart" size={18} color={themeStyle.title} />
+          <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -445,8 +545,6 @@ export default function MoodTrackerScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ height: 24 }} />
-
       {/* Entry Tab Content */}
       {activeTab === 'entry' && (
         <ScrollView
@@ -455,8 +553,8 @@ export default function MoodTrackerScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Mood Intensities Section */}
-          <View style={[styles.card, { backgroundColor: '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Select Mood</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Select Mood</Text>
             <View style={styles.selectGrid}>
               {moods.map((mood) => {
                 const intensity = moodIntensities[mood.value] || 0;
@@ -483,14 +581,14 @@ export default function MoodTrackerScreen() {
                       }}
                     style={[
                           styles.moodTile,
-                          { backgroundColor: '#fff', borderColor: isSelected ? themeStyle.progressbarmain : themeStyle.border },
-                          lastSelectedMood === mood.value && { borderWidth: 2, borderColor: themeStyle.progressbarmain, shadowOpacity: 0.08, elevation: 6 },
+                          { backgroundColor: '#473F5A', borderColor: isSelected ? '#FFB36B' : 'rgba(255,255,255,0.1)' },
+                          lastSelectedMood === mood.value && { borderWidth: 2, borderColor: '#FFB36B', shadowOpacity: 0.08, elevation: 6 },
                         ]}
                   >
                     <View style={[styles.emojiContainer, isSelected && { shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 4 }]}>
                       <Text style={isSelected ? styles.emojiTextLarge : styles.emojiText}>{mood.emoji}</Text>
                     </View>
-                    <Text style={[styles.moodLabel, { color: themeStyle.text }]}>{mood.label}</Text>
+                    <Text style={[styles.moodLabel, { color: '#FFFFFF' }]}>{mood.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -498,9 +596,9 @@ export default function MoodTrackerScreen() {
           </View>
 
           {/* Mood Intensity Card (separate) */}
-          <View style={[styles.card, { backgroundColor: '#fff', marginTop: 12 }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Mood Intensity</Text>
-            <Text style={[styles.helperText, { color: themeStyle.label }]}>How intense is this feeling?</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A', marginTop: 12 }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Mood Intensity</Text>
+            <Text style={[styles.helperText, { color: '#B8A8E6' }]}>How intense is this feeling?</Text>
             <View style={styles.gradientTrackWrapper}>
               <LinearGradient
                 colors={[ '#FF7A7A', '#FF9F6B', '#6FD8BE' ]}
@@ -538,29 +636,37 @@ export default function MoodTrackerScreen() {
                       setGlobalIntensity(n);
                     }
                   }}
-                  style={[styles.intensityNumber, (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { backgroundColor: themeStyle.button }]}
+                  style={[
+                    styles.intensityNumber, 
+                    { borderColor: 'rgba(255,255,255,0.2)' },
+                    (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { backgroundColor: '#FFB36B', borderColor: '#FFB36B' }
+                  ]}
                 >
-                  <Text style={[styles.intensityNumberText, (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { color: themeStyle.buttonText }]}>{n}</Text>
+                  <Text style={[
+                    styles.intensityNumberText, 
+                    { color: '#E5E5E5' },
+                    (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { color: '#FFFFFF' }
+                  ]}>{n}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.sliderCaption, { color: themeStyle.label }]}>Very Low</Text>
-            <Text style={[styles.sliderCaptionRight, { color: themeStyle.label }]}>Very High</Text>
+            <Text style={[styles.sliderCaption, { color: '#B8A8E6' }]}>Very Low</Text>
+            <Text style={[styles.sliderCaptionRight, { color: '#B8A8E6' }]}>Very High</Text>
           </View>
 
           {/* Additional Context Section (Collapsible) */}
           {/* Optional information separator */}
           <View style={{ width: '100%', alignItems: 'center', marginVertical: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: themeStyle.border }} />
-              <Text style={{ marginHorizontal: 12, color: themeStyle.label, fontWeight: '600' }}>Optional information</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: themeStyle.border }} />
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+              <Text style={{ marginHorizontal: 12, color: '#B8A8E6', fontWeight: '600' }}>Optional information</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
             </View>
           </View>
 
           {/* Triggers */}
-          <View style={[styles.card, { backgroundColor: '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>What triggered these moods?</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>What triggered these moods?</Text>
             <View style={styles.triggersGrid}>
               {commonTriggers.map((trigger) => {
                 const isSelected = selectedTriggers.includes(trigger);
@@ -571,8 +677,8 @@ export default function MoodTrackerScreen() {
                     style={[
                       styles.triggerChip,
                       {
-                        backgroundColor: isSelected ? themeStyle.progressbarmain : '#fff',
-                        borderColor: isSelected ? themeStyle.progressbarmain : 'rgba(0,0,0,0.04)',
+                        backgroundColor: isSelected ? '#FFB36B' : '#5B5270',
+                        borderColor: isSelected ? '#FFB36B' : 'rgba(255,255,255,0.1)',
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: isSelected ? 0.08 : 0.03,
@@ -585,7 +691,7 @@ export default function MoodTrackerScreen() {
                       style={[
                         styles.triggerText,
                         {
-                          color: isSelected ? themeStyle.lighttext : themeStyle.text,
+                          color: isSelected ? '#FFFFFF' : '#E5E5E5',
                         },
                       ]}
                     >
@@ -598,19 +704,19 @@ export default function MoodTrackerScreen() {
           </View>
 
           {/* Activities */}
-          <View style={[styles.card, { backgroundColor: '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Activities Today</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Activities Today</Text>
             <TextInput
               style={[
                 styles.textInput,
                 {
-                  backgroundColor: themeStyle.background,
-                  color: themeStyle.text,
-                  borderColor: themeStyle.border,
+                  backgroundColor: '#5B5270',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255,255,255,0.1)',
                 },
               ]}
               placeholder="e.g., Yoga, Work meeting, Walk in park..."
-              placeholderTextColor={themeStyle.label}
+              placeholderTextColor="#B8A8E6"
               value={activities}
               onChangeText={setActivities}
               multiline
@@ -618,19 +724,19 @@ export default function MoodTrackerScreen() {
           </View>
 
           {/* Notes */}
-          <View style={[styles.card, { backgroundColor: '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Additional Notes</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Additional Notes</Text>
             <TextInput
               style={[
                 styles.textArea,
                 {
-                  backgroundColor: themeStyle.background,
-                  color: themeStyle.text,
-                  borderColor: themeStyle.border,
+                  backgroundColor: '#5B5270',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255,255,255,0.1)',
                 },
               ]}
               placeholder="How are you feeling? Any specific thoughts or experiences?"
-              placeholderTextColor={themeStyle.label}
+              placeholderTextColor="#B8A8E6"
               value={notes}
               onChangeText={setNotes}
               multiline
@@ -643,16 +749,16 @@ export default function MoodTrackerScreen() {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              { backgroundColor: themeStyle.button },
+              { backgroundColor: '#8B5CF6' },
               loading && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={themeStyle.buttonText} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={[styles.submitButtonText, { color: themeStyle.buttonText }]}>
+              <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
                 Save Mood Entry
               </Text>
             )}
@@ -664,24 +770,27 @@ export default function MoodTrackerScreen() {
 
       {/* Weekly Trend Inline Content */}
       {activeTab === 'weekly' && (
-        <ScrollView style={{ flex: 1, backgroundColor: themeStyle.background }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: 'transparent' }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 200 }}
+        >
           {weeklyLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={themeStyle.button} />
-              <Text style={[styles.loadingText, { color: themeStyle.label }]}>Loading weekly trend...</Text>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+              <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>Loading weekly trend...</Text>
             </View>
           ) : weeklyError ? (
-            <View style={[styles.contextToggle, { backgroundColor: themeStyle.card }] }>
-              <Text style={[styles.contextToggleText, { color: themeStyle.error }]}>❌ {weeklyError}</Text>
-              <TouchableOpacity style={[styles.trendButton, { backgroundColor: themeStyle.button, marginTop: 12 }]} onPress={loadWeeklyTrend}>
-                <Text style={styles.trendButtonText}>Retry</Text>
+            <View style={[styles.contextToggle, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }] }>
+              <Text style={[styles.contextToggleText, { color: '#FF6B6B' }]}>❌ {weeklyError}</Text>
+              <TouchableOpacity style={[styles.trendButton, { backgroundColor: '#FFB36B', marginTop: 12 }]} onPress={loadWeeklyTrend}>
+                <Text style={[styles.trendButtonText, { color: '#FFFFFF' }]}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : weeklyData ? (
             <>
-              <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.04)', borderWidth: 1 }]}>
-                <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>Your Weekly Mood Trend</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 8, paddingBottom: 8 }}>
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+                <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Your Weekly Mood Trend</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6 }}>
                   {(() => {
                     const width = Dimensions.get('window').width - 80;
                     const BAR_WIDTH = width / 7;
@@ -692,7 +801,7 @@ export default function MoodTrackerScreen() {
                       const emoji = dayData.mood || '';
                       return (
                         <View key={index} style={{ width: BAR_WIDTH, alignItems: 'center' }}>
-                          <Text style={{ marginBottom: 6 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
+                          <Text style={{ marginBottom: 4, fontSize: 16 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
                           <LinearGradient
                             colors={[ '#FF5AA8', '#FFB36B', '#6FD8BE' ]}
                             start={[0,0]}
@@ -701,7 +810,7 @@ export default function MoodTrackerScreen() {
                           >
                             {dayData.intensity > 0 && <Text style={{ color: '#fff', fontWeight: '700' }}>{dayData.intensity}</Text>}
                           </LinearGradient>
-                          <Text style={{ marginTop: 8, color: dayData.mood ? themeStyle.text : themeStyle.label }}>{dayData.day}</Text>
+                          <Text style={{ marginTop: 6, color: dayData.mood ? '#FFFFFF' : '#B8A8E6', fontSize: 12 }}>{dayData.day}</Text>
                         </View>
                       );
                     });
@@ -709,20 +818,20 @@ export default function MoodTrackerScreen() {
                 </View>
               </View>
 
-              <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.04)', borderWidth: 1 }]}>
-                <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>Daily Breakdown</Text>
-                <View style={{ marginTop: 8 }}>
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+                <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Daily Breakdown</Text>
+                <View style={{ marginTop: 6 }}>
                   {weeklyData.weekly_moods.map((dayData: any, index: number) => {
                     const containerKey = `weekly-${index}`;
                     return (
                       <View key={containerKey} style={[styles.weeklyListCard, index === weeklyData.weekly_moods.length - 1 && { marginBottom: 0 }]}> 
                         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                           <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} style={styles.weeklyAvatar}>
-                            <Text style={{ fontSize: 20 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
+                            <Text style={{ fontSize: 18 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
                           </LinearGradient>
-                          <View style={{ marginLeft: 12, flex: 1 }}>
-                            <Text style={{ fontWeight: '700', color: themeStyle.title }}>{`${dayData.day} - ${dayData.mood_label || 'No entry'}`}</Text>
-                            <Text style={{ color: themeStyle.label, marginTop: 4 }}>{`${dayData.entry_count || 0} ${dayData.entry_count === 1 ? 'entry' : 'entries'} • Intensity: ${dayData.intensity || 0}/5`}</Text>
+                          <View style={{ marginLeft: 10, flex: 1 }}>
+                            <Text style={{ fontWeight: '700', color: '#FFFFFF', fontSize: 15 }}>{`${dayData.day} - ${dayData.mood_label || 'No entry'}`}</Text>
+                            <Text style={{ color: '#B8A8E6', marginTop: 4, fontSize: 13 }}>{`${dayData.entry_count || 0} ${dayData.entry_count === 1 ? 'entry' : 'entries'} • Intensity: ${dayData.intensity || 0}/5`}</Text>
                           </View>
                         </View>
                       </View>
@@ -737,72 +846,121 @@ export default function MoodTrackerScreen() {
       {/* History Tab Content */}
       {activeTab === 'history' && (
         <View style={styles.historyContainer}>
-          {/* Filters */}
-          <View style={[styles.filtersCard, { backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.06)', borderWidth: 1, marginHorizontal: 20 }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>Filters</Text>
-
-            <Text style={[styles.filterLabel, { color: themeStyle.label }]}>Sort By</Text>
-            <TouchableOpacity
-              style={[styles.sortSelect, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}
-              onPress={() => setShowOrderingModal(true)}
-            >
-              <Text style={[styles.sortSelectText, { color: themeStyle.text }]}>
-                {orderingOptions.find((o) => o.value === ordering)?.label || 'Newest First'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Mood-type filter removed (backend does not support mood-type filtering for this structure) */}
-
-            <View style={styles.dateRow}>
-              <TouchableOpacity
-                style={[styles.dateInput, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}
-                onPress={() => setShowStartDatePicker(true)}
-              >
-                <Text style={[styles.dateInputText, { color: themeStyle.text }]}> {startDate ? startDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.dateInput, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}
-                onPress={() => setShowEndDatePicker(true)}
-              >
-                <Text style={[styles.dateInputText, { color: themeStyle.text }]}> {endDate ? endDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {(startDate || endDate || ordering !== '-created_at') && (
-              <TouchableOpacity
-                style={[styles.clearFiltersButton, { backgroundColor: themeStyle.progressbarside }]}
-                onPress={clearFilters}
-              >
-                <Text style={[styles.clearFiltersText, { color: themeStyle.darktext }]}>Clear Filters</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={{ height: 16 }} />
-
           {/* Mood History List */}
           {historyLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={themeStyle.button} />
-              <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+              <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
                 Loading mood history...
               </Text>
             </View>
           ) : moodHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: themeStyle.label }]}>
-                No mood entries found
-              </Text>
-              <Text style={[styles.emptySubtext, { color: themeStyle.label }]}>
-                Create your first entry in the "New Entry" tab
-              </Text>
-            </View>
+            <ScrollView contentContainerStyle={{ paddingTop: 20 }}>
+              {/* Filters */}
+              <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginHorizontal: 20 }]}>
+                <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
+
+                <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
+                <TouchableOpacity
+                  style={[styles.sortSelect, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                  onPress={() => setShowOrderingModal(true)}
+                >
+                  <Text style={[styles.sortSelectText, { color: '#FFFFFF' }]}>
+                    {orderingOptions.find((o) => o.value === ordering)?.label || 'Newest First'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Mood-type filter removed (backend does not support mood-type filtering for this structure) */}
+
+                <View style={styles.dateRow}>
+                  <TouchableOpacity
+                    style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                    onPress={() => setShowStartDatePicker(true)}
+                  >
+                    <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {startDate ? startDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                    onPress={() => setShowEndDatePicker(true)}
+                  >
+                    <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {endDate ? endDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {(startDate || endDate || ordering !== '-created_at') && (
+                  <TouchableOpacity
+                    style={[styles.clearFiltersButton, { backgroundColor: '#EF4444' }]}
+                    onPress={clearFilters}
+                  >
+                    <Text style={[styles.clearFiltersText, { color: '#FFFFFF' }]}>Clear Filters</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={{ height: 12 }} />
+
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
+                  No mood entries found
+                </Text>
+                <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>
+                  Create your first entry in the "New Entry" tab
+                </Text>
+              </View>
+            </ScrollView>
           ) : (
             <FlatList
               data={moodHistory}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.historyList}
+              ListHeaderComponent={
+                <>
+                  {/* Filters */}
+                  <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginHorizontal: 20, marginTop: 20 }]}>
+                    <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
+
+                    <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
+                    <TouchableOpacity
+                      style={[styles.sortSelect, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                      onPress={() => setShowOrderingModal(true)}
+                    >
+                      <Text style={[styles.sortSelectText, { color: '#FFFFFF' }]}>
+                        {orderingOptions.find((o) => o.value === ordering)?.label || 'Newest First'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Mood-type filter removed (backend does not support mood-type filtering for this structure) */}
+
+                    <View style={styles.dateRow}>
+                      <TouchableOpacity
+                        style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                        onPress={() => setShowStartDatePicker(true)}
+                      >
+                        <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {startDate ? startDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                        onPress={() => setShowEndDatePicker(true)}
+                      >
+                        <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {endDate ? endDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {(startDate || endDate || ordering !== '-created_at') && (
+                      <TouchableOpacity
+                        style={[styles.clearFiltersButton, { backgroundColor: '#EF4444' }]}
+                        onPress={clearFilters}
+                      >
+                        <Text style={[styles.clearFiltersText, { color: '#FFFFFF' }]}>Clear Filters</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={{ height: 12 }} />
+                </>
+              }
               renderItem={({ item }) => {
                 const moodsArray = item.mood_intensities 
                   ? Object.entries(item.mood_intensities).map(([mood, intensity]) => ({
@@ -817,7 +975,7 @@ export default function MoodTrackerScreen() {
 
                 return (
                   <TouchableOpacity
-                    style={[styles.historyCard, { backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.04)', borderWidth: 1 }]}
+                    style={[styles.historyCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}
                     onPress={() => router.push(`/patient/mood-detail?id=${item.id}`)}
                     activeOpacity={0.8}
                   >
@@ -826,16 +984,16 @@ export default function MoodTrackerScreen() {
                         <Text style={styles.avatarEmoji}>{getMoodEmoji(dominantMood)}</Text>
                       </LinearGradient>
 
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.historyMood, { color: themeStyle.title }]}>{getMoodLabel(dominantMood)}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                          <FontAwesome name="calendar" size={12} color={themeStyle.label} />
-                          <Text style={{ marginLeft: 8, color: themeStyle.label }}>{formatExactDate(item.mood_date || item.created_at)}</Text>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.historyMood, { color: '#FFFFFF' }]}>{getMoodLabel(dominantMood)}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <FontAwesome name="calendar" size={11} color="#B8A8E6" />
+                          <Text style={{ marginLeft: 6, color: '#B8A8E6', fontSize: 12 }}>{formatExactDate(item.mood_date || item.created_at)}</Text>
                         </View>
                       </View>
 
-                      <View style={styles.intensityPill}>
-                        <Text style={styles.intensityPillText}>Intensity: {item.average_intensity ? item.average_intensity.toFixed(0) : '—'}/5</Text>
+                      <View style={[styles.intensityPill, { backgroundColor: '#5B5270' }]}>
+                        <Text style={[styles.intensityPillText, { color: '#FFFFFF' }]}>Intensity: {item.average_intensity ? item.average_intensity.toFixed(0) : '—'}/5</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -887,15 +1045,15 @@ export default function MoodTrackerScreen() {
           activeOpacity={1}
           onPress={() => setShowOrderingModal(false)}
         >
-          <View style={[styles.modalContent, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.modalTitle, { color: themeStyle.title }]}>Sort By</Text>
+          <View style={[styles.modalContent, { backgroundColor: '#473F5A' }]}>
+            <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>Sort By</Text>
             {orderingOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.modalOption,
                   ordering === option.value && {
-                    backgroundColor: themeStyle.progressbarside,
+                    backgroundColor: '#5B5270',
                   },
                 ]}
                 onPress={() => {
@@ -906,7 +1064,7 @@ export default function MoodTrackerScreen() {
                 <Text
                   style={[
                     styles.modalOptionText,
-                    { color: themeStyle.text },
+                    { color: '#FFFFFF' },
                     ordering === option.value && { fontWeight: '700' },
                   ]}
                 >
@@ -927,10 +1085,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 0,
+    overflow: 'hidden',
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 9999,
+  },
   headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 26,
+    paddingBottom: 88,
+    backgroundColor: '#342949',
+    zIndex: 10,
   },
   backButtonContainer: {
     marginBottom: 10,
@@ -955,6 +1141,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     elevation: 1,
+    zIndex: 2,
   },
   headerTitle: {
     fontSize: 26,
@@ -963,8 +1150,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
+  headerBlue: { color: '#FFFFFF' },
+  headerOrange: { color: '#B8A8E6' },
   subtitle: {
     fontSize: 16,
     marginBottom: 20,
@@ -976,6 +1163,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   menuBar: {
+    position: 'absolute',
+    top: 122,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -983,8 +1174,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 8,
     minHeight: 48,
-    marginTop: 10,
-    marginHorizontal: 20,
+    zIndex: 11,
     // pill background shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1021,7 +1211,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 6,
+    marginHorizontal: 2,
     minHeight: 40,
   },
   menuTabGradientActive: {
@@ -1031,7 +1221,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 6,
+    marginHorizontal: 2,
     minHeight: 40,
   },
   
@@ -1114,6 +1304,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 4,
+    zIndex: 2,
   },
   tab: {
     flex: 1,
@@ -1151,7 +1342,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 200,
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   moodCarouselContainer: {
     borderRadius: 20,
@@ -1160,9 +1353,9 @@ const styles = StyleSheet.create({
     minHeight: 280,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   helperText: {
     fontSize: 13,
@@ -1310,14 +1503,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   card: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 15,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 18,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
   },
   moodIntensityCard: {
     borderRadius: 12,
@@ -1432,6 +1626,8 @@ const styles = StyleSheet.create({
   },
   historyContainer: {
     flex: 1,
+    backgroundColor: 'transparent',
+    paddingTop: 200,
   },
   filtersContainer: {
     padding: 20,
@@ -1456,14 +1652,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   clearFiltersButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   clearFiltersText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   loadingContainer: {
@@ -1492,15 +1688,17 @@ const styles = StyleSheet.create({
   },
   historyList: {
     padding: 20,
+    backgroundColor: 'transparent',
   },
   historyCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 15,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 3,
   },
   historyHeader: {
@@ -1519,7 +1717,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   historyMood: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
   },
   historyDate: {
@@ -1573,15 +1771,20 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   weeklyListCard: {
-    backgroundColor: '#F6F7FB',
+    backgroundColor: '#5B5270',
     padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   weeklyAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1637,73 +1840,73 @@ const styles = StyleSheet.create({
   },
   /* New styles for redesigned filters and history cards */
   filtersCard: {
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
   },
   filterLabel: {
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: 12,
+    marginBottom: 6,
     fontWeight: '600',
   },
   sortSelect: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
   },
   sortSelectText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 10,
   },
   dateInput: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderWidth: 1,
-    marginRight: 10,
+    marginRight: 8,
     alignItems: 'center',
   },
   dateInputText: {
-    fontSize: 14,
+    fontSize: 12,
   },
   moodAvatar: {
-    width: 62,
-    height: 62,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   avatarEmoji: {
-    fontSize: 28,
+    fontSize: 22,
   },
   intensityPill: {
     backgroundColor: '#FFDFF4',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
   },
   intensityPillText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FF5AA8',
   },

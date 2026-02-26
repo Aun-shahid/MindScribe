@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import {
   TextInput,
   Animated,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
@@ -54,6 +55,18 @@ export default function JournalList() {
     ordering: '-created_at',
   });
 
+  // Floating bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadEntries();
     Animated.timing(fadeAnim, {
@@ -69,6 +82,55 @@ export default function JournalList() {
     const off = eventBus.subscribe('journalUpdated', onJournalUpdated);
     return () => off();
   }, [filters]);
+
+  useEffect(() => {
+    // Floating bubble animations
+    const createFloatingAnimation = (
+      valueY: Animated.Value,
+      valueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY = 0,
+      delayX = 0
+    ) => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delayY),
+            Animated.timing(valueY, {
+              toValue: 50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: -50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delayX),
+            Animated.timing(valueX, {
+              toValue: 30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      ).start();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
+    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
+  }, []);
 
   const loadEntries = async () => {
     try {
@@ -176,25 +238,25 @@ export default function JournalList() {
     return (
       <View style={styles.cardWrapper}>
         <TouchableOpacity
-          style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}
+          style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}
           onPress={() => router.push(`./journal-detail?id=${item.id}` as any)}
         >
           <View style={styles.cardHeader}>
             <View style={styles.headerLeft}>
               {(() => {
                 const p = getPrivacyIcon(item.privacy_level);
-                return <FontAwesome name={p.name as any} size={18} color={p.color} style={styles.privacyIcon} />;
+                return <FontAwesome name={p.name as any} size={18} color="#B8A8E6" style={styles.privacyIcon} />;
               })()}
-              {item.is_favorite && <FontAwesome name="star" size={16} color="#FFD54F" style={styles.favoriteIcon} />}
-              <Text style={[styles.titleInline, { color: themeStyle.title }]} numberOfLines={2}>{item.title}</Text>
+              {item.is_favorite && <FontAwesome name="star" size={16} color="#FFB36B" style={styles.favoriteIcon} />}
+              <Text style={[styles.titleInline, { color: '#FFFFFF' }]} numberOfLines={2}>{item.title}</Text>
             </View>
             <View style={styles.headerRight}>
-              <Text style={[styles.dateText, { color: themeStyle.label }]}>{formattedDate}</Text>
-              <Text style={[styles.timeText, { color: themeStyle.label }]}>{formattedTime}</Text>
+              <Text style={[styles.dateText, { color: '#B8A8E6' }]}>{formattedDate}</Text>
+              <Text style={[styles.timeText, { color: '#B8A8E6' }]}>{formattedTime}</Text>
             </View>
           </View>
 
-          <Text style={[styles.content, { color: themeStyle.text }]} numberOfLines={3}>
+          <Text style={[styles.content, { color: '#E5E5E5' }]} numberOfLines={3}>
             {item.content}
           </Text>
 
@@ -207,29 +269,29 @@ export default function JournalList() {
                     key={index}
                     style={[
                       styles.tag,
-                      { backgroundColor: ts.bg, borderColor: hexToRgba(ts.color, 0.16) },
+                      { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.15)' },
                     ]}
                   >
-                    <Text style={[styles.tagText, { color: ts.color }]}>{tag}</Text>
+                    <Text style={[styles.tagText, { color: '#FFB36B' }]}>{tag}</Text>
                   </View>
                 );
               })}
               {(((item as any).mood_tags_list || item.tags_list).length > 3) && (
-                <Text style={[styles.moreText, { color: themeStyle.label }]}>+{(((item as any).mood_tags_list || item.tags_list).length - 3)} more</Text>
+                <Text style={[styles.moreText, { color: '#B8A8E6' }]}>+{(((item as any).mood_tags_list || item.tags_list).length - 3)} more</Text>
               )}
             </View>
           )}
 
           <View style={styles.cardFooter}>
-            <Text style={[styles.wordCount, { color: themeStyle.label }]}> 
+            <Text style={[styles.wordCount, { color: '#B8A8E6' }]}> 
               {(() => {
                 const wc = (item.word_count ?? (item.content ? item.content.trim().split(/\s+/).filter(Boolean).length : 0));
                 return `${wc}${wc === 1 ? ' word' : ' words'}`;
               })()}
             </Text>
             {(typeof item.mood_improvement === 'number' && !isNaN(item.mood_improvement) && item.mood_improvement !== 0) && (
-              <View style={[styles.moodBadge, { backgroundColor: item.mood_improvement > 0 ? '#E8F5E9' : '#FFEBEE' }]}>
-                <Text style={[styles.moodText, { color: item.mood_improvement > 0 ? '#2e7d32' : '#c62828' }]}>
+              <View style={[styles.moodBadge, { backgroundColor: item.mood_improvement > 0 ? '#5B5270' : '#5B5270' }]}>
+                <Text style={[styles.moodText, { color: item.mood_improvement > 0 ? '#4ADE80' : '#F87171' }]}>
                   {item.mood_improvement > 0 ? '↑' : '↓'} Mood {Math.abs(item.mood_improvement)}
                 </Text>
               </View>
@@ -244,9 +306,9 @@ export default function JournalList() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color="#524f85" />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
+        <ActivityIndicator size="large" color="#FFB36B" />
+        <Text style={[styles.loadingText, { color: '#B8A8E6' }]}>
           Loading journal entries...
         </Text>
       </View>
@@ -254,52 +316,133 @@ export default function JournalList() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      <LinearGradient
+        colors={['#342949', '#2A1F3D', '#342949']}
+        style={styles.screenGradient}
+      />
+      
+      <View style={styles.floatingBubbles}>
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 200,
+              height: 200,
+              top: '10%',
+              left: '-10%',
+              backgroundColor: 'rgba(133, 130, 180, 0.15)',
+              transform: [
+                { translateY: bubble1Y },
+                { translateX: bubble1X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 280,
+              height: 280,
+              top: '25%',
+              right: '-15%',
+              backgroundColor: 'rgba(133, 130, 180, 0.2)',
+              transform: [
+                { translateY: bubble2Y },
+                { translateX: bubble2X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 180,
+              height: 180,
+              top: '50%',
+              left: '10%',
+              backgroundColor: 'rgba(133, 130, 180, 0.18)',
+              transform: [
+                { translateY: bubble3Y },
+                { translateX: bubble3X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 220,
+              height: 220,
+              bottom: '15%',
+              right: '5%',
+              backgroundColor: 'rgba(133, 130, 180, 0.22)',
+              transform: [
+                { translateY: bubble4Y },
+                { translateX: bubble4X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 120,
+              height: 120,
+              bottom: '30%',
+              left: '-5%',
+              backgroundColor: 'rgba(133, 130, 180, 0.25)',
+              transform: [
+                { translateY: bubble5Y },
+                { translateX: bubble5X },
+              ],
+            },
+          ]}
+        />
+      </View>
+
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         {/* Header (matching SharedHeader styles) */}
-        <View style={[styles.headerContainer, { backgroundColor: themeStyle.card }]}> 
+        <View style={[styles.headerContainer, { backgroundColor: '#342949' }]}> 
           <TouchableOpacity
-            style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}
-            onPress={() => router.push('/patient/dashboard')}
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
+            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <Text style={[styles.headerTitle, { color: themeStyle.title }]}> 
-            <Text style={styles.headerBlue}>Journal</Text>
-            <Text style={styles.headerOrange}> Home</Text>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}> 
+            <Text style={styles.headerWhite}>Journal</Text>
+            <Text style={styles.headerPurple}> Home</Text>
           </Text>
 
           <TouchableOpacity
-            style={[styles.analyticsButton, { backgroundColor: themeStyle.dashboardcard }]}
+            style={[styles.analyticsButton, { backgroundColor: '#473F5A' }]}
             onPress={() => router.push('./journal-analytics-detail') }
           >
-            <FontAwesome name="bar-chart" size={18} color={themeStyle.title} />
+            <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         {/* Gradient CTA */}
         <View style={styles.ctaWrap}>
-          <TouchableOpacity onPress={() => router.push('/patient/create-journal') }>
-            <LinearGradient
-              colors={["#FF6EA5", "#FFB870", "#2BD3B6"]}
-              start={[0,0]}
-              end={[1,0]}
-              style={styles.newEntryGradient}
-            >
-              <Text style={styles.newEntryText}>+ New Journal Entry</Text>
-            </LinearGradient>
+          <TouchableOpacity onPress={() => router.push('/patient/create-journal') } style={styles.newEntryButton}>
+            <Text style={styles.newEntryText}>+ New Journal Entry</Text>
           </TouchableOpacity>
         </View>
 
         {/* Search & Filters */}
         <View style={styles.filterSection}>
-          <View style={[styles.searchBar, { backgroundColor: themeStyle.dashboardcard }]}> 
-            <FontAwesome5 name="search" size={16} color={themeStyle.label} style={styles.searchIcon} />
+          <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
+            <FontAwesome5 name="search" size={16} color="#B8A8E6" style={styles.searchIcon} />
             <TextInput
-              style={[styles.searchInput, { color: themeStyle.text }]}
+              style={[styles.searchInput, { color: '#FFFFFF' }]}
               placeholder="Search journals..."
-              placeholderTextColor={themeStyle.label}
+              placeholderTextColor="#B8A8E6"
               value={searchQuery}
               onChangeText={handleSearch}
             />
@@ -311,16 +454,16 @@ export default function JournalList() {
                 style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
                 onPress={() => { setShowFavoritesOnly(false); setFilters(prev => ({ ...prev, favorite: undefined })); }}
               >
-                <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#616161'} style={styles.pillIcon} />
-                <Text style={[styles.pillText, !showFavoritesOnly ? {color: '#fff'} : {color: '#524f85'}]}>All</Text>
+                <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+                <Text style={[styles.pillText, !showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>All</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
                 onPress={() => { setShowFavoritesOnly(true); setFilters(prev => ({ ...prev, favorite: 'true' })); }}
               >
-                <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#616161'} style={styles.pillIcon} />
-                <Text style={[styles.pillText, showFavoritesOnly ? {color: '#fff'} : {color: '#524f85'}]}>Favorites</Text>
+                <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+                <Text style={[styles.pillText, showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>Favorites</Text>
               </TouchableOpacity>
             </View>
 
@@ -336,14 +479,14 @@ export default function JournalList() {
                 style={styles.pillAlt}
                 onPress={() => setShowOrderingPicker(!showOrderingPicker)}
               >
-                <Text style={[styles.pillText, {color: '#524f85'}]}>{getOrderingLabel()}</Text>
-                <FontAwesome name="chevron-down" size={14} color="#524f85" style={{ marginLeft: 8 }} />
+                <Text style={[styles.pillText, {color: '#B8A8E6'}]}>{getOrderingLabel()}</Text>
+                <FontAwesome name="chevron-down" size={14} color="#B8A8E6" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             </View>
           </View>
 
           {showOrderingPicker && (
-            <View style={[styles.orderingPicker, { backgroundColor: themeStyle.dashboardcard }]}>
+            <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
               <TouchableOpacity
                 style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive]}
                 onPress={() => handleOrdering('-created_at')}
@@ -380,11 +523,11 @@ export default function JournalList() {
         {/* Entries List */}
         {entries.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <FontAwesome5 name="book-open" size={48} color={themeStyle.label} style={styles.emptyEmoji} />
-            <Text style={[styles.emptyText, { color: themeStyle.label }]}>
+            <FontAwesome5 name="book-open" size={48} color="#B8A8E6" style={styles.emptyEmoji} />
+            <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
               No journal entries yet
             </Text>
-            <Text style={[styles.emptySubtext, { color: themeStyle.label }]}>
+            <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>
               Start journaling to track your thoughts
             </Text>
             <TouchableOpacity
@@ -406,13 +549,30 @@ export default function JournalList() {
           />
         )}
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
   },
   centerContainer: {
     flex: 1,
@@ -466,8 +626,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
+  headerBlue: { color: '#FFFFFF' },
+  headerOrange: { color: '#FFB36B' },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   analyticsButton: {
     position: 'absolute',
     right: 18,
@@ -511,11 +673,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 12,
   },
-  newEntryGradient: {
+  newEntryButton: {
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#A78BFA',
   },
   newEntryText: {
     color: '#fff',
@@ -539,17 +702,17 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   pillActive: {
-    backgroundColor: '#FF9FB3',
-    borderColor: '#FF9FB3',
-    shadowColor: '#FF9FB3',
+    backgroundColor: '#FFB36B',
+    borderColor: '#FFB36B',
+    shadowColor: '#FFB36B',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 4,
   },
   pillInactive: {
-    backgroundColor: '#fff',
-    borderColor: '#efe6f8',
+    backgroundColor: '#5B5270',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   pillText: {
     fontSize: 14,
@@ -567,9 +730,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#5B5270',
     borderWidth: 1,
-    borderColor: '#efe6f8',
+    borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
@@ -630,7 +793,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#efe6f8',
   },
   searchIcon: {
     fontSize: 18,
@@ -700,7 +862,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 12,
-    backgroundColor: '#fff',
+    borderWidth: 1,
     zIndex: 999,
   },
   orderingOption: {
@@ -712,7 +874,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   orderingOptionActive: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#5B5270',
   },
   orderingText: {
     fontSize: 15,
@@ -720,7 +882,7 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     fontSize: 18,
-    color: '#2e7d32',
+    color: '#FFB36B',
   },
   listContent: {
     padding: 16,
@@ -731,16 +893,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   card: {
-    padding: 12,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     alignSelf: 'center',
     width: '94%',
     borderWidth: 1,
-    borderColor: '#efe6f8',
-    backgroundColor: '#fff',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -856,7 +1016,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#524f85',
+    backgroundColor: '#FFB36B',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,

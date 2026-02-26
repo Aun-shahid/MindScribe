@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../contexts/ThemeContext';
 import PatientService, { JournalAnalytics } from '../services/patient.service';
 
 const { width } = Dimensions.get('window');
@@ -20,11 +19,74 @@ const CARD_WIDTH = (width - 60) / 2; // 2 columns with padding
 
 export default function JournalAnalyticsScreen() {
   const router = useRouter();
-  const { themeStyle } = useTheme();
   const [analytics, setAnalytics] = useState<JournalAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const fadeAnim = new Animated.Value(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Floating bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animate bubbles
+    const createFloatingAnimation = (
+      animValueY: Animated.Value,
+      animValueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY: number = 0,
+      delayX: number = 0
+    ) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delayY),
+          Animated.parallel([
+            Animated.sequence([
+              Animated.timing(animValueY, {
+                toValue: 50,
+                duration: durationY,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animValueY, {
+                toValue: -50,
+                duration: durationY,
+                useNativeDriver: true,
+              }),
+            ]),
+            Animated.sequence([
+              Animated.delay(delayX),
+              Animated.timing(animValueX, {
+                toValue: 30,
+                duration: durationX,
+                useNativeDriver: true,
+              }),
+              Animated.timing(animValueX, {
+                toValue: -30,
+                duration: durationX,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+        ])
+      ).start();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
+    createFloatingAnimation(bubble3Y, bubble3X, 7500, 8000, 2000, 2500);
+    createFloatingAnimation(bubble4Y, bubble4X, 10000, 9500, 1500, 1000);
+    createFloatingAnimation(bubble5Y, bubble5X, 8500, 7500, 500, 2000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadAnalytics();
@@ -32,25 +94,39 @@ export default function JournalAnalyticsScreen() {
 
   useEffect(() => {
     if (analytics) {
+      console.log('🎬 Starting fade-in animation');
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        console.log('✨ Fade-in animation complete');
+      });
     }
-  }, [analytics]);
+  }, [analytics, fadeAnim]);
 
   const loadAnalytics = async () => {
     try {
+      console.log('🔍 Loading journal analytics...');
       setLoading(true);
       setError(null);
       const data = await PatientService.getJournalAnalytics();
-      setAnalytics(data);
+      console.log('✅ Analytics data received:', JSON.stringify(data, null, 2));
+      
+      if (!data) {
+        console.warn('⚠️ Analytics data is null/undefined');
+        setError('No data returned from server');
+      } else {
+        setAnalytics(data);
+        console.log('✅ Analytics state updated successfully');
+      }
     } catch (err: any) {
-      console.error('Error loading analytics:', err);
-      setError(err.response?.data?.detail || 'Failed to load analytics');
+      console.error('❌ Error loading analytics:', err);
+      console.error('Error details:', err.response?.data);
+      setError(err.response?.data?.detail || err.message || 'Failed to load analytics');
     } finally {
       setLoading(false);
+      console.log('🏁 Loading complete');
     }
   };
 
@@ -75,7 +151,7 @@ export default function JournalAnalyticsScreen() {
     color: string;
     delay?: number;
   }) => {
-    const scaleAnim = new Animated.Value(0);
+    const scaleAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
       Animated.spring(scaleAnim, {
@@ -85,7 +161,7 @@ export default function JournalAnalyticsScreen() {
         tension: 50,
         friction: 7,
       }).start();
-    }, []);
+    }, [delay, scaleAnim]);
 
     return (
       <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}> 
@@ -99,18 +175,20 @@ export default function JournalAnalyticsScreen() {
   };
 
   const StreakVisualization = () => {
-    if (!analytics) return null;
-
     const percentage = getStreakPercentage();
-    const progressAnim = new Animated.Value(0);
+    const progressAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-      Animated.timing(progressAnim, {
-        toValue: percentage,
-        duration: 1000,
-        useNativeDriver: false,
-      }).start();
-    }, [percentage]);
+      if (analytics) {
+        Animated.timing(progressAnim, {
+          toValue: percentage,
+          duration: 1000,
+          useNativeDriver: false,
+        }).start();
+      }
+    }, [percentage, progressAnim]);
+
+    if (!analytics) return null;
 
     const animatedWidth = progressAnim.interpolate({
       inputRange: [0, 100],
@@ -121,7 +199,7 @@ export default function JournalAnalyticsScreen() {
       <View style={styles.streakContainer}>
         <View style={styles.streakHeaderRow}>
           <View style={styles.streakLeft}>
-            <View style={[styles.statIconBubble, { backgroundColor: '#FFF4EE' }]}>
+            <View style={[styles.statIconBubble, { backgroundColor: '#FFB36B' }]}>
               <Text style={{ fontSize: 18 }}>🔥</Text>
             </View>
             <View style={{ marginLeft: 12 }}>
@@ -178,19 +256,19 @@ export default function JournalAnalyticsScreen() {
 
     const maxCount = Math.max(...tags.map(t => Number(t.count ?? 0)));
 
-    const getTagGradient = (tag: string) => {
+    const getTagGradient = (tag: string): [string, string] => {
       const lower = tag.toLowerCase();
-      if (lower.includes('stress') || lower.includes('stressed') || lower.includes('angry')) return ['#ff7a66', '#ffb199'];
-      if (lower.includes('sad')) return ['#60a5fa', '#a5b4fc'];
-      if (lower.includes('anx') || lower.includes('anxious')) return ['#ff9f43', '#ff7a18'];
+      if (lower.includes('stress') || lower.includes('stressed') || lower.includes('angry')) return ['#FFB36B', '#FFD9B3'];
+      if (lower.includes('sad')) return ['#A78BFA', '#C4B5FD'];
+      if (lower.includes('anx') || lower.includes('anxious')) return ['#FFB36B', '#FFC98E'];
       if (lower.includes('happy') || lower.includes('joy')) return ['#86efac', '#4ade80'];
-      return ['#dbeafe', '#bfdbfe'];
+      return ['#B8A8E6', '#D4C9F0'];
     };
 
     const TagRow = ({ tagData, index }: { tagData: any; index: number }) => {
       const count = Number(tagData.count ?? 0);
       const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
-      const widthAnim = new Animated.Value(0);
+      const widthAnim = useRef(new Animated.Value(0)).current;
 
       useEffect(() => {
         Animated.timing(widthAnim, {
@@ -199,7 +277,7 @@ export default function JournalAnalyticsScreen() {
           delay: index * 120,
           useNativeDriver: false,
         }).start();
-      }, []);
+      }, [index, percent, widthAnim]);
 
       const animatedWidth = widthAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
       const gradient = getTagGradient(tagData.tag);
@@ -237,20 +315,22 @@ export default function JournalAnalyticsScreen() {
   };
 
   if (loading) {
+    console.log('⏳ Rendering loading state');
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#FFB36B" />
         <Text style={styles.loadingText}>Loading analytics...</Text>
       </View>
     );
   }
 
   if (error) {
+    console.log('❌ Rendering error state:', error);
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>📊</Text>
-        <Text style={styles.errorText}>No analytics available yet</Text>
-        <Text style={styles.errorSubtext}>Start journaling to see your insights!</Text>
+        <Text style={styles.errorText}>Unable to load analytics</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
         <TouchableOpacity 
           style={styles.retryButton}
           onPress={loadAnalytics}
@@ -265,6 +345,7 @@ export default function JournalAnalyticsScreen() {
   // but counts are zero, still render the analytics page so the stat cards
   // (showing 0) are visible per design.
   if (!analytics) {
+    console.log('📭 Rendering empty state (analytics is null)');
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.emptyIcon}>📝</Text>
@@ -282,56 +363,130 @@ export default function JournalAnalyticsScreen() {
     );
   }
 
+  console.log('🎨 Rendering analytics content with data:', {
+    total_entries: analytics.total_entries,
+    entries_this_month: analytics.entries_this_month,
+    favorite_count: analytics.favorite_count,
+    current_streak: analytics.current_streak,
+    longest_streak: analytics.longest_streak,
+    tags_count: analytics.common_tags?.length || 0
+  });
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Animated.View style={{ opacity: fadeAnim }}>
-        {/* Header */}
-        <View style={[styles.headerContainer, { backgroundColor: themeStyle.card }]}>
-          <TouchableOpacity onPress={() => router.push('/patient/journal-list')} style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}>
-            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
-          </TouchableOpacity>
+    <View style={styles.container}>
+      {/* Gradient Background */}
+      <LinearGradient colors={['#342949', '#2a1f3d', '#342949']} style={styles.screenGradient} />
+      
+      {/* Floating bubbles */}
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            top: '10%',
+            left: '-10%',
+            width: 180,
+            height: 180,
+            transform: [{ translateY: bubble1Y }, { translateX: bubble1X }],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            top: '30%',
+            right: '-15%',
+            width: 200,
+            height: 200,
+            transform: [{ translateY: bubble2Y }, { translateX: bubble2X }],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            top: '55%',
+            left: '-20%',
+            width: 220,
+            height: 220,
+            transform: [{ translateY: bubble3Y }, { translateX: bubble3X }],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            top: '75%',
+            right: '-10%',
+            width: 170,
+            height: 170,
+            transform: [{ translateY: bubble4Y }, { translateX: bubble4X }],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.bubble,
+          {
+            bottom: '5%',
+            left: '15%',
+            width: 160,
+            height: 160,
+            transform: [{ translateY: bubble5Y }, { translateX: bubble5X }],
+          },
+        ]}
+      />
 
-          <Text style={[styles.headerTitle, { color: themeStyle.title }]}> 
-            <Text style={styles.headerBlue}>Journal </Text>
-            <Text style={styles.headerOrange}>Analytics</Text>
-          </Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {/* Header */}
+          <View style={styles.headerContainer}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
 
-          {/* no right icon per design */}
-        </View>
-        {/* Debug info removed for production; re-enable if needed during development. */}
+            <Text style={styles.headerTitle}> 
+              <Text style={styles.headerBlue}>Journal </Text>
+              <Text style={styles.headerOrange}>Analytics</Text>
+            </Text>
 
-        {/* Stats Cards Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon="📚"
-            label="Total Entries"
-            value={analytics.total_entries}
-            color="#FEE8F2"
-            delay={0}
-          />
-          <StatCard
-            icon="📅"
-            label="This Month"
-            value={analytics.entries_this_month}
-            color="#FFF2E6"
-            delay={100}
-          />
+            {/* no right icon per design */}
+          </View>
+          {/* Debug info removed for production; re-enable if needed during development. */}
 
-          <StatCard
-            icon="⭐"
-            label="Favorites"
-            value={analytics.favorite_count}
-            color="#FEF9C3"
-            delay={200}
-          />
-          <StatCard
-            icon="🏆"
-            label="Longest Streak (days)"
-            value={analytics.longest_streak}
-            color="#E6FCFF"
-            delay={300}
-          />
-        </View>
+          {/* Stats Cards Grid */}
+          <View style={styles.statsGrid}>
+            <StatCard
+              icon="📚"
+              label="Total Entries"
+              value={analytics.total_entries}
+              color="#FFB36B"
+              delay={0}
+            />
+            <StatCard
+              icon="📅"
+              label="This Month"
+              value={analytics.entries_this_month}
+              color="#A78BFA"
+              delay={100}
+            />
+            <StatCard
+              icon="⭐"
+              label="Favorites"
+              value={analytics.favorite_count}
+              color="#B8A8E6"
+              delay={200}
+            />
+            <StatCard
+              icon="🏆"
+              label="Longest Streak (days)"
+              value={analytics.longest_streak}
+              color="#FFD9B3"
+              delay={300}
+            />
+          </View>
         {/* Streak visualization and tag analytics (were defined but not rendered) */}
         <StreakVisualization />
         <TagAnalytics />
@@ -340,19 +495,32 @@ export default function JournalAnalyticsScreen() {
         <View style={{ height: 40 }} />
       </Animated.View>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#342949',
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    backgroundColor: 'rgba(133, 130, 180, 0.15)',
   },
   headerContainer: {
     paddingTop: 48,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#342949',
     marginBottom: 12,
   },
   backBtnCircle: {
@@ -366,11 +534,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   headerTitle: {
     fontSize: 26,
@@ -379,13 +543,13 @@ const styles = StyleSheet.create({
     marginTop: 18,
     textAlign: 'center',
   },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
+  headerBlue: { color: '#FFFFFF' },
+  headerOrange: { color: '#B8A8E6' },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#342949',
     padding: 20,
   },
   header: {
@@ -396,12 +560,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#B8A8E6',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -421,7 +585,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
-    backgroundColor: '#fff',
+    backgroundColor: '#473F5A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   statIcon: {
     fontSize: 20,
@@ -430,14 +596,14 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#111827',
+    color: '#FFFFFF',
     marginTop: 12,
     marginBottom: 6,
     marginLeft: 2,
   },
   statLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#B8A8E6',
     textAlign: 'left',
   },
   statIconBubble: {
@@ -457,18 +623,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 12,
     padding: 18,
-    backgroundColor: '#fff',
+    backgroundColor: '#473F5A',
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#FFFFFF',
     marginBottom: 12,
   },
   streakInfo: {
@@ -481,13 +649,13 @@ const styles = StyleSheet.create({
   },
   streakLabel: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#B8A8E6',
     marginBottom: 4,
   },
   streakValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#FFFFFF',
   },
   streakHeaderRow: {
     flexDirection: 'row',
@@ -506,21 +674,21 @@ const styles = StyleSheet.create({
   streakTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#38384a',
+    color: '#FFFFFF',
   },
   streakSubtitle: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#B8A8E6',
     marginTop: 4,
   },
   streakNumber: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#111827',
+    color: '#FFB36B',
   },
   streakDays: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#B8A8E6',
   },
   progressRow: {
     flexDirection: 'row',
@@ -531,16 +699,16 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#B8A8E6',
   },
   progressFraction: {
     fontSize: 13,
-    color: '#111827',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   progressBarContainer: {
     height: 14,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#5B5270',
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 8,
@@ -551,20 +719,22 @@ const styles = StyleSheet.create({
   },
   progressPercentage: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#B8A8E6',
     textAlign: 'center',
   },
   tagsContainer: {
     marginHorizontal: 20,
     marginTop: 12,
     padding: 18,
-    backgroundColor: '#fff',
+    backgroundColor: '#473F5A',
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   tagCloud: {
     flexDirection: 'row',
@@ -581,12 +751,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagText: {
-    color: '#1e293b',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   tagCount: {
     fontSize: 12,
-    color: '#475569',
+    color: '#B8A8E6',
   },
   barRow: {
     flexDirection: 'row',
@@ -597,7 +767,7 @@ const styles = StyleSheet.create({
   barLabel: {
     width: 90,
     fontSize: 14,
-    color: '#475569',
+    color: '#B8A8E6',
     fontWeight: '600',
   },
   barContainer: {
@@ -614,62 +784,36 @@ const styles = StyleSheet.create({
   barValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
     minWidth: 36,
     textAlign: 'right',
   },
   barChart: {
     gap: 12,
   },
-  barRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  barLabel: {
-    width: 80,
-    fontSize: 14,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  barContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  bar: {
-    height: 24,
-    borderRadius: 4,
-    minWidth: 2,
-  },
-  barValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    minWidth: 24,
-  },
   mostCommonCard: {
     marginHorizontal: 20,
     marginTop: 12,
     padding: 18,
-    backgroundColor: '#fff',
+    backgroundColor: '#473F5A',
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   mostCommonTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#171717',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   mostCommonSubtitle: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#B8A8E6',
     marginBottom: 12,
   },
   tagRow: {
@@ -680,7 +824,7 @@ const styles = StyleSheet.create({
   rank: {
     width: 28,
     fontSize: 14,
-    color: '#6b7280',
+    color: '#B8A8E6',
     fontWeight: '700',
   },
   tagInfo: {
@@ -689,12 +833,12 @@ const styles = StyleSheet.create({
   },
   tagName: {
     fontSize: 16,
-    color: '#111827',
+    color: '#FFFFFF',
     fontWeight: '700',
     marginBottom: 8,
   },
   entryPill: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#5B5270',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -704,12 +848,12 @@ const styles = StyleSheet.create({
   },
   entryPillText: {
     fontSize: 12,
-    color: '#111827',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   tagBarBackground: {
     height: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#5B5270',
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -720,7 +864,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#64748b',
+    color: '#B8A8E6',
   },
   errorIcon: {
     fontSize: 64,
@@ -729,13 +873,13 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   errorSubtext: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#B8A8E6',
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -746,25 +890,25 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#B8A8E6',
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#B8A8E6',
     textAlign: 'center',
     fontStyle: 'italic',
   },
   retryButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#A78BFA',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -775,7 +919,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   createButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#A78BFA',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -791,13 +935,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 8,
     borderRadius: 8,
-    backgroundColor: '#fff6f6',
+    backgroundColor: '#473F5A',
     borderWidth: 1,
-    borderColor: '#ffe4e6',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   debugText: {
     fontSize: 12,
-    color: '#7f1d1d',
+    color: '#B8A8E6',
     marginBottom: 4,
   },
 });

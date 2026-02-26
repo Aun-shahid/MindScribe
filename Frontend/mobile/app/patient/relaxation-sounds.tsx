@@ -2,16 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
   Modal,
+  Animated,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import PatientService, { RelaxationContent, RelaxationFilters } from '../services/patient.service';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -42,13 +47,129 @@ const CATEGORY_COLORS: Record<string, string> = {
   breathing: '#a78bfa',
 };
 
+// Image mapping for sounds
+const SOUND_IMAGES: Record<string, any> = {
+  'Forest Birds': require('../../assets/images/bird-sound.jpg'),
+  'Thunderstorm': require('../../assets/images/thunder-sound.jpg'),
+  'Ocean Waves': require('../../assets/images/ocean-sound.jpg'),
+  'Wind Chimes': require('../../assets/images/windchime-sound.jpg'),
+  'Cozy Fireplace': require('../../assets/images/fireplace-sound.jpg'),
+  'White Noise': require('../../assets/images/whitenoise-sound.webp'),
+  'Gentle Rain': require('../../assets/images/rain-sound.jpg'),
+  'Coffee Shop': require('../../assets/images/coffee-sound.jpg'),
+  'Snooze': require('../../assets/images/snooze-sound.jpg'),
+  'Footsteps': require('../../assets/images/snow-sound.jpg'),
+  'Snow Footsteps': require('../../assets/images/snow-sound.jpg'),
+  'Footsteps in Snow': require('../../assets/images/snow-sound.jpg'),
+  'Walking in Snow': require('../../assets/images/snow-sound.jpg'),
+  'Stream Water': require('../../assets/images/streamwater-sound.jpg'),
+  'Flowing Stream': require('../../assets/images/streamwater-sound.jpg'),
+  'Water Stream': require('../../assets/images/streamwater-sound.jpg'),
+};
+
+const CARD_BG_COLORS: Record<string, string> = {
+  'Forest Birds': '#473F5A',
+  'Ocean Waves': '#473F5A',
+  'Thunderstorm': '#473F5A',
+  'Wind Chimes': '#473F5A',
+  'Cozy Fireplace': '#473F5A',
+  'White Noise': '#473F5A',
+  'Gentle Rain': '#473F5A',
+  'Coffee Shop': '#473F5A',
+  'Snooze': '#473F5A',
+  'Footsteps': '#473F5A',
+  'Snow Footsteps': '#473F5A',
+  'Footsteps in Snow': '#473F5A',
+  'Walking in Snow': '#473F5A',
+  'Stream Water': '#473F5A',
+  'Flowing Stream': '#473F5A',
+  'Water Stream': '#473F5A',
+};
+
+const CATEGORY_BADGE_COLORS: Record<string, string> = {
+  rain: '#4CAF50',
+  ocean: '#4CAF50',
+  forest: '#4CAF50',
+  birds: '#4CAF50',
+  fire: '#9C27B0',
+  thunder: '#4CAF50',
+  wind: '#9C27B0',
+  river: '#4CAF50',
+  meditation: '#9C27B0',
+  breathing: '#9C27B0',
+};
+
 export default function RelaxationSoundsScreen() {
   const { themeStyle } = useTheme();
   const [content, setContent] = useState<RelaxationContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadContent();
+    
+    // Bubble animation
+    const createFloatingAnimation = (valueY: Animated.Value, valueX: Animated.Value, durationY: number, durationX: number, delay: number) => {
+      return Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueY, {
+              toValue: -30,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: 0,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueX, {
+              toValue: 20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+    };
+
+    const animations = [
+      createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0),
+      createFloatingAnimation(bubble2Y, bubble2X, 10000, 9000, 500),
+      createFloatingAnimation(bubble3Y, bubble3X, 7000, 8000, 1000),
+      createFloatingAnimation(bubble4Y, bubble4X, 9000, 7500, 1500),
+      createFloatingAnimation(bubble5Y, bubble5X, 8500, 8500, 2000),
+    ];
+
+    animations.forEach(anim => anim.start());
+
+    return () => {
+      animations.forEach(anim => anim.stop());
+    };
   }, []);
 
   
@@ -92,69 +213,80 @@ export default function RelaxationSoundsScreen() {
   
 
   const ContentCard = ({ item }: { item: RelaxationContent }) => {
-    const bgColor = CATEGORY_COLORS[item.category] || '#e0e7ff';
+    const bgColor = CARD_BG_COLORS[item.title] || '#473F5A';
+    const categoryBadgeColor = CATEGORY_BADGE_COLORS[item.category] || '#4CAF50';
+    const imageSource = SOUND_IMAGES[item.title];
 
     return (
-      <TouchableOpacity onPress={() => router.push(`./relaxation-sessions?id=${item.id}`)} activeOpacity={0.9}>
-      <View style={[styles.card, { backgroundColor: bgColor }]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardIcon}>
-            {CATEGORY_ICONS[item.category] || '🎵'}
-          </Text>
-          {item.is_premium && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumText}>✨</Text>
+      <TouchableOpacity 
+        onPress={() => router.push(`./playsound?id=${item.id}`)} 
+        activeOpacity={0.8}
+        style={styles.cardWrapper}
+      >
+        <View style={[styles.card, { backgroundColor: bgColor }]}>
+          {imageSource && (
+            <Image
+              source={imageSource}
+              style={styles.cardImage}
+              resizeMode="cover"
+            />
+          )}
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.cardDescription} numberOfLines={1}>
+              {item.description}
+            </Text>
+            <View style={[styles.categoryBadge, { backgroundColor: categoryBadgeColor }]}>
+              <Text style={styles.categoryText}>{item.category}</Text>
             </View>
-          )}
+          </View>
+          <View style={styles.arrowContainer}>
+            <View style={styles.playButton}>
+              <MaterialIcons name="arrow-forward-ios" size={24} color="#FFFFFF" />
+            </View>
+          </View>
         </View>
-
-        <Text style={[styles.cardTitle, { color: themeStyle.title }]} numberOfLines={2}>
-          {item.title}
-        </Text>
-        
-        <Text style={[styles.cardDescription, { color: themeStyle.text }]} numberOfLines={3}>
-          {item.description}
-        </Text>
-
-        <View style={styles.cardFooter}>
-          {item.average_rating && Number(item.average_rating) > 0 && (
-            <Text style={[styles.cardRating, { color: themeStyle.label }]}>⭐ {item.average_rating}</Text>
-          )}
-        </View>
-      </View>
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.button} />
-        <Text style={[styles.loadingText, { color: themeStyle.text }]}>Loading relaxation sounds...</Text>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#B8A8E6" />
+          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>Loading relaxation sounds...</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <Text style={styles.errorIcon}>🎵</Text>
-        <Text style={[styles.errorText, { color: themeStyle.title }]}>{error}</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: themeStyle.button }]} onPress={loadContent}>
-          <Text style={[styles.retryButtonText, { color: themeStyle.buttonText }]}>Try Again</Text>
-        </TouchableOpacity>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorIcon}>🎵</Text>
+          <Text style={[styles.errorText, { color: '#FFFFFF' }]}>{error}</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: '#B8A8E6' }]} onPress={loadContent}>
+            <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   if (content.length === 0) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <Text style={styles.emptyIcon}>🎧</Text>
-        <Text style={[styles.emptyTitle, { color: themeStyle.title }]}>No relaxation sounds available</Text>
-        <Text style={[styles.emptySubtext, { color: themeStyle.label }]}>
-          Check back later for calming sounds and meditation content
-        </Text>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyIcon}>🎧</Text>
+          <Text style={[styles.emptyTitle, { color: '#FFFFFF' }]}>No relaxation sounds available</Text>
+          <Text style={[styles.emptySubtext, { color: 'rgba(255,255,255,0.7)' }]}>
+            Check back later for calming sounds and meditation content
+          </Text>
+        </View>
       </View>
     );
   }
@@ -162,26 +294,70 @@ export default function RelaxationSoundsScreen() {
   const router = useRouter();
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}> 
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#342949', '#342949', '#342949']}
+        style={styles.screenGradient}
+      />
 
-      <ScrollView
+      {/* Animated Bubbles */}
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+        { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+        { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+        { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+        { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+        { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+      ]} />
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Relaxation"
+        secondWord="Sounds"
+        onBackPress={() => router.push('./take-a-break')}
+      />
+
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        style={styles.scroll}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: themeStyle.title }]}>🎵 Relaxing Sounds</Text>
-          <Text style={[styles.subtitle, { color: themeStyle.label }]}>
-            Nature sounds and ambient audio for relaxation
-          </Text>
-        </View>
+        {/* Original Header */}
+        <OriginalHeader
+          scrollY={scrollY}
+          firstWord="Relaxation"
+          secondWord="Sounds"
+          onBackPress={() => router.push('./take-a-break')}
+        />
+        <Text style={styles.subtitle}>
+          Nature sounds and ambient audio for relaxation
+        </Text>
 
-        {/* Relaxing Sounds page only — Breathing tab removed */}
-
-        {/* Filters removed — show all relaxing sounds (breathing/body-scan excluded below) */}
-
-        {/* Content Grid */}
-        <View style={styles.grid}>
+        {/* Content List */}
+        <View style={styles.contentList}>
           {content
               .filter((item) => {
                 const t = (item.title || '').toLowerCase();
@@ -199,7 +375,7 @@ export default function RelaxationSoundsScreen() {
 
         {/* Footer Spacing */}
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Filters removed */}
     </View>
@@ -209,6 +385,23 @@ export default function RelaxationSoundsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    zIndex: 1,
+  },
+  scroll: {
+    flex: 1,
+    zIndex: 2,
   },
   centerContainer: {
     flex: 1,
@@ -221,207 +414,110 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
     paddingBottom: 16,
+    zIndex: 2,
+    alignItems: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 60,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 4,
   },
+  headerWhite: {
+    color: '#FFFFFF',
+  },
+  headerPurple: {
+    color: '#B8A8E6',
+  },
   subtitle: {
     fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
-  filtersContainer: {
-    flexDirection: 'row',
+  contentList: {
     paddingHorizontal: 20,
-    marginBottom: 16,
-    gap: 10,
+    paddingTop: 20,
+    gap: 12,
+    zIndex: 3,
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  clearButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 10,
-    gap: 10,
+  cardWrapper: {
+    marginBottom: 12,
+    zIndex: 3,
   },
   card: {
-    width: CARD_WIDTH,
-    padding: 16,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
-    position: 'relative',
+    overflow: 'hidden',
+    zIndex: 3,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+  cardImage: {
+    width: 100,
+    height: '100%',
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
   },
-  cardIcon: {
-    fontSize: 40,
-  },
-  premiumBadge: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 12,
-    padding: 4,
-  },
-  premiumText: {
-    fontSize: 16,
+  cardContent: {
+    flex: 1,
+    paddingLeft: 16,
+    paddingRight: 12,
+    paddingVertical: 12,
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 6,
-    minHeight: 44,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   cardDescription: {
     fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-    minHeight: 54,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 8,
   },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  cardDuration: {
-    fontSize: 12,
+  categoryText: {
+    fontSize: 11,
+    color: '#FFFFFF',
     fontWeight: '600',
+    textTransform: 'capitalize',
   },
-  cardRating: {
-    fontSize: 12,
-  },
-  tabButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: 'transparent'
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600'
+  arrowContainer: {
+    paddingRight: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playButton: {
-    borderRadius: 16,
-    padding: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(239, 83, 80, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  playButtonText: {
-    fontSize: 24,
-  },
-  audioPlayer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  playerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  playerIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  playerText: {
-    flex: 1,
-  },
-  playerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  playerTime: {
-    fontSize: 12,
-  },
-  playerControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    marginBottom: 12,
-  },
-  playerButton: {
-    borderRadius: 12,
-    padding: 12,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  playerButtonIcon: {
-    fontSize: 24,
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterModal: {
-    borderRadius: 16,
-    padding: 20,
-    width: width * 0.8,
-    maxHeight: 500,
-  },
-  filterModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  filterOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  filterOptionText: {
-    fontSize: 16,
-  },
-  filterCheck: {
-    fontSize: 20,
-    fontWeight: 'bold',
   },
   loadingText: {
     marginTop: 12,

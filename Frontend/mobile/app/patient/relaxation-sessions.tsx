@@ -1,276 +1,97 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
-import { useTheme } from '../contexts/ThemeContext';
-import PatientService, { RelaxationContent } from '../services/patient.service';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
+import PatientService from '../services/patient.service';
 import StarRating from '../components/StarRating';
 
 export default function RelaxationSessionScreen() {
-  const { id } = useLocalSearchParams();
+  const { contentId, contentTitle, contentCategory, durationListened } = useLocalSearchParams();
   const router = useRouter();
-  const { themeStyle } = useTheme();
-  const [content, setContent] = useState<RelaxationContent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Audio
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
-  // Timed loop controls
-  const [timedMinutes, setTimedMinutes] = useState<number | null>(null); // 5,10,20
-  const listenedMsRef = useRef<number>(0);
-  const lastPositionRef = useRef<number>(0);
-  const isRestartingRef = useRef<boolean>(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
 
   // Session form
   const [moodBefore, setMoodBefore] = useState<number>(3);
   const [moodAfter, setMoodAfter] = useState<number>(4);
   const [rating, setRating] = useState<number>(4);
   const [notes, setNotes] = useState<string>('');
-  const sessionIdRef = useRef<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!id) return;
-    loadContent();
-    setupAudio();
-    return () => { cleanupAudio(); };
-  }, [id]);
+    // Bubble animation
+    const createFloatingAnimation = (valueY: Animated.Value, valueX: Animated.Value, durationY: number, durationX: number, delay: number) => {
+      return Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueY, {
+              toValue: -30,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: 0,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueX, {
+              toValue: 20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+    };
 
-  const loadContent = async () => {
-    try {
-      setLoading(true);
-      const data = await PatientService.getRelaxationContentDetail(String(id));
-      setContent(data);
-      console.log('[RelaxationSession] loaded content audio_url=', data?.audio_url);
-      // reset any previous sound and timed counters when switching content
-      try {
-        if (soundRef.current) {
-          await soundRef.current.unloadAsync();
-          soundRef.current = null;
-        }
-      } catch (e) {}
-      setSound(null);
-      setIsPlaying(false);
-      setPosition(0);
-      setDuration(0);
-      listenedMsRef.current = 0;
-      lastPositionRef.current = 0;
-      setTimedMinutes(null);
-    } catch (err: any) {
-      console.error('Failed to load content:', err);
-      setError(err?.response?.data?.detail || 'Failed to load content');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const animations = [
+      createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0),
+      createFloatingAnimation(bubble2Y, bubble2X, 10000, 9000, 500),
+      createFloatingAnimation(bubble3Y, bubble3X, 7000, 8000, 1000),
+      createFloatingAnimation(bubble4Y, bubble4X, 9000, 7500, 1500),
+      createFloatingAnimation(bubble5Y, bubble5X, 8500, 8500, 2000),
+    ];
 
-  const setupAudio = async () => {
-    try {
-      const mode: any = {
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      };
+    animations.forEach(anim => anim.start());
 
-      if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX !== 'undefined') {
-        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX;
-      } else if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS !== 'undefined') {
-        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS;
-      }
+    return () => { 
+      animations.forEach(anim => anim.stop());
+    };
+  }, []);
 
-      if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX !== 'undefined') {
-        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX;
-      } else if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS !== 'undefined') {
-        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS;
-      }
-
-      await Audio.setAudioModeAsync(mode);
-    } catch (e) {}
-  };
-
-  const cleanupAudio = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying);
-
-      // accumulate listened time only while playing
-      if (status.isPlaying) {
-        const lastPos = lastPositionRef.current || 0;
-        const delta = Math.max(0, (status.positionMillis || 0) - lastPos);
-        listenedMsRef.current += delta;
-        lastPositionRef.current = status.positionMillis || 0;
-      }
-
-      // if timed loop target reached, stop playback
-      if (timedMinutes) {
-        const targetMs = timedMinutes * 60 * 1000;
-        if (listenedMsRef.current >= targetMs) {
-          (async () => {
-            try {
-              const s = soundRef.current;
-              if (s) {
-                await s.stopAsync();
-                await s.setPositionAsync(0);
-                await s.unloadAsync();
-              }
-            } catch (e) {}
-            setSound(null);
-            setIsPlaying(false);
-            setPosition(0);
-            setDuration(0);
-            listenedMsRef.current = 0;
-            lastPositionRef.current = 0;
-            setTimedMinutes(null);
-          })();
-        }
-      }
-
-      // handle natural finish: restart if timed loop still active and target not reached
-      if (status.didJustFinish) {
-        if (timedMinutes) {
-          const targetMs = timedMinutes * 60 * 1000;
-          const s = soundRef.current;
-          if (listenedMsRef.current < targetMs) {
-            (async () => {
-              try {
-                // prevent concurrent restart attempts
-                if (isRestartingRef.current) return;
-                isRestartingRef.current = true;
-
-                if (s) {
-                  const st = await s.getStatusAsync();
-                  if (st?.isLoaded) {
-                    await s.setPositionAsync(0);
-                    await s.playAsync();
-                    isRestartingRef.current = false;
-                    return;
-                  }
-                }
-
-                // recreate the sound if missing or unloaded
-                const uri = content?.audio_url as string;
-                console.log('[RelaxationSession] recreating sound for restart, uri=', uri);
-                const created = await Audio.Sound.createAsync({ uri }, { shouldPlay: true }, onPlaybackStatusUpdate);
-                soundRef.current = created.sound;
-                setSound(created.sound);
-                isRestartingRef.current = false;
-                return;
-              } catch (e) {
-                console.warn('[RelaxationSession] failed to restart after finish', e);
-                isRestartingRef.current = false;
-              }
-            })();
-            return;
-          }
-        }
-        setIsPlaying(false);
-      }
-    }
-  };
-
-  const handlePlay = async () => {
-    if (!content) return;
-    try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
-        return;
-      }
-
-      console.log('[RelaxationSession] playing audio url:', content.audio_url);
-      try { console.log('[RelaxationSession] attempting HEAD fetch for audio url'); } catch(e){}
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: content.audio_url }, { shouldPlay: true }, onPlaybackStatusUpdate);
-
-      try {
-        await newSound.setStatusAsync({ volume: 1.0 });
-        const st = await newSound.getStatusAsync();
-        console.log('[RelaxationSession] newSound status after create:', st);
-      } catch (qerr) {
-        console.warn('[RelaxationSession] failed to query/set sound status', qerr);
-      }
-
-      // verify loaded
-      const status = await newSound.getStatusAsync();
-      if (!status?.isLoaded) {
-        try { await newSound.unloadAsync(); } catch(e){}
-        throw new Error('Failed to load audio');
-      }
-
-      // initialize listened counters for timed loop
-      listenedMsRef.current = 0;
-      lastPositionRef.current = 0;
-
-      // ensure native looping is off; timed loop handled manually
-      try { await newSound.setIsLoopingAsync(false); } catch(e){}
-
-      soundRef.current = newSound;
-      setSound(newSound);
-      setIsPlaying(true);
-    } catch (e) {
-      console.error('Audio play error', e);
-      // If error has message or code provide it
-      try { console.error('Audio play error details:', e?.message || e); } catch (ee) {}
-      Alert.alert('Playback error', `Unable to play audio. See console for details. URL: ${content.audio_url}`);
-    }
-  };
-
-  const handleStop = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-      soundRef.current = null;
-      setSound(null);
-      setIsPlaying(false);
-      setPosition(0);
-      setDuration(0);
-      listenedMsRef.current = 0;
-      lastPositionRef.current = 0;
-      setTimedMinutes(null);
-    }
-  };
-
-  const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
 
   const handleCompleteSession = async () => {
-    if (!content) return;
+    if (!contentId) {
+      Alert.alert('Error', 'Missing session information');
+      return;
+    }
+
     try {
-      // Prefer the accumulated listened milliseconds (more accurate when restarting/looping)
-      const listenedMs = Math.max(0, listenedMsRef.current || 0);
-      const listenedSecondsFromAccum = Math.floor(listenedMs / 1000);
-      const positionSeconds = Math.floor((position || 0) / 1000);
-      const durationSeconds = Number(listenedSecondsFromAccum || positionSeconds || content.duration_seconds || 0);
-
-      if (!content.id) {
-        console.error('[RelaxationSession] missing content id, cannot save session', content);
-        Alert.alert('Error', 'Unable to save session: missing content id');
-        return;
-      }
-
+      setSubmitting(true);
       const payload: Record<string, any> = {
-        content: String(content.id),
-        duration_listened_seconds: durationSeconds,
+        content: String(contentId),
+        duration_listened_seconds: Number(durationListened) || 0,
         completed: true,
         rating: rating ?? null,
         mood_before: moodBefore != null ? String(moodBefore) : null,
@@ -282,131 +103,372 @@ export default function RelaxationSessionScreen() {
 
       const res = await PatientService.createRelaxationSession(payload);
       console.log('[RelaxationSession] create response:', res);
-      sessionIdRef.current = res?.id || null;
-      Alert.alert('Session saved', 'Relaxation session recorded');
-      router.back();
+      Alert.alert('Session saved', 'Your relaxation session has been recorded successfully');
+      router.push('/patient/actions');
     } catch (err: any) {
       console.error('Failed to save session', err, err?.response?.data || err?.response);
       const serverDetail = err?.response?.data?.detail || err?.response?.data || err?.message;
       Alert.alert('Error', String(serverDetail || 'Failed to save session'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (loading) return (
-    <View style={[styles.center, { backgroundColor: themeStyle.background }]}>
-      <ActivityIndicator size="large" color={themeStyle.button} />
-      <Text style={{ color: themeStyle.text, marginTop: 12 }}>Loading session...</Text>
-    </View>
-  );
+  const handleSkip = () => {
+    Alert.alert(
+      'Skip Session Rating',
+      'Are you sure you want to skip rating this session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Skip', style: 'destructive', onPress: () => router.push('/patient/actions') }
+      ]
+    );
+  };
 
-  if (error || !content) return (
-    <View style={[styles.center, { backgroundColor: themeStyle.background }]}>
-      <Text style={{ color: themeStyle.text }}>{error || 'Content not found'}</Text>
-      <TouchableOpacity style={[styles.btn, { backgroundColor: themeStyle.button }]} onPress={() => router.back()}>
-        <Text style={{ color: themeStyle.buttonText }}>Go back</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: themeStyle.background }]} contentContainerStyle={styles.content}>
-      <View style={[styles.playerCard, { backgroundColor: themeStyle.card }]}>
-        <View style={styles.playerHeader}>
-          <Text style={[styles.title, { color: themeStyle.title }]}>{content.title}</Text>
-          <Text style={[styles.sub, { color: themeStyle.label }]}>{content.category_display || content.category}</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#342949', '#342949', '#342949']}
+        style={styles.screenGradient}
+      />
+
+      {/* Animated Bubbles */}
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+        { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+        { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+        { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+        { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+      ]} />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+        { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+      ]} />
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Back Button */}
+        <TouchableOpacity
+          onPress={() => router.push('./take-a-break')}
+          style={styles.backButton}
+        >
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>
+            <Text style={styles.headerWhite}>Rate Your Session</Text>
+          </Text>
+          <Text style={styles.subtitle}>Help us understand your experience</Text>
         </View>
 
-        <View style={styles.playerArea}>
-          <TouchableOpacity style={[styles.playCircle, { backgroundColor: themeStyle.button }]} onPress={handlePlay}>
-            <Text style={{ fontSize: 28, color: themeStyle.buttonText }}>{isPlaying ? '⏸️' : '▶️'}</Text>
+        {/* Session Info Card */}
+        <View style={styles.infoCard}>
+          <Text style={styles.sessionTitle}>{contentTitle}</Text>
+          <Text style={styles.sessionCategory}>{contentCategory}</Text>
+        </View>
+
+        {/* Feedback Form */}
+        <View style={styles.formCard}>
+          {/* Mood Before */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Mood Before</Text>
+            <Text style={styles.sectionSubtitle}>How did you feel before starting? (1-5)</Text>
+            <View style={styles.moodButtons}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setMoodBefore(value)}
+                  style={[
+                    styles.moodButton,
+                    moodBefore === value && styles.moodButtonActive
+                  ]}
+                >
+                  <Text style={[
+                    styles.moodButtonText,
+                    moodBefore === value && styles.moodButtonTextActive
+                  ]}>
+                    {value}
+                  </Text>
+                  <Text style={[
+                    styles.moodLabel,
+                    moodBefore === value && styles.moodLabelActive
+                  ]}>
+                    {value === 1 ? 'Low' : value === 5 ? 'High' : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Mood After */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Mood After</Text>
+            <Text style={styles.sectionSubtitle}>How do you feel now? (1-5)</Text>
+            <View style={styles.moodButtons}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setMoodAfter(value)}
+                  style={[
+                    styles.moodButton,
+                    moodAfter === value && styles.moodButtonActive
+                  ]}
+                >
+                  <Text style={[
+                    styles.moodButtonText,
+                    moodAfter === value && styles.moodButtonTextActive
+                  ]}>
+                    {value}
+                  </Text>
+                  <Text style={[
+                    styles.moodLabel,
+                    moodAfter === value && styles.moodLabelActive
+                  ]}>
+                    {value === 1 ? 'Low' : value === 5 ? 'High' : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Rate This Session */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Rate This Session</Text>
+            <Text style={styles.sectionSubtitle}>How would you rate this relaxation session?</Text>
+            <View style={styles.starContainer}>
+              <StarRating value={rating} onChange={setRating} />
+            </View>
+          </View>
+
+          {/* Notes */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Notes (Optional)</Text>
+            <Text style={styles.sectionSubtitle}>Share your thoughts about this session</Text>
+            <TextInput
+              multiline
+              numberOfLines={4}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="How did this session make you feel?"
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              style={styles.textArea}
+            />
+          </View>
+
+          {/* Action Buttons */}
+          <TouchableOpacity 
+            style={[styles.completeBtn, submitting && styles.completeBtnDisabled]} 
+            onPress={handleCompleteSession}
+            disabled={submitting}
+          >
+            <Text style={styles.completeBtnText}>
+              {submitting ? 'Saving...' : 'Complete Session'}
+            </Text>
           </TouchableOpacity>
 
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <View style={[styles.progressBar, { backgroundColor: themeStyle.background }]}>
-              <View style={[styles.progressFill, { width: `${duration > 0 ? (position / duration) * 100 : 0}%`, backgroundColor: themeStyle.button }]} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: themeStyle.label }}>{formatTime(position)}</Text>
-              <Text style={{ color: themeStyle.label }}>{formatTime(duration)}</Text>
-            </View>
-          </View>
+          <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
+            <Text style={styles.skipBtnText}>Skip for now</Text>
+          </TouchableOpacity>
         </View>
-        {/* Timed loop controls */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {[5,10,20].map((m) => (
-              <TouchableOpacity key={m} onPress={() => {
-                // toggle same selection off
-                setTimedMinutes(prev => prev === m ? null : m);
-                // reset counters when changing preset
-                listenedMsRef.current = 0; lastPositionRef.current = 0;
-              }} style={[styles.btn, { backgroundColor: timedMinutes === m ? themeStyle.button : themeStyle.card }]}> 
-                <Text style={{ color: timedMinutes === m ? themeStyle.buttonText : themeStyle.text }}>{m}m</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={{ justifyContent: 'center' }}>
-            {timedMinutes ? (
-              <Text style={{ color: themeStyle.label }}>Remaining: {formatTime(Math.max(0, (timedMinutes * 60 * 1000) - listenedMsRef.current))}</Text>
-            ) : (
-              <Text style={{ color: themeStyle.label }}>Timed loop: off</Text>
-            )}
-          </View>
-        </View>
-      </View>
-
-      <View style={[styles.formCard, { backgroundColor: themeStyle.card }]}>
-        <Text style={[styles.fieldLabel, { color: themeStyle.label }]}>Mood Before</Text>
-        <View style={styles.sliderRow}>
-          <Text style={{ color: themeStyle.text }}>{moodBefore}/5</Text>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <TextInput keyboardType="numeric" value={String(moodBefore)} onChangeText={(t) => setMoodBefore(Math.max(1, Math.min(5, Number(t) || 1)))} style={[styles.numberInput, { borderColor: themeStyle.border, color: themeStyle.text }]} />
-          </View>
-        </View>
-
-        <Text style={[styles.fieldLabel, { color: themeStyle.label, marginTop: 12 }]}>Mood After</Text>
-        <View style={styles.sliderRow}>
-          <Text style={{ color: themeStyle.text }}>{moodAfter}/5</Text>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <TextInput keyboardType="numeric" value={String(moodAfter)} onChangeText={(t) => setMoodAfter(Math.max(1, Math.min(5, Number(t) || 1)))} style={[styles.numberInput, { borderColor: themeStyle.border, color: themeStyle.text }]} />
-          </View>
-        </View>
-
-        <Text style={[styles.fieldLabel, { color: themeStyle.label, marginTop: 12 }]}>Rate this session</Text>
-        <StarRating value={rating} onChange={setRating} />
-
-        <Text style={[styles.fieldLabel, { color: themeStyle.label, marginTop: 12 }]}>Notes (optional)</Text>
-        <TextInput multiline numberOfLines={4} value={notes} onChangeText={setNotes} placeholder="How did this session make you feel?" placeholderTextColor={themeStyle.placeholder} style={[styles.textArea, { borderColor: themeStyle.border, color: themeStyle.text }]} />
-
-        <TouchableOpacity style={[styles.completeBtn, { backgroundColor: themeStyle.button }]} onPress={handleCompleteSession}>
-          <Text style={{ color: themeStyle.buttonText, fontWeight: '700' }}>Complete Session</Text>
-        </TouchableOpacity>
-      </View>
-
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  playerCard: { borderRadius: 16, padding: 18, marginBottom: 16 },
-  playerHeader: { marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: '700' },
-  sub: { fontSize: 14 },
-  playerArea: { flexDirection: 'row', alignItems: 'center' },
-  playCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
-  progressBar: { height: 6, borderRadius: 6, overflow: 'hidden', backgroundColor: '#eee', marginVertical: 8 },
-  progressFill: { height: '100%' },
-  formCard: { borderRadius: 16, padding: 16 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  sliderRow: { flexDirection: 'row', alignItems: 'center' },
-  numberInput: { borderWidth: 1, borderRadius: 8, padding: 8, width: 64, textAlign: 'center' },
-  textArea: { borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 80, marginTop: 8 },
-  completeBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  btn: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  container: { 
+    flex: 1,
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    zIndex: 1,
+  },
+  scrollView: {
+    flex: 1,
+    zIndex: 2,
+  },
+  content: { 
+    padding: 20, 
+    paddingBottom: 40 
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 60,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  headerWhite: {
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+  infoCard: {
+    backgroundColor: '#473F5A',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  sessionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  sessionCategory: {
+    fontSize: 14,
+    color: '#B8A8E6',
+    textAlign: 'center',
+  },
+  formCard: { 
+    backgroundColor: '#473F5A',
+    borderRadius: 16, 
+    padding: 20,
+  },
+  formSection: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 16,
+  },
+  moodButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  moodButton: {
+    flex: 1,
+    backgroundColor: '#342949',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  moodButtonActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#B8A8E6',
+  },
+  moodButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 4,
+  },
+  moodButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  moodLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '600',
+  },
+  moodLabelActive: {
+    color: 'rgba(255,255,255,0.8)',
+  },
+  starContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  textArea: { 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 12, 
+    padding: 16, 
+    minHeight: 100,
+    color: '#FFFFFF',
+    fontSize: 15,
+    textAlignVertical: 'top',
+    backgroundColor: '#342949',
+  },
+  completeBtn: { 
+    marginTop: 8,
+    paddingVertical: 16, 
+    borderRadius: 24, 
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  completeBtnDisabled: {
+    opacity: 0.6,
+  },
+  completeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  skipBtn: {
+    marginTop: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  skipBtnText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });
+
 
 
 

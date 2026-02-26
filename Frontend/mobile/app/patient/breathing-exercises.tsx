@@ -2,81 +2,95 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
+  Animated,
+  Alert,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import PatientService, { RelaxationContent } from '../services/patient.service';
-import { useTheme } from '../contexts/ThemeContext';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 export default function BreathingExercisesScreen() {
-  const { themeStyle } = useTheme();
+  const router = useRouter();
   const [content, setContent] = useState<RelaxationContent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Audio player state
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [playingContent, setPlayingContent] = useState<RelaxationContent | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+
+  // Animated bubble references
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadContent();
-    setupAudio();
-    
-    return () => {
-      cleanupAudio();
-    };
+    startBubbleAnimations();
   }, []);
 
-  const setupAudio = async () => {
-    try {
-      const mode: any = {
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      };
-
-      if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX !== 'undefined') {
-        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX;
-      } else if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS !== 'undefined') {
-        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS;
-      }
-
-      if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX !== 'undefined') {
-        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX;
-      } else if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS !== 'undefined') {
-        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS;
-      }
-
-      await Audio.setAudioModeAsync(mode);
-    } catch (err) {
-      console.error('Error setting up audio:', err);
-    }
+  const createFloatingAnimation = (translateY: Animated.Value, translateX: Animated.Value, duration: number, delay: number) => {
+    return Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(translateY, {
+            toValue: -30,
+            duration: duration,
+            delay: delay,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(translateX, {
+            toValue: 20,
+            duration: duration * 0.7,
+            delay: delay,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: -20,
+            duration: duration * 0.7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: duration * 0.6,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
   };
 
-  const cleanupAudio = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-    }
+  const startBubbleAnimations = () => {
+    createFloatingAnimation(bubble1Y, bubble1X, 4000, 0).start();
+    createFloatingAnimation(bubble2Y, bubble2X, 5000, 500).start();
+    createFloatingAnimation(bubble3Y, bubble3X, 4500, 1000).start();
+    createFloatingAnimation(bubble4Y, bubble4X, 5500, 1500).start();
+    createFloatingAnimation(bubble5Y, bubble5X, 4800, 2000).start();
   };
 
   const loadContent = async () => {
     try {
       setLoading(true);
-      setError(null);
-      // Fetch all content and filter locally so body-scan items (category 'body_scan')
-      // are not excluded by backend query params. This ensures the 10-minute Body Scan appears.
       const data = await PatientService.getRelaxationContent({});
-
-      // Include items that are breathing or body-scan exercises. Match by
-      // content_type, category, or title heuristics to capture 5/10 minute items.
       const breathingExercises = data.filter(item => {
         const t = (item.title || '').toLowerCase();
         const isBreathingType = item.content_type === 'breathing' || item.category === 'breathing';
@@ -84,224 +98,161 @@ export default function BreathingExercisesScreen() {
         const isBreathTitle = t.includes('breath') || t.includes('breathing');
         return isBreathingType || isBodyScanType || isBreathTitle;
       });
-
       setContent(breathingExercises);
     } catch (err: any) {
       console.error('Error loading breathing exercises:', err);
-      setError(err.response?.data?.detail || 'Unable to load breathing exercises. Try again.');
+      Alert.alert('Error', 'Unable to load breathing exercises');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePlay = async (item: RelaxationContent) => {
-    try {
-      if (playingContent?.id === item.id && sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
-        return;
-      }
+  const handleCardPress = (type: '5min' | '10min') => {
+    // Find the appropriate content based on type
+    let exercise;
+    
+    console.log('Total content loaded:', content.length);
+    console.log('Looking for:', type);
+    
+    if (type === '5min') {
+      // Find first breathing exercise
+      exercise = content.find(item => {
+        const t = (item.title || '').toLowerCase();
+        const isBreathing = item.content_type === 'breathing' || 
+                           item.category === 'breathing' || 
+                           t.includes('breath');
+        const notBodyScan = !t.includes('body scan') && !t.includes('body-scan');
+        return isBreathing && notBodyScan;
+      });
+    } else {
+      // Find first body scan exercise
+      exercise = content.find(item => {
+        const t = (item.title || '').toLowerCase();
+        return item.content_type === 'body_scan' || 
+               item.category === 'body_scan' || 
+               t.includes('body scan') || 
+               t.includes('body-scan');
+      });
+    }
 
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: item.audio_url },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      setSound(newSound);
-      setPlayingContent(item);
-      setIsPlaying(true);
-    } catch (err) {
-      console.error('Error playing audio:', err);
-      alert('Unable to play this exercise. Please try again.');
+    if (exercise) {
+      console.log('Found exercise:', exercise.id, exercise.title);
+      router.push(`./playbreathing?id=${exercise.id}`);
+    } else {
+      console.log('No exercise found for type:', type);
+      Alert.alert('Not Available', `${type === '5min' ? 'Breathing exercise' : 'Body scan exercise'} is not available right now.`);
     }
   };
 
-  const handleStop = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-      setSound(null);
-      setPlayingContent(null);
-      setIsPlaying(false);
-      setPosition(0);
-      setDuration(0);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying);
-
-      if (status.didJustFinish) {
-        handleStop();
-      }
-    }
-  };
-
-  const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const AudioPlayer = () => {
-    if (!playingContent) return null;
-
-    const progress = duration > 0 ? (position / duration) * 100 : 0;
+  const ContentCard = ({ 
+    title, 
+    description, 
+    duration,
+    imageName,
+    onPress 
+  }: { 
+    title: string; 
+    description: string; 
+    duration: string;
+    imageName: '5minbreathe' | '10minbreathe';
+    onPress: () => void;
+  }) => {
+    // Use 5minbreathe.png for both cards
+    const imageSource = require('../../assets/images/5minbreathe.png');
 
     return (
-      <View style={[styles.audioPlayer, { backgroundColor: themeStyle.card, borderBottomColor: themeStyle.border }]}>
-        <View style={styles.playerInfo}>
-          <Text style={styles.playerIcon}>💆</Text>
-          <View style={styles.playerText}>
-            <Text style={[styles.playerTitle, { color: themeStyle.title }]} numberOfLines={1}>
-              {playingContent.title}
-            </Text>
-            <Text style={[styles.playerTime, { color: themeStyle.label }]}>
-              {formatTime(position)} / {formatTime(duration)}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.playerControls}>
-          <TouchableOpacity
-            style={[styles.playerButton, { backgroundColor: themeStyle.background }]}
-            onPress={() => handlePlay(playingContent)}
-          >
-            <Text style={styles.playerButtonIcon}>
-              {isPlaying ? '⏸️' : '▶️'}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.playerButton, { backgroundColor: themeStyle.background }]}
-            onPress={handleStop}
-          >
-            <Text style={styles.playerButtonIcon}>⏹️</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.progressBar, { backgroundColor: themeStyle.border }]}>
-          <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: themeStyle.button }]} />
-        </View>
-      </View>
-    );
-  };
-
-  const ExerciseCard = ({ item }: { item: RelaxationContent }) => {
-    const isCurrentlyPlaying = playingContent?.id === item.id && isPlaying;
-
-    return (
-      <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
+      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+        <Image source={imageSource} style={styles.cardImage} />
         <View style={styles.cardContent}>
-          <View style={[styles.cardIcon, { backgroundColor: themeStyle.button + '20' }]}>
-            <Text style={styles.cardIconText}>💆</Text>
-          </View>
-          
-          <View style={styles.cardInfo}>
-            <Text style={[styles.cardTitle, { color: themeStyle.title }]}>{item.title}</Text>
-            <Text style={[styles.cardDescription, { color: themeStyle.text }]}>{item.description}</Text>
-            
-            {item.instructions && (
-              <View style={[styles.instructionsBox, { backgroundColor: themeStyle.background }]}>
-                <Text style={[styles.instructionsText, { color: themeStyle.label }]}>{item.instructions}</Text>
-              </View>
-            )}
-            
-            <View style={styles.cardFooter}>
-              <Text style={[styles.cardDuration, { color: themeStyle.button }]}>⏱️ {item.duration_formatted}</Text>
-            </View>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardDescription}>{description}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{duration}</Text>
           </View>
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.playButton,
-            { backgroundColor: themeStyle.button },
-            isCurrentlyPlaying && { backgroundColor: themeStyle.logoutButton },
-          ]}
-          onPress={() => handlePlay(item)}
-        >
-          <Text style={[styles.playButtonText, { color: themeStyle.buttonText }]}>
-            {isCurrentlyPlaying ? '⏸️ Pause' : '▶️ Start'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.arrowContainer}>
+          <MaterialIcons name="arrow-forward-ios" size={24} color="#B8A8E6" />
+        </View>
+      </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.button} />
-        <Text style={[styles.loadingText, { color: themeStyle.text }]}>Loading breathing exercises...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <Text style={styles.errorIcon}>💆</Text>
-        <Text style={[styles.errorText, { color: themeStyle.error }]}>{error}</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: themeStyle.button }]} onPress={loadContent}>
-          <Text style={[styles.retryButtonText, { color: themeStyle.buttonText }]}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (content.length === 0) {
-    return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <Text style={styles.emptyIcon}>💆</Text>
-        <Text style={[styles.emptyTitle, { color: themeStyle.title }]}>No exercises available</Text>
-        <Text style={[styles.emptySubtext, { color: themeStyle.label }]}>
-          Check back later for guided breathing and meditation content
-        </Text>
-      </View>
+      <LinearGradient colors={['#342949', '#4A3B5C', '#342949']} style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#B8A8E6" />
+          <Text style={styles.loadingText}>Loading breathing exercises...</Text>
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
-      <AudioPlayer />
+    <View style={styles.container}>
+      <LinearGradient colors={['#342949', '#4A3B5C', '#342949']} style={styles.gradient}>
+        {/* Animated Bubbles */}
+        <Animated.View style={[styles.floatingBubbles, { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }], top: '10%', left: '10%' }]}>
+          <View style={[styles.bubble, { width: 60, height: 60 }]} />
+        </Animated.View>
+        <Animated.View style={[styles.floatingBubbles, { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }], top: '25%', right: '15%' }]}>
+          <View style={[styles.bubble, { width: 80, height: 80 }]} />
+        </Animated.View>
+        <Animated.View style={[styles.floatingBubbles, { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }], top: '50%', left: '5%' }]}>
+          <View style={[styles.bubble, { width: 70, height: 70 }]} />
+        </Animated.View>
+        <Animated.View style={[styles.floatingBubbles, { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }], top: '70%', right: '10%' }]}>
+          <View style={[styles.bubble, { width: 90, height: 90 }]} />
+        </Animated.View>
+        <Animated.View style={[styles.floatingBubbles, { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }], top: '85%', left: '20%' }]}>
+          <View style={[styles.bubble, { width: 65, height: 65 }]} />
+        </Animated.View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: themeStyle.title }]}>💆 Breathing Exercises</Text>
-          <Text style={[styles.subtitle, { color: themeStyle.label }]}>
-            Guided exercises for relaxation and mindfulness
-          </Text>
-        </View>
+        {/* Sticky Header - Appears on scroll */}
+        <StickyHeader
+          scrollY={scrollY}
+          firstWord="Breathing"
+          secondWord="Exercises"
+          onBackPress={() => router.push('./take-a-break')}
+        />
 
-        <View style={[styles.tipsBox, { backgroundColor: themeStyle.card + '80', borderLeftColor: themeStyle.button }]}>
-          <Text style={[styles.tipsTitle, { color: themeStyle.title }]}>🌟 Tips for Best Results</Text>
-          <Text style={[styles.tipsText, { color: themeStyle.text }]}>• Find a quiet, comfortable space</Text>
-          <Text style={[styles.tipsText, { color: themeStyle.text }]}>• Sit or lie down in a relaxed position</Text>
-          <Text style={[styles.tipsText, { color: themeStyle.text }]}>• Use headphones for better experience</Text>
-          <Text style={[styles.tipsText, { color: themeStyle.text }]}>• Close your eyes and follow the guidance</Text>
-        </View>
+        {/* Content */}
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
+          {/* Original Header */}
+          <OriginalHeader
+            scrollY={scrollY}
+            firstWord="Breathing"
+            secondWord="Exercises"
+            onBackPress={() => router.push('./take-a-break')}
+          />
+          <Text style={styles.subtitle}>Guided exercises for relaxation and mindfulness</Text>
 
-        {content.map((item) => (
-          <ExerciseCard key={item.id} item={item} />
-        ))}
-      </ScrollView>
+          {/* Cards */}
+          <ContentCard
+            title="5-Minute Breathing"
+            description="Quick, calming breathing exercise perfect for stress relief and mental clarity"
+            duration="5 mins"
+            imageName="5minbreathe"
+            onPress={() => handleCardPress('5min')}
+          />
+
+          <ContentCard
+            title="10-Minute Body Scan"
+            description="Deep relaxation body scan meditation to release tension and promote mindfulness"
+            duration="10 mins"
+            imageName="10minbreathe"
+            onPress={() => handleCardPress('10min')}
+          />
+        </Animated.ScrollView>
+      </LinearGradient>
     </View>
   );
 }
@@ -310,190 +261,90 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  gradient: {
+    flex: 1,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#B8A8E6',
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    zIndex: 0,
+  },
+  bubble: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(133, 130, 180, 0.15)',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    zIndex: 2,
   },
   subtitle: {
     fontSize: 16,
-  },
-  tipsBox: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-  },
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  tipsText: {
-    fontSize: 14,
-    marginBottom: 6,
-    lineHeight: 20,
+    color: '#B8A8E6',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
   card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardContent: {
     flexDirection: 'row',
-    marginBottom: 16,
-  },
-  cardIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
+    backgroundColor: '#473F5A',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  cardImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
     marginRight: 16,
   },
-  cardIconText: {
-    fontSize: 30,
-  },
-  cardInfo: {
+  cardContent: {
     flex: 1,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   cardDescription: {
-    fontSize: 14,
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  instructionsBox: {
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  instructionsText: {
     fontSize: 13,
-    fontStyle: 'italic',
+    color: '#D1C7E8',
     lineHeight: 18,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardDuration: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  playButton: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  playButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  audioPlayer: {
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  playerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  playerIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  playerText: {
-    flex: 1,
-  },
-  playerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  playerTime: {
-    fontSize: 13,
-  },
-  playerControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginBottom: 12,
-  },
-  playerButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playerButtonIcon: {
-    fontSize: 20,
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
     marginBottom: 8,
   },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
+  categoryBadge: {
+    backgroundColor: 'rgba(124, 58, 237, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B8A8E6',
+  },
+  arrowContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

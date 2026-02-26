@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -30,6 +31,18 @@ export default function CreateJournal() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [todayPrompt, setTodayPrompt] = useState<JournalPrompt | null>(null);
   const [promptError, setPromptError] = useState<'none' | 'no_prompts' | 'error'>('none');
+
+  // Floating bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
   
   const initialFormData: CreateJournalEntryData = {
     title: '',
@@ -51,6 +64,55 @@ export default function CreateJournal() {
       duration: 800,
       useNativeDriver: true,
     }).start();
+  }, []);
+
+  useEffect(() => {
+    // Floating bubble animations
+    const createFloatingAnimation = (
+      valueY: Animated.Value,
+      valueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY = 0,
+      delayX = 0
+    ) => {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delayY),
+            Animated.timing(valueY, {
+              toValue: 50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: -50,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delayX),
+            Animated.timing(valueX, {
+              toValue: 30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -30,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      ).start();
+    };
+
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
+    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
+    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
   }, []);
 
   const loadTodayPrompt = async () => {
@@ -161,7 +223,95 @@ export default function CreateJournal() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      <LinearGradient
+        colors={['#342949', '#2A1F3D', '#342949']}
+        style={styles.screenGradient}
+      />
+      
+      <View style={styles.floatingBubbles}>
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 200,
+              height: 200,
+              top: '10%',
+              left: '-10%',
+              backgroundColor: 'rgba(133, 130, 180, 0.15)',
+              transform: [
+                { translateY: bubble1Y },
+                { translateX: bubble1X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 280,
+              height: 280,
+              top: '25%',
+              right: '-15%',
+              backgroundColor: 'rgba(133, 130, 180, 0.2)',
+              transform: [
+                { translateY: bubble2Y },
+                { translateX: bubble2X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 180,
+              height: 180,
+              top: '50%',
+              left: '10%',
+              backgroundColor: 'rgba(133, 130, 180, 0.18)',
+              transform: [
+                { translateY: bubble3Y },
+                { translateX: bubble3X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 220,
+              height: 220,
+              bottom: '15%',
+              right: '5%',
+              backgroundColor: 'rgba(133, 130, 180, 0.22)',
+              transform: [
+                { translateY: bubble4Y },
+                { translateX: bubble4X },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            {
+              width: 120,
+              height: 120,
+              bottom: '30%',
+              left: '-5%',
+              backgroundColor: 'rgba(133, 130, 180, 0.25)',
+              transform: [
+                { translateY: bubble5Y },
+                { translateX: bubble5X },
+              ],
+            },
+          ]}
+        />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -169,24 +319,24 @@ export default function CreateJournal() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Header */}
-            <View style={[styles.headerContainer, { backgroundColor: themeStyle.card }]}> 
-              <TouchableOpacity onPress={() => router.push('./journal-list')} style={[styles.backBtnCircle, { borderColor: 'rgba(0,0,0,0.06)' }]}> 
-                <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
+            <View style={[styles.headerContainer, { backgroundColor: '#342949' }]}> 
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
+                <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
               </TouchableOpacity>
 
               <View style={styles.headerInner}> 
-                <Text style={[styles.headerTitle, { color: themeStyle.title }]}> 
-                  <Text style={styles.headerBlue}>New </Text>
-                  <Text style={styles.headerOrange}>Journal</Text>
+                <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}> 
+                  <Text style={styles.headerWhite}>New </Text>
+                  <Text style={styles.headerPurple}>Journal</Text>
                 </Text>
               </View>
             </View>
 
             {/* Today's Prompt Section */}
             {loadingPrompt ? (
-              <View style={[styles.promptLoadingCard, { backgroundColor: themeStyle.dashboardcard }]}>
-                <ActivityIndicator size="small" color="#524f85" />
-                <Text style={[styles.promptLoadingText, { color: themeStyle.label }]}>
+              <View style={[styles.promptLoadingCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
+                <ActivityIndicator size="small" color="#FFB36B" />
+                <Text style={[styles.promptLoadingText, { color: '#B8A8E6' }]}>
                   Loading today's prompt...
                 </Text>
               </View>
@@ -222,13 +372,13 @@ export default function CreateJournal() {
 
             {/* Title Input */}
             <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#ffffff' }]}> 
-                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>Title</Text>
-                <View style={styles.inputBox}> 
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
+                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Title</Text>
+                <View style={[styles.inputBox, { backgroundColor: '#5B5270' }]}> 
                   <TextInput
-                    style={[styles.titleInput, { backgroundColor: 'transparent', color: themeStyle.text }]}
+                    style={[styles.titleInput, { backgroundColor: 'transparent', color: '#FFFFFF' }]}
                     placeholder="Give your entry a title..."
-                    placeholderTextColor={themeStyle.label}
+                    placeholderTextColor="#B8A8E6"
                     value={formData.title}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
                   />
@@ -238,14 +388,14 @@ export default function CreateJournal() {
 
             {/* Content Input - Large */}
             <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#ffffff' }]}> 
-                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>What's on your mind?</Text>
-                <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>Express your thoughts and feelings</Text>
-                <View style={styles.inputBoxLarge}> 
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
+                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>What's on your mind?</Text>
+                <Text style={[styles.cardSubtitle, { color: '#B8A8E6' }]}>Express your thoughts and feelings</Text>
+                <View style={[styles.inputBoxLarge, { backgroundColor: '#5B5270' }]}> 
                   <TextInput
-                    style={[styles.contentInput, { backgroundColor: 'transparent', color: themeStyle.text }]}
+                    style={[styles.contentInput, { backgroundColor: 'transparent', color: '#FFFFFF' }]}
                     placeholder="Start writing... Express yourself freely."
-                    placeholderTextColor={themeStyle.label}
+                    placeholderTextColor="#B8A8E6"
                     value={formData.content}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
                     multiline
@@ -253,7 +403,7 @@ export default function CreateJournal() {
                     textAlignVertical="top"
                   />
                 </View>
-                <Text style={[styles.wordCount, { color: themeStyle.label }]}> 
+                <Text style={[styles.wordCount, { color: '#B8A8E6' }]}> 
                   {formData.content.trim().split(/\s+/).filter(w => w).length} words
                 </Text>
               </View>
@@ -261,9 +411,9 @@ export default function CreateJournal() {
 
             {/* Tags */}
             <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}> 
-                <Text style={[styles.cardTitle, { color: themeStyle.title }]}>Optional Tags</Text>
-                <Text style={[styles.cardSubtitle, { color: themeStyle.label }]}>Select tags that describe your current state</Text>
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
+                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Optional Tags</Text>
+                <Text style={[styles.cardSubtitle, { color: '#B8A8E6' }]}>Select tags that describe your current state</Text>
                 <View style={styles.moodTagsContainerTop}> 
                   {MOOD_TAGS.map((tag) => (
                     <TouchableOpacity
@@ -290,14 +440,14 @@ export default function CreateJournal() {
 
             {/* Privacy & Favorite */}
             <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}> 
+              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
                 <TouchableOpacity
                   style={styles.switchRow}
                   onPress={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
                 >
                   <View style={styles.switchLeft}>
                     <Text style={styles.switchEmoji}>⭐</Text>
-                    <Text style={[styles.switchLabel, { color: themeStyle.text }]}>Mark as Favorite</Text>
+                    <Text style={[styles.switchLabel, { color: '#FFFFFF' }]}>Mark as Favorite</Text>
                   </View>
                   <View style={[
                     styles.switch,
@@ -317,8 +467,8 @@ export default function CreateJournal() {
                   <View style={styles.switchLeft}>
                     <Text style={styles.switchEmoji}>🔒</Text>
                     <View>
-                      <Text style={[styles.switchLabel, { color: themeStyle.text }]}>Keep Private</Text>
-                      <Text style={[styles.privacySubtext, { color: themeStyle.label }]}> 
+                      <Text style={[styles.switchLabel, { color: '#FFFFFF' }]}>Keep Private</Text>
+                      <Text style={[styles.privacySubtext, { color: '#B8A8E6' }]}> 
                         {formData.is_private ? 'Only you can see' : 'Therapist can view'}
                       </Text>
                     </View>
@@ -337,31 +487,46 @@ export default function CreateJournal() {
             </View>
 
             {/* Submit Button */}
-            <TouchableOpacity onPress={() => handleSubmit(0)} disabled={submitting} activeOpacity={0.9}>
-              <LinearGradient
-                colors={[ '#ff3c97', '#ff9f3b', '#29d2c6' ]}
-                start={[0,0]}
-                end={[1,0]}
-                style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                  <FontAwesome name={submitting ? 'spinner' : 'save'} size={18} color="#fff" style={{ marginRight: 10 }} />
-                  <Text style={styles.submitButtonText}>
-                    {submitting ? '✨ Saving...' : 'Save Journal Entry'}
-                  </Text>
-                </View>
-              </LinearGradient>
+            <TouchableOpacity 
+              onPress={() => handleSubmit(0)} 
+              disabled={submitting} 
+              activeOpacity={0.9}
+              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <FontAwesome name={submitting ? 'spinner' : 'save'} size={18} color="#fff" style={{ marginRight: 10 }} />
+                <Text style={styles.submitButtonText}>
+                  {submitting ? '✨ Saving...' : 'Save Journal Entry'}
+                </Text>
+              </View>
             </TouchableOpacity>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
   },
   scrollContent: {
     padding: 20,
@@ -425,6 +590,8 @@ const styles = StyleSheet.create({
   },
   headerBlue: { color: '#524f85' },
   headerOrange: { color: '#FF9F6B' },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   section: {
     marginBottom: 24,
   },
@@ -659,9 +826,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#5B5270',
     marginRight: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   moodTag: {
     paddingVertical: 10,
@@ -676,16 +845,17 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   moodTagSelected: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4caf50',
+    backgroundColor: '#FFB36B',
+    borderColor: '#FFB36B',
     elevation: 2,
   },
   moodTagText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#B8A8E6',
   },
   moodTagTextSelected: {
-    color: '#2e7d32',
+    color: '#FFFFFF',
   },
   card: {
     padding: 16,
@@ -711,14 +881,12 @@ const styles = StyleSheet.create({
   inputBox: {
     padding: 10,
     borderRadius: 12,
-    backgroundColor: '#FBFBFD',
   },
   inputBoxLarge: {
     padding: 14,
     borderRadius: 12,
     minHeight: 180,
     justifyContent: 'flex-start',
-    backgroundColor: '#FBFBFD',
   },
   switchRow: {
     flexDirection: 'row',
@@ -780,6 +948,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 6,
+    backgroundColor: '#A78BFA',
   },
   submitButtonDisabled: {
     opacity: 0.6,

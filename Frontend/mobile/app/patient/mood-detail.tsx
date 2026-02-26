@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import api from '../utils/api';
+import { FontAwesome } from '@expo/vector-icons';
 
 // Mood options with emojis
 const moods = [
@@ -50,9 +54,69 @@ export default function MoodDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadMoodDetail();
   }, [moodId]);
+
+  useEffect(() => {
+    const screenHeight = Dimensions.get('window').height;
+    const createFloatingAnimation = (
+      animValueY: Animated.Value,
+      animValueX: Animated.Value,
+      durationY: number,
+      durationX: number,
+      delayY: number
+    ) => {
+      const animY = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animValueY, {
+            toValue: -50,
+            duration: durationY,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValueY, {
+            toValue: 50,
+            duration: durationY,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      const animX = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animValueX, {
+            toValue: 30,
+            duration: durationX,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValueX, {
+            toValue: -30,
+            duration: durationX,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      Animated.parallel([animY, animX]).start();
+      return { animY, animX };
+    };
+
+    const anim1 = createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0);
+    const anim2 = createFloatingAnimation(bubble2Y, bubble2X, 10000, 8000, 1000);
+    const anim3 = createFloatingAnimation(bubble3Y, bubble3X, 9000, 7500, 500);
+    const anim4 = createFloatingAnimation(bubble4Y, bubble4X, 8500, 7200, 800);
+    const anim5 = createFloatingAnimation(bubble5Y, bubble5X, 9500, 8200, 300);
+  }, []);
 
   const loadMoodDetail = async () => {
     try {
@@ -145,10 +209,10 @@ export default function MoodDetailScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeStyle.button} />
-          <Text style={[styles.loadingText, { color: themeStyle.label }]}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
             Loading mood details...
           </Text>
         </View>
@@ -158,16 +222,16 @@ export default function MoodDetailScreen() {
 
   if (error || !moodEntry) {
     return (
-      <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+      <View style={[styles.container, { backgroundColor: '#342949' }]}>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: themeStyle.error }]}>
+          <Text style={[styles.errorText, { color: '#EF4444' }]}>
             {error || 'Mood entry not found'}
           </Text>
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: themeStyle.button }]}
+            style={[styles.button, { backgroundColor: '#FFB36B' }]}
             onPress={() => router.back()}
           >
-            <Text style={[styles.buttonText, { color: themeStyle.buttonText }]}>Go Back</Text>
+            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -187,18 +251,54 @@ export default function MoodDetailScreen() {
     : [];
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={['#342949', '#2A1F3D', '#342949']}
+        style={styles.screenGradient}
+      />
+      {/* Floating Bubbles */}
+      <View style={styles.floatingBubbles} pointerEvents="none">
+        <Animated.View style={[
+          styles.bubble,
+          { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+          { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+          { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+          { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+          { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+        ]} />
+        <Animated.View style={[
+          styles.bubble,
+          { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+          { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+        ]} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={[styles.backButton, { color: themeStyle.text }]}>← Back</Text>
+          <TouchableOpacity onPress={() => router.push('/patient/mood')} style={styles.backButton}>
+            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: themeStyle.title }]}>Mood Details</Text>
+          <Text style={styles.headerTitle}>
+            <Text style={styles.headerBlue}>Mood </Text>
+            <Text style={styles.headerOrange}>Details</Text>
+          </Text>
         </View>
 
         {/* Main Mood Display */}
-        <View style={[styles.moodCard, { backgroundColor: themeStyle.card }]}>
+        <View style={[styles.moodCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
           <View
             style={[
               styles.moodEmojiContainer,
@@ -207,10 +307,10 @@ export default function MoodDetailScreen() {
           >
             <Text style={styles.moodEmoji}>{getMoodEmoji(dominantMood)}</Text>
           </View>
-          <Text style={[styles.moodLabel, { color: themeStyle.title }]}>
+          <Text style={[styles.moodLabel, { color: '#FFFFFF' }]}>
             {getMoodLabel(dominantMood)}
           </Text>
-          <Text style={[styles.moodDate, { color: themeStyle.label }]}>
+          <Text style={[styles.moodDate, { color: '#B8A8E6' }]}>
             {formatDate(moodEntry.created_at)}
           </Text>
           {moodEntry.average_intensity && (
@@ -224,8 +324,8 @@ export default function MoodDetailScreen() {
 
         {/* All Mood Intensities */}
         {moodsArray.length > 0 && (
-          <View style={[styles.statsCard, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>Mood Intensities</Text>
+          <View style={[styles.statsCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Mood Intensities</Text>
             <View style={styles.moodIntensitiesGrid}>
               {moodsArray.map(({ mood, intensity, emoji, label }) => (
                 <View
@@ -233,14 +333,14 @@ export default function MoodDetailScreen() {
                   style={[
                     styles.intensityBox,
                     { 
-                      backgroundColor: themeStyle.background,
+                      backgroundColor: '#5B5270',
                       borderColor: getIntensityColor(intensity),
                       borderWidth: 2,
                     },
                   ]}
                 >
                   <Text style={styles.intensityEmoji}>{emoji}</Text>
-                  <Text style={[styles.intensityLabel, { color: themeStyle.text }]}>
+                  <Text style={[styles.intensityLabel, { color: '#FFFFFF' }]}>
                     {label}
                   </Text>
                   <View
@@ -259,8 +359,8 @@ export default function MoodDetailScreen() {
 
         {/* Triggers */}
         {((moodEntry.triggers_list && moodEntry.triggers_list.length > 0) || moodEntry.triggers) && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>🎯 Triggers</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>🎯 Triggers</Text>
             <View style={styles.triggersContainer}>
               {(moodEntry.triggers_list && moodEntry.triggers_list.length > 0
                 ? moodEntry.triggers_list
@@ -272,10 +372,10 @@ export default function MoodDetailScreen() {
                   key={index}
                   style={[
                     styles.triggerChip,
-                    { backgroundColor: themeStyle.progressbarside, borderColor: themeStyle.progressbarmain },
+                    { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' },
                   ]}
                 >
-                  <Text style={[styles.triggerText, { color: themeStyle.darktext }]}>
+                  <Text style={[styles.triggerText, { color: '#FFFFFF' }]}>
                     {trigger}
                   </Text>
                 </View>
@@ -286,9 +386,9 @@ export default function MoodDetailScreen() {
 
         {/* Activities */}
         {moodEntry.activities && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>🏃 Activities</Text>
-            <Text style={[styles.notesText, { color: themeStyle.text }]}>
+          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>🏃 Activities</Text>
+            <Text style={[styles.notesText, { color: '#E5E5E5' }]}>
               {moodEntry.activities}
             </Text>
           </View>
@@ -296,23 +396,23 @@ export default function MoodDetailScreen() {
 
         {/* Notes */}
         {moodEntry.notes && (
-          <View style={[styles.card, { backgroundColor: themeStyle.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeStyle.title }]}>📝 Notes</Text>
-            <Text style={[styles.notesText, { color: themeStyle.text }]}>{moodEntry.notes}</Text>
+          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>📝 Notes</Text>
+            <Text style={[styles.notesText, { color: '#E5E5E5' }]}>{moodEntry.notes}</Text>
           </View>
         )}
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: themeStyle.progressbarmain }]}
+            style={[styles.editButton, { backgroundColor: '#FFB36B' }]}
             onPress={() => router.push(`/patient/mood-edit?id=${moodId}`)}
           >
-            <Text style={[styles.editButtonText, { color: themeStyle.lighttext }]}>✏️ Edit Entry</Text>
+            <Text style={[styles.editButtonText, { color: '#FFFFFF' }]}>✏️ Edit Entry</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.deleteButton, { backgroundColor: themeStyle.error }]}
+            style={[styles.deleteButton, { backgroundColor: '#EF4444' }]}
             onPress={handleDelete}
           >
             <Text style={[styles.deleteButtonText, { color: '#fff' }]}>🗑️ Delete Entry</Text>
@@ -331,19 +431,54 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 60,
+  },
+  screenGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  floatingBubbles: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    opacity: 1,
   },
   header: {
     marginBottom: 30,
+    alignItems: 'center',
   },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
+  backBtnCircle: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    zIndex: 2,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  headerBlue: {
+    color: '#FFFFFF',
+  },
+  headerOrange: {
+    color: '#B8A8E6',
   },
   loadingContainer: {
     flex: 1,
@@ -376,15 +511,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   moodCard: {
-    borderRadius: 24,
-    padding: 30,
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
   },
   moodEmojiContainer: {
     width: 120,
@@ -420,19 +555,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statsCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 3,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -489,13 +624,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   card: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 3,
   },
   triggersContainer: {

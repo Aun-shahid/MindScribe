@@ -145,21 +145,18 @@ export default function MoodAnalyticsDetail() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.background }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header (restored simple header, no grey band) */}
-        <View style={[styles.headerRow, { paddingTop: 12 }] }>
+        <View style={[styles.headerRow, { paddingTop: 12, backgroundColor: 'transparent' }]}>
           <TouchableOpacity
-            style={[
-              styles.backButton,
-              { left: 8, top: Platform.OS === 'android' ? 10 : 14 },
-            ]}
-            onPress={() => router.push('/patient/mood')}
+            style={[styles.backButton]}
+            onPress={() => router.back()}
           >
-            <FontAwesome name="arrow-left" size={16} color={themeStyle.title} />
+            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitleLarge}>
             <Text style={styles.headerBlue}>Mood </Text>
@@ -171,10 +168,10 @@ export default function MoodAnalyticsDetail() {
         <View
           style={[
             styles.card,
-            { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+            { backgroundColor: '#473F5A' },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Time Period</Text>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Time Period</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.periodButtons}>
               {dayOptions.map((days) => (
@@ -184,8 +181,8 @@ export default function MoodAnalyticsDetail() {
                     styles.periodButton,
                     {
                       backgroundColor:
-                        selectedDays === days ? themeStyle.progressbarmain : themeStyle.background,
-                      borderColor: selectedDays === days ? themeStyle.progressbarmain : themeStyle.border,
+                        selectedDays === days ? '#FFB36B' : '#5B5270',
+                      borderColor: selectedDays === days ? '#FFB36B' : 'rgba(255,255,255,0.1)',
                     },
                   ]}
                   onPress={() => setSelectedDays(days)}
@@ -194,7 +191,7 @@ export default function MoodAnalyticsDetail() {
                     style={[
                       styles.periodButtonText,
                       {
-                        color: selectedDays === days ? themeStyle.lighttext : themeStyle.text,
+                        color: selectedDays === days ? '#FFFFFF' : '#E5E5E5',
                       },
                     ]}
                   >
@@ -210,24 +207,24 @@ export default function MoodAnalyticsDetail() {
         <View
           style={[
             styles.card,
-            { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+            { backgroundColor: '#473F5A' },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>Key Metrics</Text>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Key Metrics</Text>
             <View style={styles.metricsGrid}>
-            <View style={[styles.metricBox, { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 }]}>
-                  <FontAwesome name="bar-chart" size={28} color={themeStyle.progressbarmain} style={{ marginBottom: 8 }} />
-              <Text style={[styles.metricValue, { color: themeStyle.text }]}>
+            <View style={[styles.metricBox, { backgroundColor: '#5B5270' }]}>
+                  <FontAwesome name="bar-chart" size={28} color="#FFB36B" style={{ marginBottom: 8 }} />
+              <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
                 {totalEntries}
               </Text>
-              <Text style={[styles.metricLabel, { color: themeStyle.label }]}>Total Entries</Text>
+              <Text style={[styles.metricLabel, { color: '#B8A8E6' }]}>Total Entries</Text>
             </View>
-            <View style={[styles.metricBox, { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 }]}>
-              <FontAwesome name="star" size={28} color={themeStyle.progressbarside} style={{ marginBottom: 8 }} />
-              <Text style={[styles.metricValue, { color: themeStyle.text }]}>
+            <View style={[styles.metricBox, { backgroundColor: '#5B5270' }]}>
+              <FontAwesome name="star" size={28} color="#FFB36B" style={{ marginBottom: 8 }} />
+              <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
                 {analytics.average_intensity.toFixed(1)}
               </Text>
-              <Text style={[styles.metricLabel, { color: themeStyle.label }]}>
+              <Text style={[styles.metricLabel, { color: '#B8A8E6' }]}>
                 Avg Intensity
               </Text>
             </View>
@@ -239,27 +236,27 @@ export default function MoodAnalyticsDetail() {
           <View
             style={[
               styles.card,
-              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+              { backgroundColor: '#473F5A' },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
               Most Common Mood
             </Text>
             <View style={styles.dominantMoodContainer}>
               <View
                 style={[
                   styles.dominantMoodCircle,
-                  { backgroundColor: themeStyle.progressbarside },
+                  { backgroundColor: '#5B5270' },
                 ]}
               >
                 <Text style={styles.dominantMoodEmoji}>
                   {getMoodEmoji(analytics.most_common_mood)}
                 </Text>
               </View>
-              <Text style={[styles.dominantMoodLabel, { color: themeStyle.text }]}>
+              <Text style={[styles.dominantMoodLabel, { color: '#FFFFFF' }]}>
                 {getMoodLabel(analytics.most_common_mood)}
               </Text>
-              <Text style={[styles.dominantMoodCount, { color: themeStyle.label }]}>
+              <Text style={[styles.dominantMoodCount, { color: '#B8A8E6' }]}>
                 {analytics.mood_distribution[analytics.most_common_mood]} times
               </Text>
             </View>
@@ -271,10 +268,10 @@ export default function MoodAnalyticsDetail() {
           <View
             style={[
               styles.card,
-              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+              { backgroundColor: '#473F5A' },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
               Mood Distribution
             </Text>
             <View style={styles.distributionList}>
@@ -287,16 +284,16 @@ export default function MoodAnalyticsDetail() {
                       <View style={styles.distributionHeader}>
                         <View style={styles.distributionMoodInfo}>
                           <Text style={styles.distributionEmoji}>{getMoodEmoji(mood)}</Text>
-                          <Text style={[styles.distributionLabel, { color: themeStyle.text }]}>
+                          <Text style={[styles.distributionLabel, { color: '#FFFFFF' }]}>
                             {getMoodLabel(mood)}
                           </Text>
                         </View>
-                        <Text style={[styles.distributionCount, { color: themeStyle.text }]}>
+                        <Text style={[styles.distributionCount, { color: '#FFFFFF' }]}>
                           {count} ({percentage.toFixed(0)}%)
                         </Text>
                       </View>
                       <View
-                        style={[styles.distributionBarBackground, { backgroundColor: themeStyle.background }]}
+                        style={[styles.distributionBarBackground, { backgroundColor: '#5B5270' }]}
                       >
                         <LinearGradient
                           colors={moodColorMap[mood] || [themeStyle.progressbarmain, themeStyle.progressbarside]}
@@ -319,10 +316,10 @@ export default function MoodAnalyticsDetail() {
           <View
             style={[
               styles.card,
-              { backgroundColor: '#ffffff', borderColor: themeStyle.border, borderWidth: 1 },
+              { backgroundColor: '#473F5A' },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
               🎯 Common Triggers
             </Text>
             <View style={styles.triggersContainer}>
@@ -332,12 +329,12 @@ export default function MoodAnalyticsDetail() {
                   style={[
                     styles.triggerChip,
                     {
-                      backgroundColor: themeStyle.progressbarside,
-                      borderColor: themeStyle.progressbarmain,
+                      backgroundColor: '#5B5270',
+                      borderColor: '#FFB36B',
                     },
                   ]}
                 >
-                  <Text style={[styles.triggerText, { color: themeStyle.darktext }]}>
+                  <Text style={[styles.triggerText, { color: '#FFFFFF' }]}>
                     {trigger}
                   </Text>
                 </View>
@@ -347,9 +344,9 @@ export default function MoodAnalyticsDetail() {
         )}
 
         {/* Info */}
-        <View style={[styles.infoCard, { backgroundColor: themeStyle.progressbarside }]}>
+        <View style={[styles.infoCard, { backgroundColor: '#5B5270' }]}>
           <Text style={styles.infoEmoji}>💡</Text>
-          <Text style={[styles.infoText, { color: themeStyle.darktext }]}>
+          <Text style={[styles.infoText, { color: '#FFFFFF' }]}>
             These insights are based on your mood entries over the selected time period. Track
             consistently for more accurate patterns!
           </Text>
@@ -371,10 +368,10 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 0, minHeight: 64, position: 'relative' },
   /* headerContainer removed to restore original look */
-  backButton: { position: 'absolute', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1 },
+  backButton: { position: 'absolute', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1 },
   headerTitleLarge: { fontSize: 26, fontWeight: '800', marginLeft: 0, color: '#524f85', marginTop: 20, marginBottom: 10, textAlign: 'center' },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
+  headerBlue: { color: '#FFFFFF' },
+  headerOrange: { color: '#B8A8E6' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
