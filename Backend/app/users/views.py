@@ -468,13 +468,13 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return get_object_or_404(TherapistProfile, user=self.request.user)
     
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.user_type != 'therapist':
-            return Response(
-                {'detail': 'Only therapists can access this endpoint.'}, 
-                status=status.HTTP_403_FORBIDDEN
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'therapist':
+            self.permission_denied(
+                request,
+                message='Only therapists can access this endpoint.',
             )
-        return super().dispatch(request, *args, **kwargs)
 
 
 @extend_schema(tags=['Connection Requests'])
