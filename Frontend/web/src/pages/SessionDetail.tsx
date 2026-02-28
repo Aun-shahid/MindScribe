@@ -17,7 +17,7 @@ import {
   Mail,
   Activity
 } from 'lucide-react';
-import { useSessionDetail, useSessionAnalysis, useSessionTranscription, useStartSession } from '../hooks/useSessions';
+import { useSessionDetail, useSessionAnalysis, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 
 
@@ -79,9 +79,6 @@ const SessionDetailPage: React.FC = () => {
     loading: transcriptionLoading,
     error: transcriptionError
   } = useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
-
-  // Hook for starting sessions
-  useStartSession();
 
   // Auto-refresh current time every 30 seconds to check if session time is reached
   useEffect(() => {
@@ -941,18 +938,9 @@ const SessionDetailPage: React.FC = () => {
                       buttonText = `Available at ${sessionTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
                     }
 
-                    const handleStartSession = async () => {
+                    const handleStartSession = () => {
                       if (!id) return;
-
-                      try {
-                        // Import the hook at the top of the file
-                        const { startSession } = useStartSession();
-                        await startSession(id);
-                        navigate(`/sessions/${id}/active`);
-                      } catch (error) {
-                        console.error('Failed to start session:', error);
-                        alert('Failed to start session. Please try again.');
-                      }
+                      navigate(`/sessions/${id}/active`, { state: { session } });
                     };
 
                     return (

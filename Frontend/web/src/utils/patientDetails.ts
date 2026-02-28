@@ -1,6 +1,6 @@
 // src/utils/patientDetails.ts
 
-import type { PatientDetailsType } from '../types/therapist';
+import type { PatientDetailsType } from '../types/patient';
 
 /**
  * Clean and sanitize patient data to ensure safe rendering

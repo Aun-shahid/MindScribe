@@ -173,6 +173,96 @@ export const patientService = {
     const response = await api.get('/patients/inspiration/random/');
     return response.data;
   },
+
+  // Added from Therapist Service
+  getPatients: async (filter: any = {}) => {
+    let endpoint = '/therapy_sessions/patients/';
+    const params = new URLSearchParams();
+
+    if (filter.search) {
+      params.append('search', filter.search);
+    }
+    
+    const queryString = params.toString();
+    if (queryString) {
+      endpoint += `?${queryString}`;
+    }
+
+    const response = await api.get(endpoint);
+    
+    let patientsData = [];
+    if (response.data && Array.isArray(response.data.patients)) {
+      patientsData = response.data.patients;
+    } else if (Array.isArray(response.data)) {
+      patientsData = response.data;
+    } else if (response.data && Array.isArray(response.data.results)) {
+      patientsData = response.data.results;
+    }
+    
+    return patientsData.map((patient: any) => ({
+        id: patient.id?.toString() || '',
+        full_name: typeof patient.full_name === 'string' ? patient.full_name : 'Unknown Patient',
+        email: typeof patient.email === 'string' ? patient.email : '',
+        phone_number: typeof patient.phone_number === 'string' ? patient.phone_number : '',
+        date_of_birth: typeof patient.date_of_birth === 'string' ? patient.date_of_birth : '',
+        gender: typeof patient.gender === 'string' ? patient.gender : '',
+        patient_profile: patient.patient_profile && typeof patient.patient_profile === 'object' ? {
+          patient_id: patient.patient_profile.patient_id?.toString() || '',
+          primary_concern: typeof patient.patient_profile.primary_concern === 'string' ? patient.patient_profile.primary_concern : 'General therapy',
+          therapy_start_date: typeof patient.patient_profile.therapy_start_date === 'string' ? patient.patient_profile.therapy_start_date : '',
+          session_frequency: typeof patient.patient_profile.session_frequency === 'string' ? patient.patient_profile.session_frequency : '',
+          preferred_session_days: Array.isArray(patient.patient_profile.preferred_session_days) ? patient.patient_profile.preferred_session_days : [],
+          emergency_contact_name: typeof patient.patient_profile.emergency_contact_name === 'string' ? patient.patient_profile.emergency_contact_name : '',
+          emergency_contact_phone: typeof patient.patient_profile.emergency_contact_phone === 'string' ? patient.patient_profile.emergency_contact_phone : '',
+          preferred_language: typeof patient.patient_profile.preferred_language === 'string' ? patient.patient_profile.preferred_language : '',
+          connected_at: typeof patient.patient_profile.connected_at === 'string' ? patient.patient_profile.connected_at : ''
+        } : null,
+        last_session: typeof patient.last_session === 'string' ? patient.last_session : null,
+        next_session: typeof patient.next_session === 'string' ? patient.next_session : null,
+        total_sessions: patient.total_sessions?.toString() || '0',
+        created_at: typeof patient.created_at === 'string' ? patient.created_at : ''
+      }));
+  },
+
+  getPatientDetail: async (patientId: string) => {
+    const response = await api.get(`/therapy_sessions/patients/${patientId}/`);
+    return response.data;
+  },
+
+  getPatientDetails: async () => {
+    const response = await api.get('/therapy_sessions/patients/');
+    return response.data || [];
+  },
+
+  getTherapistPatients: async () => {
+    try {
+      const response = await api.get('/users/patients/');
+      return response.data.patients || [];
+    } catch {
+      return [];
+    }
+  },
+
+  createPatient: async (patientData: any) => {
+    const response = await api.post('/therapy_sessions/patients/create/', patientData);
+    return response.data.patient || response.data;
+  },
+
+  updatePatient: async (patientId: string, patientData: any) => {
+    const response = await api.patch(`/therapy_sessions/patients/${patientId}/`, patientData);
+    return response.data;
+  },
+
+  deletePatient: async (patientId: string) => {
+    await api.delete(`/therapy_sessions/patients/${patientId}/`);
+  },
+
+  getMoodTrend: async (patientId: string) => {
+    const params = new URLSearchParams();
+    params.append('patient_id', patientId);
+    const response = await api.get(`/therapy_sessions/mood-trend/?${params.toString()}`);
+    return response.data;
+  }
 };
 
 export default patientService;

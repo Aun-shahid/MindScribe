@@ -1,7 +1,7 @@
 // // src/pages/PatientDetail.tsx
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { usePatientDetail } from '../hooks/useTherapist';
+import { usePatientDetail } from '../hooks/usePatients';
 import { InfoField } from '../components/InfoField';
 import PatientMoodTrend from '../components/PatientMoodTrend';
 import sessionsService from '../services/sessions.service';

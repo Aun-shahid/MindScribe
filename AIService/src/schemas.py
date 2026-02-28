@@ -147,7 +147,7 @@ class SessionStartResponse(BaseModel):
     """Response after starting session analysis."""
     session_id: str
     status: SessionStatus = SessionStatus.ACTIVE
-    websocket_url: str
+    websocket_token: str = Field(..., description="Token for WebSocket authentication")
     message: str = "Session analysis started"
 
 

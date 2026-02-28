@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 import base64
 
-from ..auth import get_current_session, get_websocket_session, validate_session_access, AuthenticatedSession
+from ..auth import get_current_session, get_websocket_session, validate_session_access, AuthenticatedSession, generate_websocket_token
 from ..schemas import (
     SessionStartRequest, SessionStartResponse, SessionStopRequest, SessionStopResponse,
     SessionStatusResponse, SessionStatus, FullTranscript, TranscriptionSegment,
@@ -159,13 +159,17 @@ async def start_session(
     # Create transcription session
     session_manager.create_session(session_id, request)
     
-    # Build WebSocket URL
-    ws_url = f"ws://localhost:{settings.ai_service_port}/api/v1/session/ws/{session_id}"
+    # Generate WebSocket authentication token
+    websocket_token = generate_websocket_token(
+        session_id=session_id,
+        therapist_id=session.therapist_id,
+        expires_hours=24
+    )
     
     return SessionStartResponse(
         session_id=session_id,
         status=SessionStatus.ACTIVE,
-        websocket_url=ws_url,
+        websocket_token=websocket_token,
         message=f"Session started successfully. Connect to WebSocket to stream audio."
     )
 

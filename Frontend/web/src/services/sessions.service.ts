@@ -35,14 +35,26 @@ class SessionsService {
       }
 
       // Call AI Service start endpoint
-      const response = await aiApi.post<StartSessionResponse>(
+      const response = await aiApi.post<any>(
         '/session/start',
         { session_id: sessionId },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
 
       console.log('[SessionsService] ✅ AI Service session started:', response.data);
-      return response.data;
+
+      // Map AI Service response to frontend format
+      // AI Service returns: { session_id, status, websocket_token, message }
+      // Frontend expects: { ai_service_token, session, ... }
+      return {
+        detail: response.data.message || 'Session started successfully',
+        session: {} as any, // AI Service doesn't return full session object
+        session_id: response.data.session_id,
+        status: response.data.status,
+        websocket_token: response.data.websocket_token,
+        ai_service_token: response.data.websocket_token, // Map for compatibility
+        message: response.data.message,
+      };
     } catch (error) {
       console.error('[SessionsService] ❌ Failed to start AI session:', error);
       throw this.handleError(error);
@@ -255,8 +267,29 @@ class SessionsService {
    */
   async getSessionStats(days: number = 30): Promise<any> {
     try {
-      const response = await api.get(`/therapy_sessions/sessions/stats/?days=${days}`);
-      return response.data;
+      const response = await api.get(`/therapy_sessions/stats/?days=${days}`);
+      const data = response.data;
+
+      // Transform backend arrays to Record<string, number> for frontend
+      const byStatus: Record<string, number> = {};
+      if (Array.isArray(data.sessions_by_status)) {
+        data.sessions_by_status.forEach((item: any) => {
+          byStatus[item.status] = item.count;
+        });
+      }
+
+      const byType: Record<string, number> = {};
+      if (Array.isArray(data.sessions_by_type)) {
+        data.sessions_by_type.forEach((item: any) => {
+          byType[item.session_type] = item.count;
+        });
+      }
+
+      return {
+        ...data,
+        by_status: byStatus,
+        by_type: byType,
+      };
     } catch (error) {
       throw this.handleError(error);
     }

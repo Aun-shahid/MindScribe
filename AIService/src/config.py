@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
     
+    backend_url: str = Field(..., alias="BACKEND_URL")
+    
     # HuggingFace Configuration
     hf_token: str = Field(default="", alias="HF_TOKEN")
     
@@ -42,6 +44,10 @@ class Settings(BaseSettings):
     
     # Service Configuration
     ai_service_port: int = Field(default=8080, alias="PORT")
+    ai_service_url: str = Field(
+        default="http://localhost:8080",
+        alias="AI_SERVICE_URL"
+    )
     debug: bool = Field(default=False, alias="DEBUG")
     preload_models: bool = Field(default=True, alias="PRELOAD_MODELS")
     

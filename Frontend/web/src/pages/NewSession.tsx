@@ -1,7 +1,7 @@
 // src/pages/NewSession.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useTherapistPatients } from '../hooks/useTherapist';
+import { useTherapistPatients } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
 
 const NewSession = () => {

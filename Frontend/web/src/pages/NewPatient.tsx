@@ -11,7 +11,7 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { useCreatePatient } from '../hooks/useTherapist';
+import { useCreatePatient } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
 
 interface NewPatientData {
