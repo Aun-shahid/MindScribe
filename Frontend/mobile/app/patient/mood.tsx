@@ -9,15 +9,14 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  FlatList,
   Dimensions,
   Animated,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
-// SharedHeader removed per user request; keep local header per-screen
 import Slider from '@react-native-community/slider';
+import StickyHeader from '../components/StickyHeader';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useFocusEffect } from 'expo-router';
 import api from '../utils/api';
@@ -104,6 +103,9 @@ export default function MoodTrackerScreen() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'weekly'>('entry');
@@ -486,60 +488,75 @@ export default function MoodTrackerScreen() {
           { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
         ]} />
       </View>
-      {/* Header */}
-      <View style={styles.headerContainer}> 
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Mood"
+        secondWord="Break"
+        onBackPress={() => router.back()}
+      />
+
+      {/* Animated Header - Fades out on scroll */}
+      <Animated.View style={[styles.headerContainer, {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle]}>
-          <Text style={styles.headerBlue}>Mood </Text>
-          <Text style={styles.headerOrange}>Break</Text>
+        <Text style={styles.headerTitle}>
+          <Text style={styles.headerWhite}>Mood </Text>
+          <Text style={styles.headerPurple}>Break</Text>
         </Text>
 
-        {/* Analytics icon (top-right) */}
         <TouchableOpacity
-          style={[styles.analyticsButton, { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }]}
+          style={styles.analyticsButton}
           onPress={() => router.push('/patient/mood-analytics-detail')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
+          <FontAwesome name="bar-chart" size={20} color="#FFFFFF" />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      {/* Menu Bar: New Entry | History | Weekly Trends (single rounded pill) */}
-      <View style={[styles.menuBar, { backgroundColor: '#fff' }]}>
-        <TouchableOpacity onPress={() => setActiveTab('entry')} style={{ flex: 1 }} activeOpacity={0.9}>
+      {/* Menu Bar: New Entry | History | Weekly Trends (rounded pill tabs) */}
+      <View style={styles.menuBarContainer}>
+        <TouchableOpacity onPress={() => setActiveTab('entry')} style={styles.menuTabButton} activeOpacity={0.8}>
           {activeTab === 'entry' ? (
-            <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} start={[0,0]} end={[1,0]} style={styles.menuTabGradient}>
-              <Text style={styles.menuTabTextActive}>New Entry</Text>
+            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
+              <Text style={styles.menuTabActiveText}>New Entry</Text>
             </LinearGradient>
           ) : (
-            <View style={styles.menuTab}>
-              <Text style={[styles.menuTabText, { color: themeStyle.text }]}>New Entry</Text>
+            <View style={styles.menuTabInactive}>
+              <Text style={styles.menuTabInactiveText}>New Entry</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setActiveTab('history')} style={{ flex: 1 }} activeOpacity={0.9}>
+        <TouchableOpacity onPress={() => setActiveTab('history')} style={styles.menuTabButton} activeOpacity={0.8}>
           {activeTab === 'history' ? (
-            <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} start={[0,0]} end={[1,0]} style={styles.menuTabGradientActive}>
-              <Text style={styles.menuTabTextActive}>History</Text>
+            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
+              <Text style={styles.menuTabActiveText}>History</Text>
             </LinearGradient>
           ) : (
-            <View style={styles.menuTab}>
-              <Text style={[styles.menuTabText, { color: themeStyle.text }]}>History</Text>
+            <View style={styles.menuTabInactive}>
+              <Text style={styles.menuTabInactiveText}>History</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setActiveTab('weekly')} style={{ flex: 1 }} activeOpacity={0.9}>
+        <TouchableOpacity onPress={() => setActiveTab('weekly')} style={styles.menuTabButton} activeOpacity={0.8}>
           {activeTab === 'weekly' ? (
-            <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} start={[0,0]} end={[1,0]} style={styles.menuTabGradientActive}>
-              <Text style={styles.menuTabTextActive}>Weekly Trend</Text>
+            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
+              <Text style={styles.menuTabActiveText}>Weekly Trend</Text>
             </LinearGradient>
           ) : (
-            <View style={styles.menuTab}>
-              <Text style={[styles.menuTabText, { color: themeStyle.text }]}>Weekly Trend</Text>
+            <View style={styles.menuTabInactive}>
+              <Text style={styles.menuTabInactiveText}>Weekly Trend</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -547,10 +564,15 @@ export default function MoodTrackerScreen() {
 
       {/* Entry Tab Content */}
       {activeTab === 'entry' && (
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
         >
           {/* Mood Intensities Section */}
           <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
@@ -765,14 +787,19 @@ export default function MoodTrackerScreen() {
           </TouchableOpacity>
 
           <View style={styles.bottomPadding} />
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       {/* Weekly Trend Inline Content */}
       {activeTab === 'weekly' && (
-        <ScrollView
+        <Animated.ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 200 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 80 }}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
         >
           {weeklyLoading ? (
             <View style={styles.loadingContainer}>
@@ -841,7 +868,7 @@ export default function MoodTrackerScreen() {
               </View>
             </>
           ) : null}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
       {/* History Tab Content */}
       {activeTab === 'history' && (
@@ -857,7 +884,7 @@ export default function MoodTrackerScreen() {
           ) : moodHistory.length === 0 ? (
             <ScrollView contentContainerStyle={{ paddingTop: 20 }}>
               {/* Filters */}
-              <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginHorizontal: 20 }]}>
+              <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
                 <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
 
                 <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
@@ -910,14 +937,19 @@ export default function MoodTrackerScreen() {
               </View>
             </ScrollView>
           ) : (
-            <FlatList
+            <Animated.FlatList
               data={moodHistory}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.historyList}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: true }
+              )}
+              scrollEventThrottle={16}
               ListHeaderComponent={
                 <>
                   {/* Filters */}
-                  <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginHorizontal: 20, marginTop: 20 }]}>
+                  <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginTop: 20 }]}>
                     <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
 
                     <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
@@ -1107,23 +1139,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 9999,
   },
-  headerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 88,
-    backgroundColor: '#342949',
-    zIndex: 10,
-  },
   backButtonContainer: {
     marginBottom: 10,
-  },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   backBtnCircle: {
     position: 'absolute',
@@ -1143,15 +1160,23 @@ const styles = StyleSheet.create({
     elevation: 1,
     zIndex: 2,
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    marginBottom: 10,
-    marginTop: 20,
-    textAlign: 'center',
+  analyticsButtonFixed: {
+    position: 'absolute',
+    right: 18,
+    top: 52,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#473F5A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 1001,
   },
-  headerBlue: { color: '#FFFFFF' },
-  headerOrange: { color: '#B8A8E6' },
   subtitle: {
     fontSize: 16,
     marginBottom: 20,
@@ -1162,73 +1187,78 @@ const styles = StyleSheet.create({
     padding: 4,
     marginTop: 10,
   },
-  menuBar: {
+  headerContainer: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+    marginBottom: 14,
+    marginHorizontal: 0,
+  },
+  backButton: {
     position: 'absolute',
-    top: 122,
+    left: 20,
+    top: 52,
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 10,
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+  analyticsButton: {
+    position: 'absolute',
+    right: 20,
+    top: 52,
+    padding: 8,
+  },
+  menuBarContainer: {
+    position: 'absolute',
+    top: 125,
     left: 20,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 28,
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    minHeight: 48,
-    zIndex: 11,
-    // pill background shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-    overflow: 'hidden',
-  },
-  menuTab: {
-    flex: 1,
-    paddingVertical: 0,
-    minHeight: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 6,
-    backgroundColor: 'transparent',
-  },
-  menuTabActive: {
+    backgroundColor: '#4A4458',
+    borderRadius: 25,
+    padding: 6,
+    zIndex: 1001,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 3,
   },
-  menuTabText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  menuTabGradient: {
+  menuTabButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+  },
+  menuTabActive: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
-    minHeight: 40,
   },
-  menuTabGradientActive: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+  menuTabInactive: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
-    minHeight: 40,
+    backgroundColor: 'transparent',
   },
-  
-  menuTabText: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 26,
+  menuTabActiveText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  menuTabInactiveText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#A0A0A0',
   },
   /* Unified header card styles */
   headerCard: {
@@ -1290,22 +1320,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 15,
   },
-  analyticsButton: {
-    position: 'absolute',
-    right: 18,
-    top: 52,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 2,
-  },
   tab: {
     flex: 1,
     paddingVertical: 12,
@@ -1342,7 +1356,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 200,
+    paddingTop: 80,
     backgroundColor: 'transparent',
     zIndex: 1,
   },
@@ -1444,11 +1458,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
-  },
-  moodLabel: {
-    fontSize: 13,
-    marginTop: 6,
-    textAlign: 'center',
   },
   intensityButtonsRow: {
     flexDirection: 'row',
@@ -1562,11 +1571,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  helperText: {
-    fontSize: 14,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
   triggersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1627,7 +1631,8 @@ const styles = StyleSheet.create({
   historyContainer: {
     flex: 1,
     backgroundColor: 'transparent',
-    paddingTop: 200,
+    paddingTop: 20,
+    paddingHorizontal: 10,
   },
   filtersContainer: {
     padding: 20,
@@ -1652,15 +1657,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   clearFiltersButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
   clearFiltersText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   loadingContainer: {
     flex: 1,
@@ -1840,8 +1845,8 @@ const styles = StyleSheet.create({
   },
   /* New styles for redesigned filters and history cards */
   filtersCard: {
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 18,
+    padding: 20,
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1850,36 +1855,37 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   filterLabel: {
-    fontSize: 12,
-    marginBottom: 6,
+    fontSize: 14,
+    marginBottom: 8,
     fontWeight: '600',
   },
   sortSelect: {
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
   },
   sortSelectText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
   },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 12,
+    gap: 10,
   },
   dateInput: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderWidth: 1,
     marginRight: 8,
     alignItems: 'center',
   },
   dateInputText: {
-    fontSize: 12,
+    fontSize: 14,
   },
   moodAvatar: {
     width: 48,

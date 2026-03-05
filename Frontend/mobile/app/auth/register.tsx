@@ -16,7 +16,6 @@ import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { validateRegisterForm, FormValidationErrors } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
@@ -43,7 +42,6 @@ export default function RegisterScreen() {
     license_number: '',
     specialization: '',
   });
-  const { theme, themeStyle, toggleTheme } = useTheme();
 
   useEffect(() => {
     const loadRole = async () => {
@@ -117,7 +115,7 @@ export default function RegisterScreen() {
 
     <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.wrapper, { backgroundColor: themeStyle.background }]}
+          style={styles.wrapper}
         >
     
 
@@ -125,15 +123,15 @@ export default function RegisterScreen() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <View style={styles.circleContainer}>
-            <View style={[styles.circle1, { backgroundColor: themeStyle.circle }]} />
-              <View style={[styles.circle2, { backgroundColor: themeStyle.circle }]} />
+            <View style={styles.circle1} />
+              <View style={styles.circle2} />
           </View>
         <Image
                   style={styles.img}
                   source={require('../../assets/images/register.png')}
                   resizeMode="contain"
                 ></Image>
-        <Text style={[styles.title, { color: themeStyle.title }]}>
+        <Text style={styles.title}>
           {role === 'therapist' ? 'SIGN UP AS THERAPIST' : 'SIGN UP AS A PATIENT'}
         </Text>
 
@@ -143,10 +141,11 @@ export default function RegisterScreen() {
           </View>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Username</Text>
+        <Text style={styles.label}>Username</Text>
         <TextInput
           style={[styles.input, validationErrors.username && styles.inputError]}
           placeholder="Enter your username"
+          placeholderTextColor="#8D8BA7"
           onChangeText={(text) => handleChange('username', text)}
           value={form.username}
           editable={!isLoading}
@@ -155,10 +154,11 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.username}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Email</Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput
           style={[styles.input, validationErrors.email && styles.inputError]}
           placeholder="Enter your email"
+          placeholderTextColor="#8D8BA7"
           keyboardType="email-address"
           onChangeText={(text) => handleChange('email', text)}
           value={form.email}
@@ -169,10 +169,11 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.email}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Password</Text>
+        <Text style={styles.label}>Password</Text>
         <TextInput
           style={[styles.input, validationErrors.password && styles.inputError]}
           placeholder="Enter password"
+          placeholderTextColor="#8D8BA7"
           secureTextEntry
           onChangeText={(text) => handleChange('password', text)}
           value={form.password}
@@ -182,10 +183,11 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.password}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Confirm Password</Text>
+        <Text style={styles.label}>Confirm Password</Text>
         <TextInput
           style={[styles.input, validationErrors.password_confirm && styles.inputError]}
           placeholder="Re-enter password"
+          placeholderTextColor="#8D8BA7"
           secureTextEntry
           onChangeText={(text) => handleChange('password_confirm', text)}
           value={form.password_confirm}
@@ -195,10 +197,11 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.password_confirm}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>First Name</Text>
+        <Text style={styles.label}>First Name</Text>
         <TextInput
           style={[styles.input, validationErrors.first_name && styles.inputError]}
           placeholder="Enter first name"
+          placeholderTextColor="#8D8BA7"
           onChangeText={(text) => handleChange('first_name', text)}
           value={form.first_name}
           editable={!isLoading}
@@ -207,10 +210,11 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.first_name}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Last Name</Text>
+        <Text style={styles.label}>Last Name</Text>
         <TextInput
           style={[styles.input, validationErrors.last_name && styles.inputError]}
           placeholder="Enter last name"
+          placeholderTextColor="#8D8BA7"
           onChangeText={(text) => handleChange('last_name', text)}
           value={form.last_name}
           editable={!isLoading}
@@ -224,10 +228,11 @@ export default function RegisterScreen() {
         {/* Conditionally render therapist-specific fields */}
         {role === 'therapist' && (
           <>
-            <Text style={[styles.label, { color: themeStyle.label }]}>License Number</Text>
+            <Text style={styles.label}>License Number</Text>
             <TextInput
               style={[styles.input, validationErrors.license_number && styles.inputError]}
               placeholder="Enter license number"
+              placeholderTextColor="#8D8BA7"
               onChangeText={(text) => handleChange('license_number', text)}
               value={form.license_number}
               editable={!isLoading}
@@ -236,10 +241,11 @@ export default function RegisterScreen() {
               <Text style={styles.fieldErrorText}>{validationErrors.license_number}</Text>
             )}
 
-            <Text style={[styles.label, { color: themeStyle.label }]}>Specialization</Text>
+            <Text style={styles.label}>Specialization</Text>
             <TextInput
               style={[styles.input, validationErrors.specialization && styles.inputError]}
               placeholder="e.g., Depression, Anxiety"
+              placeholderTextColor="#8D8BA7"
               onChangeText={(text) => handleChange('specialization', text)}
               value={form.specialization}
               editable={!isLoading}
@@ -250,10 +256,11 @@ export default function RegisterScreen() {
           </>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Phone Number</Text>
+        <Text style={styles.label}>Phone Number</Text>
         <TextInput
           style={[styles.input, validationErrors.phone_number && styles.inputError]}
           placeholder="03xx-xxxxxxx"
+          placeholderTextColor="#8D8BA7"
           keyboardType="phone-pad"
           onChangeText={(text) => handleChange('phone_number', text)}
           value={form.phone_number}
@@ -263,13 +270,13 @@ export default function RegisterScreen() {
           <Text style={styles.fieldErrorText}>{validationErrors.phone_number}</Text>
         )}
 
-        <Text style={[styles.label, { color: themeStyle.label }]}>Date of Birth</Text>
+        <Text style={styles.label}>Date of Birth</Text>
         <TouchableOpacity 
           style={[styles.input, validationErrors.date_of_birth && styles.inputError]} 
           onPress={() => !isLoading && setShowDatePicker(true)}
           disabled={isLoading}
         >
-          <Text style={{ color: form.date_of_birth ? '#000' : '#999' }}>
+          <Text style={{ color: form.date_of_birth ? '#FFFFFF' : '#8D8BA7' }}>
             {form.date_of_birth || 'YYYY-MM-DD'}
           </Text>
         </TouchableOpacity>
@@ -290,16 +297,15 @@ export default function RegisterScreen() {
        <TouchableOpacity
   style={[
     styles.button,
-    { backgroundColor: themeStyle.button },
     isLoading && styles.buttonDisabled
   ]}
   onPress={handleRegister}
   disabled={isLoading}
 >
   {isLoading ? (
-    <ActivityIndicator color={themeStyle.buttonText} size="small" />
+    <ActivityIndicator color="#FFFFFF" size="small" />
   ) : (
-    <Text style={[styles.buttonText, { color: themeStyle.buttonText }]}>
+    <Text style={styles.buttonText}>
       Register
     </Text>
   )}
@@ -310,7 +316,7 @@ export default function RegisterScreen() {
           onPress={() => !isLoading && router.push('./login')}
           disabled={isLoading}
         >
-          <Text style={[styles.link, , { color: themeStyle.text }, isLoading && styles.linkDisabled]}>
+          <Text style={[styles.link, isLoading && styles.linkDisabled]}>
             Already have an account? Login
           </Text>
         </TouchableOpacity>
@@ -326,7 +332,7 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     flex: 1,
-    //backgroundColor: '#ffffff'
+    backgroundColor: '#342949',
   },
   container: {
     flexGrow: 1,
@@ -336,7 +342,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: '900',
-    //color: '#49467E',
+    color: '#FFFFFF',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -354,19 +360,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   label: {
-    //color: '#524f85',
+    color: '#FFFFFF',
     fontSize: 16,
     marginBottom: 5,
     marginTop: 10,
     fontWeight: '500'
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 9,
     padding: 12,
     fontSize: 16,
-    borderColor: 'black',
-    borderWidth: 1
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    color: '#FFFFFF',
   },
   inputError: {
     borderColor: '#f44336',
@@ -398,24 +405,29 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   button: {
-    backgroundColor: '#49467E',
+    backgroundColor: '#A78BFA',
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
     minHeight: 48,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
   buttonDisabled: {
     backgroundColor: '#9e9e9e',
   },
   buttonText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
   link: {
-    color: '#49467E',
+    color: '#FFFFFF',
     textAlign: 'center',
     fontSize: 14,
     marginTop: 12,
@@ -434,7 +446,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 100,
-    // backgroundColor: '#2E2C4E87', 
+    backgroundColor: 'rgba(133, 130, 180, 0.2)',
     opacity: 0.8,
     position: 'absolute',
     top: 0,
@@ -445,6 +457,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 100,
+    backgroundColor: 'rgba(133, 130, 180, 0.25)',
     // backgroundColor: '#2E2C4E87', 
     opacity: 0.6,
     position: 'absolute',

@@ -17,6 +17,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import api from '../utils/api';
 import { FontAwesome } from '@expo/vector-icons';
+import StickyHeader from '../components/StickyHeader';
 
 // Mood options
 const moods = [
@@ -69,6 +70,9 @@ export default function MoodEditScreen() {
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
   const [activities, setActivities] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -278,17 +282,42 @@ export default function MoodEditScreen() {
           { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
         ]} />
       </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            <Text style={styles.headerBlue}>Edit Mood </Text>
-            <Text style={styles.headerOrange}>Entry</Text>
-          </Text>
-        </View>
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Edit Mood"
+        secondWord="Entry"
+        onBackPress={() => router.back()}
+      />
+
+      {/* Animated Header - Fades out on scroll */}
+      <Animated.View style={[styles.headerContainer, {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>
+          <Text style={styles.headerWhite}>Edit Mood </Text>
+          <Text style={styles.headerPurple}>Entry</Text>
+        </Text>
+      </Animated.View>
+
+      <Animated.ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
 
         <Text style={[styles.subtitle, { color: '#B8A8E6' }]}>
           Update the intensity of each mood you're experiencing
@@ -470,7 +499,7 @@ export default function MoodEditScreen() {
         </TouchableOpacity>
 
         <View style={styles.bottomPadding} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -481,7 +510,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 80,
   },
   screenGradient: {
     position: 'absolute',
@@ -502,34 +531,28 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     opacity: 1,
   },
-  header: {
-    marginBottom: 20,
-    alignItems: 'center',
+  headerContainer: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+    marginBottom: 14,
+    marginHorizontal: 0,
   },
-  backBtnCircle: {
+  backButton: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    zIndex: 2,
+    left: 20,
+    top: 52,
+    padding: 8,
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
+    marginBottom: 10,
+    marginTop: 20,
     textAlign: 'center',
   },
-  headerBlue: {
-    color: '#FFFFFF',
-  },
-  headerOrange: {
-    color: '#B8A8E6',
-  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   subtitle: {
     fontSize: 16,
     marginBottom: 20,

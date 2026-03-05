@@ -9,12 +9,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function PatientIntro1() {
-  const { themeStyle } = useTheme();
   const router = useRouter();
 
   const handleNext = () => {
@@ -22,9 +20,9 @@ export default function PatientIntro1() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.onboardingtop }]}>
+    <View style={styles.container}>
       {/* Top Image Layer */}
-      <View style={[styles.svgWrapper, { backgroundColor: themeStyle.onboardingtop }]}>
+      <View style={styles.svgWrapper}>
         <View style={styles.svgContainer}>
           <Image source={require('../../assets/images/Vector1.png')} style={styles.vector1} />
           <Image source={require('../../assets/images/Vector2.png')} style={styles.vector2} />
@@ -35,25 +33,25 @@ export default function PatientIntro1() {
       </View>
 
       {/* Bottom Text and CTA Section */}
-      <View style={[styles.bottomContainer, { backgroundColor: themeStyle.onboardingbottom }]}>
-        <Text style={[styles.description, { color: themeStyle.text }]}>
-          Welcome to your <Text style={{ color: themeStyle.textdesign }}>safe space</Text> — where{' '}
-          <Text style={{ color: themeStyle.textdesign }}>healing</Text> begins gently
+      <View style={styles.bottomContainer}>
+        <Text style={styles.description}>
+          Welcome to your <Text style={styles.textAccent}>safe space</Text> — where{' '}
+          <Text style={styles.textAccent}>healing</Text> begins gently
         </Text>
 
         {/* Progress Indicators */}
         <View style={styles.progressContainer}>
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarmain }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
+          <View style={styles.dotActive} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
         </View>
 
         {/* Next Button */}
         <TouchableOpacity
-          style={[styles.nextButton, { backgroundColor: themeStyle.button }]}
+          style={styles.nextButton}
           onPress={handleNext}
         >
-          <Ionicons name="arrow-forward" size={24} color={themeStyle.buttonText} />
+          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -63,6 +61,7 @@ export default function PatientIntro1() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
   svgWrapper: {
@@ -71,6 +70,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: height * 0.7,
     zIndex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
   svgContainer: {
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 50,
     zIndex: 6,
+    backgroundColor: '#342949',
   },
 
   description: {
@@ -141,6 +142,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 36,
     marginTop: 40,
+    color: '#FFFFFF',
+  },
+
+  textAccent: {
+    color: '#4ec0c7',
   },
 
   progressContainer: {
@@ -154,6 +160,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+
+  dotActive: {
+    width: 40,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
 
   nextButton: {
@@ -162,5 +176,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#A78BFA',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
 });

@@ -128,12 +128,6 @@ export default function AllActionsScreen() {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.headerContainer, { backgroundColor: 'transparent' }]}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
           <Text style={[styles.headerTitle]}>
             <Text style={styles.headerBlue}>All </Text>
             <Text style={styles.headerOrange}>Actions</Text>
@@ -322,17 +316,21 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
   },
   headerContainer: {
-    paddingTop: 50,
+    paddingTop: 70,
     paddingHorizontal: 20,
-    paddingBottom: 26,
-    marginBottom: 14,
+    paddingBottom: 20,
+    marginBottom: 8,
     zIndex: 2,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 72,
+    padding: 8,
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
-    marginBottom: 10,
-    marginTop: 20,
     textAlign: 'center',
   },
   headerBlue: { color: '#FFFFFF' },

@@ -10,12 +10,10 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function PatientIntro2() {
-  const { themeStyle } = useTheme();
   const router = useRouter();
 
   const handleNext = () => {
@@ -31,9 +29,9 @@ const emojis = [
 
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.onboardingtop }]}>
+    <View style={styles.container}>
       {/* Top Emoji Layer */}
-      <View style={[styles.emojiWrapper, { backgroundColor: themeStyle.onboardingtop }]}>
+      <View style={styles.emojiWrapper}>
         {emojis.map((emoji, index) => (
           <View
             key={index}
@@ -58,24 +56,24 @@ const emojis = [
       </View>
 
       {/* Bottom Text and CTA Section */}
-      <View style={[styles.bottomContainer, { backgroundColor: themeStyle.onboardingbottom }]}>
-        <Text style={[styles.description, { color: themeStyle.text }]}>
-          Smart Support meets <Text style={{ color: themeStyle.textdesign }}>self care </Text> — powered by {' '}
-          <Text style={{ color: themeStyle.textdesign }}>AI</Text> inspired by you.
+      <View style={styles.bottomContainer}>
+        <Text style={styles.description}>
+          Smart Support meets <Text style={styles.textAccent}>self care </Text> — powered by {' '}
+          <Text style={styles.textAccent}>AI</Text> inspired by you.
         </Text>
 
      <View style={styles.progressContainer}>
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarmain }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
+          <View style={styles.dot} />
+          <View style={styles.dotActive} />
+          <View style={styles.dot} />
         </View>
 
         {/* Next Button */}
         <TouchableOpacity
-          style={[styles.nextButton, { backgroundColor: themeStyle.button }]}
+          style={styles.nextButton}
           onPress={handleNext}
         >
-          <Ionicons name="arrow-forward" size={24} color={themeStyle.buttonText} />
+          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -85,6 +83,7 @@ const emojis = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
   emojiWrapper: {
@@ -95,6 +94,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#d8c9ea',
   },
 
   groupImage: {
@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 50,
     zIndex: 6,
+    backgroundColor: '#342949',
   },
 
   description: {
@@ -121,6 +122,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 36,
     marginTop: 40,
+    color: '#FFFFFF',
+  },
+
+  textAccent: {
+    color: '#4ec0c7',
   },
 
   progressContainer: {
@@ -134,6 +140,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+
+  dotActive: {
+    width: 40,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
 
   nextButton: {
@@ -142,5 +156,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#A78BFA',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
 });

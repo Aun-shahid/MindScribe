@@ -1,19 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+  Alert, Animated, StatusBar,
+} from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import PatientService from '../services/patient.service';
-import { useTheme } from '../contexts/ThemeContext';
+import StickyHeader from '../components/StickyHeader';
 
 export default function NotificationsScreen() {
-  const { themeStyle } = useTheme();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const load = async () => {
     try {
       setLoading(true);
       const data = await PatientService.getNotifications({});
-      // API may return object with results or direct list
       const list = Array.isArray(data) ? data : data?.results || data?.notifications || [];
       setNotifications(list);
     } catch (err: any) {
@@ -24,72 +28,174 @@ export default function NotificationsScreen() {
     }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const handlePress = async (item: any) => {
     try {
       if (!item.is_read) await PatientService.markNotificationRead(item.id);
-    } catch (err) {
-      // ignore
-    }
-    // deep link handling: if action_url present, navigate
+    } catch { /* ignore */ }
     if (item.action_url) {
-      // remove leading slash
       const route = item.action_url.replace(/^\//, '');
       router.push(`../${route}` as any);
     } else {
-      // show preview
       Alert.alert(item.title || 'Notification', item.message || '');
     }
     load();
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={[styles.card, !item.is_read ? styles.unread : null, { backgroundColor: themeStyle.dashboardcard || '#fff' }]} onPress={() => handlePress(item)}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={[styles.title, { color: themeStyle.title }]}>{item.title}</Text>
-        {!item.is_read && <View style={styles.dot} />}
-      </View>
-      <Text style={[styles.message, { color: themeStyle.text }]} numberOfLines={2}>{item.message}</Text>
-      <Text style={[styles.time, { color: themeStyle.label }]}>{new Date(item.sent_at).toLocaleString()}</Text>
-    </TouchableOpacity>
-  );
-
   const handleMarkAll = async () => {
     try {
       await PatientService.markAllNotificationsRead();
       load();
-    } catch (err: any) {
+    } catch {
       Alert.alert('Error', 'Failed to mark all as read');
     }
   };
 
   return (
-    <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }]}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.headerTitle, { color: themeStyle.title }]}>Notifications</Text>
-        <TouchableOpacity onPress={handleMarkAll}><Text style={{ color: themeStyle.primary }}>Mark all as read</Text></TouchableOpacity>
-      </View>
+    <View style={styles.wrapper}>
+      <StatusBar barStyle="light-content" backgroundColor="#342949" />
+
+      <LinearGradient
+        colors={['#342949', '#2a1f3d', '#342949']}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+
+      {/* Sticky header */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Your"
+        secondWord="Notifications"
+        onBackPress={() => router.back()}
+      />
+
+      {/* Animated fading header */}
+      <Animated.View style={[styles.headerContainer, {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          <Text style={styles.headerWhite}>Your </Text>
+          <Text style={styles.headerPurple}>Notifications</Text>
+        </Text>
+        <TouchableOpacity onPress={handleMarkAll} style={styles.markAllBtn}>
+          <Text style={styles.markAllText}>Mark all read</Text>
+        </TouchableOpacity>
+      </Animated.View>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={themeStyle.text} />
+        <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#B8A8E6" />
       ) : (
-        <FlatList data={notifications} keyExtractor={(i) => i.id} renderItem={renderItem} contentContainerStyle={{ padding: 16 }} ItemSeparatorComponent={() => <View style={{ height: 8 }} />} />
+        <Animated.ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
+          {notifications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FontAwesome name="bell-slash" size={48} color="#B8A8E6" style={{ marginBottom: 16 }} />
+              <Text style={styles.emptyText}>No notifications yet</Text>
+              <Text style={styles.emptySubText}>You're all caught up!</Text>
+            </View>
+          ) : (
+            notifications.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.card, !item.is_read && styles.unreadCard]}
+                onPress={() => handlePress(item)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.cardRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: item.is_read ? 'rgba(184,168,230,0.15)' : 'rgba(167,139,250,0.25)' }]}>
+                    <FontAwesome
+                      name={item.notification_type === 'session' ? 'calendar' : item.notification_type === 'mood' ? 'smile-o' : 'bell'}
+                      size={18}
+                      color={item.is_read ? '#B8A8E6' : '#A78BFA'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.titleRow}>
+                      <Text style={[styles.cardTitle, !item.is_read && { color: '#FFFFFF', fontWeight: '800' }]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      {!item.is_read && <View style={styles.dot} />}
+                    </View>
+                    <Text style={styles.cardMessage} numberOfLines={2}>{item.message}</Text>
+                    <Text style={styles.cardTime}>{new Date(item.sent_at).toLocaleString()}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+          <View style={{ height: 40 }} />
+        </Animated.ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1 },
-  headerTitle: { fontSize: 20, fontWeight: '700', padding: 16 },
-  card: { padding: 14, borderRadius: 12, elevation: 1 },
-  unread: { borderLeftWidth: 4, borderLeftColor: '#7b61ff' },
-  title: { fontSize: 16, fontWeight: '700' },
-  message: { marginTop: 6, fontSize: 14 },
-  time: { marginTop: 8, fontSize: 12, color: '#888' },
-  dot: { width: 10, height: 10, borderRadius: 6, backgroundColor: '#7b61ff' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 },
+  wrapper: { flex: 1, backgroundColor: '#342949' },
+
+  // Header
+  headerContainer: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  backButton: { position: 'absolute', left: 20, top: 52, padding: 8 },
+  headerTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center', marginTop: 20 },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+  markAllBtn: { position: 'absolute', right: 20, top: 56, padding: 4 },
+  markAllText: { color: '#B8A8E6', fontSize: 12, fontWeight: '700' },
+
+  // Content
+  container: { paddingHorizontal: 16, paddingTop: 8 },
+
+  // Empty state
+  emptyState: { alignItems: 'center', marginTop: 80 },
+  emptyText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
+  emptySubText: { fontSize: 14, color: '#B8A8E6' },
+
+  // Cards
+  card: {
+    backgroundColor: '#473F5A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  unreadCard: {
+    backgroundColor: '#3D3356',
+    borderColor: 'rgba(167,139,250,0.3)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#A78BFA',
+  },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  iconCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: '#D4CCE8', flex: 1 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#A78BFA' },
+  cardMessage: { fontSize: 13, color: '#9B92B8', lineHeight: 18 },
+  cardTime: { fontSize: 11, color: '#6B6482', marginTop: 6 },
 });

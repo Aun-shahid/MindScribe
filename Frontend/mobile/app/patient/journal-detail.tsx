@@ -3,12 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   TouchableOpacity,
   Animated,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -17,6 +15,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import type { JournalEntry } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 export default function JournalDetail() {
   const { themeStyle } = useTheme();
@@ -37,6 +37,9 @@ export default function JournalDetail() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (id) {
@@ -251,6 +254,7 @@ export default function JournalDetail() {
       <LinearGradient
         colors={['#342949', '#2a1f3d', '#342949']}
         style={styles.screenGradient}
+        pointerEvents="none"
       >
         {/* Floating Bubbles */}
         <Animated.View
@@ -330,31 +334,39 @@ export default function JournalDetail() {
         />
       </LinearGradient>
 
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="View"
+        secondWord="Journal"
+        onBackPress={() => router.back()}
+      />
+
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        {/* Header */}
-          <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+        <Animated.ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
+          {/* Original Header */}
+          <OriginalHeader
+            scrollY={scrollY}
+            firstWord="View"
+            secondWord="Journal"
+            onBackPress={() => router.back()}
+          />
 
-          <View style={styles.headerTitleCenter}>
-            <Text style={styles.headerTitle}>
-              <Text style={styles.headerWhite}>View</Text>
-              <Text style={styles.headerPurple}> Journal</Text>
-            </Text>
-          </View>
-
-          <View style={styles.headerActions}>
+          {/* Action Buttons Row */}
+          <View style={styles.headerActionsRow}>
             {entry.is_favorite ? (
-              <FontAwesome name="star" size={20} color="#FFD54F" style={styles.favoriteIcon} />
+              <View style={styles.favoriteIconContainer}>
+                <FontAwesome name="star" size={20} color="#FFD54F" />
+              </View>
             ) : null}
           </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Date & Time */}
           <View style={styles.metaCard}>
             <LinearGradient
@@ -479,7 +491,7 @@ export default function JournalDetail() {
 
             {/* Back to List removed: top-left back icon navigates to list now */}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </Animated.View>
     </View>
   );
@@ -553,6 +565,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 18,
     top: 42,
+  },
+  headerActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  favoriteIconContainer: {
+    padding: 8,
   },
   editButton: {
     backgroundColor: '#524f85',

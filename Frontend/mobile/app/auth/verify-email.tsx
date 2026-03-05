@@ -19,13 +19,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { validateTokenField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
-import { useTheme } from '../contexts/ThemeContext';
 
 export default function VerifyEmailScreen() {
   const [token, setToken] = useState('');
   const [tokenError, setTokenError] = useState<string | null>(null);
   const { verifyEmail, isLoading, error, clearError } = useAuth();
-  const { theme, themeStyle } = useTheme();
 
   const handleVerifyEmail = async () => {
     const tokenValidation = validateTokenField(token);
@@ -56,13 +54,16 @@ export default function VerifyEmailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: themeStyle.background }]}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={[styles.title, { color: themeStyle.title }]}>Verify Your Email</Text>
+          <Text style={styles.title}>
+            <Text style={styles.titleWhite}>Verify Your </Text>
+            <Text style={styles.titlePurple}>Email</Text>
+          </Text>
 
           <Image
             source={require('../../assets/images/myemail.png.png')}
@@ -70,7 +71,7 @@ export default function VerifyEmailScreen() {
             resizeMode="contain"
           />
 
-          <Text style={[styles.subtitle, { color: themeStyle.text }]}>
+          <Text style={styles.subtitle}>
             Enter the verification token sent to your email. This helps us ensure your identity.
           </Text>
 
@@ -81,10 +82,10 @@ export default function VerifyEmailScreen() {
           )}
 
           <View style={[styles.inputWrapper, tokenError && styles.inputWrapperError]}>
-            <MaterialIcons name="vpn-key" size={22} color="#524f85" style={styles.icon} />
+            <MaterialIcons name="vpn-key" size={22} color="#8D8BA7" style={styles.icon} />
             <TextInput
               placeholder="Verification Token"
-              placeholderTextColor="#999"
+              placeholderTextColor="#8D8BA7"
               onChangeText={handleTokenChange}
               value={token}
               style={styles.input}
@@ -95,7 +96,6 @@ export default function VerifyEmailScreen() {
 <TouchableOpacity 
   style={[
     styles.verifyButton, 
-    { backgroundColor: themeStyle.button }, 
     isLoading && styles.verifyButtonDisabled
   ]} 
   onPress={handleVerifyEmail}
@@ -117,7 +117,6 @@ export default function VerifyEmailScreen() {
             <Text
               style={[
                 styles.linkText,
-                { color: themeStyle.text },
                 isLoading && styles.linkTextDisabled,
               ]}
             >
@@ -133,6 +132,7 @@ export default function VerifyEmailScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: '#342949',
   },
   flex: {
     flex: 1,
@@ -145,11 +145,16 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 40,
-
     fontSize: 29,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: -50,
+  },
+  titleWhite: {
+    color: '#FFFFFF',
+  },
+  titlePurple: {
+    color: '#B8A8E6',
   },
   image: {
     width: 500,
@@ -163,6 +168,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 5,
+    color: '#8D8BA7',
   },
   errorContainer: {
     backgroundColor: '#ffebee',
@@ -181,12 +187,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: '#ccc',
+    borderColor: 'rgba(255,255,255,0.2)',
     borderWidth: 1,
     borderRadius: 10,
     marginBottom: 30,
     paddingHorizontal: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     height: 50,
     width: '100%',
   },
@@ -200,10 +206,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF',
   },
   verifyButton: {
-    backgroundColor: '#524f85',
+    backgroundColor: '#A78BFA',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -211,6 +217,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     minHeight: 48,
     width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
   verifyButtonDisabled: {
     backgroundColor: '#9e9e9e',
@@ -225,7 +236,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#524f85',
+    color: '#FFFFFF',
     fontSize: 16,
   },
   linkTextDisabled: {

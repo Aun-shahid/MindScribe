@@ -298,6 +298,7 @@ export default function RelaxationSoundsScreen() {
       <LinearGradient
         colors={['#342949', '#342949', '#342949']}
         style={styles.screenGradient}
+        pointerEvents="none"
       />
 
       {/* Animated Bubbles */}
@@ -305,27 +306,27 @@ export default function RelaxationSoundsScreen() {
         styles.bubble, 
         { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
         { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
-      ]} />
+      ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
         { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
         { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
-      ]} />
+      ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
         { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
         { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
-      ]} />
+      ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
         { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
         { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
-      ]} />
+      ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
         { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
         { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
-      ]} />
+      ]} pointerEvents="none" />
 
       {/* Sticky Header - Appears on scroll */}
       <StickyHeader

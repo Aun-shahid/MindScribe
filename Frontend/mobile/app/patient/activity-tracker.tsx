@@ -8,12 +8,17 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Dimensions
+  Dimensions,
+  Animated
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../utils/api';
 import { router } from 'expo-router';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -101,6 +106,71 @@ const ActivityTracker = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<string>('all');
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble1X = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble2X = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble3X = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble4X = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble5X = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Bubble animation
+    const createFloatingAnimation = (valueY: Animated.Value, valueX: Animated.Value, durationY: number, durationX: number, delay: number) => {
+      return Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueY, {
+              toValue: -30,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueY, {
+              toValue: 0,
+              duration: durationY,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(valueX, {
+              toValue: 20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+            Animated.timing(valueX, {
+              toValue: -20,
+              duration: durationX,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+    };
+
+    const animations = [
+      createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0),
+      createFloatingAnimation(bubble2Y, bubble2X, 10000, 9000, 500),
+      createFloatingAnimation(bubble3Y, bubble3X, 7000, 8000, 1000),
+      createFloatingAnimation(bubble4Y, bubble4X, 9000, 7500, 1500),
+      createFloatingAnimation(bubble5Y, bubble5X, 8500, 8500, 2000),
+    ];
+
+    animations.forEach(anim => anim.start());
+
+    return () => {
+      animations.forEach(anim => anim.stop());
+    };
+  }, []);
 
   const fetchActivityHistory = async (activityType?: string) => {
     try {
@@ -306,25 +376,74 @@ const ActivityTracker = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-      <View style={[styles.header, { backgroundColor: '#10B981' }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Activity Tracker</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#342949', '#342949', '#342949']}
+        style={styles.screenGradient}
+        pointerEvents="none"
+      />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>🏃‍♂️ Activity Type</Text>
+      {/* Animated Bubbles */}
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+        { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
+      ]} pointerEvents="none" />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+        { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
+      ]} pointerEvents="none" />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+        { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
+      ]} pointerEvents="none" />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+        { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
+      ]} pointerEvents="none" />
+      <Animated.View style={[
+        styles.bubble, 
+        { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+        { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
+      ]} pointerEvents="none" />
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Activity"
+        secondWord="Tracker"
+        onBackPress={() => router.back()}
+      />
+
+      <Animated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
+        {/* Original Header */}
+        <OriginalHeader
+          scrollY={scrollY}
+          firstWord="Activity"
+          secondWord="Tracker"
+          onBackPress={() => router.back()}
+        />
+        <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>🏃‍♂️ Activity Type</Text>
           <View style={styles.activityTypeContainer}>
             {activityTypes.map((type) => (
               <TouchableOpacity
                 key={type.value}
                 style={[
                   styles.activityTypeTag,
-                  { borderColor: themeStyle.border },
+                  { borderColor: 'rgba(255, 255, 255, 0.1)' },
                   selectedActivityType === type.value && styles.selectedActivityTypeTag
                 ]}
                 onPress={() => setSelectedActivityType(type.value)}
@@ -334,7 +453,7 @@ const ActivityTracker = () => {
                   style={[
                     styles.activityTypeLabel,
                     {
-                      color: selectedActivityType === type.value ? 'white' : themeStyle.text
+                      color: selectedActivityType === type.value ? 'white' : '#FFFFFF'
                     }
                   ]}
                 >
@@ -345,74 +464,74 @@ const ActivityTracker = () => {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>
+        <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>
             {getSelectedActivityEmoji()} Activity Details
           </Text>
           
-          <Text style={[styles.label, { color: themeStyle.text }]}>Activity Name *</Text>
+          <Text style={[styles.label, { color: '#FFFFFF' }]}>Activity Name *</Text>
           <TextInput
             style={[styles.textInput, {
-              backgroundColor: themeStyle.background,
-              color: themeStyle.text,
-              borderColor: themeStyle.border
+              backgroundColor: '#2D2438',
+              color: '#FFFFFF',
+              borderColor: 'rgba(255, 255, 255, 0.1)'
             }]}
             placeholder="e.g. Morning Run, Yoga Session, Coffee with Friends"
-            placeholderTextColor={themeStyle.label}
+            placeholderTextColor="#B8A8E6"
             value={activityName}
             onChangeText={setActivityName}
           />
 
-          <Text style={[styles.label, { color: themeStyle.text }]}>Description (Optional)</Text>
+          <Text style={[styles.label, { color: '#FFFFFF' }]}>Description (Optional)</Text>
           <TextInput
             style={[styles.textInput, {
-              backgroundColor: themeStyle.background,
-              color: themeStyle.text,
-              borderColor: themeStyle.border
+              backgroundColor: '#2D2438',
+              color: '#FFFFFF',
+              borderColor: 'rgba(255, 255, 255, 0.1)'
             }]}
             placeholder="Brief description of the activity"
-            placeholderTextColor={themeStyle.label}
+            placeholderTextColor="#B8A8E6"
             value={description}
             onChangeText={setDescription}
           />
 
           <View style={styles.rowInputs}>
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: themeStyle.text }]}>Duration (min)</Text>
+              <Text style={[styles.label, { color: '#FFFFFF' }]}>Duration (min)</Text>
               <TextInput
                 style={[styles.smallInput, {
-                  backgroundColor: themeStyle.background,
-                  color: themeStyle.text,
-                  borderColor: themeStyle.border
+                  backgroundColor: '#2D2438',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255, 255, 255, 0.1)'
                 }]}
                 value={duration}
                 onChangeText={setDuration}
                 keyboardType="numeric"
                 placeholder="30"
-                placeholderTextColor={themeStyle.label}
+                placeholderTextColor="#B8A8E6"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: themeStyle.text }]}>Location (Optional)</Text>
+              <Text style={[styles.label, { color: '#FFFFFF' }]}>Location (Optional)</Text>
               <TextInput
                 style={[styles.smallInput, {
-                  backgroundColor: themeStyle.background,
-                  color: themeStyle.text,
-                  borderColor: themeStyle.border
+                  backgroundColor: '#2D2438',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255, 255, 255, 0.1)'
                 }]}
                 value={location}
                 onChangeText={setLocation}
                 placeholder="Home, Gym, Park"
-                placeholderTextColor={themeStyle.label}
+                placeholderTextColor="#B8A8E6"
               />
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>💪 Intensity Level</Text>
-          <Text style={[styles.subtitle, { color: themeStyle.label }]}>
+        <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>💪 Intensity Level</Text>
+          <Text style={[styles.subtitle, { color: '#B8A8E6' }]}>
             How intense was this activity? (1 = Very Light, 10 = Maximum)
           </Text>
           
@@ -423,39 +542,39 @@ const ActivityTracker = () => {
                   key={level.level}
                   style={[
                     styles.intensityButton,
-                    { backgroundColor: intensity >= level.level ? '#10B981' : themeStyle.background },
-                    { borderColor: themeStyle.border }
+                    { backgroundColor: intensity >= level.level ? '#10B981' : '#2D2438' },
+                    { borderColor: 'rgba(255, 255, 255, 0.1)' }
                   ]}
                   onPress={() => setIntensity(level.level)}
                 >
                   <Text style={[
                     styles.intensityButtonText,
-                    { color: intensity >= level.level ? 'white' : themeStyle.text }
+                    { color: intensity >= level.level ? 'white' : '#FFFFFF' }
                   ]}>
                     {level.level}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.intensityLabel, { color: themeStyle.text }]}>
+            <Text style={[styles.intensityLabel, { color: '#FFFFFF' }]}>
               {getIntensityLabel(intensity)}
             </Text>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>😊 Mood & Energy Impact</Text>
-          <Text style={[styles.subtitle, { color: themeStyle.label }]}>
+        <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>😊 Mood & Energy Impact</Text>
+          <Text style={[styles.subtitle, { color: '#B8A8E6' }]}>
             Rate your mood and energy before and after the activity (1-10)
           </Text>
           
           <View style={styles.impactGrid}>
             <View style={styles.impactRow}>
               <View style={styles.impactGroup}>
-                <Text style={[styles.impactLabel, { color: themeStyle.text }]}>😔 Mood Before</Text>
-                <View style={[styles.impactInputContainer, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}>
+                <Text style={[styles.impactLabel, { color: '#FFFFFF' }]}>😔 Mood Before</Text>
+                <View style={[styles.impactInputContainer, { backgroundColor: '#2D2438', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
                   <TextInput
-                    style={[styles.impactInput, { color: themeStyle.text }]}
+                    style={[styles.impactInput, { color: '#FFFFFF' }]}
                     value={moodBefore}
                     onChangeText={setMoodBefore}
                     keyboardType="numeric"
@@ -466,10 +585,10 @@ const ActivityTracker = () => {
               </View>
 
               <View style={styles.impactGroup}>
-                <Text style={[styles.impactLabel, { color: themeStyle.text }]}>😊 Mood After</Text>
-                <View style={[styles.impactInputContainer, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}>
+                <Text style={[styles.impactLabel, { color: '#FFFFFF' }]}>😊 Mood After</Text>
+                <View style={[styles.impactInputContainer, { backgroundColor: '#2D2438', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
                   <TextInput
-                    style={[styles.impactInput, { color: themeStyle.text }]}
+                    style={[styles.impactInput, { color: '#FFFFFF' }]}
                     value={moodAfter}
                     onChangeText={setMoodAfter}
                     keyboardType="numeric"
@@ -482,10 +601,10 @@ const ActivityTracker = () => {
 
             <View style={styles.impactRow}>
               <View style={styles.impactGroup}>
-                <Text style={[styles.impactLabel, { color: themeStyle.text }]}>🔋 Energy Before</Text>
-                <View style={[styles.impactInputContainer, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}>
+                <Text style={[styles.impactLabel, { color: '#FFFFFF' }]}>🔋 Energy Before</Text>
+                <View style={[styles.impactInputContainer, { backgroundColor: '#2D2438', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
                   <TextInput
-                    style={[styles.impactInput, { color: themeStyle.text }]}
+                    style={[styles.impactInput, { color: '#FFFFFF' }]}
                     value={energyBefore}
                     onChangeText={setEnergyBefore}
                     keyboardType="numeric"
@@ -496,10 +615,10 @@ const ActivityTracker = () => {
               </View>
 
               <View style={styles.impactGroup}>
-                <Text style={[styles.impactLabel, { color: themeStyle.text }]}>⚡ Energy After</Text>
-                <View style={[styles.impactInputContainer, { backgroundColor: themeStyle.background, borderColor: themeStyle.border }]}>
+                <Text style={[styles.impactLabel, { color: '#FFFFFF' }]}>⚡ Energy After</Text>
+                <View style={[styles.impactInputContainer, { backgroundColor: '#2D2438', borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
                   <TextInput
-                    style={[styles.impactInput, { color: themeStyle.text }]}
+                    style={[styles.impactInput, { color: '#FFFFFF' }]}
                     value={energyAfter}
                     onChangeText={setEnergyAfter}
                     keyboardType="numeric"
@@ -512,34 +631,34 @@ const ActivityTracker = () => {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: themeStyle.dashboardcard }]}>
-          <Text style={[styles.sectionTitle, { color: themeStyle.text }]}>👥 Social & Notes</Text>
+        <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>👥 Social & Notes</Text>
           
           <TouchableOpacity
-            style={[styles.checkboxContainer, { borderColor: themeStyle.border }]}
+            style={[styles.checkboxContainer, { borderColor: 'rgba(255, 255, 255, 0.1)' }]}
             onPress={() => setWithOthers(!withOthers)}
           >
             <View style={[
               styles.checkbox,
-              { borderColor: themeStyle.border },
+              { borderColor: 'rgba(255, 255, 255, 0.1)' },
               withOthers && { backgroundColor: '#10B981', borderColor: '#10B981' }
             ]}>
               {withOthers && <Text style={styles.checkmark}>✓</Text>}
             </View>
-            <Text style={[styles.checkboxLabel, { color: themeStyle.text }]}>
+            <Text style={[styles.checkboxLabel, { color: '#FFFFFF' }]}>
               I did this activity with others
             </Text>
           </TouchableOpacity>
 
-          <Text style={[styles.label, { color: themeStyle.text }]}>Notes (Optional)</Text>
+          <Text style={[styles.label, { color: '#FFFFFF' }]}>Notes (Optional)</Text>
           <TextInput
             style={[styles.textArea, {
-              backgroundColor: themeStyle.background,
-              color: themeStyle.text,
-              borderColor: themeStyle.border
+              backgroundColor: '#2D2438',
+              color: '#FFFFFF',
+              borderColor: 'rgba(255, 255, 255, 0.1)'
             }]}
             placeholder="How did you feel? Any insights or observations?"
-            placeholderTextColor={themeStyle.label}
+            placeholderTextColor="#B8A8E6"
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -570,20 +689,20 @@ const ActivityTracker = () => {
         </TouchableOpacity>
 
         {/* Activity History Section */}
-        <View style={[styles.historySection, { backgroundColor: themeStyle.dashboardcard }]}>
+        <View style={[styles.historySection, { backgroundColor: '#473F5A' }]}>
           <TouchableOpacity
             style={styles.historyHeader}
             onPress={toggleHistory}
           >
             <View style={styles.historyHeaderContent}>
-              <Text style={[styles.historyTitle, { color: themeStyle.text }]}>
+              <Text style={[styles.historyTitle, { color: '#FFFFFF' }]}>
                 📊 Activity History
               </Text>
-              <Text style={[styles.historySubtitle, { color: themeStyle.label }]}>
+              <Text style={[styles.historySubtitle, { color: '#B8A8E6' }]}>
                 {showHistory ? 'Tap to hide' : 'View your recent activities and their impact'}
               </Text>
             </View>
-            <Text style={[styles.expandIcon, { color: themeStyle.text }]}>
+            <Text style={[styles.expandIcon, { color: '#FFFFFF' }]}>
               {showHistory ? '▲' : '▼'}
             </Text>
           </TouchableOpacity>
@@ -592,19 +711,19 @@ const ActivityTracker = () => {
             <View style={styles.historyContent}>
               {/* Filter Section */}
               <View style={styles.filterSection}>
-                <Text style={[styles.filterLabel, { color: themeStyle.text }]}>Filter by Activity Type:</Text>
+                <Text style={[styles.filterLabel, { color: '#FFFFFF' }]}>Filter by Activity Type:</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
                   <TouchableOpacity
                     style={[
                       styles.filterButton,
-                      { borderColor: themeStyle.border },
+                      { borderColor: 'rgba(255, 255, 255, 0.1)' },
                       historyFilter === 'all' && styles.selectedFilterButton
                     ]}
                     onPress={() => handleFilterChange('all')}
                   >
                     <Text style={[
                       styles.filterButtonText,
-                      { color: historyFilter === 'all' ? 'white' : themeStyle.text }
+                      { color: historyFilter === 'all' ? 'white' : '#FFFFFF' }
                     ]}>
                       All
                     </Text>
@@ -615,7 +734,7 @@ const ActivityTracker = () => {
                       key={type.value}
                       style={[
                         styles.filterButton,
-                        { borderColor: themeStyle.border },
+                        { borderColor: 'rgba(255, 255, 255, 0.1)' },
                         historyFilter === type.value && styles.selectedFilterButton
                       ]}
                       onPress={() => handleFilterChange(type.value)}
@@ -623,7 +742,7 @@ const ActivityTracker = () => {
                       <Text style={styles.filterEmoji}>{type.emoji}</Text>
                       <Text style={[
                         styles.filterButtonText,
-                        { color: historyFilter === type.value ? 'white' : themeStyle.text }
+                        { color: historyFilter === type.value ? 'white' : '#FFFFFF' }
                       ]}>
                         {type.label}
                       </Text>
@@ -634,16 +753,13 @@ const ActivityTracker = () => {
 
               {historyLoading ? (
                 <View style={styles.historyLoadingContainer}>
-                  <ActivityIndicator size="small" color="#10B981" />
-                  <Text style={[styles.historyLoadingText, { color: themeStyle.label }]}>
-                    Loading your activities...
-                  </Text>
+                  <ActivityIndicator size="small" color="#A78BFA" />
                 </View>
               ) : activityHistory.length > 0 ? (
                 <View style={styles.historyList}>
                   {/* History Summary */}
-                  <View style={[styles.historySummary, { backgroundColor: themeStyle.background }]}>
-                    <Text style={[styles.historySummaryTitle, { color: themeStyle.text }]}>
+                  <View style={[styles.historySummary, { backgroundColor: '#2D2438' }]}>
+                    <Text style={[styles.historySummaryTitle, { color: '#FFFFFF' }]}>
                       📈 Quick Stats
                     </Text>
                     <View style={styles.historySummaryGrid}>
@@ -651,7 +767,7 @@ const ActivityTracker = () => {
                         <Text style={[styles.summaryValue, { color: '#10B981' }]}>
                           {activityHistory.length}
                         </Text>
-                        <Text style={[styles.summaryLabel, { color: themeStyle.label }]}>
+                        <Text style={[styles.summaryLabel, { color: '#B8A8E6' }]}>
                           Activities
                         </Text>
                       </View>
@@ -659,7 +775,7 @@ const ActivityTracker = () => {
                         <Text style={[styles.summaryValue, { color: '#10B981' }]}>
                           {Math.round(activityHistory.reduce((sum, activity) => sum + activity.duration_minutes, 0) / activityHistory.length) || 0}
                         </Text>
-                        <Text style={[styles.summaryLabel, { color: themeStyle.label }]}>
+                        <Text style={[styles.summaryLabel, { color: '#B8A8E6' }]}>
                           Avg Duration
                         </Text>
                       </View>
@@ -667,7 +783,7 @@ const ActivityTracker = () => {
                         <Text style={[styles.summaryValue, { color: '#10B981' }]}>
                           {(activityHistory.filter(activity => (activity.mood_after || 0) > (activity.mood_before || 0)).length / activityHistory.length * 100).toFixed(0)}%
                         </Text>
-                        <Text style={[styles.summaryLabel, { color: themeStyle.label }]}>
+                        <Text style={[styles.summaryLabel, { color: '#B8A8E6' }]}>
                           Mood Boost
                         </Text>
                       </View>
@@ -675,7 +791,7 @@ const ActivityTracker = () => {
                         <Text style={[styles.summaryValue, { color: '#10B981' }]}>
                           {activityHistory.reduce((sum, activity) => sum + activity.duration_minutes, 0)}
                         </Text>
-                        <Text style={[styles.summaryLabel, { color: themeStyle.label }]}>
+                        <Text style={[styles.summaryLabel, { color: '#B8A8E6' }]}>
                           Total Mins
                         </Text>
                       </View>
@@ -683,31 +799,31 @@ const ActivityTracker = () => {
                   </View>
 
                   {activityHistory.map((activity) => (
-                    <View key={activity.id} style={[styles.historyCard, { backgroundColor: themeStyle.background }]}>
+                    <View key={activity.id} style={[styles.historyCard, { backgroundColor: '#2D2438' }]}>
                       <View style={styles.historyCardHeader}>
                         <View style={styles.historyCardTitle}>
                           <Text style={styles.activityHistoryEmoji}>
                             {getActivityTypeEmoji(activity.activity_type)}
                           </Text>
-                          <Text style={[styles.historyActivityTitle, { color: themeStyle.text }]}>
+                          <Text style={[styles.historyActivityTitle, { color: '#FFFFFF' }]}>
                             {activity.activity_name}
                           </Text>
-                          <Text style={[styles.activityDuration, { color: themeStyle.label }]}>
+                          <Text style={[styles.activityDuration, { color: '#B8A8E6' }]}>
                             {activity.duration_minutes}min
                           </Text>
                         </View>
                         <View style={styles.historyDateContainer}>
-                          <Text style={[styles.historyActivityDate, { color: themeStyle.text }]}>
+                          <Text style={[styles.historyActivityDate, { color: '#FFFFFF' }]}>
                             {formatActivityDate(activity.activity_date || activity.created_at)}
                           </Text>
-                          <Text style={[styles.historyDate, { color: themeStyle.label }]}>
+                          <Text style={[styles.historyDate, { color: '#B8A8E6' }]}>
                             {formatDate(activity.created_at)}
                           </Text>
                         </View>
                       </View>
 
                       {activity.description && (
-                        <Text style={[styles.historyDescription, { color: themeStyle.text }]} numberOfLines={1}>
+                        <Text style={[styles.historyDescription, { color: '#FFFFFF' }]} numberOfLines={1}>
                           {activity.description}
                         </Text>
                       )}
@@ -715,18 +831,18 @@ const ActivityTracker = () => {
                       <View style={styles.historyCardFooter}>
                         <View style={styles.historyImpactRow}>
                           <View style={styles.impactSection}>
-                            <Text style={[styles.impactSectionTitle, { color: themeStyle.text }]}>😊 Mood Impact</Text>
+                            <Text style={[styles.impactSectionTitle, { color: '#FFFFFF' }]}>😊 Mood Impact</Text>
                             <View style={styles.impactIndicators}>
                               <View style={styles.impactItem}>
                                 <Text style={styles.historyImpactLabel}>Before</Text>
-                                <Text style={[styles.impactValue, { color: themeStyle.text }]}>
+                                <Text style={[styles.impactValue, { color: '#FFFFFF' }]}>
                                   {activity.mood_before}
                                 </Text>
                               </View>
-                              <Text style={[styles.impactArrow, { color: themeStyle.label }]}>→</Text>
+                              <Text style={[styles.impactArrow, { color: '#B8A8E6' }]}>→</Text>
                               <View style={styles.impactItem}>
                                 <Text style={styles.historyImpactLabel}>After</Text>
-                                <Text style={[styles.impactValue, { color: themeStyle.text }]}>
+                                <Text style={[styles.impactValue, { color: '#FFFFFF' }]}>
                                   {activity.mood_after}
                                 </Text>
                               </View>
@@ -734,7 +850,7 @@ const ActivityTracker = () => {
                                 styles.impactChange,
                                 { 
                                   color: activity.mood_impact?.includes?.('+') ? '#10B981' : 
-                                         activity.mood_impact?.includes?.('-') ? '#EF4444' : themeStyle.label
+                                         activity.mood_impact?.includes?.('-') ? '#EF4444' : '#B8A8E6'
                                 }
                               ]}>
                                 {activity.mood_impact || 'No change'}
@@ -743,18 +859,18 @@ const ActivityTracker = () => {
                           </View>
 
                           <View style={styles.impactSection}>
-                            <Text style={[styles.impactSectionTitle, { color: themeStyle.text }]}>⚡ Energy Impact</Text>
+                            <Text style={[styles.impactSectionTitle, { color: '#FFFFFF' }]}>⚡ Energy Impact</Text>
                             <View style={styles.impactIndicators}>
                               <View style={styles.impactItem}>
                                 <Text style={styles.historyImpactLabel}>Before</Text>
-                                <Text style={[styles.impactValue, { color: themeStyle.text }]}>
+                                <Text style={[styles.impactValue, { color: '#FFFFFF' }]}>
                                   {activity.energy_before}
                                 </Text>
                               </View>
-                              <Text style={[styles.impactArrow, { color: themeStyle.label }]}>→</Text>
+                              <Text style={[styles.impactArrow, { color: '#B8A8E6' }]}>→</Text>
                               <View style={styles.impactItem}>
                                 <Text style={styles.historyImpactLabel}>After</Text>
-                                <Text style={[styles.impactValue, { color: themeStyle.text }]}>
+                                <Text style={[styles.impactValue, { color: '#FFFFFF' }]}>
                                   {activity.energy_after}
                                 </Text>
                               </View>
@@ -762,7 +878,7 @@ const ActivityTracker = () => {
                                 styles.impactChange,
                                 { 
                                   color: activity.energy_impact?.includes?.('+') ? '#10B981' : 
-                                         activity.energy_impact?.includes?.('-') ? '#EF4444' : themeStyle.label
+                                         activity.energy_impact?.includes?.('-') ? '#EF4444' : '#B8A8E6'
                                 }
                               ]}>
                                 {activity.energy_impact || 'No change'}
@@ -773,16 +889,16 @@ const ActivityTracker = () => {
 
                         <View style={styles.activityDetails}>
                           <View style={styles.detailItem}>
-                            <Text style={[styles.detailLabel, { color: themeStyle.label }]}>Intensity:</Text>
-                            <Text style={[styles.detailValue, { color: themeStyle.text }]}>
+                            <Text style={[styles.detailLabel, { color: '#B8A8E6' }]}>Intensity:</Text>
+                            <Text style={[styles.detailValue, { color: '#FFFFFF' }]}>
                               {getIntensityLabel(activity.intensity)}
                             </Text>
                           </View>
                           
                           {activity.location && (
                             <View style={styles.detailItem}>
-                              <Text style={[styles.detailLabel, { color: themeStyle.label }]}>Location:</Text>
-                              <Text style={[styles.detailValue, { color: themeStyle.text }]}>
+                              <Text style={[styles.detailLabel, { color: '#B8A8E6' }]}>Location:</Text>
+                              <Text style={[styles.detailValue, { color: '#FFFFFF' }]}>
                                 📍 {activity.location}
                               </Text>
                             </View>
@@ -790,7 +906,7 @@ const ActivityTracker = () => {
                           
                           {activity.with_others && (
                             <View style={styles.detailItem}>
-                              <Text style={[styles.detailValue, { color: themeStyle.text }]}>
+                              <Text style={[styles.detailValue, { color: '#FFFFFF' }]}>
                                 👥 With others
                               </Text>
                             </View>
@@ -799,8 +915,8 @@ const ActivityTracker = () => {
 
                         {activity.notes && (
                           <View style={styles.notesSection}>
-                            <Text style={[styles.notesLabel, { color: themeStyle.label }]}>Notes:</Text>
-                            <Text style={[styles.notesText, { color: themeStyle.text }]} numberOfLines={2}>
+                            <Text style={[styles.notesLabel, { color: '#B8A8E6' }]}>Notes:</Text>
+                            <Text style={[styles.notesText, { color: '#FFFFFF' }]} numberOfLines={2}>
                               {activity.notes}
                             </Text>
                           </View>
@@ -811,7 +927,7 @@ const ActivityTracker = () => {
                 </View>
               ) : (
                 <View style={styles.emptyHistory}>
-                  <Text style={[styles.emptyHistoryText, { color: themeStyle.label }]}>
+                  <Text style={[styles.emptyHistoryText, { color: '#B8A8E6' }]}>
                     📊 No activities logged yet.{'\n'}Start tracking your activities to see their impact!
                   </Text>
                 </View>
@@ -821,8 +937,8 @@ const ActivityTracker = () => {
         </View>
 
         <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 };
 
@@ -831,39 +947,28 @@ export default ActivityTracker;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#342949',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
-    backgroundColor: '#10B981',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  screenGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 0,
   },
-  backText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+  bubble: {
+    position: 'absolute',
+    borderRadius: 1000,
+    zIndex: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
+  scroll: {
+    flex: 1,
+    zIndex: 2,
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingBottom: 20,
   },
   card: {
     borderRadius: 16,

@@ -310,8 +310,7 @@ export default function PlayBreathingScreen() {
     return (
       <LinearGradient colors={['#342949', '#2A1F3D', '#1E1529']} style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#B8A8E6" />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <ActivityIndicator size="large" color="#A78BFA" />
         </View>
       </LinearGradient>
     );

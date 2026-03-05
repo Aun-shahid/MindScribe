@@ -434,8 +434,7 @@ export default function PlaySoundScreen() {
 
   if (loading) return (
     <View style={[styles.center, { backgroundColor: '#342949' }]}>
-      <ActivityIndicator size="large" color="#B8A8E6" />
-      <Text style={{ color: '#FFFFFF', marginTop: 12 }}>Loading...</Text>
+      <ActivityIndicator size="large" color="#A78BFA" />
     </View>
   );
 

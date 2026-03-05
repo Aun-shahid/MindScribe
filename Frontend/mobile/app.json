@@ -37,7 +37,12 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-barcode-scanner"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TherapEase to access your camera to scan therapist QR codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

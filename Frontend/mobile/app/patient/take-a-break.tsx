@@ -5,20 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   Animated,
-  Dimensions,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
-
-const { height: screenHeight } = Dimensions.get('window');
 
 export default function TakeABreakScreen() {
   const router = useRouter();
@@ -126,13 +123,13 @@ export default function TakeABreakScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#342949' }]}>
+    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#342949" />
+
       {/* Gradient background */}
       <LinearGradient
-        colors={['#342949', '#342949', '#342949']}
-        start={[0, 0]}
-        end={[0, 1]}
-        style={[styles.screenGradient, { height: screenHeight }]}
+        colors={['#342949', '#2a1f3d', '#342949']}
+        style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
       {/* Floating bubble decorations with animation */}
@@ -169,7 +166,25 @@ export default function TakeABreakScreen() {
         scrollY={scrollY}
         firstWord="Take a"
         secondWord="Break"
+        onBackPress={() => router.back()}
       />
+
+      {/* Animated fading header */}
+      <Animated.View style={[styles.fadingHeader, {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          <Text style={styles.headerWhite}>Take a </Text>
+          <Text style={styles.headerPurple}>Break</Text>
+        </Text>
+      </Animated.View>
 
       <Animated.ScrollView
         style={styles.scroll}
@@ -180,13 +195,6 @@ export default function TakeABreakScreen() {
         )}
         scrollEventThrottle={16}
       >
-        {/* Original Header */}
-        <OriginalHeader
-          scrollY={scrollY}
-          firstWord="Take a"
-          secondWord="Break"
-        />
-
         {/* Top Illustration */}
         <View style={styles.illustrationContainer}>
           <Image
@@ -279,7 +287,7 @@ export default function TakeABreakScreen() {
 
         <View style={{ height: 30 }} />
       </Animated.ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -287,13 +295,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  screenGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    zIndex: 0,
+  fadingHeader: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
   },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 52,
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   floatingBubbles: {
     position: 'absolute',
     top: 0,

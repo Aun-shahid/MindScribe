@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import api from '../utils/api';
 import { FontAwesome } from '@expo/vector-icons';
+import StickyHeader from '../components/StickyHeader';
 
 // Mood options with emojis
 const moods = [
@@ -53,6 +54,9 @@ export default function MoodDetailScreen() {
   const [moodEntry, setMoodEntry] = useState<MoodEntryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -285,17 +289,42 @@ export default function MoodDetailScreen() {
           { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
         ]} />
       </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/patient/mood')} style={styles.backButton}>
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            <Text style={styles.headerBlue}>Mood </Text>
-            <Text style={styles.headerOrange}>Details</Text>
-          </Text>
-        </View>
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Mood"
+        secondWord="Details"
+        onBackPress={() => router.push('/patient/mood')}
+      />
+
+      {/* Animated Header - Fades out on scroll */}
+      <Animated.View style={[styles.headerContainer, {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity onPress={() => router.push('/patient/mood')} style={styles.backButton}>
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>
+          <Text style={styles.headerWhite}>Mood </Text>
+          <Text style={styles.headerPurple}>Details</Text>
+        </Text>
+      </Animated.View>
+
+      <Animated.ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
 
         {/* Main Mood Display */}
         <View style={[styles.moodCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
@@ -420,7 +449,7 @@ export default function MoodDetailScreen() {
         </View>
 
         <View style={styles.bottomPadding} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -431,7 +460,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 80,
   },
   screenGradient: {
     position: 'absolute',
@@ -452,34 +481,28 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     opacity: 1,
   },
-  header: {
-    marginBottom: 30,
-    alignItems: 'center',
+  headerContainer: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+    marginBottom: 14,
+    marginHorizontal: 0,
   },
-  backBtnCircle: {
+  backButton: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    zIndex: 2,
+    left: 20,
+    top: 52,
+    padding: 8,
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
+    marginBottom: 10,
+    marginTop: 20,
     textAlign: 'center',
   },
-  headerBlue: {
-    color: '#FFFFFF',
-  },
-  headerOrange: {
-    color: '#B8A8E6',
-  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

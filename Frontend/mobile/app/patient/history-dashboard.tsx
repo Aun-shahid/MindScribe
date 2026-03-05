@@ -448,10 +448,7 @@ const HistoryDashboard = () => {
         </View>
         
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
-          <Text style={[styles.loadingText, { color: themeStyle.text }]}>
-            Loading your dashboard...
-          </Text>
+          <ActivityIndicator size="large" color="#A78BFA" />
         </View>
       </SafeAreaView>
     );

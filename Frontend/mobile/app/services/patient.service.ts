@@ -423,8 +423,23 @@ class PatientService {
    * Get all journal entries with optional filters
    */
   async getJournalEntries(filters?: JournalFilters): Promise<JournalEntry[]> {
-    const response = await api.get<JournalEntry[]>('/patients/journal/', { params: filters });
-    return response.data;
+    try {
+      const response = await api.get<JournalEntry[]>('/patients/journal/', { params: filters });
+      console.log('[PatientService] Journal entries response:', response.data);
+      // Handle both array and paginated response
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      // If paginated, extract results
+      if (response.data && typeof response.data === 'object' && 'results' in response.data) {
+        return (response.data as any).results || [];
+      }
+      console.warn('[PatientService] Unexpected response format:', response.data);
+      return [];
+    } catch (error) {
+      console.error('[PatientService] Error fetching journal entries:', error);
+      throw error;
+    }
   }
 
   /**

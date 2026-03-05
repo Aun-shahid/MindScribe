@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -6,21 +6,20 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   RefreshControl,
   TextInput,
   Animated,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import type { JournalEntry, JournalFilters } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 export default function JournalList() {
   const { themeStyle } = useTheme();
@@ -67,6 +66,9 @@ export default function JournalList() {
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
 
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     loadEntries();
     Animated.timing(fadeAnim, {
@@ -81,7 +83,7 @@ export default function JournalList() {
     };
     const off = eventBus.subscribe('journalUpdated', onJournalUpdated);
     return () => off();
-  }, [filters]);
+  }, [loadEntries, fadeAnim]);
 
   useEffect(() => {
     // Floating bubble animations
@@ -132,17 +134,37 @@ export default function JournalList() {
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
   }, []);
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     try {
+      console.log('[JournalList] Starting to load entries with filters:', filters);
       const data = await PatientService.getJournalEntries(filters);
-      setEntries(data);
+      console.log('[JournalList] Loaded entries:', data?.length, 'entries');
+      console.log('[JournalList] First entry sample:', data?.[0]);
+      
+      // Ensure we always set an array
+      if (Array.isArray(data)) {
+        setEntries(data);
+      } else {
+        console.warn('[JournalList] Data is not an array:', data);
+        setEntries([]);
+      }
     } catch (err: any) {
       console.error('[JournalList] Error loading:', err);
+      console.error('[JournalList] Error response:', err?.response);
+      console.error('[JournalList] Error details:', err?.response?.data);
+      // Set empty array on error
+      setEntries([]);
+      // Show user-friendly error
+      Alert.alert(
+        'Failed to Load Journals',
+        err?.response?.data?.detail || 'Could not load your journal entries. Please try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [filters]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -320,9 +342,10 @@ export default function JournalList() {
       <LinearGradient
         colors={['#342949', '#2A1F3D', '#342949']}
         style={styles.screenGradient}
+        pointerEvents="none"
       />
       
-      <View style={styles.floatingBubbles}>
+      <View style={styles.floatingBubbles} pointerEvents="none">
         <Animated.View
           style={[
             styles.bubble,
@@ -405,121 +428,23 @@ export default function JournalList() {
         />
       </View>
 
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Journal"
+        secondWord="Home"
+        onBackPress={() => router.back()}
+      />
+
+      {/* Analytics Button (fixed position) */}
+      <TouchableOpacity
+        style={styles.analyticsButtonFixed}
+        onPress={() => router.push('./journal-analytics-detail')}
+      >
+        <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
+      </TouchableOpacity>
+
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        {/* Header (matching SharedHeader styles) */}
-        <View style={[styles.headerContainer, { backgroundColor: '#342949' }]}> 
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}> 
-            <Text style={styles.headerWhite}>Journal</Text>
-            <Text style={styles.headerPurple}> Home</Text>
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.analyticsButton, { backgroundColor: '#473F5A' }]}
-            onPress={() => router.push('./journal-analytics-detail') }
-          >
-            <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Gradient CTA */}
-        <View style={styles.ctaWrap}>
-          <TouchableOpacity onPress={() => router.push('/patient/create-journal') } style={styles.newEntryButton}>
-            <Text style={styles.newEntryText}>+ New Journal Entry</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search & Filters */}
-        <View style={styles.filterSection}>
-          <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-            <FontAwesome5 name="search" size={16} color="#B8A8E6" style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, { color: '#FFFFFF' }]}
-              placeholder="Search journals..."
-              placeholderTextColor="#B8A8E6"
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-          </View>
-
-          <View style={styles.filterRow}> 
-            <View style={styles.filterRowLeft}>
-              <TouchableOpacity
-                style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
-                onPress={() => { setShowFavoritesOnly(false); setFilters(prev => ({ ...prev, favorite: undefined })); }}
-              >
-                <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
-                <Text style={[styles.pillText, !showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>All</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
-                onPress={() => { setShowFavoritesOnly(true); setFilters(prev => ({ ...prev, favorite: 'true' })); }}
-              >
-                <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
-                <Text style={[styles.pillText, showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>Favorites</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.filterRowRight}>
-              {ordering !== '-created_at' && (
-                <TouchableOpacity style={styles.clearButtonActive} onPress={clearFilters} accessibilityLabel="Clear filters">
-                  <Text style={styles.clearX}>✕</Text>
-                  <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={styles.pillAlt}
-                onPress={() => setShowOrderingPicker(!showOrderingPicker)}
-              >
-                <Text style={[styles.pillText, {color: '#B8A8E6'}]}>{getOrderingLabel()}</Text>
-                <FontAwesome name="chevron-down" size={14} color="#B8A8E6" style={{ marginLeft: 8 }} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {showOrderingPicker && (
-            <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
-              <TouchableOpacity
-                style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive]}
-                onPress={() => handleOrdering('-created_at')}
-              >
-                <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                  Newest First
-                </Text>
-                {ordering === '-created_at' && <Text style={styles.checkIcon}>✓</Text>}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.orderingOption, ordering === 'created_at' && styles.orderingOptionActive]}
-                onPress={() => handleOrdering('created_at')}
-              >
-                <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                  Oldest First
-                </Text>
-                {ordering === 'created_at' && <Text style={styles.checkIcon}>✓</Text>}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.orderingOption, ordering === '-updated_at' && styles.orderingOptionActive]}
-                onPress={() => handleOrdering('-updated_at')}
-              >
-                <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                  Recently Updated
-                </Text>
-                {ordering === '-updated_at' && <Text style={styles.checkIcon}>✓</Text>}
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
         {/* Entries List */}
         {entries.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -538,13 +463,121 @@ export default function JournalList() {
             </TouchableOpacity>
           </View>
         ) : (
-          <FlatList
+          <Animated.FlatList
             data={entries}
             renderItem={renderJournalCard}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
+            ListHeaderComponent={
+              <>
+                {/* Original Header */}
+                <OriginalHeader
+                  scrollY={scrollY}
+                  firstWord="Journal"
+                  secondWord="Home"
+                  onBackPress={() => router.back()}
+                />
+
+                {/* Gradient CTA */}
+                <View style={styles.ctaWrap}>
+                  <TouchableOpacity onPress={() => router.push('/patient/create-journal') } style={styles.newEntryButton}>
+                    <Text style={styles.newEntryText}>+ New Journal Entry</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search & Filters */}
+                <View style={styles.filterSection}>
+                  <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
+                    <FontAwesome5 name="search" size={16} color="#B8A8E6" style={styles.searchIcon} />
+                    <TextInput
+                      style={[styles.searchInput, { color: '#FFFFFF' }]}
+                      placeholder="Search journals..."
+                      placeholderTextColor="#B8A8E6"
+                      value={searchQuery}
+                      onChangeText={handleSearch}
+                    />
+                  </View>
+
+                  <View style={styles.filterRow}> 
+                    <View style={styles.filterRowLeft}>
+                      <TouchableOpacity
+                        style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
+                        onPress={() => { setShowFavoritesOnly(false); setFilters(prev => ({ ...prev, favorite: undefined })); }}
+                      >
+                        <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+                        <Text style={[styles.pillText, !showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>All</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
+                        onPress={() => { setShowFavoritesOnly(true); setFilters(prev => ({ ...prev, favorite: 'true' })); }}
+                      >
+                        <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+                        <Text style={[styles.pillText, showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>Favorites</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.filterRowRight}>
+                      {ordering !== '-created_at' && (
+                        <TouchableOpacity style={styles.clearButtonActive} onPress={clearFilters} accessibilityLabel="Clear filters">
+                          <Text style={styles.clearX}>✕</Text>
+                          <Text style={styles.clearText}>Clear</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.pillAlt}
+                        onPress={() => setShowOrderingPicker(!showOrderingPicker)}
+                      >
+                        <Text style={[styles.pillText, {color: '#B8A8E6'}]}>{getOrderingLabel()}</Text>
+                        <FontAwesome name="chevron-down" size={14} color="#B8A8E6" style={{ marginLeft: 8 }} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {showOrderingPicker && (
+                    <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
+                      <TouchableOpacity
+                        style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive]}
+                        onPress={() => handleOrdering('-created_at')}
+                      >
+                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
+                          Newest First
+                        </Text>
+                        {ordering === '-created_at' && <Text style={styles.checkIcon}>✓</Text>}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.orderingOption, ordering === 'created_at' && styles.orderingOptionActive]}
+                        onPress={() => handleOrdering('created_at')}
+                      >
+                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
+                          Oldest First
+                        </Text>
+                        {ordering === 'created_at' && <Text style={styles.checkIcon}>✓</Text>}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.orderingOption, ordering === '-updated_at' && styles.orderingOptionActive]}
+                        onPress={() => handleOrdering('-updated_at')}
+                      >
+                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
+                          Recently Updated
+                        </Text>
+                        {ordering === '-updated_at' && <Text style={styles.checkIcon}>✓</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </>
             }
           />
         )}
@@ -644,6 +677,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 4,
+  },
+  analyticsButtonFixed: {
+    position: 'absolute',
+    right: 18,
+    top: 52,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#473F5A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 1001,
   },
   createButton: {
     backgroundColor: '#524f85',
@@ -897,12 +947,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     alignSelf: 'center',
     width: '94%',
     borderWidth: 1,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
     shadowRadius: 6,
   },
   deleteIconButton: {

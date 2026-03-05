@@ -2,17 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
   Animated,
 } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import PatientService, { JournalAnalytics } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2; // 2 columns with padding
@@ -23,6 +23,9 @@ export default function JournalAnalyticsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Floating bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -439,21 +442,31 @@ export default function JournalAnalyticsScreen() {
         ]}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Journal"
+        secondWord="Analytics"
+        onBackPress={() => router.back()}
+      />
+
+      <Animated.ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
         <Animated.View style={{ opacity: fadeAnim }}>
-          {/* Header */}
-          <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}> 
-              <Text style={styles.headerBlue}>Journal </Text>
-              <Text style={styles.headerOrange}>Analytics</Text>
-            </Text>
-
-            {/* no right icon per design */}
-          </View>
+          {/* Original Header */}
+          <OriginalHeader
+            scrollY={scrollY}
+            firstWord="Journal"
+            secondWord="Analytics"
+            onBackPress={() => router.back()}
+          />
           {/* Debug info removed for production; re-enable if needed during development. */}
 
           {/* Stats Cards Grid */}
@@ -494,7 +507,7 @@ export default function JournalAnalyticsScreen() {
         {/* Footer Spacing */}
         <View style={{ height: 40 }} />
       </Animated.View>
-    </ScrollView>
+    </Animated.ScrollView>
     </View>
   );
 }

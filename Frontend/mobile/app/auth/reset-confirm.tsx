@@ -109,10 +109,10 @@ export default function ResetConfirmScreen() {
 
           <Text style={styles.inputLabel}>Enter new password</Text>
           <View style={[styles.inputBox, passwordError && styles.inputBoxError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#524f85" />
+            <Ionicons name="lock-closed-outline" size={20} color="#8D8BA7" />
             <TextInput
               placeholder="New Password"
-              placeholderTextColor="#999"
+              placeholderTextColor="#8D8BA7"
               style={styles.input}
               onChangeText={handlePasswordChange}
               value={password}
@@ -123,10 +123,10 @@ export default function ResetConfirmScreen() {
 
           <Text style={styles.inputLabel}>Confirm new password</Text>
           <View style={[styles.inputBox, confirmPasswordError && styles.inputBoxError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#524f85" />
+            <Ionicons name="lock-closed-outline" size={20} color="#8D8BA7" />
             <TextInput
               placeholder="Confirm Password"
-              placeholderTextColor="#999"
+              placeholderTextColor="#8D8BA7"
               style={styles.input}
               onChangeText={handleConfirmPasswordChange}
               value={confirmPassword}
@@ -165,7 +165,7 @@ export default function ResetConfirmScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#342949',
     padding: 15,
   },
   container: {
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#524f85',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#8D8BA7',
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 10,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#524f85',
+    color: '#FFFFFF',
     alignSelf: 'flex-start',
     marginBottom: 8,
     marginLeft: 5,
@@ -217,12 +217,12 @@ const styles = StyleSheet.create({
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: '#ccc',
+    borderColor: 'rgba(255,255,255,0.2)',
     borderWidth: 1,
     borderRadius: 10,
     marginBottom: 20,
     paddingHorizontal: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     width: '100%',
     height: 50,
   },
@@ -233,11 +233,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF',
     marginLeft: 10,
   },
   resetButton: {
-    backgroundColor: '#524f85',
+    backgroundColor: '#A78BFA',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -245,6 +245,11 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 20,
     minHeight: 48,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
   resetButtonDisabled: {
     backgroundColor: '#9e9e9e',
@@ -259,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#524f85',
+    color: '#FFFFFF',
     fontSize: 16,
   },
   linkTextDisabled: {

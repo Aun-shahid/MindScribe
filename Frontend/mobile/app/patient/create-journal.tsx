@@ -5,14 +5,11 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Alert,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -21,6 +18,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import type { CreateJournalEntryData, JournalPrompt } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
 
@@ -43,6 +42,9 @@ export default function CreateJournal() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
+  
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
   
   const initialFormData: CreateJournalEntryData = {
     title: '',
@@ -227,9 +229,10 @@ export default function CreateJournal() {
       <LinearGradient
         colors={['#342949', '#2A1F3D', '#342949']}
         style={styles.screenGradient}
+        pointerEvents="none"
       />
       
-      <View style={styles.floatingBubbles}>
+      <View style={styles.floatingBubbles} pointerEvents="none">
         <Animated.View
           style={[
             styles.bubble,
@@ -312,25 +315,35 @@ export default function CreateJournal() {
         />
       </View>
 
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="New"
+        secondWord="Journal"
+        onBackPress={() => router.back()}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Animated.ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
           <Animated.View style={{ opacity: fadeAnim }}>
-            {/* Header */}
-            <View style={[styles.headerContainer, { backgroundColor: '#342949' }]}> 
-              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
-                <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <View style={styles.headerInner}> 
-                <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}> 
-                  <Text style={styles.headerWhite}>New </Text>
-                  <Text style={styles.headerPurple}>Journal</Text>
-                </Text>
-              </View>
-            </View>
+            {/* Original Header */}
+            <OriginalHeader
+              scrollY={scrollY}
+              firstWord="New"
+              secondWord="Journal"
+              onBackPress={() => router.back()}
+            />
 
             {/* Today's Prompt Section */}
             {loadingPrompt ? (
@@ -501,7 +514,7 @@ export default function CreateJournal() {
               </View>
             </TouchableOpacity>
           </Animated.View>
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

@@ -19,13 +19,11 @@ import { router } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 // import { validateEmailField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
-import { useTheme } from '../contexts/ThemeContext';
 
 export default function RequestResetScreen() {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const { requestPasswordReset, isLoading, error, clearError } = useAuth();
-  const { theme, themeStyle, toggleTheme } = useTheme();
   const handleResetRequest = async () => {
     // Validate email
     // const emailValidation = validateEmailField(email);
@@ -63,13 +61,13 @@ export default function RequestResetScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }]}>
+    <SafeAreaView style={styles.wrapper}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: themeStyle.title }]}>Forgot Your Password?</Text>
+          <Text style={styles.title}>Forgot Your Password?</Text>
 
           <Image
             style={styles.img}
@@ -77,7 +75,7 @@ export default function RequestResetScreen() {
             resizeMode="contain"
           />
           
-         <Text style={[styles.subtitle, { color: themeStyle.text }]}>
+         <Text style={styles.subtitle}>
   Enter your email address and we will send you a link to reset your password.
 </Text>
 
@@ -89,10 +87,10 @@ export default function RequestResetScreen() {
           )}
 
           <View style={[styles.inputWrapper, emailError && styles.inputWrapperError]}>
-            <MaterialIcons name="email" size={20} color="#524f85" style={styles.icon} />
+            <MaterialIcons name="email" size={20} color="#8D8BA7" style={styles.icon} />
             <TextInput
               placeholder="Email"
-              placeholderTextColor="#999"
+              placeholderTextColor="#8D8BA7"
               style={styles.input}
               onChangeText={handleEmailChange}
               value={email}
@@ -105,7 +103,6 @@ export default function RequestResetScreen() {
          <TouchableOpacity 
   style={[
     styles.resetButton, 
-    { backgroundColor: themeStyle.button }, 
     isLoading && styles.resetButtonDisabled
   ]} 
   onPress={handleResetRequest}
@@ -123,7 +120,7 @@ export default function RequestResetScreen() {
             onPress={() => router.push('./login')}
             disabled={isLoading}
           >
-            <Text style={[styles.linkText, { color: themeStyle.text }, isLoading && styles.linkTextDisabled]}>
+            <Text style={[styles.linkText, isLoading && styles.linkTextDisabled]}>
               ← Back to Login
             </Text>
           </TouchableOpacity>
@@ -136,7 +133,7 @@ export default function RequestResetScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    //backgroundColor: '#ffffff',
+    backgroundColor: '#342949',
     padding: 15,
   },
   container: {
@@ -159,13 +156,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: '700',
-    color: '#524f85',
+    color: '#FFFFFF',
     textAlign: 'center',
-    // marginBottom: 30,
   },
   subtitle: {
     fontSize: 17,
-    // color: '#666',
+    color: '#8D8BA7',
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 10,
@@ -187,12 +183,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: '#ccc',
+    borderColor: 'rgba(255,255,255,0.2)',
     borderWidth: 1,
     borderRadius: 10,
     marginBottom: 20,
     paddingHorizontal: 10,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     width: '100%',
     height: 50,
   },
@@ -206,10 +202,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 17,
-    color: '#333',
+    color: '#FFFFFF',
   },
   resetButton: {
-    // backgroundColor: '#524f85',
+    backgroundColor: '#A78BFA',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -217,6 +213,11 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
     minHeight: 48,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
   },
   resetButtonDisabled: {
     backgroundColor: '#9e9e9e',
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     marginTop: 24,
-    color: '#524f85',
+    color: '#FFFFFF',
     fontSize: 16,
     textAlign: 'center',
   },

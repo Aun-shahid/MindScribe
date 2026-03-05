@@ -204,9 +204,8 @@ export default function Dashboard() {
   // ────────── Loading / Error States ──────────
   if (profileLoading || loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.text} />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>Loading your dashboard...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: '#342949' }]}>
+        <ActivityIndicator size="large" color="#A78BFA" />
       </View>
     );
   }
@@ -526,22 +525,23 @@ export default function Dashboard() {
         ListHeaderComponent={() => (
           <>
             {/* Top header with greeting and stat cards */}
-            <View style={[styles.header, { paddingVertical: 26, paddingHorizontal: 18 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.headerTitleLarge]}>Welcome, {user.first_name}</Text>
+            <View style={styles.header}>
+              {/* Bell icon - absolute top right */}
+              <TouchableOpacity style={styles.bellButton} onPress={() => router.push('./notifications' as any)}>
+                <View style={{ position: 'relative' }}>
+                  <FontAwesome name="bell" size={22} color={'#FFFFFF'} />
+                  {unreadCount > 0 && (
+                    <View style={{ position: 'absolute', right: -4, top: -4, backgroundColor: '#ff3b30', borderRadius: 8, minWidth: 16, paddingHorizontal: 4, height: 16, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unreadCount}</Text>
+                    </View>
+                  )}
                 </View>
-                <TouchableOpacity style={{ marginLeft: 12 }} onPress={() => router.push('./notifications' as any)}>
-                  <View style={{ position: 'relative', padding: 6, marginTop: -2 }}>
-                    <FontAwesome name="bell" size={22} color={'#FFFFFF'} />
-                    {unreadCount > 0 && (
-                      <View style={{ position: 'absolute', right: 2, top: 2, backgroundColor: '#ff3b30', borderRadius: 8, minWidth: 16, paddingHorizontal: 4, height: 16, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unreadCount}</Text>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
+
+              <Text style={styles.headerTitleLarge}>
+                <Text style={styles.headerTitleWhite}>Welcome, </Text>
+                <Text style={styles.headerTitlePurple}>{user.first_name}!</Text>
+              </Text>
 
               <View style={styles.headerStatsRowNew}>
                 <View style={styles.topStatCard}>
@@ -1045,10 +1045,9 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 16,
     marginHorizontal: -12,
-    paddingVertical: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
     paddingHorizontal: 20,
-    borderRadius: 0,
-    overflow: 'hidden',
     backgroundColor: 'transparent',
   },
   greeting: {
@@ -1604,9 +1603,19 @@ const styles = StyleSheet.create({
   headerTitleLarge: {
     fontSize: 26,
     fontWeight: '800',
+    textAlign: 'center',
+  },
+  headerTitleWhite: {
     color: '#FFFFFF',
-    marginTop: -14,
-    marginLeft: 6,
+  },
+  headerTitlePurple: {
+    color: '#B8A8E6',
+  },
+  bellButton: {
+    position: 'absolute',
+    right: 20,
+    top: 18,
+    padding: 6,
   },
   topStatCard: {
     flex: 1,
