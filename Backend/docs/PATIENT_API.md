@@ -46,6 +46,9 @@ Returns patient dashboard overview with current mood, journal stats, goals, and 
 
 ### Mood Tracking
 
+For full mood architecture, alert rules, realtime behavior, and frontend contract, see:
+`Backend/docs/MOOD_LOGGING_SYSTEM.md`
+
 #### List/Create Mood Entries
 **GET/POST** `/api/patients/mood/`
 
@@ -57,16 +60,20 @@ Returns patient dashboard overview with current mood, journal stats, goals, and 
 **POST Body:**
 ```json
 {
-  "mood": "happy",
-  "intensity": 8,
+  "mood_intensities": {
+    "happy": 4,
+    "peaceful": 5
+  },
   "notes": "Feeling good today",
-  "triggers": "Good sleep, exercise",
+  "triggers_list": ["sleep", "exercise"],
   "activities": "Therapy session, morning walk",
   "mood_date": "2026-01-16"
 }
 ```
 
-**Mood Choices:** `very_happy`, `happy`, `neutral`, `sad`, `very_sad`, `anxious`, `angry`, `stressed`, `calm`, `excited`
+**Mood Choices:** `happy`, `sad`, `angry`, `anxious`, `peaceful`, `excited`, `grateful`, `overwhelmed`, `hopeful`, `stressed`
+
+**Intensity:** 1-5 per selected mood
 
 #### Get Today's Mood
 **GET** `/api/patients/mood/today/`
@@ -243,7 +250,7 @@ curl -X GET "http://localhost:8000/api/patients/dashboard/" \
 curl -X POST "http://localhost:8000/api/patients/mood/" \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"mood":"happy","intensity":8}'
+  -d '{"mood_intensities":{"happy":4,"peaceful":5},"triggers_list":["sleep","exercise"],"notes":"Feeling good today"}'
 ```
 
 ### Using Postman

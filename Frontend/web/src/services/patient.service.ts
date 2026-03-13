@@ -28,13 +28,12 @@ export const patientService = {
   },
 
   createMood: async (moodData: {
-    primary_emotion: string;
-    intensity: number;
-    anxiety_level?: number;
-    depression_level?: number;
-    stress_level?: number;
+    mood_intensities: Record<string, number>;
     notes?: string;
-    tags?: string[];
+    triggers?: string;
+    triggers_list?: string[];
+    activities?: string;
+    mood_date?: string;
   }) => {
     const response = await api.post('/patients/mood/', moodData);
     return response.data;

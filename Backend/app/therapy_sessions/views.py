@@ -3332,6 +3332,7 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
             patient_id__in=patient_ids,
             created_at__gte=start_date
         ).order_by('-created_at')
+        mood_entries_list = list(mood_entries)
         
         # Generate alerts based on mood scores
         alerts = []
@@ -3377,7 +3378,10 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
             'medium_alerts': len([a for a in alerts if a['severity'] == 'medium']),
             'patients_needing_attention': len(set(a['patient_id'] for a in alerts if a['severity'] in ['critical', 'high'])),
             'total_mood_entries': mood_entries.count(),
-            'average_mood_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
+            'average_mood_intensity': (
+                sum(entry.average_intensity for entry in mood_entries_list) / len(mood_entries_list)
+                if mood_entries_list else 0
+            ),
         }
         
         return Response({
@@ -3456,6 +3460,7 @@ class PatientMoodSummaryView(generics.GenericAPIView):
             patient=user,
             created_at__gte=start_date
         ).order_by('created_at')
+        mood_entries_list = list(mood_entries)
         
         # Build mood trend data
         mood_trend = []
@@ -3471,9 +3476,18 @@ class PatientMoodSummaryView(generics.GenericAPIView):
         # Statistics
         stats = {
             'total_entries': mood_entries.count(),
-            'average_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
-            'highest_intensity': mood_entries.order_by('-average_intensity').first().average_intensity if mood_entries.exists() else 0,
-            'lowest_intensity': mood_entries.order_by('average_intensity').first().average_intensity if mood_entries.exists() else 0,
+            'average_intensity': (
+                sum(entry.average_intensity for entry in mood_entries_list) / len(mood_entries_list)
+                if mood_entries_list else 0
+            ),
+            'highest_intensity': (
+                max(entry.average_intensity for entry in mood_entries_list)
+                if mood_entries_list else 0
+            ),
+            'lowest_intensity': (
+                min(entry.average_intensity for entry in mood_entries_list)
+                if mood_entries_list else 0
+            ),
             'most_common_mood': self._get_most_common_mood(mood_entries),
         }
         

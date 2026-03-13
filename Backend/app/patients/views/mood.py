@@ -256,7 +256,7 @@ def create_mood_alerts_for_therapists(patient):
     post=extend_schema(
         tags=[PatientAPITags.MOOD],
         summary='Create mood entry',
-        description='Create a new mood entry for today. Only one mood entry allowed per day.'
+        description='Create a new mood entry for today. Multiple mood entries are allowed per day.'
     )
 )
 class MoodEntryListCreateView(generics.ListCreateAPIView):
@@ -267,7 +267,7 @@ class MoodEntryListCreateView(generics.ListCreateAPIView):
     serializer_class = MoodEntrySerializer
     permission_classes = [IsPatient]
     filter_backends = [filters.OrderingFilter]
-    ordering_fields = ['mood_date', 'created_at', 'intensity']
+    ordering_fields = ['mood_date', 'created_at']
     ordering = ['-mood_date']
     
     def get_queryset(self):
@@ -285,7 +285,11 @@ class MoodEntryListCreateView(generics.ListCreateAPIView):
         # Filter by mood type
         mood = self.request.query_params.get('mood')
         if mood:
-            queryset = queryset.filter(mood=mood)
+            valid_moods = {choice[0] for choice in MoodEntry.MOOD_CHOICES}
+            if mood in valid_moods:
+                queryset = queryset.filter(**{f'mood_intensities__{mood}__isnull': False})
+            else:
+                queryset = queryset.none()
         
         return queryset
 
@@ -316,7 +320,7 @@ class MoodEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
 @extend_schema(
     tags=['Patient - Mood Tracking'],
     summary='Get or create today\'s mood',
-    description='Retrieve or create mood entry for today. Only one mood allowed per day.',
+    description='Retrieve or create mood entry for today. Multiple mood entries are allowed per day.',
     responses={200: MoodEntrySerializer}
 )
 class TodayMoodView(APIView):
