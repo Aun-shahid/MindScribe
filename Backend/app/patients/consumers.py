@@ -13,13 +13,23 @@ from .models import Notification
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
+    @staticmethod
+    def _normalize_token(raw_token):
+        if not raw_token:
+            return None
+        token = str(raw_token).strip()
+        if token.lower().startswith('bearer '):
+            token = token[7:].strip()
+        return token or None
+
     @database_sync_to_async
     def _get_user_from_token(self, raw_token):
-        if not raw_token:
+        token = self._normalize_token(raw_token)
+        if not token:
             return None
 
         try:
-            validated = AccessToken(raw_token)
+            validated = AccessToken(token)
         except (InvalidToken, TokenError):
             return None
 
@@ -33,10 +43,15 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     def _extract_token_from_query(self):
         query_string = self.scope.get('query_string', b'').decode('utf-8')
         query_params = parse_qs(query_string)
-        token_values = query_params.get('token') or query_params.get('access_token')
+        token_values = (
+            query_params.get('token')
+            or query_params.get('access_token')
+            or query_params.get('jwt')
+            or query_params.get('authorization')
+        )
         if not token_values:
             return None
-        return token_values[0]
+        return self._normalize_token(token_values[0])
 
     async def connect(self):
         user = self.scope.get("user")
