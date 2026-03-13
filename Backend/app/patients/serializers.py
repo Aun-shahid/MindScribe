@@ -359,9 +359,16 @@ class NotificationSerializer(serializers.ModelSerializer):
             'notification_type', 'title', 'message',
             'session_id', 'goal_id', 'action_url',
             'is_read', 'read_at', 'sent_at', 'time_ago',
-            'push_sent', 'push_sent_at'
+            'push_sent', 'push_sent_at',
+            'delivery_status', 'delivery_attempts',
+            'last_delivery_attempt_at', 'next_retry_at',
+            'delivered_at', 'delivery_error'
         ]
-        read_only_fields = ['id', 'patient', 'sent_at', 'push_sent', 'push_sent_at']
+        read_only_fields = [
+            'id', 'patient', 'sent_at', 'push_sent', 'push_sent_at',
+            'delivery_status', 'delivery_attempts', 'last_delivery_attempt_at',
+            'next_retry_at', 'delivered_at', 'delivery_error'
+        ]
     
     def get_time_ago(self, obj):
         """Get human-readable time since notification was sent"""
