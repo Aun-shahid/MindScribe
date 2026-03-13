@@ -90,10 +90,21 @@ class MoodEntry(models.Model):
     
     @property
     def dominant_mood(self):
-        """Get the mood with highest intensity"""
+        """Get a single dominant mood (stable when there is a tie)."""
+        dominant = self.dominant_moods
+        return dominant[0] if dominant else None
+
+    @property
+    def dominant_moods(self):
+        """Get all top-tied moods by intensity (sorted for deterministic output)."""
         if not self.mood_intensities:
-            return None
-        return max(self.mood_intensities.items(), key=lambda x: x[1])[0]
+            return []
+
+        max_intensity = max(self.mood_intensities.values())
+        return sorted([
+            mood for mood, intensity in self.mood_intensities.items()
+            if intensity == max_intensity
+        ])
     
     @property
     def average_intensity(self):
@@ -140,8 +151,17 @@ class MoodEntry(models.Model):
         for mood in mood_intensity_sum:
             mood_scores[mood] = mood_intensity_sum[mood] * mood_frequency[mood]
         
-        # Get dominant mood (highest weighted score)
-        dominant_mood = max(mood_scores.items(), key=lambda x: x[1])[0] if mood_scores else 'neutral'
+        # Get dominant mood(s) by highest weighted score, deterministic on ties
+        if mood_scores:
+            max_score = max(mood_scores.values())
+            dominant_moods = sorted([
+                mood for mood, score in mood_scores.items()
+                if score == max_score
+            ])
+            dominant_mood = dominant_moods[0]
+        else:
+            dominant_moods = ['neutral']
+            dominant_mood = 'neutral'
         
         # Calculate average intensity for the dominant mood
         dominant_avg_intensity = round(mood_intensity_sum[dominant_mood] / mood_frequency[dominant_mood])
@@ -153,6 +173,7 @@ class MoodEntry(models.Model):
         
         return {
             'dominant_mood': dominant_mood,
+            'dominant_moods': dominant_moods,
             'dominant_intensity': dominant_avg_intensity,
             'all_moods': list(mood_scores.keys()),
             'mood_frequency': mood_frequency,

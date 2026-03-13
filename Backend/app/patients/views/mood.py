@@ -405,12 +405,14 @@ class MoodAnalyticsView(APIView):
                     'date': str(date),
                     'average_intensity': round(day_data.get('avg_intensity', 0), 2),
                     'dominant_mood': day_data.get('dominant_mood'),
+                    'dominant_moods': day_data.get('dominant_moods', []),
                 })
             else:
                 weekly_trend.append({
                     'date': str(date),
                     'average_intensity': 0,
                     'dominant_mood': None,
+                    'dominant_moods': [],
                 })
         
         # Common triggers

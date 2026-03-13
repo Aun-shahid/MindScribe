@@ -77,6 +77,7 @@ interface MoodHistoryEntry {
   mood_intensities: MoodIntensities;
   moods_list: string[];
   dominant_mood: string;
+  dominant_moods?: string[];
   average_intensity: number;
   triggers: string;
   triggers_list: string[];
@@ -971,7 +972,11 @@ export default function MoodTrackerScreen() {
                     }))
                   : [];
 
-                const dominantMood = item.dominant_mood || (moodsArray.length > 0 ? moodsArray[0].mood : '');
+                const dominantMoods = item.dominant_moods || [];
+                const dominantMood = item.dominant_mood || (dominantMoods.length > 0 ? dominantMoods[0] : (moodsArray.length > 0 ? moodsArray[0].mood : ''));
+                const tieLabel = dominantMoods.length > 1
+                  ? `Tie: ${dominantMoods.map((m) => getMoodLabel(m)).join(', ')}`
+                  : null;
 
                 return (
                   <TouchableOpacity
@@ -986,6 +991,9 @@ export default function MoodTrackerScreen() {
 
                       <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text style={[styles.historyMood, { color: '#FFFFFF' }]}>{getMoodLabel(dominantMood)}</Text>
+                        {tieLabel && (
+                          <Text style={{ color: '#B8A8E6', fontSize: 11, marginTop: 2 }}>{tieLabel}</Text>
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                           <FontAwesome name="calendar" size={11} color="#B8A8E6" />
                           <Text style={{ marginLeft: 6, color: '#B8A8E6', fontSize: 12 }}>{formatExactDate(item.mood_date || item.created_at)}</Text>
