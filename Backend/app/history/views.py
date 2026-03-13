@@ -21,6 +21,8 @@ from .serializers import (
     PatientMilestoneSerializer, ReflectionPromptSerializer, ReflectionEntrySerializer,
     PatientGoalSerializer, ProgressTrackingSerializer
 )
+from users.models import PatientProfile
+from patients.services.notification_center import create_notification
 
 User = get_user_model()
 
@@ -311,6 +313,7 @@ class HistoryEntriesView(generics.GenericAPIView):
         serializer = serializer_class(data=entry_data, context={'request': {'user': user}})
         if serializer.is_valid():
             entry = serializer.save()
+            self._notify_therapist_for_history_entry(user, entry_type, entry)
             response_serializer = self.get_serializer_by_type(entry_type)
             return Response({
                 'detail': f'{entry_type.title()} entry created successfully.',
@@ -318,6 +321,45 @@ class HistoryEntriesView(generics.GenericAPIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _notify_therapist_for_history_entry(self, patient_user, entry_type, entry):
+        notable_types = {'symptom', 'milestone', 'goal', 'progress', 'reflection'}
+        if entry_type not in notable_types:
+            return
+
+        try:
+            patient_profile = PatientProfile.objects.select_related('therapist__user').get(user=patient_user)
+        except PatientProfile.DoesNotExist:
+            return
+
+        therapist_profile = patient_profile.therapist
+        if not therapist_profile or not therapist_profile.user:
+            return
+
+        detail_map = {
+            'symptom': 'logged a symptom update',
+            'milestone': 'recorded a new milestone',
+            'goal': 'updated a therapy goal',
+            'progress': 'submitted a progress update',
+            'reflection': 'added a reflection entry',
+        }
+
+        try:
+            create_notification(
+                recipient=therapist_profile.user,
+                notification_type='therapist_message',
+                title='Patient History Update',
+                message=f'{patient_user.full_name} {detail_map.get(entry_type, "added a history entry")}.',
+                action_url=f'/therapist/patients/{patient_user.id}/history',
+                source_event='history.entry.created',
+                metadata={
+                    'patient_id': str(patient_user.id),
+                    'entry_type': entry_type,
+                    'entry_id': str(entry.id),
+                },
+            )
+        except Exception:
+            pass
     
     def get_queryset_by_type(self, user, entry_type):
         """Get queryset based on entry type"""

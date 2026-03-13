@@ -2,6 +2,7 @@ from django.utils import timezone
 from datetime import timedelta
 from ..models import NotificationPreference, Notification
 from therapy_sessions.models import Session
+from .notification_center import create_notification
 
 
 def send_session_reminder_notifications():
@@ -44,14 +45,20 @@ def send_session_reminder_notifications():
             if not existing_notification:
                 # Create reminder notification
                 hours_until = pref.session_reminder_time
-                notification = Notification.objects.create(
-                    patient=pref.patient,
+                notification_result = create_notification(
+                    recipient=pref.patient,
                     notification_type='session_reminder',
-                    title=f'Upcoming Session Reminder',
+                    title='Upcoming Session Reminder',
                     message=f'Your therapy session with Dr. {session.therapist.get_full_name()} is in {hours_until} hour{"s" if hours_until != 1 else ""}.',
                     session_id=str(session.id),
-                    action_url=f'/sessions/{session.id}'
+                    action_url=f'/sessions/{session.id}',
+                    source_event='session.reminder',
+                    metadata={
+                        'session_id': str(session.id),
+                        'hours_until': hours_until,
+                    },
                 )
+                notification = notification_result['notification']
                 
                 # TODO: Send push notification if push_token is set
                 if pref.push_token:
@@ -82,14 +89,17 @@ def send_session_summary_notification(session):
         return None
     
     # Create notification
-    notification = Notification.objects.create(
-        patient=session.patient,
+    notification_result = create_notification(
+        recipient=session.patient,
         notification_type='session_summary',
         title='Session Summary Available',
         message=f'Your session summary from {session.scheduled_time.strftime("%B %d")} is now available.',
         session_id=str(session.id),
-        action_url=f'/sessions/{session.id}/summary'
+        action_url=f'/sessions/{session.id}/summary',
+        source_event='session.summary.available',
+        metadata={'session_id': str(session.id)},
     )
+    notification = notification_result['notification']
     
     # TODO: Send push notification if push_token is set
     if pref.push_token:
@@ -118,14 +128,17 @@ def send_session_approved_notification(session):
         return None
     
     # Create notification
-    notification = Notification.objects.create(
-        patient=session.patient,
+    notification_result = create_notification(
+        recipient=session.patient,
         notification_type='session_approved',
         title='Session Request Approved',
         message=f'Your session request for {session.scheduled_time.strftime("%B %d at %I:%M %p")} has been approved.',
         session_id=str(session.id),
-        action_url=f'/sessions/{session.id}'
+        action_url=f'/sessions/{session.id}',
+        source_event='session.approved',
+        metadata={'session_id': str(session.id)},
     )
+    notification = notification_result['notification']
     
     # TODO: Send push notification if push_token is set
     if pref.push_token:
@@ -155,14 +168,20 @@ def send_session_cancelled_notification(session, cancelled_by='therapist'):
         return None
     
     # Create notification
-    notification = Notification.objects.create(
-        patient=session.patient,
+    notification_result = create_notification(
+        recipient=session.patient,
         notification_type='session_cancelled',
         title='Session Cancelled',
         message=f'Your session on {session.scheduled_time.strftime("%B %d at %I:%M %p")} has been cancelled.',
         session_id=str(session.id),
-        action_url=f'/sessions'
+        action_url='/sessions',
+        source_event='session.cancelled',
+        metadata={
+            'session_id': str(session.id),
+            'cancelled_by': cancelled_by,
+        },
     )
+    notification = notification_result['notification']
     
     # TODO: Send push notification if push_token is set
     if pref.push_token:
@@ -210,13 +229,15 @@ def send_mood_reminder_notifications():
             
             if not reminder_today:
                 # Create mood reminder notification
-                notification = Notification.objects.create(
-                    patient=pref.patient,
+                notification_result = create_notification(
+                    recipient=pref.patient,
                     notification_type='mood_reminder',
                     title='How are you feeling today?',
                     message='Take a moment to check in with yourself and log your mood.',
-                    action_url='/mood'
+                    action_url='/mood',
+                    source_event='mood.reminder',
                 )
+                notification = notification_result['notification']
                 
                 # TODO: Send push notification if push_token is set
                 if pref.push_token:
@@ -266,13 +287,15 @@ def send_journal_reminder_notifications():
             
             if not reminder_today:
                 # Create journal reminder notification
-                notification = Notification.objects.create(
-                    patient=pref.patient,
+                notification_result = create_notification(
+                    recipient=pref.patient,
                     notification_type='journal_reminder',
                     title='Time to reflect',
                     message='Take a few minutes to write in your journal about your day.',
-                    action_url='/journal'
+                    action_url='/journal',
+                    source_event='journal.reminder',
                 )
+                notification = notification_result['notification']
                 
                 # TODO: Send push notification if push_token is set
                 if pref.push_token:

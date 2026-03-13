@@ -4,7 +4,7 @@ Patient Views Module
 This module contains all views for the patient app, organized by feature.
 """
 
-from .permissions import IsPatient
+from .permissions import IsPatient, IsTherapist
 from .mood import MoodEntryListCreateView, MoodEntryDetailView, TodayMoodView, MoodAnalyticsView, WeeklyMoodTrendView
 from .journal import (
     JournalEntryListCreateView, JournalEntryDetailView, JournalAnalyticsView,
@@ -25,11 +25,15 @@ from .activities import ActivityLogListCreateView, ActivityLogDetailView, Activi
 
 from .notifications import (
     NotificationPreferenceView, NotificationListView, UnreadNotificationCountView,
-    MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView
+    MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView,
+    TherapistNotificationListView, TherapistUnreadNotificationCountView,
+    TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
+    TherapistDeleteNotificationView
 )
 
 __all__ = [
     'IsPatient',
+    'IsTherapist',
     # Mood views
     'MoodEntryListCreateView',
     'MoodEntryDetailView',
@@ -71,4 +75,9 @@ __all__ = [
     'MarkNotificationReadView',
     'MarkAllNotificationsReadView',
     'DeleteNotificationView',
+    'TherapistNotificationListView',
+    'TherapistUnreadNotificationCountView',
+    'TherapistMarkNotificationReadView',
+    'TherapistMarkAllNotificationsReadView',
+    'TherapistDeleteNotificationView',
 ]

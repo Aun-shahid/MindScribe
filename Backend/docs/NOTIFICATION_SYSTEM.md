@@ -3,6 +3,72 @@
 ## Overview
 The notification system allows patients to receive various types of notifications about their therapy sessions, daily wellness reminders, and other important updates. Patients can customize which notifications they receive through their notification preferences.
 
+## Central Notification Service
+
+All new notifications should now be created through a single utility in `patients/services/notification_center.py`:
+
+- `create_notification(...)` for creating/storing a notification and optionally sending real-time updates
+- `build_notification_payload(...)` for constructing the detailed notification object
+- `push_notification_to_websocket(...)` for direct live delivery
+
+This centralizes notification creation similar to logging patterns, so each event source can call one utility instead of directly writing notification records.
+
+## Live WebSocket Notifications
+
+- **WebSocket URL**: `ws/notifications/`
+- **Authentication**: Uses Django Channels `AuthMiddlewareStack` (user must be authenticated)
+- **Group format**: `notifications_user_<user_id>`
+- **Event sent to frontend**: `notification.created`
+
+Example payload:
+
+```json
+{
+  "event": "notification.created",
+  "event_id": "uuid",
+  "created_at": "2026-03-03T12:00:00Z",
+  "createdAt": "2026-03-03T12:00:00Z",
+  "recipientId": "uuid",
+  "recipient": {
+    "id": "uuid",
+    "name": "Dr. Therapist",
+    "user_type": "therapist"
+  },
+  "notification": {
+    "id": "uuid",
+    "notification_type": "therapist_message",
+    "type": "alert",
+    "title": "Mood trend alert: Patient Name",
+    "message": "Patient Name has a downward mood trend (4.0 → 2.8).",
+    "relatedEntityId": "<patient_id>",
+    "read": false,
+    "action_url": "/therapist/patients/<patient_id>/mood",
+    "priority": "high",
+    "source_event": "mood.trend.downward",
+    "metadata": {
+      "patient_id": "uuid"
+    }
+  }
+}
+```
+
+## Mood Downward Trend Alerts
+
+When a patient logs mood, the backend now checks recent daily mood intensity trend. If the trend is downward beyond threshold, it creates therapist alerts through the central utility and pushes them live to connected therapist WebSocket clients.
+
+## Three Bad Moods Alert Rule
+
+In addition to trend-based alerts, the backend now also sends a therapist alert when the patient's last 3 distinct mood days are all bad moods.
+
+Bad moods used by this rule:
+- sad
+- angry
+- anxious
+- overwhelmed
+- stressed
+
+This rule is implemented in `patients/views/mood.py` and uses the same centralized `create_notification(...)` flow for persistence + realtime delivery.
+
 ## Features
 
 ### Notification Types
@@ -134,6 +200,21 @@ DELETE /api/patients/notifications/<uuid>/
 ```
 
 **Response:** 204 No Content
+
+### Therapist Notification Endpoints
+
+Therapists can fetch and manage notification history with these endpoints:
+
+```
+GET /api/patients/therapist/notifications/
+GET /api/patients/therapist/notifications/?is_read=false
+GET /api/patients/therapist/notifications/unread-count/
+POST /api/patients/therapist/notifications/<uuid>/read/
+POST /api/patients/therapist/notifications/mark-all-read/
+DELETE /api/patients/therapist/notifications/<uuid>/
+```
+
+These endpoints are therapist-only and complement live updates from `ws/notifications/`.
 
 ## Database Models
 

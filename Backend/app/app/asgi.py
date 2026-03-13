@@ -19,13 +19,14 @@ django_asgi_app = get_asgi_application()
 
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-from therapy_sessions.routing import websocket_urlpatterns
+from therapy_sessions.routing import websocket_urlpatterns as therapy_websocket_urlpatterns
+from patients.routing import websocket_urlpatterns as patient_websocket_urlpatterns
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter(
-            websocket_urlpatterns
+            therapy_websocket_urlpatterns + patient_websocket_urlpatterns
         )
     ),
 })

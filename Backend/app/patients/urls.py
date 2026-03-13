@@ -29,7 +29,10 @@ from .views import (
     
     # Notifications
     NotificationPreferenceView, NotificationListView, UnreadNotificationCountView,
-    MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView
+    MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView,
+    TherapistNotificationListView, TherapistUnreadNotificationCountView,
+    TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
+    TherapistDeleteNotificationView
 )
 
 
@@ -87,4 +90,11 @@ urlpatterns = [
     path('notifications/<uuid:notification_id>/read/', MarkNotificationReadView.as_view(), name='notification-mark-read'),
     path('notifications/<uuid:pk>/', DeleteNotificationView.as_view(), name='notification-delete'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
+
+    # Therapist notifications
+    path('therapist/notifications/unread-count/', TherapistUnreadNotificationCountView.as_view(), name='therapist-notification-unread-count'),
+    path('therapist/notifications/mark-all-read/', TherapistMarkAllNotificationsReadView.as_view(), name='therapist-notification-mark-all-read'),
+    path('therapist/notifications/<uuid:notification_id>/read/', TherapistMarkNotificationReadView.as_view(), name='therapist-notification-mark-read'),
+    path('therapist/notifications/<uuid:pk>/', TherapistDeleteNotificationView.as_view(), name='therapist-notification-delete'),
+    path('therapist/notifications/', TherapistNotificationListView.as_view(), name='therapist-notification-list'),
 ]
