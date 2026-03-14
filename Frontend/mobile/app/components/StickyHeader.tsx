@@ -44,9 +44,19 @@ export default function StickyHeader({
     extrapolate: 'clamp',
   });
 
+  // Track if header should be interactive
+  const [isHeaderVisible, setIsHeaderVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      setIsHeaderVisible(value >= 150);
+    });
+    return () => scrollY.removeListener(listenerId);
+  }, [scrollY]);
+
   return (
     <Animated.View
-      pointerEvents="box-none"
+      pointerEvents={isHeaderVisible ? "box-none" : "none"}
       style={[
         styles.stickyHeader,
         {
@@ -96,7 +106,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     top: 56,
-    padding: 6,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   stickyHeaderText: {
     fontSize: 20,

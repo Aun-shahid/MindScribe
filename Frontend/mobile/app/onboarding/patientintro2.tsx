@@ -3,37 +3,56 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
-  TouchableOpacity,
-  Image
+  Image,
+  PanResponder,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
-
-const { width, height } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PatientIntro2() {
-  const { themeStyle } = useTheme();
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const handleNext = () => {
-    router.push('./patientintro3');
-  };
-const emojis = [
-  { name: 'smile', top: 80, left: 120, size: 32, bg: '#FFB6C1' },       // pink - higher & more centered
-  { name: 'angry', top: 140, left: 340, size: 40, bg: '#FF6347' },      // red - very low right
-  { name: 'dizzy', top: 260, left: 250, size: 36, bg: '#9370DB' },       // purple - unchanged
-  { name: 'grin', top: 290, left: 20, size: 38, bg: '#FFD700' },        // yellow - lower than before
-  { name: 'frown', top: 420, left: 280, size: 34, bg: '#00CED1' }       // blue - unchanged
-];
+  const topHeight = height * 0.5;
+  const bottomHeight = height * 0.5;
 
+  const titleSize = Math.max(18, Math.min(width * 0.055, 22));
+  const lineHeight = Math.round(titleSize * 1.45);
+  const dotWidth = Math.round(width * 0.094);
+  const emojiPad = width < 380 ? 5 : 6;
+  const hintSize = Math.max(12, Math.min(width * 0.036, 14));
+
+  const swipeResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dx < -60) {
+            router.push('./patientintro3');
+          } else if (gestureState.dx > 60) {
+            router.push('./patientintro1');
+          }
+        },
+      }),
+    [router]
+  );
+
+  const emojis = [
+    { name: 'smile', top: topHeight * 0.12, left: width * 0.16, size: width < 380 ? 28 : 32, bg: '#FFB6C1' },
+    { name: 'angry', top: topHeight * 0.18, left: width * 0.74, size: width < 380 ? 34 : 40, bg: '#FF6347' },
+    { name: 'dizzy', top: topHeight * 0.40, left: width * 0.56, size: width < 380 ? 30 : 36, bg: '#9370DB' },
+    { name: 'grin',  top: topHeight * 0.46, left: width * 0.06, size: width < 380 ? 32 : 38, bg: '#FFD700' },
+    { name: 'frown', top: topHeight * 0.68, left: width * 0.68, size: width < 380 ? 30 : 34, bg: '#00CED1' },
+  ];
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.onboardingtop }]}>
-      {/* Top Emoji Layer */}
-      <View style={[styles.emojiWrapper, { backgroundColor: themeStyle.onboardingtop }]}>
+    <View style={styles.container} {...swipeResponder.panHandlers}>
+      {/* Top half */}
+      <View style={[styles.heroSection, { height: topHeight, paddingTop: insets.top + 8 }]}>
         {emojis.map((emoji, index) => (
           <View
             key={index}
@@ -43,40 +62,45 @@ const emojis = [
               left: emoji.left,
               backgroundColor: emoji.bg,
               borderRadius: 50,
-              padding: 6,
+              padding: emojiPad,
             }}
           >
-            <FontAwesome5
-              name={emoji.name}
-              size={emoji.size}
-              color="#FFFFFF"
-            />
+            <FontAwesome5 name={emoji.name} size={emoji.size} color="#FFFFFF" />
           </View>
         ))}
-        {/* Preserve Group2 Image */}
-        <Image source={require('../../assets/images/group2ff.png')} style={styles.groupImage} resizeMode="contain" />
+        <Image
+          source={require('../../assets/images/group2ff.png')}
+          style={[
+            styles.groupImage,
+            { width: width * 0.84, height: topHeight * 0.75, transform: [{ translateY: topHeight * 0.04 }] },
+          ]}
+          resizeMode="contain"
+        />
       </View>
 
-      {/* Bottom Text and CTA Section */}
-      <View style={[styles.bottomContainer, { backgroundColor: themeStyle.onboardingbottom }]}>
-        <Text style={[styles.description, { color: themeStyle.text }]}>
-          Smart Support meets <Text style={{ color: themeStyle.textdesign }}>self care </Text> — powered by {' '}
-          <Text style={{ color: themeStyle.textdesign }}>AI</Text> inspired by you.
+      {/* Bottom half — straight top edge */}
+      <View
+        style={[
+          styles.bottomContainer,
+          {
+            height: bottomHeight,
+            paddingTop: height * 0.032,
+            paddingBottom: Math.max(insets.bottom + 20, 32),
+          },
+        ]}
+      >
+        <Text style={[styles.description, { fontSize: titleSize, lineHeight }]}>
+          Smart Support meets <Text style={styles.textAccent}>self care</Text> — powered by{' '}
+          <Text style={styles.textAccent}>AI</Text> inspired by you.
         </Text>
 
-     <View style={styles.progressContainer}>
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarmain }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
+        <View style={styles.progressContainer}>
+          <View style={[styles.dot, { width: dotWidth }]} />
+          <View style={[styles.dotActive, { width: dotWidth }]} />
+          <View style={[styles.dot, { width: dotWidth }]} />
         </View>
 
-        {/* Next Button */}
-        <TouchableOpacity
-          style={[styles.nextButton, { backgroundColor: themeStyle.button }]}
-          onPress={handleNext}
-        >
-          <Ionicons name="arrow-forward" size={24} color={themeStyle.buttonText} />
-        </TouchableOpacity>
+        <Text style={[styles.swipeHint, { fontSize: hintSize }]}>← Swipe left or right →</Text>
       </View>
     </View>
   );
@@ -85,62 +109,59 @@ const emojis = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
-  emojiWrapper: {
-    position: 'absolute',
-    top: 0,
+  heroSection: {
     width: '100%',
-    height: height * 0.7,
-    zIndex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: '#d8c9ea',
+    overflow: 'hidden',
   },
 
   groupImage: {
-    width: width * 0.9,
-    height: height * 0.5,
-    marginTop: 80,
+    zIndex: 2,
   },
 
   bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
     width: '100%',
-    height: height * 0.5,
     alignItems: 'center',
-    paddingTop: 50,
-    zIndex: 6,
+    justifyContent: 'space-evenly',
+    backgroundColor: '#342949',
+    paddingHorizontal: 22,
   },
 
   description: {
-    fontSize: 26,
     textAlign: 'center',
-    lineHeight: 36,
     fontWeight: '800',
-    paddingHorizontal: 16,
-    marginBottom: 36,
-    marginTop: 40,
+    paddingHorizontal: 14,
+    color: '#FFFFFF',
+  },
+
+  textAccent: {
+    color: '#4ec0c7',
   },
 
   progressContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
-    marginBottom: 48,
   },
 
   dot: {
-    width: 40,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
 
-  nextButton: {
-    borderRadius: 999,
-    padding: 20,
-    marginTop: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+  dotActive: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+
+  swipeHint: {
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 0.3,
   },
 });

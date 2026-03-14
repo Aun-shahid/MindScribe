@@ -3,66 +3,71 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
-  Image
+  Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width, height } = Dimensions.get('window');
-
-export default function PatientIntro2() {
-  const { themeStyle } = useTheme();
+export default function PatientIntro3() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const topHeight = height * 0.5;
+  const bottomHeight = height * 0.5;
+
+  const titleSize = Math.max(18, Math.min(width * 0.055, 22));
+  const lineHeight = Math.round(titleSize * 1.45);
+  const dotWidth = Math.round(width * 0.094);
+  const buttonWidth = Math.min(width * 0.68, 240);
+  const btnFontSize = Math.max(15, Math.min(width * 0.044, 18));
 
   const handleNext = () => {
     router.push('../auth/login');
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.onboardingtop }]}>
-      {/* Top Image Layer */}
-      <View style={styles.topHalfContainer}>
-        <Image
-          source={require('../../assets/images/group3bg.png')}
-          style={styles.bgImage}
-          resizeMode="cover"
-        />
+    <View style={styles.container}>
+      {/* Top half */}
+      <View style={[styles.heroSection, { height: topHeight, paddingTop: insets.top + 8 }]}>
+        <Image source={require('../../assets/images/group3bg.png')} style={styles.bgImage} resizeMode="cover" />
         <Image
           source={require('../../assets/images/group3ff.png')}
-          style={styles.mainImage}
+          style={[
+            styles.mainImage,
+            { width: width * 1.0, height: topHeight * 0.78, transform: [{ translateY: topHeight * 0.05 }] },
+          ]}
           resizeMode="contain"
         />
       </View>
 
-      {/* Bottom Text and CTA Section */}
-      <View style={[styles.bottomContainer, { backgroundColor: themeStyle.onboardingbottom }]}>
-        <Text style={[styles.description, { color: themeStyle.text }]}>
-         Track your <Text style={{ color: themeStyle.textdesign }}>moods </Text> — discover your{' '}
-          <Text style={{ color: themeStyle.textdesign }}>emotional rhythm</Text> {''}
-
+      {/* Bottom half — straight top edge */}
+      <View
+        style={[
+          styles.bottomContainer,
+          {
+            height: bottomHeight,
+            paddingTop: height * 0.028,
+            paddingBottom: Math.max(insets.bottom + 42, 52),
+          },
+        ]}
+      >
+        <Text style={[styles.description, { fontSize: titleSize, lineHeight }]}>
+          Track your <Text style={styles.textAccent}>moods</Text> — discover your{' '}
+          <Text style={styles.textAccent}>emotional rhythm</Text>
         </Text>
 
-        {/* Progress Indicators */}
         <View style={styles.progressContainer}>
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarmain }]} />
+          <View style={[styles.dot, { width: dotWidth }]} />
+          <View style={[styles.dot, { width: dotWidth }]} />
+          <View style={[styles.dotActive, { width: dotWidth }]} />
         </View>
 
-        {/* Next Button */}
-       {/* Next Button */}
-<TouchableOpacity
-  style={[styles.nextButton, { backgroundColor: themeStyle.button }]} 
-  onPress={handleNext}
->
-  <Text style={{ color: themeStyle.buttonText, fontSize: 18, fontWeight: 'bold' }}>
-    Get Started
-  </Text>
-</TouchableOpacity>
-
+        <TouchableOpacity style={[styles.nextButton, { width: buttonWidth }]} onPress={handleNext}>
+          <Text style={[styles.nextButtonText, { fontSize: btnFontSize }]}>Get Started</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -71,16 +76,15 @@ export default function PatientIntro2() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
-  topHalfContainer: {
-    position: 'absolute',
-    top: 0,
+  heroSection: {
     width: '100%',
-    height: height * 0.7,
-    zIndex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: '#d8c9ea',
+    overflow: 'hidden',
   },
 
   bgImage: {
@@ -93,50 +97,60 @@ const styles = StyleSheet.create({
   },
 
   mainImage: {
-    width: width * 1.2,
-    height: height * 0.9,
-    marginTop: 40,
     zIndex: 2,
   },
 
   bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
     width: '100%',
-    height: height * 0.5,
     alignItems: 'center',
-    paddingTop: 50,
-    zIndex: 6,
+    justifyContent: 'space-evenly',
+    backgroundColor: '#342949',
+    paddingHorizontal: 22,
   },
 
   description: {
-    fontSize: 26,
     textAlign: 'center',
-    lineHeight: 36,
     fontWeight: '800',
-    paddingHorizontal: 16,
-    marginBottom: 36,
-    marginTop: 40,
+    paddingHorizontal: 14,
+    color: '#FFFFFF',
+  },
+
+  textAccent: {
+    color: '#4ec0c7',
   },
 
   progressContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
-    marginBottom: 48,
   },
 
   dot: {
-    width: 40,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+
+  dotActive: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
 
   nextButton: {
     borderRadius: 999,
-    padding: 20,
-    marginTop: 10,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#A78BFA',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 4,
+  },
+
+  nextButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
 });

@@ -1,39 +1,22 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { FontAwesome } from '@expo/vector-icons';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { Feather } from '@expo/vector-icons';
+import CustomTabBar from '../components/CustomTabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Layout() {
+  const insets = useSafeAreaInsets();
+  const tabSceneBottomPadding = Math.max(insets.bottom + 92, 112);
+
   return (
     <Tabs
-      screenOptions={({ route }) => {
-        const visibleTabs = ['dashboard', 'actions', 'profile'];
-        const isVisible = visibleTabs.includes(route.name);
-        return {
-          tabBarActiveTintColor: '#524f85',
-          tabBarInactiveTintColor: '#9e9e9e',
-          tabBarIcon: ({ color, size }: any) => {
-            if (route.name === 'dashboard') return <MaterialIcons name="dashboard" size={size} color={color} />;
-            if (route.name === 'actions') return <MaterialIcons name="apps" size={size} color={color} />;
-            if (route.name === 'profile') return <FontAwesome name="user" size={size} color={color} />;
-            return null;
-          },
-          tabBarStyle: {
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            height: 64,
-          },
-          tabBarItemStyle: isVisible ? { 
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-          } : undefined,
-          tabBarLabelStyle: { fontSize: 11, paddingBottom: 4 },
-          headerShown: false,
-        };
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: {
+          backgroundColor: '#342949',
+          paddingBottom: tabSceneBottomPadding,
+        },
       }}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />

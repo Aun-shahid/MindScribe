@@ -5,19 +5,19 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Alert,
-  ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import type { CreateJournalEntryData, JournalEntry } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
 
@@ -40,6 +40,9 @@ export default function JournalEdit() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
+  
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
   
   const [formData, setFormData] = useState<CreateJournalEntryData>({
     title: '',
@@ -192,12 +195,12 @@ export default function JournalEdit() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
-        <ActivityIndicator size="large" color="#FFB36B" />
-        <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-          Loading journal entry...
-        </Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading journal entry..."
+        subtitle="Preparing your editor"
+        spinnerColor="#FFB36B"
+      />
     );
   }
 
@@ -206,6 +209,7 @@ export default function JournalEdit() {
       <LinearGradient
         colors={['#342949', '#2a1f3d', '#342949']}
         style={styles.screenGradient}
+        pointerEvents="none"
       >
         {/* Floating Bubbles */}
         <Animated.View
@@ -285,27 +289,35 @@ export default function JournalEdit() {
         />
       </LinearGradient>
 
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Edit"
+        secondWord="Journal"
+        onBackPress={() => router.back()}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Animated.ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
           <Animated.View style={{ opacity: fadeAnim }}>
-            {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()}>
-                <Text style={styles.backButton}>← Cancel</Text>
-              </TouchableOpacity>
-              <View style={styles.headerTitleContainer}>
-                <Text style={styles.title}>
-                  <Text style={styles.titleWhite}>Edit</Text>
-                  <Text style={styles.titlePurple}> Journal</Text>
-                </Text>
-                <Text style={styles.subtitle}>
-                  Update your thoughts and feelings
-                </Text>
-              </View>
-            </View>
+            {/* Original Header */}
+            <OriginalHeader
+              scrollY={scrollY}
+              firstWord="Edit"
+              secondWord="Journal"
+              onBackPress={() => router.back()}
+            />
 
             {/* Title Input */}
             <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
@@ -445,7 +457,7 @@ export default function JournalEdit() {
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

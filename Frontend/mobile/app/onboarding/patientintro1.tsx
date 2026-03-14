@@ -4,57 +4,80 @@ import {
   Text,
   StyleSheet,
   Image,
-  Dimensions,
-  TouchableOpacity,
+  PanResponder,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
-
-const { width, height } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PatientIntro1() {
-  const { themeStyle } = useTheme();
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const handleNext = () => {
-    router.push('./patientintro2');
-  };
+  // Exactly half the screen for top, half for bottom
+  const topHeight = height * 0.5;
+  const bottomHeight = height * 0.5;
+
+  // Relative font size
+  const titleSize = Math.max(18, Math.min(width * 0.055, 22));
+  const lineHeight = Math.round(titleSize * 1.45);
+  const dotWidth = Math.round(width * 0.094);
+  const hintSize = Math.max(12, Math.min(width * 0.036, 14));
+
+  const swipeResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dx < -60) {
+            router.push('./patientintro2');
+          }
+        },
+      }),
+    [router]
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyle.onboardingtop }]}>
-      {/* Top Image Layer */}
-      <View style={[styles.svgWrapper, { backgroundColor: themeStyle.onboardingtop }]}>
-        <View style={styles.svgContainer}>
-          <Image source={require('../../assets/images/Vector1.png')} style={styles.vector1} />
-          <Image source={require('../../assets/images/Vector2.png')} style={styles.vector2} />
-          <Image source={require('../../assets/images/vector3.png')} style={styles.vector3} />
-          <Image source={require('../../assets/images/Vector2.png')} style={styles.vector4} />
-          <Image source={require('../../assets/images/group1f.png')} style={styles.groupImage} />
+    <View style={styles.container} {...swipeResponder.panHandlers}>
+      {/* Top half — light purple with artwork */}
+      <View style={[styles.heroSection, { height: topHeight, paddingTop: insets.top + 8 }]}>
+        <View style={[styles.svgContainer, { width: width * 3.2, height: topHeight * 1.6, left: -width * 0.75 }]}>
+          <Image source={require('../../assets/images/Vector1.png')} style={[styles.vector1, { left: width * 0.75 }]} />
+          <Image source={require('../../assets/images/Vector2.png')} style={[styles.vector2, { left: width * 1.5 }]} />
+          <Image source={require('../../assets/images/vector3.png')} style={[styles.vector3, { left: width * 0.75 }]} />
+          <Image source={require('../../assets/images/Vector2.png')} style={[styles.vector4, { left: width * 1.42 }]} />
+          <Image
+            source={require('../../assets/images/group1f.png')}
+            style={[styles.groupImage, { left: width * 0.8, width: width * 0.89, height: topHeight * 0.88 }]}
+          />
         </View>
       </View>
 
-      {/* Bottom Text and CTA Section */}
-      <View style={[styles.bottomContainer, { backgroundColor: themeStyle.onboardingbottom }]}>
-        <Text style={[styles.description, { color: themeStyle.text }]}>
-          Welcome to your <Text style={{ color: themeStyle.textdesign }}>safe space</Text> — where{' '}
-          <Text style={{ color: themeStyle.textdesign }}>healing</Text> begins gently
+      {/* Bottom half — dark purple, straight top edge, fills rest of screen */}
+      <View
+        style={[
+          styles.bottomContainer,
+          {
+            height: bottomHeight,
+            paddingTop: height * 0.032,
+            paddingBottom: Math.max(insets.bottom + 20, 32),
+          },
+        ]}
+      >
+        <Text style={[styles.description, { fontSize: titleSize, lineHeight }]}>
+          Welcome to your <Text style={styles.textAccent}>safe space</Text> — where{' '}
+          <Text style={styles.textAccent}>healing</Text> begins gently
         </Text>
 
-        {/* Progress Indicators */}
         <View style={styles.progressContainer}>
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarmain }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
-          <View style={[styles.dot, { backgroundColor: themeStyle.progressbarside }]} />
+          <View style={[styles.dotActive, { width: dotWidth }]} />
+          <View style={[styles.dot, { width: dotWidth }]} />
+          <View style={[styles.dot, { width: dotWidth }]} />
         </View>
 
-        {/* Next Button */}
-        <TouchableOpacity
-          style={[styles.nextButton, { backgroundColor: themeStyle.button }]}
-          onPress={handleNext}
-        >
-          <Ionicons name="arrow-forward" size={24} color={themeStyle.buttonText} />
-        </TouchableOpacity>
+        <Text style={[styles.swipeHint, { fontSize: hintSize }]}>Swipe left to continue →</Text>
       </View>
     </View>
   );
@@ -63,28 +86,23 @@ export default function PatientIntro1() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#d8c9ea',
   },
 
-  svgWrapper: {
-    position: 'absolute',
-    top: 0,
+  heroSection: {
     width: '100%',
-    height: height * 0.7,
-    zIndex: 1,
+    backgroundColor: '#d8c9ea',
+    overflow: 'hidden',
   },
 
   svgContainer: {
     position: 'relative',
-    width: width * 3.2,
-    height: height * 1.2,
-    top: 60,
-    left: -width * 0.75,
+    top: 50,
   },
 
   vector1: {
     position: 'absolute',
     top: 18,
-    left: width * 0.75,
     width: 105,
     height: 56,
     resizeMode: 'contain',
@@ -92,7 +110,6 @@ const styles = StyleSheet.create({
   vector2: {
     position: 'absolute',
     top: 28,
-    left: width * 1.5,
     width: 150,
     height: 71,
     resizeMode: 'contain',
@@ -100,7 +117,6 @@ const styles = StyleSheet.create({
   vector3: {
     position: 'absolute',
     top: 249,
-    left: width * 0.75,
     width: 114,
     height: 67,
     resizeMode: 'contain',
@@ -108,59 +124,55 @@ const styles = StyleSheet.create({
   vector4: {
     position: 'absolute',
     top: 158,
-    left: width * 1.42,
     width: 145,
     height: 105,
     resizeMode: 'contain',
   },
   groupImage: {
     position: 'absolute',
-    top: 65,
-    left: width * 0.8,
-    width: width * 0.89,
-    height: 450,
+    top: 50,
     resizeMode: 'contain',
     zIndex: 3,
   },
 
   bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
     width: '100%',
-    height: height * 0.5,
     alignItems: 'center',
-    paddingTop: 50,
-    zIndex: 6,
+    justifyContent: 'space-evenly',
+    backgroundColor: '#342949',
+    paddingHorizontal: 22,
   },
 
   description: {
-    fontSize: 26,
     textAlign: 'center',
-    lineHeight: 36,
     fontWeight: '800',
-    paddingHorizontal: 16,
-    marginBottom: 36,
-    marginTop: 40,
+    paddingHorizontal: 14,
+    color: '#FFFFFF',
+  },
+
+  textAccent: {
+    color: '#4ec0c7',
   },
 
   progressContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
-    marginBottom: 48,
   },
 
   dot: {
-    width: 40,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
 
-  nextButton: {
-    borderRadius: 999,
-    padding: 20,
-    marginTop: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+  dotActive: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+
+  swipeHint: {
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 0.3,
   },
 });

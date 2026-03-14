@@ -37,6 +37,7 @@ interface AuthActions {
 }
 
 export const useAuth = (): AuthState & AuthActions => {
+  const ENABLE_AUTH_LOGS = __DEV__;
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -147,28 +148,11 @@ export const useAuth = (): AuthState & AuthActions => {
       // Clear any existing stored tokens to avoid stale refresh attempts
       try {
         await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'user_data']);
-        console.log('🔐 [AUTH] Cleared existing tokens before login');
-      } catch (e) {
-        console.warn('[AUTH] Failed to clear tokens before login', e);
+      } catch {
+        // Ignore token clear failures; login request will still proceed.
       }
-      
-      console.log('🔐 [AUTH] Starting login process...');
+
       const response = await authService.login(credentials);
-      
-      console.log('🎉 [AUTH] Login successful! Complete response:');
-      console.log('='.repeat(50));
-      console.log('📊 Login Response Data:');
-      console.log('  - User ID:', response.user.id);
-      console.log('  - Email:', response.user.email);
-      console.log('  - User Type:', response.user.user_type);
-      console.log('  - First Name:', response.user.first_name);
-      console.log('  - Last Name:', response.user.last_name);
-      console.log('  - Is Verified:', response.user.is_verified);
-      console.log('  - Access Token (first 20 chars):', response.access.substring(0, 20) + '...');
-      console.log('  - Refresh Token (first 20 chars):', response.refresh.substring(0, 20) + '...');
-      console.log('📦 Complete User Object from Login:');
-      console.log(JSON.stringify(response.user, null, 2));
-      console.log('='.repeat(50));
       
       // Check if user type matches selected role
       const savedRole = await AsyncStorage.getItem('selected_role');
@@ -184,14 +168,14 @@ export const useAuth = (): AuthState & AuthActions => {
       
       // Navigate based on user type
       if (response.user.user_type === 'therapist') {
-        console.log('🔄 [AUTH] Navigating to therapist dashboard...');
         router.push('../therapist/dashboard');
       } else {
-        console.log('🔄 [AUTH] Navigating to patient dashboard...');
         router.push('../patient/dashboard');
       }
     } catch (error) {
-      console.error('❌ [AUTH] Login failed:', error);
+      if (ENABLE_AUTH_LOGS) {
+        console.log('[AUTH] Login failed:', error);
+      }
       setError(error as AuthError);
     }
   };

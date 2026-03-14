@@ -181,7 +181,7 @@ export interface JournalAnalytics {
   longest_streak: number;
   current_streak: number;
   favorite_count: number;
-  common_tags: Array<{ tag: string; count: number }>;
+  common_tags: { tag: string; count: number }[];
 }
 
 export interface RelaxationContent {
@@ -422,8 +422,23 @@ class PatientService {
    * Get all journal entries with optional filters
    */
   async getJournalEntries(filters?: JournalFilters): Promise<JournalEntry[]> {
-    const response = await api.get<JournalEntry[]>('/patients/journal/', { params: filters });
-    return response.data;
+    try {
+      const response = await api.get<JournalEntry[]>('/patients/journal/', { params: filters });
+      console.log('[PatientService] Journal entries response:', response.data);
+      // Handle both array and paginated response
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      // If paginated, extract results
+      if (response.data && typeof response.data === 'object' && 'results' in response.data) {
+        return (response.data as any).results || [];
+      }
+      console.warn('[PatientService] Unexpected response format:', response.data);
+      return [];
+    } catch (error) {
+      console.error('[PatientService] Error fetching journal entries:', error);
+      throw error;
+    }
   }
 
   /**
@@ -555,8 +570,8 @@ class PatientService {
   }
 
   async getUnreadNotificationCount(): Promise<number> {
-    const response = await api.get<{ count: number }>('/patients/notifications/unread-count/');
-    return response.data?.count ?? 0;
+    const response = await api.get<{ unread_count: number }>('/patients/notifications/unread-count/');
+    return response.data?.unread_count ?? 0;
   }
 
   async markNotificationRead(notificationId: string): Promise<any> {

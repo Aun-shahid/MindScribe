@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Dimensions
+  Dimensions,
+  Animated
 } from 'react-native';
 import React, { useState, useRef } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -16,6 +17,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { router } from 'expo-router';
+import StickyHeader from '../components/StickyHeader';
+import OriginalHeader from '../components/OriginalHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -43,7 +46,7 @@ const journalPrompts = [
   "What are you looking forward to tomorrow?"
 ];
 
-interface JournalEntry {
+interface JournalEntryPayload {
   title: string;
   content: string;
   entry_type: string;
@@ -78,6 +81,9 @@ const JournalEntry = () => {
   const [moodAfter, setMoodAfter] = useState('7');
   const [tagsInput, setTagsInput] = useState('');
   const [title, setTitle] = useState('Daily Reflection');
+  
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [currentPrompt] = useState(journalPrompts[Math.floor(Math.random() * journalPrompts.length)]);
   const [loading, setLoading] = useState(false);
   const [journalHistory, setJournalHistory] = useState<JournalEntryResponse[]>([]);
@@ -168,7 +174,7 @@ const JournalEntry = () => {
   const handleSubmit = async () => {
     if (!validateInputs()) return;
 
-    const payload: JournalEntry = {
+    const payload: JournalEntryPayload = {
       title: title.trim() || 'Daily Reflection',
       content: entryContent.trim(),
       entry_type: 'daily',
@@ -219,15 +225,31 @@ const JournalEntry = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeStyle.background }]}>
-      <View style={[styles.header, { backgroundColor: '#6C5CE7' }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Journal Entry</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Journal"
+        secondWord="Entry"
+        onBackPress={() => router.back()}
+      />
 
-      <ScrollView ref={scrollRef} style={styles.content} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView 
+        ref={scrollRef} 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
+        {/* Original Header */}
+        <OriginalHeader
+          scrollY={scrollY}
+          firstWord="Journal"
+          secondWord="Entry"
+          onBackPress={() => router.back()}
+        />
         <View style={[styles.promptCard, { backgroundColor: themeStyle.dashboardcard }]}>
           <Text style={[styles.promptLabel, { color: themeStyle.label }]}>✨ Daily Prompt</Text>
           <Text style={[styles.promptText, { color: themeStyle.text }]}>
@@ -449,10 +471,7 @@ const JournalEntry = () => {
             <View style={styles.historyContent}>
               {historyLoading ? (
                 <View style={styles.historyLoadingContainer}>
-                  <ActivityIndicator size="small" color="#6C5CE7" />
-                  <Text style={[styles.historyLoadingText, { color: themeStyle.label }]}>
-                    Loading your entries...
-                  </Text>
+                  <ActivityIndicator size="small" color="#A78BFA" />
                 </View>
               ) : journalHistory.length > 0 ? (
                 <View style={styles.historyList}>
@@ -559,7 +578,7 @@ const JournalEntry = () => {
         </View>
 
         <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };

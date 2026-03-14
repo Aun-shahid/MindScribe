@@ -1,7 +1,5 @@
 
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { ReactNode } from 'react';
 import { themeStyles } from '../constants/themes';
 
 export type Theme = 'light' | 'dark';
@@ -12,41 +10,18 @@ interface ThemeContextProps {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
+const staticThemeContext: ThemeContextProps = {
+  theme: 'dark',
+  themeStyle: themeStyles.dark,
+  toggleTheme: () => {
+    // Intentionally disabled: app uses a single fixed theme.
+  },
+};
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setTheme] = useState<Theme>('light');
-
-  useEffect(() => {
-    const loadTheme = async () => {
-      const storedTheme = await AsyncStorage.getItem('selected_theme');
-      if (storedTheme === 'dark' || storedTheme === 'light') {
-        setTheme(storedTheme);
-      }
-    };
-
-    loadTheme();
-  }, []);
-
-  const toggleTheme = async () => {
-    const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    await AsyncStorage.setItem('selected_theme', newTheme);
-  };
-
-  const themeStyle = themeStyles[theme];
-
-  return (
-    <ThemeContext.Provider value={{ theme, themeStyle, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <>{children}</>;
 };
 
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+  return staticThemeContext;
 };

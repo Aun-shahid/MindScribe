@@ -4,16 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../utils/api';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const { width } = Dimensions.get('window');
 const BAR_WIDTH = (width - 80) / 7;
+const SCREEN_PURPLE = '#342949';
 
 interface DayMoodData {
   day: string;
@@ -92,18 +93,15 @@ export default function MoodWeeklyTrend() {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.button} />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
-          Loading weekly trend...
-        </Text>
+      <View style={[styles.loadingContainer, { backgroundColor: SCREEN_PURPLE }]}>
+        <TabLoaderCard spinnerColor={themeStyle.button} icon="brain" />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: themeStyle.background }]}>
+      <View style={[styles.errorContainer, { backgroundColor: SCREEN_PURPLE }]}>
         <Text style={[styles.errorText, { color: themeStyle.error }]}>❌ {error}</Text>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: themeStyle.button }]}
@@ -126,7 +124,7 @@ export default function MoodWeeklyTrend() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: themeStyle.background }]}
+      style={[styles.container, { backgroundColor: SCREEN_PURPLE }]}
       contentContainerStyle={styles.contentContainer}
     >
       {/* Header */}

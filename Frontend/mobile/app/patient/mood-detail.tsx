@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../contexts/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import api from '../utils/api';
 import { FontAwesome } from '@expo/vector-icons';
+import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 // Mood options with emojis
 const moods = [
@@ -47,13 +49,68 @@ interface MoodEntryDetail {
 }
 
 export default function MoodDetailScreen() {
-  const { themeStyle } = useTheme();
   const params = useLocalSearchParams();
   const moodId = params.id as string;
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const pageInset = clamp(width * 0.05, 16, 22);
+  const headerTopPadding = insets.top + clamp(height * 0.017, 14, 22);
+  const headerButtonSize = clamp(width * 0.105, 36, 42);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.05, 18, 20);
+  const headerTitleSize = clamp(width * 0.074, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.024, 18, 24);
+  const headerBottomPadding = clamp(height * 0.004, 2, 6);
+  const headerBottomMargin = clamp(height * 0.018, 10, 16);
+  const contentTopPadding = clamp(height * 0.016, 10, 16);
+  const contentBottomPadding = clamp(insets.bottom + height * 0.02, 24, 38);
+
+  const cardRadius = clamp(width * 0.05, 14, 20);
+  const cardPadding = clamp(width * 0.05, 16, 22);
+  const cardBottomGap = clamp(height * 0.02, 12, 18);
+  const sectionTitleSize = clamp(width * 0.046, 16, 20);
+  const sectionTitleBottomGap = clamp(height * 0.014, 10, 14);
+  const bodyTextSize = clamp(width * 0.038, 14, 16);
+
+  const moodCircleSize = clamp(width * 0.3, 104, 132);
+  const moodEmojiSize = clamp(width * 0.16, 52, 68);
+  const moodLabelSize = clamp(width * 0.084, 28, 36);
+  const moodDateSize = clamp(width * 0.036, 13, 15);
+  const moodScoreTextSize = clamp(width * 0.039, 14, 16);
+
+  const intensityGridGap = clamp(width * 0.03, 10, 14);
+  const intensityBoxRadius = clamp(width * 0.042, 14, 18);
+  const intensityBoxPadY = clamp(height * 0.02, 14, 20);
+  const intensityBoxPadX = clamp(width * 0.034, 10, 14);
+  const intensityEmojiSize = clamp(width * 0.09, 30, 38);
+  const intensityLabelSize = clamp(width * 0.036, 13, 15);
+  const intensityValueSize = clamp(width * 0.036, 13, 15);
+
+  const triggerGap = clamp(width * 0.025, 8, 12);
+  const triggerChipRadius = clamp(width * 0.05, 16, 22);
+  const triggerChipPadH = clamp(width * 0.04, 14, 18);
+  const triggerChipPadV = clamp(height * 0.013, 8, 11);
+  const triggerTextSize = clamp(width * 0.032, 11, 13);
+
+  const actionGap = clamp(width * 0.03, 10, 14);
+  const actionButtonRadius = clamp(width * 0.045, 14, 18);
+  const actionButtonPad = clamp(height * 0.02, 12, 16);
+  const actionTextSize = clamp(width * 0.041, 14, 16);
+
+  const errorPadding = clamp(width * 0.1, 28, 44);
+  const errorTextSize = clamp(width * 0.048, 16, 20);
+  const backActionRadius = clamp(width * 0.03, 10, 14);
+  const backActionPadH = clamp(width * 0.06, 20, 30);
+  const backActionPadV = clamp(height * 0.015, 10, 14);
+  const backActionTextSize = clamp(width * 0.041, 14, 17);
 
   const [moodEntry, setMoodEntry] = useState<MoodEntryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Scroll animation for sticky header
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -67,12 +124,33 @@ export default function MoodDetailScreen() {
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadMoodDetail();
+  const loadMoodDetail = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('📥 Fetching mood detail for ID:', moodId);
+
+      const response = await api.get<MoodEntryDetail>(`/patients/mood/${moodId}/`);
+      console.log('✅ Mood detail loaded:', JSON.stringify(response.data, null, 2));
+      setMoodEntry(response.data);
+    } catch (err: any) {
+      console.error('❌ Error loading mood detail:', err);
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        'Failed to load mood entry details. Please try again.';
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   }, [moodId]);
 
   useEffect(() => {
-    const screenHeight = Dimensions.get('window').height;
+    loadMoodDetail();
+  }, [loadMoodDetail]);
+
+  useEffect(() => {
     const createFloatingAnimation = (
       animValueY: Animated.Value,
       animValueX: Animated.Value,
@@ -112,34 +190,12 @@ export default function MoodDetailScreen() {
       return { animY, animX };
     };
 
-    const anim1 = createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0);
-    const anim2 = createFloatingAnimation(bubble2Y, bubble2X, 10000, 8000, 1000);
-    const anim3 = createFloatingAnimation(bubble3Y, bubble3X, 9000, 7500, 500);
-    const anim4 = createFloatingAnimation(bubble4Y, bubble4X, 8500, 7200, 800);
-    const anim5 = createFloatingAnimation(bubble5Y, bubble5X, 9500, 8200, 300);
-  }, []);
-
-  const loadMoodDetail = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('📥 Fetching mood detail for ID:', moodId);
-
-      const response = await api.get<MoodEntryDetail>(`/patients/mood/${moodId}/`);
-      console.log('✅ Mood detail loaded:', JSON.stringify(response.data, null, 2));
-      setMoodEntry(response.data);
-    } catch (err: any) {
-      console.error('❌ Error loading mood detail:', err);
-      const errorMessage =
-        err.response?.data?.detail ||
-        err.response?.data?.message ||
-        'Failed to load mood entry details. Please try again.';
-      setError(errorMessage);
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0);
+    createFloatingAnimation(bubble2Y, bubble2X, 10000, 8000, 1000);
+    createFloatingAnimation(bubble3Y, bubble3X, 9000, 7500, 500);
+    createFloatingAnimation(bubble4Y, bubble4X, 8500, 7200, 800);
+    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8200, 300);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   const getMoodEmoji = (moodValue: string) => {
     const mood = moods.find((m) => m.value === moodValue);
@@ -210,29 +266,35 @@ export default function MoodDetailScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: '#342949' }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-            Loading mood details...
-          </Text>
-        </View>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading mood details..."
+        subtitle="Gathering your entry insights"
+        spinnerColor="#8B5CF6"
+      />
     );
   }
 
   if (error || !moodEntry) {
     return (
       <View style={[styles.container, { backgroundColor: '#342949' }]}>
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: '#EF4444' }]}>
+        <View style={[styles.errorContainer, { padding: errorPadding }]}>
+          <Text style={[styles.errorText, { color: '#EF4444', fontSize: errorTextSize }]}>
             {error || 'Mood entry not found'}
           </Text>
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#FFB36B' }]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: '#FFB36B',
+                borderRadius: backActionRadius,
+                paddingHorizontal: backActionPadH,
+                paddingVertical: backActionPadV,
+              },
+            ]}
             onPress={() => router.back()}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Go Back</Text>
+            <Text style={[styles.buttonText, { color: '#FFFFFF', fontSize: backActionTextSize }]}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -260,70 +322,177 @@ export default function MoodDetailScreen() {
       {/* Background Gradient */}
       <LinearGradient
         colors={['#342949', '#2A1F3D', '#342949']}
-        style={styles.screenGradient}
+        style={[styles.screenGradient, { height }]}
       />
       {/* Floating Bubbles */}
       <View style={styles.floatingBubbles} pointerEvents="none">
         <Animated.View style={[
           styles.bubble,
-          { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+          {
+            width: clamp(width * 0.52, 170, 230),
+            height: clamp(width * 0.52, 170, 230),
+            top: clamp(height * 0.06, 34, 62),
+            right: -clamp(width * 0.12, 36, 56),
+            backgroundColor: 'rgba(133, 130, 180, 0.25)',
+          },
           { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
         ]} />
         <Animated.View style={[
           styles.bubble,
-          { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+          {
+            width: clamp(width * 0.74, 220, 310),
+            height: clamp(width * 0.74, 220, 310),
+            top: -clamp(height * 0.12, 80, 120),
+            left: -clamp(width * 0.18, 56, 88),
+            backgroundColor: 'rgba(133, 130, 180, 0.2)',
+          },
           { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
         ]} />
         <Animated.View style={[
           styles.bubble,
-          { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+          {
+            width: clamp(width * 0.4, 120, 170),
+            height: clamp(width * 0.4, 120, 170),
+            bottom: clamp(height * 0.24, 160, 230),
+            left: -clamp(width * 0.08, 20, 36),
+            backgroundColor: 'rgba(133, 130, 180, 0.22)',
+          },
           { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
         ]} />
         <Animated.View style={[
           styles.bubble,
-          { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+          {
+            width: clamp(width * 0.48, 150, 200),
+            height: clamp(width * 0.48, 150, 200),
+            bottom: clamp(height * 0.12, 80, 120),
+            right: -clamp(width * 0.14, 42, 70),
+            backgroundColor: 'rgba(133, 130, 180, 0.18)',
+          },
           { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
         ]} />
         <Animated.View style={[
           styles.bubble,
-          { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+          {
+            width: clamp(width * 0.32, 96, 132),
+            height: clamp(width * 0.32, 96, 132),
+            top: '40%',
+            right: clamp(width * 0.05, 14, 24),
+            backgroundColor: 'rgba(133, 130, 180, 0.15)',
+          },
           { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
         ]} />
       </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/patient/mood')} style={styles.backButton}>
-            <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            <Text style={styles.headerBlue}>Mood </Text>
-            <Text style={styles.headerOrange}>Details</Text>
-          </Text>
-        </View>
+
+      {/* Sticky Header - Appears on scroll */}
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Mood"
+        secondWord="Details"
+        onBackPress={() => router.push('/patient/mood')}
+      />
+
+      {/* Animated Header - Fades out on scroll */}
+      <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: headerBottomPadding,
+        marginBottom: headerBottomMargin,
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        })
+      }]}>
+        <TouchableOpacity
+          onPress={() => router.push('/patient/mood')}
+          style={[
+            styles.backButton,
+            {
+              left: pageInset - 5,
+              top: headerTopPadding + clamp(height * 0.003, 2, 5) - 6,
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop + 4 }]}> 
+          <Text style={styles.headerWhite}>Mood </Text>
+          <Text style={styles.headerPurple}>Details</Text>
+        </Text>
+      </Animated.View>
+
+      <Animated.ScrollView 
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: pageInset,
+            paddingTop: contentTopPadding,
+            paddingBottom: contentBottomPadding,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
 
         {/* Main Mood Display */}
-        <View style={[styles.moodCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+        <View
+          style={[
+            styles.moodCard,
+            {
+              backgroundColor: '#473F5A',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              borderRadius: cardRadius,
+              padding: cardPadding,
+              marginBottom: cardBottomGap,
+            },
+          ]}
+        >
           <View
             style={[
               styles.moodEmojiContainer,
-              { backgroundColor: moodColor, shadowColor: moodColor },
+              {
+                backgroundColor: moodColor,
+                shadowColor: moodColor,
+                width: moodCircleSize,
+                height: moodCircleSize,
+                borderRadius: moodCircleSize / 2,
+                marginBottom: clamp(height * 0.022, 14, 22),
+              },
             ]}
           >
-            <Text style={styles.moodEmoji}>{getMoodEmoji(dominantMood)}</Text>
+            <Text style={[styles.moodEmoji, { fontSize: moodEmojiSize }]}>{getMoodEmoji(dominantMood)}</Text>
           </View>
-          <Text style={[styles.moodLabel, { color: '#FFFFFF' }]}>
+          <Text style={[styles.moodLabel, { color: '#FFFFFF', fontSize: moodLabelSize }]}>
             {getMoodLabel(dominantMood)}
           </Text>
           {tieLabel && (
-            <Text style={[styles.moodDate, { color: '#B8A8E6' }]}>{tieLabel}</Text>
+            <Text style={[styles.moodDate, { color: '#B8A8E6', fontSize: moodDateSize }]}>{tieLabel}</Text>
           )}
-          <Text style={[styles.moodDate, { color: '#B8A8E6' }]}>
+          <Text style={[styles.moodDate, { color: '#B8A8E6', fontSize: moodDateSize }]}>
             {formatDate(moodEntry.created_at)}
           </Text>
           {moodEntry.average_intensity && (
-            <View style={[styles.moodScoreBadge, { backgroundColor: getIntensityColor(moodEntry.average_intensity) }]}>
-              <Text style={[styles.moodScoreText, { color: '#fff' }]}>
+            <View
+              style={[
+                styles.moodScoreBadge,
+                {
+                  backgroundColor: getIntensityColor(moodEntry.average_intensity),
+                  paddingHorizontal: clamp(width * 0.05, 16, 22),
+                  paddingVertical: clamp(height * 0.014, 8, 12),
+                  borderRadius: clamp(width * 0.05, 16, 22),
+                },
+              ]}
+            >
+              <Text style={[styles.moodScoreText, { color: '#fff', fontSize: moodScoreTextSize }]}>
                 Average Intensity: {moodEntry.average_intensity.toFixed(1)}/5
               </Text>
             </View>
@@ -332,32 +501,52 @@ export default function MoodDetailScreen() {
 
         {/* All Mood Intensities */}
         {moodsArray.length > 0 && (
-          <View style={[styles.statsCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Mood Intensities</Text>
-            <View style={styles.moodIntensitiesGrid}>
+          <View
+            style={[
+              styles.statsCard,
+              {
+                backgroundColor: '#473F5A',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderRadius: cardRadius,
+                padding: cardPadding,
+                marginBottom: cardBottomGap,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontSize: sectionTitleSize, marginBottom: sectionTitleBottomGap }]}>Mood Intensities</Text>
+            <View style={[styles.moodIntensitiesGrid, { gap: intensityGridGap }]}>
               {moodsArray.map(({ mood, intensity, emoji, label }) => (
                 <View
                   key={mood}
                   style={[
                     styles.intensityBox,
-                    { 
+                    {
                       backgroundColor: '#5B5270',
                       borderColor: getIntensityColor(intensity),
                       borderWidth: 2,
+                      borderRadius: intensityBoxRadius,
+                      paddingVertical: intensityBoxPadY,
+                      paddingHorizontal: intensityBoxPadX,
                     },
                   ]}
                 >
-                  <Text style={styles.intensityEmoji}>{emoji}</Text>
-                  <Text style={[styles.intensityLabel, { color: '#FFFFFF' }]}>
+                  <Text style={[styles.intensityEmoji, { fontSize: intensityEmojiSize }]}>{emoji}</Text>
+                  <Text style={[styles.intensityLabel, { color: '#FFFFFF', fontSize: intensityLabelSize }]}>
                     {label}
                   </Text>
                   <View
                     style={[
                       styles.intensityBadge,
-                      { backgroundColor: getIntensityColor(intensity) },
+                      {
+                        backgroundColor: getIntensityColor(intensity),
+                        paddingHorizontal: clamp(width * 0.03, 10, 14),
+                        paddingVertical: clamp(height * 0.008, 5, 7),
+                        borderRadius: clamp(width * 0.032, 10, 13),
+                      },
                     ]}
                   >
-                    <Text style={styles.intensityValue}>{intensity}/5</Text>
+                    <Text style={[styles.intensityValue, { fontSize: intensityValueSize }]}>{intensity}/5</Text>
                   </View>
                 </View>
               ))}
@@ -367,9 +556,21 @@ export default function MoodDetailScreen() {
 
         {/* Triggers */}
         {((moodEntry.triggers_list && moodEntry.triggers_list.length > 0) || moodEntry.triggers) && (
-          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>🎯 Triggers</Text>
-            <View style={styles.triggersContainer}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: '#473F5A',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderRadius: cardRadius,
+                padding: cardPadding,
+                marginBottom: cardBottomGap,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontSize: sectionTitleSize, marginBottom: sectionTitleBottomGap }]}>🎯 Triggers</Text>
+            <View style={[styles.triggersContainer, { gap: triggerGap }]}>
               {(moodEntry.triggers_list && moodEntry.triggers_list.length > 0
                 ? moodEntry.triggers_list
                 : moodEntry.triggers
@@ -380,10 +581,16 @@ export default function MoodDetailScreen() {
                   key={index}
                   style={[
                     styles.triggerChip,
-                    { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' },
+                    {
+                      backgroundColor: '#5B5270',
+                      borderColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: triggerChipRadius,
+                      paddingHorizontal: triggerChipPadH,
+                      paddingVertical: triggerChipPadV,
+                    },
                   ]}
                 >
-                  <Text style={[styles.triggerText, { color: '#FFFFFF' }]}>
+                  <Text style={[styles.triggerText, { color: '#FFFFFF', fontSize: triggerTextSize }]}>
                     {trigger}
                   </Text>
                 </View>
@@ -394,9 +601,21 @@ export default function MoodDetailScreen() {
 
         {/* Activities */}
         {moodEntry.activities && (
-          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>🏃 Activities</Text>
-            <Text style={[styles.notesText, { color: '#E5E5E5' }]}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: '#473F5A',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderRadius: cardRadius,
+                padding: cardPadding,
+                marginBottom: cardBottomGap,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontSize: sectionTitleSize, marginBottom: sectionTitleBottomGap }]}>🏃 Activities</Text>
+            <Text style={[styles.notesText, { color: '#E5E5E5', fontSize: bodyTextSize, lineHeight: clamp(width * 0.06, 20, 26) }]}>
               {moodEntry.activities}
             </Text>
           </View>
@@ -404,31 +623,61 @@ export default function MoodDetailScreen() {
 
         {/* Notes */}
         {moodEntry.notes && (
-          <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>📝 Notes</Text>
-            <Text style={[styles.notesText, { color: '#E5E5E5' }]}>{moodEntry.notes}</Text>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: '#473F5A',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderRadius: cardRadius,
+                padding: cardPadding,
+                marginBottom: cardBottomGap,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: '#FFFFFF', fontSize: sectionTitleSize, marginBottom: sectionTitleBottomGap }]}>📝 Notes</Text>
+            <Text style={[styles.notesText, { color: '#E5E5E5', fontSize: bodyTextSize, lineHeight: clamp(width * 0.06, 20, 26) }]}>{moodEntry.notes}</Text>
           </View>
         )}
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+        <View style={[styles.actionButtons, { gap: actionGap, marginTop: clamp(height * 0.013, 8, 12) }]}>
           <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: '#FFB36B' }]}
+            style={[
+              styles.editButton,
+              {
+                backgroundColor: '#FFB36B',
+                borderRadius: actionButtonRadius,
+                padding: actionButtonPad,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.18)',
+              },
+            ]}
             onPress={() => router.push(`/patient/mood-edit?id=${moodId}`)}
           >
-            <Text style={[styles.editButtonText, { color: '#FFFFFF' }]}>✏️ Edit Entry</Text>
+            <Text style={[styles.editButtonText, { color: '#FFFFFF', fontSize: actionTextSize }]}>Edit Entry</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.deleteButton, { backgroundColor: '#EF4444' }]}
+            style={[
+              styles.deleteButton,
+              {
+                backgroundColor: '#EF4444',
+                borderRadius: actionButtonRadius,
+                padding: actionButtonPad,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.16)',
+              },
+            ]}
             onPress={handleDelete}
           >
-            <Text style={[styles.deleteButtonText, { color: '#fff' }]}>🗑️ Delete Entry</Text>
+            <Text style={[styles.deleteButtonText, { color: '#fff', fontSize: actionTextSize }]}>Delete Entry</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+        <View style={{ height: contentBottomPadding }} />
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -439,7 +688,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 80,
   },
   screenGradient: {
     position: 'absolute',
@@ -460,34 +709,32 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     opacity: 1,
   },
-  header: {
-    marginBottom: 30,
-    alignItems: 'center',
+  headerContainer: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+    marginBottom: 14,
+    marginHorizontal: 0,
   },
-  backBtnCircle: {
+  backButton: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    left: 20,
+    top: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    zIndex: 2,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
+    marginBottom: 10,
+    marginTop: 20,
     textAlign: 'center',
   },
-  headerBlue: {
-    color: '#FFFFFF',
-  },
-  headerOrange: {
-    color: '#B8A8E6',
-  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -686,10 +933,10 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
   editButtonText: {
     fontSize: 18,
@@ -701,10 +948,10 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
   deleteButtonText: {
     fontSize: 18,

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   SafeAreaView,
   RefreshControl,
   Modal,
@@ -18,6 +17,7 @@ import {
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService, { EmotionalInsight, EmotionalInsightsFilters, CreateEmotionalInsightData } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const EMOTION_EMOJIS: Record<string, string> = {
   joy: '😊',
@@ -619,12 +619,12 @@ export default function EmotionalInsightsHistory() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.text} />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
-          Loading emotional insights...
-        </Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading emotional insights..."
+        subtitle="Collecting your past reflections"
+        spinnerColor={themeStyle.text}
+      />
     );
   }
 

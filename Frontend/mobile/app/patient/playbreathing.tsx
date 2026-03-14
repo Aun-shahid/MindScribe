@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
   Animated,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import PatientService, { RelaxationContent } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const BREATHING_IMAGES: Record<string, any> = {
   '5min': require('../../assets/images/5minbreathe.png'),
@@ -308,12 +308,12 @@ export default function PlayBreathingScreen() {
 
   if (loading) {
     return (
-      <LinearGradient colors={['#342949', '#2A1F3D', '#1E1529']} style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#B8A8E6" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </LinearGradient>
+      <TabLoaderCard
+        fullScreen
+        title="Loading breathing session..."
+        subtitle="Preparing your guided audio"
+        spinnerColor="#A78BFA"
+      />
     );
   }
 

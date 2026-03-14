@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import PatientService, { RelaxationContent } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const CATEGORY_BADGE_COLORS: Record<string, string> = {
   nature_sounds: '#4CAF50',
@@ -313,10 +314,12 @@ export default function PlayVisualizationScreen() {
   };
 
   if (loading) return (
-    <View style={[styles.center, { backgroundColor: '#342949' }]}>
-      <ActivityIndicator size="large" color="#B8A8E6" />
-      <Text style={{ color: '#FFFFFF', marginTop: 12 }}>Loading...</Text>
-    </View>
+    <TabLoaderCard
+      fullScreen
+      title="Loading visualization..."
+      subtitle="Preparing your calm journey"
+      spinnerColor="#A78BFA"
+    />
   );
 
   if (error || !content) return (

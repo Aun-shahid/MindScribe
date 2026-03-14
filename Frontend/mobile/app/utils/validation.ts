@@ -119,6 +119,9 @@ export const validateSpecializationField = (specialization: string, isTherapist:
   return { isValid: true };
 };
 
+// Required by Expo Router (all files inside app/ must export a default component)
+export default function ValidationUtils() { return null; }
+
 export interface FormValidationErrors {
   username?: string;
   email?: string;

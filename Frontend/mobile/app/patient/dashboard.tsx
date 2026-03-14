@@ -2,11 +2,12 @@
 
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
 import {
+  AppState,
+  Platform,
+  StatusBar,
   View,
   Text,
-  ActivityIndicator,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,10 @@ import {
   FlatList,
   Dimensions,
   Animated,
+  Modal,
+  TextInput,
+  Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,16 +27,15 @@ import { Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-sv
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import TabLoaderCard from '../components/TabLoaderCard';
 import PatientService, { DashboardData } from '../services/patient.service';
-import eventBus from '../utils/eventBus';
-import api from '../utils/api';
-import { Modal, TextInput, Alert } from 'react-native';
 
-const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
-const CARD_WIDTH = screenWidth / 2 - 32; // Two cards per row, minus padding/margin
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 const MOOD_EMOJIS: Record<string, string> = {
   happy: '😊',
@@ -46,15 +50,45 @@ const MOOD_EMOJIS: Record<string, string> = {
   stressed: '😫',
 };
 
-type DashboardCard = {
-  id: string;
-  title: string;
-  subtitle: string;
-  screen: string;
-};
 export default function Dashboard() {
   const { user, profileLoading, fetchProfile } = useAuthContext();
   const { themeStyle } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const today = new Date();
+  const todayLabel = `${today.toLocaleDateString('en-US', { weekday: 'short' })}, ${today.toLocaleDateString('en-US', {
+    day: '2-digit',
+  })} ${today.toLocaleDateString('en-US', { month: 'short' })} ${today.getFullYear()}`;
+  const pageInset = clamp(width * 0.04, 11, 16);
+  const lowerCardInset = clamp(pageInset + 2, 13, 18);
+  const dashboardCardSideInset = clamp(lowerCardInset + 6, 19, 24);
+  const cardRowContainerInset = Math.max(0, dashboardCardSideInset - 6);
+  const headerTopPadding = insets.top + clamp(height * 0.008, 6, 14);
+  const dateFontSize = clamp(width * 0.034, 12, 14);
+  const dateIconSize = clamp(width * 0.038, 14, 16);
+  const notificationCircleSize = clamp(width * 0.12, 44, 50);
+  const notificationIconSize = clamp(width * 0.043, 16, 18);
+  const notificationBadgeMinWidth = clamp(width * 0.045, 16, 18);
+  const notificationBadgeHeight = clamp(width * 0.045, 16, 18);
+  const titleFontSize = clamp(width * 0.074, 25, 31);
+  const titleLineHeight = Math.round(titleFontSize * 1.12);
+  const statIconSize = clamp(width * 0.051, 18, 20);
+  const statBubbleSize = clamp(width * 0.09, 32, 36);
+  const statLabelSize = clamp(width * 0.03, 11, 12);
+  const statNumberSize = clamp(width * 0.041, 15, 18);
+  const graphCardInset = dashboardCardSideInset;
+  const graphCardPadding = clamp(width * 0.045, 16, 18);
+  const graphTitleSize = clamp(width * 0.041, 15, 17);
+  const graphSubtitleSize = clamp(width * 0.03, 11, 12);
+  const graphIconBubbleSize = clamp(width * 0.09, 32, 36);
+  const graphIconSize = clamp(width * 0.046, 17, 19);
+  const quickSectionInset = cardRowContainerInset;
+  const quickHeaderInset = clamp(quickSectionInset + 6, 18, 24);
+  const quickTitleSize = clamp(width * 0.041, 15, 17);
+  const quickActionCardHeight = clamp(height * 0.14, 94, 112);
+  const quickActionIconSize = clamp(width * 0.09, 32, 36);
+  const quickActionGlyphSize = clamp(width * 0.056, 20, 22);
+  const quickActionTextSize = clamp(width * 0.032, 12, 13);
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,7 +96,6 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
-  const [sessionsList, setSessionsList] = useState<any[]>([]);
   const [groupedSessions, setGroupedSessions] = useState<any[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState<boolean>(false);
   const [sessionsModalVisible, setSessionsModalVisible] = useState<boolean>(false);
@@ -73,8 +106,8 @@ export default function Dashboard() {
   const [therapistPin, setTherapistPin] = useState<string>('');
   const [connectMessage, setConnectMessage] = useState<string>('');
   const [sessionsCount, setSessionsCount] = useState<number | null>(null);
-  const [weeklyTrendFallback, setWeeklyTrendFallback] = useState<any[] | null>(null);
-  const [weeklyTrendData, setWeeklyTrendData] = useState<any[] | null>(null);
+  const [weeklyTrendFallback] = useState<any[] | null>(null);
+  const [weeklyTrendData] = useState<any[] | null>(null);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const [tooltipVisible, setTooltipVisible] = useState(false);
   
@@ -89,14 +122,24 @@ export default function Dashboard() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
-  const [animationSeed, setAnimationSeed] = useState(0);
+  const bubbleAnimationsRef = useRef<Animated.CompositeAnimation[]>([]);
 
   // const [refreshing, setRefreshing] = useState(false);
   // const [dashboardData, setDashboardData] = useState<any>(null);
   // const [error, setError] = useState<string | null>(null);
 
-  // Animate floating bubbles
-  useEffect(() => {
+  const stopBubbleAnimations = useCallback(() => {
+    bubbleAnimationsRef.current.forEach((anim) => anim.stop());
+    bubbleAnimationsRef.current = [];
+  }, []);
+
+  const startBubbleAnimations = useCallback(() => {
+    stopBubbleAnimations();
+
+    [bubble1Y, bubble1X, bubble2Y, bubble2X, bubble3Y, bubble3X, bubble4Y, bubble4X, bubble5Y, bubble5X].forEach(
+      (v) => v.setValue(0)
+    );
+
     const createFloatingAnimation = (
       valueY: Animated.Value,
       valueX: Animated.Value,
@@ -104,7 +147,7 @@ export default function Dashboard() {
       durationX: number,
       delayY = 0,
       delayX = 0
-    ) => {
+    ) =>
       Animated.loop(
         Animated.parallel([
           Animated.sequence([
@@ -134,17 +177,54 @@ export default function Dashboard() {
             }),
           ]),
         ])
-      ).start();
-    };
+      );
 
-    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
-    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
-    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
-    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
-    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
-  }, []);
+    const animations = [
+      createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500),
+      createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500),
+      createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0),
+      createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000),
+      createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000),
+    ];
+
+    bubbleAnimationsRef.current = animations;
+    animations.forEach((anim) => anim.start());
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y, stopBubbleAnimations]);
+
+  useFocusEffect(
+    useCallback(() => {
+      startBubbleAnimations();
+      return () => {
+        stopBubbleAnimations();
+      };
+    }, [startBubbleAnimations, stopBubbleAnimations])
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        startBubbleAnimations();
+      } else {
+        stopBubbleAnimations();
+      }
+    });
+
+    return () => {
+      sub.remove();
+      stopBubbleAnimations();
+    };
+  }, [startBubbleAnimations, stopBubbleAnimations]);
 
   // ────────── Load Dashboard Data ──────────
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const count = await PatientService.getUnreadNotificationCount();
+      setUnreadCount(count);
+    } catch (e) {
+      console.warn('[Dashboard] failed to fetch unread notifications count', e);
+    }
+  }, []);
+
   const loadDashboardData = useCallback(async () => {
     try {
       setError(null);
@@ -165,6 +245,8 @@ export default function Dashboard() {
         console.warn('[Dashboard] failed to fetch sessions count', e);
         setSessionsCount(null);
       }
+
+      await loadUnreadCount();
     } catch (err: any) {
       console.error('[Dashboard] Error loading data:', err);
       const respData = err?.response?.data;
@@ -186,7 +268,7 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadUnreadCount]);
 
   // ────────── Effects ──────────
   useEffect(() => {
@@ -194,19 +276,28 @@ export default function Dashboard() {
     loadDashboardData();
   }, [fetchProfile, loadDashboardData]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadUnreadCount();
+    }, [loadUnreadCount])
+  );
+
   // ────────── Refresh Handler ──────────
   const onRefresh = () => {
     setRefreshing(true);
-    setAnimationSeed((s) => s + 1);
     loadDashboardData();
   };
 
   // ────────── Loading / Error States ──────────
   if (profileLoading || loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color={themeStyle.text} />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>Loading your dashboard...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: '#342949' }]}>
+        <TabLoaderCard
+          title="Loading Dashboard"
+          subtitle="Preparing your insights and sessions..."
+          spinnerColor="#A78BFA"
+          fullScreen
+        />
       </View>
     );
   }
@@ -239,12 +330,6 @@ export default function Dashboard() {
 
   // --- Connect Therapist modal handlers ---
 
-  const openConnectModal = () => {
-    setTherapistPin('');
-    setConnectMessage('');
-    setConnectModalVisible(true);
-  };
-
   const closeConnectModal = () => {
     setConnectModalVisible(false);
   };
@@ -255,7 +340,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const res = await PatientService.connectTherapist(therapistPin.trim(), connectMessage.trim());
+      await PatientService.connectTherapist(therapistPin.trim(), connectMessage.trim());
       Alert.alert('Request Sent', 'Connection request created. Your therapist must approve it.');
       closeConnectModal();
       // Optionally refresh dashboard
@@ -279,34 +364,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleDisconnect = async () => {
-    Alert.alert('Disconnect', 'Are you sure you want to disconnect from your therapist?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes, disconnect',
-        style: 'destructive',
-            onPress: async () => {
-          try {
-            await PatientService.disconnectTherapist();
-            Alert.alert('Disconnected', 'You have been disconnected from your therapist.');
-            loadDashboardData();
-          } catch (err: any) {
-            console.error('[Disconnect] error', err);
-            Alert.alert('Error', err?.response?.data || err?.message || 'Failed to disconnect');
-          }
-        }
-      }
-    ]);
-  };
-
-  const openSessionsModal = async () => {
-    setSessionsModalVisible(true);
-    await loadSessions('upcoming');
-  };
-
   const closeSessionsModal = () => {
     setSessionsModalVisible(false);
-    setSessionsList([]);
     setSelectedSession(null);
   };
 
@@ -324,8 +383,6 @@ export default function Dashboard() {
         flatSessions = [ ...(sessions.upcoming || []), ...(sessions.past || []) ];
       }
 
-      setSessionsList(flatSessions);
-
       // Group by therapist (therapist.id or fallback)
       const groups: Record<string, any[]> = {};
       flatSessions.forEach((s: any) => {
@@ -342,7 +399,6 @@ export default function Dashboard() {
       setGroupedSessions(grouped);
     } catch (err: any) {
       console.error('[Sessions] load error', err);
-      setSessionsList([]);
       setGroupedSessions([]);
     } finally {
       setSessionsLoading(false);
@@ -365,29 +421,6 @@ export default function Dashboard() {
 
   
 
-  // Format mood data for display
-  const getMoodDisplay = () => {
-    if (!dashboardData?.mood_today) return 'Not tracked yet';
-    const mood: any = dashboardData.mood_today;
-    return mood.mood_display || mood.mood || 'Not tracked yet';
-  };
-
-  // Format next session
-  const getNextSessionDisplay = () => {
-    if (!dashboardData?.next_session) return 'No upcoming sessions';
-    const session = dashboardData.next_session;
-    return session.display || session.time || 'See session details';
-  };
-
-  // Weekly trend preview: link to full weekly trend screen
-
-  const getNextSessionSubtitle = () => {
-    if (!dashboardData?.next_session) return 'No upcoming sessions';
-    const session = dashboardData.next_session as any;
-    // prefer therapist name or generic text; avoid showing time here
-    return session.therapist || 'See session details';
-  };
-
   // Format mood label: remove emoji/special chars and shorten
   const formatMoodLabel = (raw: string | undefined | null) => {
     if (!raw) return '—';
@@ -398,7 +431,7 @@ export default function Dashboard() {
       // show first word or short phrase (max 12 chars)
       const first = stripped.split('\n')[0].split(' ')[0];
       return first.length > 12 ? (first.substring(0, 11) + '…') : first;
-    } catch (e) {
+    } catch {
       return raw;
     }
   };
@@ -413,73 +446,11 @@ export default function Dashboard() {
         .filter(Boolean)
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
-    } catch (e) {
+    } catch {
       return String(raw);
     }
   };
 
-  // Get journal subtitle
-  const getJournalSubtitle = () => {
-    const count = dashboardData?.journal_count_this_month || 0;
-    return `${count} ${count === 1 ? 'entry' : 'entries'} this month`;
-  };
-
-  // Get goals subtitle
-  const getGoalsSubtitle = () => {
-    const active = dashboardData?.active_goals_count || 0;
-    const completed = dashboardData?.completed_goals_count || 0;
-    return `${active} active, ${completed} completed`;
-  };
-
-  // Get relaxation subtitle
-  const getRelaxationSubtitle = () => {
-    const minutes = dashboardData?.relaxation_minutes_this_week || 0;
-    return `${minutes} minutes this week`;
-  };
-
-  // Dynamic dashboard cards based on API data
-  const dashboardCards: DashboardCard[] = [
-    {
-      id: 'mood',
-      title: 'Write Your Mood',
-      subtitle: 'Open your mood tracker to log how you feel',
-      screen: './mood',
-    },
-    {
-      id: 'journalEntries',
-      title: 'Journaling Companion',
-      subtitle: 'Capture thoughts, feelings, and progress',
-      screen: './journal-list',
-    },
-    {
-      id: 'nextSession',
-      title: 'Session Information',
-      subtitle: 'See session details',
-      screen: './sessions',
-    },
-    {
-      id: 'goals',
-      title: 'Goals',
-      subtitle: 'Track progress and milestones',
-      screen: './goals',
-    },
-    {
-      id: 'break',
-      title: 'Take a Break',
-      subtitle: 'Short guided breaks and calming sounds',
-      screen: './take-a-break',
-    },
-  ];
-
-  const renderCard = ({ item }: { item: DashboardCard }) => (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: '#473F5A', width: CARD_WIDTH }]}
-      onPress={() => handleCardPress(item.screen)}
-    >
-      <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{item.title}</Text>
-      <Text style={[styles.cardSubtitle, { color: '#FFFFFF' }]}>{item.subtitle}</Text>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={[styles.wrapper, { backgroundColor: '#342949' }]}>
@@ -526,44 +497,74 @@ export default function Dashboard() {
         ListHeaderComponent={() => (
           <>
             {/* Top header with greeting and stat cards */}
-            <View style={[styles.header, { paddingVertical: 26, paddingHorizontal: 18 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.headerTitleLarge]}>Welcome, {user.first_name}</Text>
+            <View style={[styles.header, { paddingTop: headerTopPadding, paddingHorizontal: 0, marginHorizontal: 0 }]}>
+              <View style={[styles.headerMetaRow, { marginHorizontal: dashboardCardSideInset }]}>
+                <View style={[styles.dateBadge, { gap: clamp(width * 0.02, 6, 8) }]}>
+                  <MaterialIcons name="calendar-today" size={dateIconSize} color="rgba(255,255,255,0.72)" />
+                  <Text style={[styles.dateBadgeText, { fontSize: dateFontSize }]}>{todayLabel}</Text>
                 </View>
-                <TouchableOpacity style={{ marginLeft: 12 }} onPress={() => router.push('./notifications' as any)}>
-                  <View style={{ position: 'relative', padding: 6, marginTop: -2 }}>
-                    <FontAwesome name="bell" size={22} color={'#FFFFFF'} />
+
+                <TouchableOpacity
+                  style={[
+                    styles.notificationCircle,
+                    {
+                      width: notificationCircleSize,
+                      height: notificationCircleSize,
+                      borderRadius: notificationCircleSize / 2,
+                    },
+                  ]}
+                  onPress={() => router.push('./notifications' as any)}
+                >
+                  <View style={{ position: 'relative' }}>
+                    <FontAwesome name="bell" size={notificationIconSize} color={'#FFFFFF'} />
                     {unreadCount > 0 && (
-                      <View style={{ position: 'absolute', right: 2, top: 2, backgroundColor: '#ff3b30', borderRadius: 8, minWidth: 16, paddingHorizontal: 4, height: 16, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unreadCount}</Text>
+                      <View
+                        style={[
+                          styles.notificationBadge,
+                          {
+                            minWidth: notificationBadgeMinWidth,
+                            height: notificationBadgeHeight,
+                            borderRadius: notificationBadgeHeight / 2,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
                       </View>
                     )}
                   </View>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.headerStatsRowNew}>
-                <View style={styles.topStatCard}>
-                  <View style={[styles.topStatIcon, { backgroundColor: '#FFE8EC' }]}> 
-                    <MaterialIcons name="monitor-heart" size={20} color={'#FF6B86'} />
-                  </View>
-                  <Text style={[styles.topStatLabel]}>Sessions</Text>
-                  <Text style={[styles.topStatNumber]}>{sessionsCount ?? (dashboardData?.upcoming_sessions?.length ?? 0)}</Text>
+              <View style={[styles.headerIdentityRow, { marginTop: clamp(height * 0.012, 10, 14) }]}>
+                <View style={styles.headerCopyWrap}>
+                  <Text style={[styles.headerTitleLarge, { fontSize: titleFontSize, lineHeight: titleLineHeight }]} numberOfLines={2}>
+                    <Text style={styles.headerTitleWhite}>Hi, </Text>
+                    <Text style={styles.headerTitlePurple}>{user.first_name}!</Text>
+                  </Text>
                 </View>
-                <View style={[styles.topStatCard, { marginHorizontal: 8 }]}> 
-                  <View style={[styles.topStatIcon, { backgroundColor: '#FFF1E3' }]}>
-                    <MaterialIcons name="favorite" size={20} color={'#FFB36B'} />
+              </View>
+
+              <View style={[styles.headerStatsRowNew, { marginTop: clamp(height * 0.02, 18, 24), marginHorizontal: cardRowContainerInset }]}>
+                <View style={styles.topStatCard}>
+                  <View style={[styles.topStatIcon, { width: statBubbleSize, height: statBubbleSize, borderRadius: statBubbleSize / 2, backgroundColor: '#FFE8EC' }]}> 
+                    <MaterialIcons name="monitor-heart" size={statIconSize} color={'#FF6B86'} />
                   </View>
-                  <Text style={[styles.topStatLabel]}>Mood</Text>
-                  <Text style={[styles.topStatNumber]}>{formatMoodLabel(dashboardData?.mood_today?.mood_display || dashboardData?.mood_today?.mood)}</Text>
+                  <Text style={[styles.topStatLabel, { fontSize: statLabelSize }]}>Sessions</Text>
+                  <Text style={[styles.topStatNumber, { fontSize: statNumberSize }]}>{sessionsCount ?? (dashboardData?.upcoming_sessions?.length ?? 0)}</Text>
+                </View>
+                <View style={styles.topStatCard}> 
+                  <View style={[styles.topStatIcon, { width: statBubbleSize, height: statBubbleSize, borderRadius: statBubbleSize / 2, backgroundColor: '#FFF1E3' }]}>
+                    <MaterialIcons name="favorite" size={statIconSize} color={'#FFB36B'} />
+                  </View>
+                  <Text style={[styles.topStatLabel, { fontSize: statLabelSize }]}>Mood</Text>
+                  <Text style={[styles.topStatNumber, { fontSize: statNumberSize }]}>{formatMoodLabel(dashboardData?.mood_today?.mood_display || dashboardData?.mood_today?.mood)}</Text>
                 </View>
                 <View style={styles.topStatCard}>
-                  <View style={[styles.topStatIcon, { backgroundColor: '#E9FAF5' }]}>
-                    <MaterialIcons name="flag" size={20} color={'#6FD8BE'} />
+                  <View style={[styles.topStatIcon, { width: statBubbleSize, height: statBubbleSize, borderRadius: statBubbleSize / 2, backgroundColor: '#E9FAF5' }]}>
+                    <MaterialIcons name="flag" size={statIconSize} color={'#6FD8BE'} />
                   </View>
-                  <Text style={[styles.topStatLabel]}>Goals</Text>
-                  <Text style={[styles.topStatNumber]}>{dashboardData?.active_goals_count ?? 0}</Text>
+                  <Text style={[styles.topStatLabel, { fontSize: statLabelSize }]}>Goals</Text>
+                  <Text style={[styles.topStatNumber, { fontSize: statNumberSize }]}>{dashboardData?.active_goals_count ?? 0}</Text>
                 </View>
               </View>
             </View>
@@ -572,9 +573,9 @@ export default function Dashboard() {
 
             {/* Daily Inspiration Card */}
             {dashboardData?.daily_inspiration && (
-              <View style={[styles.inspirationCard, { backgroundColor: '#473F5A' }]}>
+              <View style={[styles.inspirationCard, { backgroundColor: '#473F5A', marginHorizontal: dashboardCardSideInset }]}>
                 <Text style={[styles.inspirationTitle, { color: '#FFFFFF' }]}>💡 Daily Inspiration</Text>
-                <Text style={[styles.quote, { color: '#FFFFFF' }]}>"{dashboardData.daily_inspiration.quote}"</Text>
+                <Text style={[styles.quote, { color: '#FFFFFF' }]}>{`"${dashboardData.daily_inspiration.quote}"`}</Text>
                 <Text style={[styles.author, { color: '#FFFFFF' }]}>— {dashboardData.daily_inspiration.author}</Text>
                 {dashboardData.daily_inspiration.reflection_prompt && (
                   <Text style={[styles.reflection, { color: '#FFFFFF' }]}>🤔 {dashboardData.daily_inspiration.reflection_prompt}</Text>
@@ -599,7 +600,7 @@ export default function Dashboard() {
                     if (d.date) {
                       try {
                         return new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' });
-                      } catch (e) {
+                      } catch {
                         return d.day || d.date || '';
                       }
                     }
@@ -615,7 +616,7 @@ export default function Dashboard() {
               if (!weekly || weekly.length === 0) {
                 return (
                   <View style={[styles.trendWrapper, { backgroundColor: '#473F5A' }]}>
-                    <Text style={[styles.trendTitle, { color: '#FFFFFF' }]}>This Week's Mood</Text>
+                    <Text style={[styles.trendTitle, { color: '#FFFFFF' }]}>This Week&apos;s Mood</Text>
                     <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: '#FFFFFF' }}>No mood data yet</Text>
                     </View>
@@ -626,7 +627,10 @@ export default function Dashboard() {
               // Debug: log weekly mapping so we can inspect missing intensity fields at runtime
               console.log('[Dashboard] weekly trend raw:', weekly);
               console.log('[Dashboard] weekly trend labels:', labels, 'values:', values, 'moods:', moods);
-              const chartWidth = Math.min(screenWidth - 48, 640);
+              const chartWidth = Math.min(width - (graphCardInset * 2) - (graphCardPadding * 2), 604);
+              const chartHorizontalInset = clamp(width * 0.02, 8, 12);
+              const plotWidth = Math.max(220, chartWidth - (chartHorizontalInset * 2));
+              const chartLeftNudge = clamp(width * 0.01, 3, 6) * 8;
 
               const chartData = {
                 labels: labels.length > 0 ? labels : [''],
@@ -643,15 +647,21 @@ export default function Dashboard() {
               };
 
               return (
-                <View style={[styles.graphCard]}>
+                <View style={[styles.graphCard, { marginHorizontal: graphCardInset, padding: graphCardPadding }]}>
                   <View style={styles.graphHeaderRow}>
                     <View>
-                      <Text style={styles.graphTitle}>This Week's Mood</Text>
-                      <Text style={styles.graphSubtitle}>Your emotional journey</Text>
+                      <Text style={[styles.graphTitle, { fontSize: graphTitleSize }]}>This Week&apos;s Mood</Text>
+                      <Text style={[styles.graphSubtitle, { fontSize: graphSubtitleSize }]}>Your emotional journey</Text>
                     </View>
                     <TouchableOpacity onPress={() => router.push('./mood-weekly-trend' as any)}>
-                      <LinearGradient colors={['#FF7A7A', '#FFB36B']} style={styles.graphIconBubble}>
-                        <MaterialIcons name="trending-up" size={18} color="#fff" />
+                      <LinearGradient
+                        colors={['#FF7A7A', '#FFB36B']}
+                        style={[
+                          styles.graphIconBubble,
+                          { width: graphIconBubbleSize, height: graphIconBubbleSize, borderRadius: graphIconBubbleSize / 2 },
+                        ]}
+                      >
+                        <MaterialIcons name="trending-up" size={graphIconSize} color="#fff" />
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -659,10 +669,10 @@ export default function Dashboard() {
                         <>
                           <View style={styles.graphChartWrapper} onTouchStart={() => setTooltipVisible(false)}>
                             <View style={{ position: 'relative', alignItems: 'center' }}>
-                              <View style={{ width: chartWidth }}>
+                              <View style={{ width: chartWidth, paddingHorizontal: chartHorizontalInset, overflow: 'hidden', borderRadius: 12 }}>
                                 <LineChart
                                   data={chartData}
-                                  width={chartWidth}
+                                  width={plotWidth}
                                   height={190}
                                   fromZero
                                   bezier
@@ -680,10 +690,11 @@ export default function Dashboard() {
                                     },
                                     decimalPlaces: 0,
                                   }}
-                                  style={{ borderRadius: 14, marginVertical: 4 }}
+                                  style={{ borderRadius: 14, marginVertical: 4, marginLeft: -chartLeftNudge }}
                                   withInnerLines={true}
                                   withShadow={false}
                                   withVerticalLines={false}
+                                  withHorizontalLabels={false}
                                   formatYLabel={() => ''}
                                   onDataPointClick={(data) => {
                                     if (!hasTrend) {
@@ -722,7 +733,7 @@ export default function Dashboard() {
                                   style={[
                                     styles.tooltip,
                                     {
-                                      left: ((chartWidth / Math.max(1, (values.length - 1))) * tooltipIndex) + ((screenWidth - chartWidth)/2) - 46,
+                                      left: chartHorizontalInset - chartLeftNudge + ((plotWidth / Math.max(1, (values.length - 1))) * tooltipIndex) + ((width - chartWidth) / 2) - 46,
                                       top: 6
                                     }
                                   ]}
@@ -751,50 +762,50 @@ export default function Dashboard() {
             {/* duplicate Connect card removed (keep quick-actions connect) */}
 
             {/* Quick actions grid (no outer card) */}
-            <View style={styles.quickActionsSection}>
-              <View style={styles.quickActionsHeader}>
-                <Text style={[styles.quickActionsTitle, { color: '#FFFFFF' }]}>Quick Actions</Text>
+            <View style={[styles.quickActionsSection, { marginHorizontal: quickSectionInset, marginTop: clamp(height * 0.016, 12, 16) }]}>
+              <View style={[styles.quickActionsHeader, { marginHorizontal: quickHeaderInset - quickSectionInset }]}>
+                <Text style={[styles.quickActionsTitle, { color: '#FFFFFF', fontSize: quickTitleSize }]}>Quick Actions</Text>
               </View>
               <View style={styles.quickActionsGrid}>
                 <View style={styles.quickActionsRow}>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => router.push('./connect-with-therapist' as any)}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFE7EF' }]}>
-                      <FontAwesome name="comment" size={22} color="#FF6B86" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => router.push('./connect-with-therapist' as any)}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#FFE7EF' }]}>
+                      <FontAwesome name="comment" size={quickActionGlyphSize} color="#FF6B86" />
                     </View>
-                    <Text style={styles.quickActionText} numberOfLines={2}>Connect with Therapist</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]} numberOfLines={2}>Connect with Therapist</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./mood')}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFF1E3' }]}>
-                      <MaterialIcons name="local-cafe" size={22} color="#FF9F6B" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => handleCardPress('./mood')}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#FFF1E3' }]}>
+                      <MaterialIcons name="local-cafe" size={quickActionGlyphSize} color="#FF9F6B" />
                     </View>
-                    <Text style={styles.quickActionText} numberOfLines={2}>Take a Mood Break</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]} numberOfLines={2}>Take a Mood Break</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./journal-list')}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#E8FAF4' }]}>
-                      <FontAwesome name="book" size={22} color="#4BC7B0" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => handleCardPress('./journal-list')}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#E8FAF4' }]}>
+                      <FontAwesome name="book" size={quickActionGlyphSize} color="#4BC7B0" />
                     </View>
-                    <Text style={styles.quickActionText}>Journaling</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]}>Journaling</Text>
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.quickActionsRow}>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./goals')}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#EEE9FF' }]}>
-                      <MaterialIcons name="add" size={22} color="#8B7BFF" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => handleCardPress('./goals')}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#EEE9FF' }]}>
+                      <MaterialIcons name="add" size={quickActionGlyphSize} color="#8B7BFF" />
                     </View>
-                    <Text style={styles.quickActionText}>Add a Goal</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]}>Add a Goal</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => router.push('./sessions')}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFE7EF' }]}>
-                      <FontAwesome name="calendar" size={22} color="#FF6B86" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => router.push('./sessions')}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#FFE7EF' }]}>
+                      <FontAwesome name="calendar" size={quickActionGlyphSize} color="#FF6B86" />
                     </View>
-                    <Text style={styles.quickActionText}>View Sessions</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]}>View Sessions</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A' }]} onPress={() => handleCardPress('./take-a-break')}>
-                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#FFF1E3' }]}>
-                      <MaterialIcons name="local-cafe" size={22} color="#FF9F6B" />
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: '#473F5A', minHeight: quickActionCardHeight }]} onPress={() => handleCardPress('./take-a-break')}>
+                    <View style={[styles.quickActionIconWrap, { width: quickActionIconSize, height: quickActionIconSize, borderRadius: quickActionIconSize / 2, backgroundColor: '#FFF1E3' }]}>
+                      <MaterialIcons name="local-cafe" size={quickActionGlyphSize} color="#FF9F6B" />
                     </View>
-                    <Text style={styles.quickActionText}>Take a Break</Text>
+                    <Text style={[styles.quickActionText, { fontSize: quickActionTextSize }]}>Take a Break</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -812,7 +823,7 @@ export default function Dashboard() {
             {/* Recent Journal Entries */}
             {dashboardData?.recent_journal_entries && dashboardData.recent_journal_entries.length > 0 && (
               <View style={styles.recentSection}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginHorizontal: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginHorizontal: dashboardCardSideInset }}>
                   <Text style={[styles.quickActionsTitle, { color: '#FFFFFF' }]}>Recent Journals</Text>
                   <TouchableOpacity onPress={() => router.push('./journal-list' as any)}>
                     <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>View All</Text>
@@ -821,10 +832,10 @@ export default function Dashboard() {
                 {dashboardData.recent_journal_entries.slice(0, 2).map((entry) => (
                   <TouchableOpacity
                     key={entry.id}
-                    style={[styles.journalCard, { backgroundColor: '#473F5A' }]}
+                    style={[styles.journalCard, { backgroundColor: '#473F5A', marginHorizontal: dashboardCardSideInset }]}
                     onPress={() => router.push(`./journal-detail?id=${entry.id}` as any)}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <LinearGradient
                         colors={["#FFB6B6", "#FF9F6B"]}
                         start={[0,0]}
@@ -834,7 +845,7 @@ export default function Dashboard() {
                         <FontAwesome name="book" size={18} color="#fff" />
                       </LinearGradient>
 
-                      <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Text style={[styles.journalTitle, { color: '#FFFFFF' }]} numberOfLines={1}>{entry.title}</Text>
                         </View>
@@ -844,7 +855,7 @@ export default function Dashboard() {
                           <Text style={[styles.journalDate, { color: '#FFFFFF', marginLeft: 6 }]}>{new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
                         </View>
 
-                        <Text style={[styles.journalContent, { color: '#FFFFFF', marginTop: 8 }]} numberOfLines={2}>{entry.content}</Text>
+                        <Text style={[styles.journalContent, { color: '#FFFFFF', marginTop: 4 }]} numberOfLines={1} ellipsizeMode="tail">{entry.content}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -855,7 +866,6 @@ export default function Dashboard() {
         )}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        contentContainerStyle={styles.container}
         // Provide an empty renderItem since data is empty
         renderItem={null}
         ListEmptyComponent={null}
@@ -879,7 +889,7 @@ export default function Dashboard() {
               value={therapistPin}
               onChangeText={setTherapistPin}
               placeholder="Enter the code from your therapist"
-              placeholderTextColor={themeStyle.placeholder}
+              placeholderTextColor={themeStyle.label}
               style={[styles.textInput, { borderColor: '#6b6b80', color: themeStyle.text }]}
             />
 
@@ -888,7 +898,7 @@ export default function Dashboard() {
               value={connectMessage}
               onChangeText={setConnectMessage}
               placeholder="Add a short message for your therapist"
-              placeholderTextColor={themeStyle.placeholder}
+              placeholderTextColor={themeStyle.label}
               style={[styles.textInput, { borderColor: '#6b6b80', color: themeStyle.text }]}
             />
 
@@ -918,7 +928,7 @@ export default function Dashboard() {
             </View>
 
             {sessionsLoading ? (
-              <ActivityIndicator size="large" color={themeStyle.text} />
+              <TabLoaderCard spinnerColor={themeStyle.text} icon="brain" />
             ) : (
               <ScrollView>
                 {groupedSessions.length === 0 && (
@@ -941,7 +951,7 @@ export default function Dashboard() {
 
                         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
                           <TouchableOpacity
-                            style={[styles.smallBtn, { backgroundColor: themeStyle.primary || '#6b6b80', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }]}
+                            style={[styles.smallBtn, { backgroundColor: '#6b6b80', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }]}
                             onPress={() => viewSessionDetail(item.id)}
                           >
                             <Text style={{ color: '#fff', fontWeight: '600' }}>See details</Text>
@@ -967,7 +977,7 @@ export default function Dashboard() {
           <ScrollView contentContainerStyle={styles.modalContainer}>
             <Text style={[styles.modalTitle, { color: themeStyle.title }]}>Session Details</Text>
             {sessionDetailLoading ? (
-              <ActivityIndicator size="large" color={themeStyle.text} />
+              <TabLoaderCard spinnerColor={themeStyle.text} icon="brain" />
             ) : selectedSession ? (
               <View>
                 <Text style={{ color: themeStyle.label, marginBottom: 8 }}>Date:</Text>
@@ -996,16 +1006,6 @@ export default function Dashboard() {
     </View>
   );
 }
-
-// Utility function for time-based greeting
-const getTimeGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
-};
-
-
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -1043,13 +1043,65 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 12,
     marginHorizontal: -12,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 0,
-    overflow: 'hidden',
+    paddingTop: 34,
+    paddingBottom: 18,
+    paddingHorizontal: 12,
     backgroundColor: 'transparent',
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    gap: 8,
+  },
+  dateBadgeText: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  notificationCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginLeft: 12,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    right: -8,
+    top: -8,
+    backgroundColor: '#F39C43',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  headerIdentityRow: {
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  headerCopyWrap: {
+    width: '100%',
   },
   greeting: {
     fontSize: 26,
@@ -1071,6 +1123,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
+    overflow: 'hidden',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
@@ -1090,6 +1143,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'right',
     marginBottom: 12,
+  },
+  reflection: {
+    fontSize: 13,
+    lineHeight: 20,
   },
   statsRow: {
     flexDirection: 'row',
@@ -1430,7 +1487,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 18,
     marginBottom: 20,
-    marginHorizontal: 12,
+    marginHorizontal: 18,
     backgroundColor: '#473F5A',
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -1458,6 +1515,19 @@ const styles = StyleSheet.create({
   },
   graphChartWrapper: {
     alignItems: 'center',
+  },
+  chartLeftGridFill: {
+    position: 'absolute',
+    left: 0,
+    top: 28,
+    height: 132,
+    justifyContent: 'space-between',
+  },
+  chartLeftGridFillLine: {
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderStyle: 'dashed',
+    width: '100%',
   },
   quickActionsSection: {
     marginTop: 14,
@@ -1602,11 +1672,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitleLarge: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 34,
+    letterSpacing: -0.4,
+  },
+  headerTitleWhite: {
     color: '#FFFFFF',
-    marginTop: -14,
-    marginLeft: 6,
+  },
+  headerTitlePurple: {
+    color: '#B8A8E6',
   },
   topStatCard: {
     flex: 1,
@@ -1650,7 +1726,8 @@ const styles = StyleSheet.create({
   headerStatsRowNew: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 18,
+    marginTop: 22,
+    marginHorizontal: 12,
   },
   statIcon: {
     width: 44,
@@ -1711,51 +1788,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontWeight: '500',
-  },
-  modalWrapper: {
-    flex: 1,
-  },
-  modalContainer: {
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  modalHint: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  cameraPlaceholder: {
-    height: 180,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#6b6b80',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  orDivider: {
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  inputLabel: {
-    fontSize: 14,
-    marginBottom: 6,
-    marginTop: 6,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  connectBtn: {
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
   },
 });
 
