@@ -6,3 +6,9 @@ class IsPatient(IsAuthenticated):
     """Permission class to ensure user is a patient"""
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.user_type == 'patient'
+
+
+class IsTherapist(IsAuthenticated):
+    """Permission class to ensure user is a therapist"""
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.user_type == 'therapist'

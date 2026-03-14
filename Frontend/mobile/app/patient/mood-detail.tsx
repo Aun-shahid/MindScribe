@@ -35,6 +35,7 @@ interface MoodEntryDetail {
   id: string;
   mood_intensities: { [key: string]: number };
   dominant_mood?: string;
+  dominant_moods?: string[];
   average_intensity?: number;
   moods_list?: string[];
   triggers: string;
@@ -242,7 +243,11 @@ export default function MoodDetailScreen() {
     );
   }
 
-  const dominantMood = moodEntry.dominant_mood || '';
+  const dominantMoods = moodEntry.dominant_moods || [];
+  const dominantMood = moodEntry.dominant_mood || (dominantMoods.length > 0 ? dominantMoods[0] : '');
+  const tieLabel = dominantMoods.length > 1
+    ? `Tie: ${dominantMoods.map((m) => getMoodLabel(m)).join(', ')}`
+    : null;
   const moodColor = getMoodColor(dominantMood);
   const moodsArray = moodEntry.mood_intensities
     ? Object.entries(moodEntry.mood_intensities).map(([mood, intensity]) => ({
@@ -339,6 +344,9 @@ export default function MoodDetailScreen() {
           <Text style={[styles.moodLabel, { color: '#FFFFFF' }]}>
             {getMoodLabel(dominantMood)}
           </Text>
+          {tieLabel && (
+            <Text style={[styles.moodDate, { color: '#B8A8E6' }]}>{tieLabel}</Text>
+          )}
           <Text style={[styles.moodDate, { color: '#B8A8E6' }]}>
             {formatDate(moodEntry.created_at)}
           </Text>

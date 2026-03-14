@@ -100,6 +100,18 @@ class NotificationPreference(models.Model):
 
 class Notification(models.Model):
     """Store notifications for patients"""
+
+    DELIVERY_STATUS_PENDING = 'pending'
+    DELIVERY_STATUS_SENT = 'sent'
+    DELIVERY_STATUS_DELIVERED = 'delivered'
+    DELIVERY_STATUS_FAILED = 'failed'
+
+    DELIVERY_STATUS_CHOICES = [
+        (DELIVERY_STATUS_PENDING, 'Pending'),
+        (DELIVERY_STATUS_SENT, 'Sent'),
+        (DELIVERY_STATUS_DELIVERED, 'Delivered'),
+        (DELIVERY_STATUS_FAILED, 'Failed'),
+    ]
     
     NOTIFICATION_TYPES = [
         ('session_reminder', 'Session Reminder'),
@@ -140,6 +152,19 @@ class Notification(models.Model):
     # Status
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)
+
+    # Realtime delivery lifecycle
+    delivery_status = models.CharField(
+        max_length=20,
+        choices=DELIVERY_STATUS_CHOICES,
+        default=DELIVERY_STATUS_PENDING,
+        help_text="Websocket delivery status"
+    )
+    delivery_attempts = models.PositiveIntegerField(default=0)
+    last_delivery_attempt_at = models.DateTimeField(null=True, blank=True)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    delivery_error = models.TextField(blank=True, null=True)
     
     sent_at = models.DateTimeField(auto_now_add=True)
     
@@ -154,6 +179,7 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=['patient', '-sent_at']),
             models.Index(fields=['patient', 'is_read']),
+            models.Index(fields=['delivery_status', 'next_retry_at']),
         ]
     
     def __str__(self):
@@ -165,3 +191,26 @@ class Notification(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=['is_read', 'read_at'])
+
+    def mark_delivery_attempt(self, status, error_message=None, next_retry_at=None):
+        """Record a websocket delivery attempt."""
+        self.delivery_attempts = (self.delivery_attempts or 0) + 1
+        self.last_delivery_attempt_at = timezone.now()
+        self.delivery_status = status
+        self.delivery_error = error_message
+        self.next_retry_at = next_retry_at
+        self.save(update_fields=[
+            'delivery_attempts',
+            'last_delivery_attempt_at',
+            'delivery_status',
+            'delivery_error',
+            'next_retry_at',
+        ])
+
+    def mark_as_delivered(self):
+        """Mark notification as delivered to a connected websocket client."""
+        self.delivery_status = self.DELIVERY_STATUS_DELIVERED
+        self.delivered_at = timezone.now()
+        self.delivery_error = None
+        self.next_retry_at = None
+        self.save(update_fields=['delivery_status', 'delivered_at', 'delivery_error', 'next_retry_at'])

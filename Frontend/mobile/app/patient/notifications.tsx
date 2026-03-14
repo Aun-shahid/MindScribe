@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   Alert, Animated, StatusBar,
@@ -9,10 +10,22 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 
+// import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+// import { router } from 'expo-router';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+// import PatientService from '../services/patient.service';
+// import { useTheme } from '../contexts/ThemeContext';
+// import { BASE_URL } from '../config';
+
+
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // const websocketRef = useRef<WebSocket | null>(null);
+
 
   const load = async () => {
     try {
@@ -28,7 +41,84 @@ export default function NotificationsScreen() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    load();
+
+    const connectRealtimeNotifications = async () => {
+      try {
+        const token = await AsyncStorage.getItem('access_token');
+        if (!token) {
+          return;
+        }
+
+        const wsBaseUrl = BASE_URL
+          .replace(/^http:\/\//i, 'ws://')
+          .replace(/^https:\/\//i, 'wss://')
+          .replace(/\/$/, '');
+
+        const wsUrl = `${wsBaseUrl}/ws/notifications/?token=${encodeURIComponent(token)}`;
+        const ws = new WebSocket(wsUrl);
+        websocketRef.current = ws;
+
+        ws.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload?.event !== 'notification.created') {
+              return;
+            }
+
+            const incoming = payload?.notification || {};
+            const dbRecord = incoming?.db_record || {};
+            const notificationId = incoming?.id || dbRecord?.id;
+
+            if (notificationId && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                event: 'notification.delivered',
+                notification_id: notificationId,
+              }));
+            }
+
+            const normalized = {
+              id: notificationId,
+              title: incoming?.title || dbRecord?.title || 'Notification',
+              message: incoming?.message || dbRecord?.message || '',
+              action_url: incoming?.action_url || dbRecord?.action_url || null,
+              is_read: Boolean(dbRecord?.is_read ?? incoming?.read ?? false),
+              sent_at: dbRecord?.sent_at || incoming?.createdAt || new Date().toISOString(),
+            };
+
+            if (!normalized.id) {
+              return;
+            }
+
+            setNotifications((prev) => {
+              const filtered = prev.filter((item) => item.id !== normalized.id);
+              return [normalized, ...filtered];
+            });
+          } catch (error) {
+            console.warn('[Notifications] websocket parse error', error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.warn('[Notifications] websocket error', error);
+        };
+      } catch (error) {
+        console.warn('[Notifications] websocket init error', error);
+      }
+    };
+
+    connectRealtimeNotifications();
+
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.close();
+        websocketRef.current = null;
+      }
+    };
+  }, []);
+
 
   const handlePress = async (item: any) => {
     try {

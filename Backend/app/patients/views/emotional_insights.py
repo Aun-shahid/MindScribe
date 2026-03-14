@@ -9,6 +9,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from ..models import EmotionalInsight
 from ..serializers import EmotionalInsightSerializer, EmotionalAnalyticsSerializer
 from .permissions import IsPatient
+from users.models import PatientProfile
+from ..services.notification_center import create_notification
 
 
 @extend_schema_view(
@@ -54,6 +56,28 @@ class EmotionalInsightListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(is_resolved=False)
         
         return queryset
+
+    def perform_create(self, serializer):
+        insight = serializer.save()
+        try:
+            patient_profile = PatientProfile.objects.select_related('therapist__user').get(user=insight.patient)
+            therapist_profile = patient_profile.therapist
+            if therapist_profile and therapist_profile.user:
+                create_notification(
+                    recipient=therapist_profile.user,
+                    notification_type='therapist_message',
+                    title='New Emotional Insight',
+                    message=f'{insight.patient.full_name} added a new emotional insight.',
+                    action_url=f'/therapist/patients/{insight.patient.id}/insights',
+                    source_event='emotional_insight.created.by_patient',
+                    metadata={
+                        'patient_id': str(insight.patient.id),
+                        'insight_id': str(insight.id),
+                        'primary_emotion': insight.primary_emotion,
+                    },
+                )
+        except Exception:
+            pass
 
 
 @extend_schema_view(

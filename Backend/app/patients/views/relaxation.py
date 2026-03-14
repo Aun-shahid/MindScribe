@@ -11,6 +11,8 @@ from ..serializers import (
     RelaxationTipSerializer, RelaxationAnalyticsSerializer
 )
 from .permissions import IsPatient
+from users.models import PatientProfile
+from ..services.notification_center import create_notification
 
 
 @extend_schema(
@@ -110,6 +112,27 @@ class RelaxationSessionListCreateView(generics.ListCreateAPIView):
                 'error': str(e),
                 'traceback': tb
             }, status=500)
+
+        try:
+            patient_profile = PatientProfile.objects.select_related('therapist__user').get(user=session.patient)
+            therapist_profile = patient_profile.therapist
+            if therapist_profile and therapist_profile.user:
+                create_notification(
+                    recipient=therapist_profile.user,
+                    notification_type='therapist_message',
+                    title='Patient Started Relaxation Session',
+                    message=f'{session.patient.full_name} started a relaxation session.',
+                    action_url=f'/therapist/patients/{session.patient.id}/wellness',
+                    source_event='relaxation.session.started.by_patient',
+                    metadata={
+                        'patient_id': str(session.patient.id),
+                        'session_id': str(session.id),
+                        'content_id': str(session.content.id),
+                        'content_type': session.content.content_type,
+                    },
+                )
+        except Exception:
+            pass
 
 
 @extend_schema_view(

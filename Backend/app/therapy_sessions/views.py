@@ -46,6 +46,7 @@ User = get_user_model()
 
 # TherapistPatientMoodTrendView: Fetch 7-day mood trend for a patient
 from patients.models import MoodEntry
+from patients.services.notification_center import create_notification
 
 @extend_schema(
     tags=["Therapist - Mood"],
@@ -201,6 +202,24 @@ class TherapistSessionsView(generics.CreateAPIView):
         
         # Create the session
         session = serializer.save(therapist=request.user, created_by=request.user)
+
+        if session.patient and session.patient.user_type == 'patient':
+            try:
+                create_notification(
+                    recipient=session.patient,
+                    notification_type='session_approved',
+                    title='New Therapy Session Scheduled',
+                    message=f'Your therapist has scheduled a session for {session.scheduled_date.strftime("%B %d at %I:%M %p")}.',
+                    session_id=str(session.id),
+                    action_url=f'/sessions/{session.id}',
+                    source_event='session.created.by_therapist',
+                    metadata={
+                        'session_id': str(session.id),
+                        'therapist_id': str(request.user.id),
+                    },
+                )
+            except Exception:
+                pass
         
         # Return full session data using SessionSerializer
         response_serializer = SessionSerializer(session, context={'request': request})
@@ -1495,6 +1514,23 @@ class AssignPatientToSessionView(generics.GenericAPIView):
             
             # Assign patient to session
             session.assign_patient(patient)
+
+            try:
+                create_notification(
+                    recipient=patient,
+                    notification_type='session_approved',
+                    title='You Were Added to a Session',
+                    message=f'Your therapist assigned you to a session on {session.scheduled_date.strftime("%B %d at %I:%M %p")}.',
+                    session_id=str(session.id),
+                    action_url=f'/sessions/{session.id}',
+                    source_event='session.patient_assigned',
+                    metadata={
+                        'session_id': str(session.id),
+                        'therapist_id': str(user.id),
+                    },
+                )
+            except Exception:
+                pass
             
             return Response({
                 'detail': 'Patient assigned to session successfully.',
@@ -1799,6 +1835,23 @@ class SessionSummaryView(generics.UpdateAPIView):
         serializer = self.get_serializer(session, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        try:
+            create_notification(
+                recipient=session.patient,
+                notification_type='session_summary',
+                title='Session Summary Available',
+                message=f'Your therapist shared your session summary from {session.scheduled_date.strftime("%B %d")}.',
+                session_id=str(session.id),
+                action_url=f'/sessions/{session.id}/summary',
+                source_event='session.summary.written',
+                metadata={
+                    'session_id': str(session.id),
+                    'therapist_id': str(request.user.id),
+                },
+            )
+        except Exception:
+            pass
         
         return Response({
             'detail': 'Session summary written successfully.',
@@ -2354,6 +2407,22 @@ class BulkSessionUpdateView(APIView):
         for session in sessions:
             if action == 'cancel':
                 session.cancel_session(serializer.validated_data.get('reason'))
+                try:
+                    create_notification(
+                        recipient=session.patient,
+                        notification_type='session_cancelled',
+                        title='Session Cancelled',
+                        message=f'Your session on {session.scheduled_date.strftime("%B %d at %I:%M %p")} has been cancelled.',
+                        session_id=str(session.id),
+                        action_url='/sessions',
+                        source_event='session.bulk_cancelled',
+                        metadata={
+                            'session_id': str(session.id),
+                            'reason': serializer.validated_data.get('reason'),
+                        },
+                    )
+                except Exception:
+                    pass
                 updated_sessions.append(session)
             
             elif action == 'reschedule':
@@ -2361,6 +2430,22 @@ class BulkSessionUpdateView(APIView):
                     serializer.validated_data['new_date'],
                     serializer.validated_data.get('reason')
                 )
+                try:
+                    create_notification(
+                        recipient=session.patient,
+                        notification_type='general',
+                        title='Session Rescheduled',
+                        message=f'Your session has been rescheduled to {session.scheduled_date.strftime("%B %d at %I:%M %p")}.',
+                        session_id=str(session.id),
+                        action_url=f'/sessions/{session.id}',
+                        source_event='session.bulk_rescheduled',
+                        metadata={
+                            'session_id': str(session.id),
+                            'reason': serializer.validated_data.get('reason'),
+                        },
+                    )
+                except Exception:
+                    pass
                 updated_sessions.append(session)
             
             elif action == 'update_location':
@@ -3247,6 +3332,7 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
             patient_id__in=patient_ids,
             created_at__gte=start_date
         ).order_by('-created_at')
+        mood_entries_list = list(mood_entries)
         
         # Generate alerts based on mood scores
         alerts = []
@@ -3292,7 +3378,10 @@ class TherapistMoodAlertsView(generics.GenericAPIView):
             'medium_alerts': len([a for a in alerts if a['severity'] == 'medium']),
             'patients_needing_attention': len(set(a['patient_id'] for a in alerts if a['severity'] in ['critical', 'high'])),
             'total_mood_entries': mood_entries.count(),
-            'average_mood_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
+            'average_mood_intensity': (
+                sum(entry.average_intensity for entry in mood_entries_list) / len(mood_entries_list)
+                if mood_entries_list else 0
+            ),
         }
         
         return Response({
@@ -3371,6 +3460,7 @@ class PatientMoodSummaryView(generics.GenericAPIView):
             patient=user,
             created_at__gte=start_date
         ).order_by('created_at')
+        mood_entries_list = list(mood_entries)
         
         # Build mood trend data
         mood_trend = []
@@ -3386,9 +3476,18 @@ class PatientMoodSummaryView(generics.GenericAPIView):
         # Statistics
         stats = {
             'total_entries': mood_entries.count(),
-            'average_intensity': mood_entries.aggregate(avg=Avg('average_intensity'))['avg'] or 0,
-            'highest_intensity': mood_entries.order_by('-average_intensity').first().average_intensity if mood_entries.exists() else 0,
-            'lowest_intensity': mood_entries.order_by('average_intensity').first().average_intensity if mood_entries.exists() else 0,
+            'average_intensity': (
+                sum(entry.average_intensity for entry in mood_entries_list) / len(mood_entries_list)
+                if mood_entries_list else 0
+            ),
+            'highest_intensity': (
+                max(entry.average_intensity for entry in mood_entries_list)
+                if mood_entries_list else 0
+            ),
+            'lowest_intensity': (
+                min(entry.average_intensity for entry in mood_entries_list)
+                if mood_entries_list else 0
+            ),
             'most_common_mood': self._get_most_common_mood(mood_entries),
         }
         
@@ -3755,6 +3854,23 @@ class PatientBookSessionView(APIView):
             session_type='individual',
             created_by=request.user,
         )
+
+        try:
+            create_notification(
+                recipient=therapist,
+                notification_type='therapist_message',
+                title='New Session Booking',
+                message=f'{request.user.full_name} booked a session for {session.scheduled_date.strftime("%B %d at %I:%M %p")}.',
+                session_id=str(session.id),
+                action_url=f'/therapy/sessions/{session.id}',
+                source_event='session.booked.by_patient',
+                metadata={
+                    'session_id': str(session.id),
+                    'patient_id': str(request.user.id),
+                },
+            )
+        except Exception:
+            pass
         
         response_serializer = SessionSerializer(session, context={'request': request})
         return Response({
@@ -3804,6 +3920,25 @@ class EmergencySessionRequestView(APIView):
             is_emergency=True,
             created_by=request.user,
         )
+
+        try:
+            create_notification(
+                recipient=therapist,
+                notification_type='therapist_message',
+                title='Emergency Session Request',
+                message=f'{request.user.full_name} requested an emergency session.',
+                session_id=str(session.id),
+                action_url=f'/therapy/sessions/{session.id}',
+                priority='high',
+                source_event='session.emergency_requested',
+                metadata={
+                    'session_id': str(session.id),
+                    'patient_id': str(request.user.id),
+                    'is_emergency': True,
+                },
+            )
+        except Exception:
+            pass
         
         response_serializer = SessionSerializer(session, context={'request': request})
         return Response({

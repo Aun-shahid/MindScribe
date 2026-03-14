@@ -1,5 +1,5 @@
 // import { useState, useEffect } from 'react';
-// import therapistService from '../services/therapist.service';
+// import patientService from '../services/patient.service';
 
 // interface MoodEntry {
 //   id: string;
@@ -315,7 +315,7 @@
 
 
 import { useState, useEffect } from 'react';
-import therapistService from '../services/therapist.service';
+import patientService from '../services/patient.service';
 
 interface MoodEntry {
   id: string;
@@ -375,7 +375,7 @@ const PatientMoodTrend: React.FC<PatientMoodTrendProps> = ({ patientId }) => {
       setLoading(true);
       setError(null);
       console.log('[PatientMoodTrend] Fetching mood trend for patient:', patientId);
-      const data = await therapistService.getMoodTrend(patientId);
+      const data = await patientService.getMoodTrend(patientId);
       setMoodData(data);
     } catch (err) {
       console.error('Failed to fetch mood trend:', err);

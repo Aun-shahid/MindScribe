@@ -2,16 +2,244 @@
 from rest_framework import generics, status, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.db.models import Count, Avg
 from django.utils import timezone
 from datetime import timedelta
 from collections import Counter
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from django.contrib.auth import get_user_model
 
 from ..schema import PatientAPITags
-from ..models import MoodEntry
+from ..models import MoodEntry, Notification
 from ..serializers import MoodEntrySerializer, MoodAnalyticsSerializer
 from .permissions import IsPatient
+from ..services.notification_center import create_notification
+
+
+BAD_MOODS = {'sad', 'angry', 'anxious', 'overwhelmed', 'stressed'}
+
+
+def _get_recent_daily_mood_scores(patient, lookback_days=7):
+    recent_dates = list(
+        MoodEntry.objects.filter(patient=patient)
+        .values_list('mood_date', flat=True)
+        .distinct()
+        .order_by('-mood_date')[:lookback_days]
+    )
+
+    scored_days = []
+    for mood_date in reversed(recent_dates):
+        day_data = MoodEntry.get_dominant_mood_for_day(patient, mood_date)
+        if not day_data:
+            continue
+        scored_days.append({
+            'date': mood_date,
+            'avg_intensity': day_data['avg_intensity'],
+            'dominant_mood': day_data['dominant_mood'],
+        })
+
+    return scored_days
+
+
+def _get_downward_mood_trend(patient, lookback_days=7, min_drop=0.8):
+    scored_days = _get_recent_daily_mood_scores(patient, lookback_days=lookback_days)
+    if len(scored_days) < 4:
+        return None
+
+    recent_window = scored_days[-3:]
+    previous_window = scored_days[-6:-3] if len(scored_days) >= 6 else scored_days[:-3]
+
+    if len(previous_window) < 2:
+        return None
+
+    recent_avg = sum(day['avg_intensity'] for day in recent_window) / len(recent_window)
+    previous_avg = sum(day['avg_intensity'] for day in previous_window) / len(previous_window)
+    drop_value = previous_avg - recent_avg
+
+    if drop_value < min_drop:
+        return None
+
+    return {
+        'previous_avg': round(previous_avg, 2),
+        'recent_avg': round(recent_avg, 2),
+        'drop_value': round(drop_value, 2),
+        'recent_window': [
+            {
+                'date': str(day['date']),
+                'avg_intensity': day['avg_intensity'],
+                'dominant_mood': day['dominant_mood'],
+            }
+            for day in recent_window
+        ],
+    }
+
+
+def _get_last_bad_mood_streak(patient, streak_size=3):
+    """
+    Return streak details if the patient's most recent distinct mood days are all bad moods.
+
+    A "bad mood" is one of: sad, angry, anxious, overwhelmed, stressed.
+    The check uses daily dominant moods (supports multiple entries per day).
+    """
+    recent_dates = list(
+        MoodEntry.objects.filter(patient=patient)
+        .values_list('mood_date', flat=True)
+        .distinct()
+        .order_by('-mood_date')[:streak_size]
+    )
+
+    if len(recent_dates) < streak_size:
+        return None
+
+    streak_days = []
+    for mood_date in recent_dates:
+        day_data = MoodEntry.get_dominant_mood_for_day(patient, mood_date)
+        if not day_data:
+            return None
+
+        dominant_mood = day_data.get('dominant_mood')
+        if dominant_mood not in BAD_MOODS:
+            return None
+
+        streak_days.append({
+            'date': str(mood_date),
+            'dominant_mood': dominant_mood,
+            'avg_intensity': day_data.get('avg_intensity', 0),
+        })
+
+    return {
+        'streak_size': streak_size,
+        'streak_days': list(reversed(streak_days)),
+    }
+
+
+def _get_associated_therapists(patient):
+    therapist_ids = set()
+
+    patient_profile = getattr(patient, 'patient_profile', None)
+    if patient_profile and patient_profile.therapist and patient_profile.therapist.user_id:
+        therapist_ids.add(patient_profile.therapist.user_id)
+
+    from therapy_sessions.models import Session
+
+    session_therapist_ids = Session.objects.filter(
+        patient=patient,
+        therapist__isnull=False,
+    ).values_list('therapist_id', flat=True).distinct()
+    therapist_ids.update(session_therapist_ids)
+
+    therapist_ids.discard(None)
+    therapist_ids.discard(patient.id)
+
+    User = get_user_model()
+    return User.objects.filter(id__in=therapist_ids, user_type='therapist')
+
+
+def create_mood_trend_alerts_for_therapists(patient):
+    trend_data = _get_downward_mood_trend(patient)
+    if not trend_data:
+        return 0
+
+    today = timezone.now().date()
+    therapists = _get_associated_therapists(patient)
+    action_url = f'/therapist/patients/{patient.id}/mood'
+
+    alert_count = 0
+    for therapist in therapists:
+        already_sent_today = Notification.objects.filter(
+            patient=therapist,
+            notification_type='therapist_message',
+            action_url=action_url,
+            sent_at__date=today,
+        ).exists()
+        if already_sent_today:
+            continue
+
+        create_notification(
+            recipient=therapist,
+            notification_type='therapist_message',
+            title=f'Mood trend alert: {patient.full_name}',
+            message=(
+                f'{patient.full_name} has a downward mood trend '
+                f'({trend_data["previous_avg"]} → {trend_data["recent_avg"]}).'
+            ),
+            action_url=action_url,
+            priority='high',
+            source_event='mood.trend.downward',
+            metadata={
+                'patient_id': str(patient.id),
+                'patient_name': patient.full_name,
+                'drop_value': trend_data['drop_value'],
+                'recent_window': trend_data['recent_window'],
+            },
+            persist=True,
+            send_realtime=True,
+        )
+        alert_count += 1
+
+    return alert_count
+
+
+def create_three_bad_mood_alerts_for_therapists(patient):
+    """
+    Notify associated therapists when the patient has 3 recent bad mood days in a row.
+    """
+    streak_data = _get_last_bad_mood_streak(patient, streak_size=3)
+    if not streak_data:
+        return 0
+
+    today = timezone.now().date()
+    therapists = _get_associated_therapists(patient)
+    action_url = f'/therapist/patients/{patient.id}/mood?alert=three_bad_moods'
+
+    alert_count = 0
+    for therapist in therapists:
+        already_sent_today = Notification.objects.filter(
+            patient=therapist,
+            notification_type='therapist_message',
+            action_url=action_url,
+            sent_at__date=today,
+        ).exists()
+        if already_sent_today:
+            continue
+
+        create_notification(
+            recipient=therapist,
+            notification_type='therapist_message',
+            title=f'Urgent mood alert: {patient.full_name}',
+            message=(
+                f'{patient.full_name} logged 3 consecutive low mood days '
+                f'({", ".join(day["dominant_mood"] for day in streak_data["streak_days"])}).'
+            ),
+            action_url=action_url,
+            priority='high',
+            source_event='mood.streak.bad3',
+            metadata={
+                'patient_id': str(patient.id),
+                'patient_name': patient.full_name,
+                'streak_size': streak_data['streak_size'],
+                'streak_days': streak_data['streak_days'],
+                'rule': 'three_consecutive_bad_moods',
+            },
+            persist=True,
+            send_realtime=True,
+            notification_level='alert',
+            related_entity_id=str(patient.id),
+        )
+        alert_count += 1
+
+    return alert_count
+
+
+def create_mood_alerts_for_therapists(patient):
+    """
+    Run all therapist alert rules for a newly logged mood entry.
+    """
+    trend_alerts = create_mood_trend_alerts_for_therapists(patient)
+    bad_mood_alerts = create_three_bad_mood_alerts_for_therapists(patient)
+    return {
+        'trend_alerts': trend_alerts,
+        'bad_mood_alerts': bad_mood_alerts,
+    }
 
 
 @extend_schema_view(
@@ -28,7 +256,7 @@ from .permissions import IsPatient
     post=extend_schema(
         tags=[PatientAPITags.MOOD],
         summary='Create mood entry',
-        description='Create a new mood entry for today. Only one mood entry allowed per day.'
+        description='Create a new mood entry for today. Multiple mood entries are allowed per day.'
     )
 )
 class MoodEntryListCreateView(generics.ListCreateAPIView):
@@ -39,7 +267,7 @@ class MoodEntryListCreateView(generics.ListCreateAPIView):
     serializer_class = MoodEntrySerializer
     permission_classes = [IsPatient]
     filter_backends = [filters.OrderingFilter]
-    ordering_fields = ['mood_date', 'created_at', 'intensity']
+    ordering_fields = ['mood_date', 'created_at']
     ordering = ['-mood_date']
     
     def get_queryset(self):
@@ -57,9 +285,17 @@ class MoodEntryListCreateView(generics.ListCreateAPIView):
         # Filter by mood type
         mood = self.request.query_params.get('mood')
         if mood:
-            queryset = queryset.filter(mood=mood)
+            valid_moods = {choice[0] for choice in MoodEntry.MOOD_CHOICES}
+            if mood in valid_moods:
+                queryset = queryset.filter(**{f'mood_intensities__{mood}__isnull': False})
+            else:
+                queryset = queryset.none()
         
         return queryset
+
+    def perform_create(self, serializer):
+        mood_entry = serializer.save()
+        create_mood_alerts_for_therapists(mood_entry.patient)
 
 
 @extend_schema_view(
@@ -84,7 +320,7 @@ class MoodEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
 @extend_schema(
     tags=['Patient - Mood Tracking'],
     summary='Get or create today\'s mood',
-    description='Retrieve or create mood entry for today. Only one mood allowed per day.',
+    description='Retrieve or create mood entry for today. Multiple mood entries are allowed per day.',
     responses={200: MoodEntrySerializer}
 )
 class TodayMoodView(APIView):
@@ -120,6 +356,7 @@ class TodayMoodView(APIView):
         serializer = MoodEntrySerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         mood_entry = serializer.save()
+        create_mood_alerts_for_therapists(mood_entry.patient)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -145,50 +382,37 @@ class MoodAnalyticsView(APIView):
             patient=request.user,
             mood_date__gte=start_date
         )
-                # Calculate statistics using new mood_intensities structure
-        # Get all mood intensities and calculate average
         all_intensities = []
         all_mood_counts = Counter()
-        
         for mood_entry in moods:
-            if mood_entry.mood_intensities:
-                for mood, intensity in mood_entry.mood_intensities.items():
-                    all_intensities.append(intensity)
-                    all_mood_counts[mood] += 1
-        
-        avg_intensity = sum(all_intensities) / len(all_intensities) if all_intensities else 0
+            if not mood_entry.mood_intensities:
+                continue
+            for mood_name, intensity in mood_entry.mood_intensities.items():
+                all_mood_counts[mood_name] += 1
+                all_intensities.append(intensity)
 
-        # Calculate statistics
-        avg_intensity = moods.aggregate(Avg('intensity'))['intensity__avg'] or 0
-        
-        # Most common mood
-        most_common_mood = all_mood_counts.most_common(1)[0][0] if all_mood_counts else None
-        mood_counts = moods.values('mood').annotate(count=Count('mood')).order_by('-count')
-        most_common_mood = mood_counts.first()['mood'] if mood_counts else None
-        
-        # Mood distribution
+        avg_intensity = (sum(all_intensities) / len(all_intensities)) if all_intensities else 0
+        most_common_mood = all_mood_counts.most_common(1)[0][0] if all_mood_counts else ''
         mood_distribution = dict(all_mood_counts)
-        mood_distribution = {item['mood']: item['count'] for item in mood_counts}
         
         # Weekly trend
         weekly_trend = []
         for i in range(7):
             date = timezone.now().date() - timedelta(days=i)
             day_data = MoodEntry.get_dominant_mood_for_day(request.user, date)
-
-            day_moods = moods.filter(mood_date=date)
-            if day_moods.exists():
-                avg = day_moods.aggregate(Avg('intensity'))['intensity__avg'] or 0
+            if day_data:
                 weekly_trend.append({
                     'date': str(date),
-                    'average_intensity': round(avg, 2),
-                    'dominant_mood': day_data['dominant_mood'] if day_data else None
+                    'average_intensity': round(day_data.get('avg_intensity', 0), 2),
+                    'dominant_mood': day_data.get('dominant_mood'),
+                    'dominant_moods': day_data.get('dominant_moods', []),
                 })
             else:
                 weekly_trend.append({
                     'date': str(date),
                     'average_intensity': 0,
-                    'dominant_mood': None
+                    'dominant_mood': None,
+                    'dominant_moods': [],
                 })
         
         # Common triggers

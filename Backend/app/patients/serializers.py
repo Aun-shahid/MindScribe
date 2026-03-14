@@ -29,13 +29,14 @@ class MoodEntrySerializer(serializers.ModelSerializer):
     # Read-only computed fields
     moods_list = serializers.ListField(read_only=True)
     dominant_mood = serializers.CharField(read_only=True)
+    dominant_moods = serializers.ListField(read_only=True)
     average_intensity = serializers.FloatField(read_only=True)
     
     class Meta:
         model = MoodEntry
         fields = [
             'id', 'patient', 'patient_name', 
-            'mood_intensities', 'moods_list', 'dominant_mood', 'average_intensity',
+            'mood_intensities', 'moods_list', 'dominant_mood', 'dominant_moods', 'average_intensity',
             'notes', 'triggers', 'triggers_list', 'activities',
             'mood_date', 'created_at', 'updated_at'
         ]
@@ -358,9 +359,16 @@ class NotificationSerializer(serializers.ModelSerializer):
             'notification_type', 'title', 'message',
             'session_id', 'goal_id', 'action_url',
             'is_read', 'read_at', 'sent_at', 'time_ago',
-            'push_sent', 'push_sent_at'
+            'push_sent', 'push_sent_at',
+            'delivery_status', 'delivery_attempts',
+            'last_delivery_attempt_at', 'next_retry_at',
+            'delivered_at', 'delivery_error'
         ]
-        read_only_fields = ['id', 'patient', 'sent_at', 'push_sent', 'push_sent_at']
+        read_only_fields = [
+            'id', 'patient', 'sent_at', 'push_sent', 'push_sent_at',
+            'delivery_status', 'delivery_attempts', 'last_delivery_attempt_at',
+            'next_retry_at', 'delivered_at', 'delivery_error'
+        ]
     
     def get_time_ago(self, obj):
         """Get human-readable time since notification was sent"""

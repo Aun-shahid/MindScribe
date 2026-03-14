@@ -5,10 +5,13 @@ Handles secure WebSocket connections for real-time therapy session communication
 
 import json
 import uuid
+from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from .models import Session
 import logging
 
@@ -22,14 +25,57 @@ class TherapySessionConsumer(AsyncWebsocketConsumer):
     Handles real-time communication between therapist and patient during sessions.
     """
     
+    @staticmethod
+    def _normalize_token(raw_token):
+        if not raw_token:
+            return None
+        token = str(raw_token).strip()
+        if token.lower().startswith('bearer '):
+            token = token[7:].strip()
+        return token or None
+
+    def _extract_token_from_query(self):
+        query_string = self.scope.get('query_string', b'').decode('utf-8')
+        query_params = parse_qs(query_string)
+        token_values = (
+            query_params.get('token')
+            or query_params.get('access_token')
+            or query_params.get('jwt')
+            or query_params.get('authorization')
+        )
+        if not token_values:
+            return None
+        return self._normalize_token(token_values[0])
+
+    @database_sync_to_async
+    def _get_user_from_token(self, raw_token):
+        token = self._normalize_token(raw_token)
+        if not token:
+            return None
+
+        try:
+            validated = AccessToken(token)
+        except (InvalidToken, TokenError):
+            return None
+
+        user_id = validated.get('user_id')
+        if not user_id:
+            return None
+
+        return User.objects.filter(id=user_id).first()
+
     async def connect(self):
         """Handle WebSocket connection"""
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'therapy_session_{self.room_id}'
         self.user = self.scope['user']
+
+        if not self.user or not self.user.is_authenticated:
+            raw_token = self._extract_token_from_query()
+            self.user = await self._get_user_from_token(raw_token)
         
         # Validate user authentication
-        if not self.user.is_authenticated:
+        if not self.user or not self.user.is_authenticated:
             await self.close(code=4001)  # Unauthorized
             return
         

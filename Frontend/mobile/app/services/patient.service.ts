@@ -50,18 +50,17 @@ export interface CreateMoodEntryData {
 
 export interface MoodEntryResponse {
   id: string;
-  mood: string;
-  mood_score: number;
-  energy_level: number;
-  sleep_quality: number;
-  anxiety_level: number;
-  stress_level: number;
+  patient?: string;
+  patient_name?: string;
+  mood_intensities: MoodIntensities;
+  moods_list: string[];
+  dominant_mood: string;
+  average_intensity: number;
   triggers: string;
   triggers_list: string[];
-  location: string;
-  weather: string;
   notes: string;
-  coping_strategies_used: string;
+  activities: string;
+  mood_date: string;
   created_at: string;
   updated_at: string;
 }

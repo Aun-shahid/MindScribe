@@ -15,6 +15,7 @@ from .serializers import (
     ConnectionRequestCreateSerializer, ConnectionRequestAcceptSerializer,
     ConnectionRequestRejectSerializer, MergeablePatientSerializer
 )
+from patients.services.notification_center import create_notification
 
 
 @extend_schema(tags=['Therapist Management'])
@@ -382,6 +383,22 @@ class ConnectToTherapistView(APIView):
                 message=message,
                 status='pending'
             )
+
+            try:
+                create_notification(
+                    recipient=therapist_profile.user,
+                    notification_type='therapist_message',
+                    title='New Connection Request',
+                    message=f'{request.user.full_name} requested to connect with you.',
+                    action_url='/users/connection-requests',
+                    source_event='connection.request.created',
+                    metadata={
+                        'request_id': str(connection_request.id),
+                        'patient_id': str(request.user.id),
+                    },
+                )
+            except Exception:
+                pass
             
             return Response({
                 'detail': 'Connection request sent successfully. Please wait for the therapist to respond.',
@@ -468,13 +485,13 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return get_object_or_404(TherapistProfile, user=self.request.user)
     
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.user_type != 'therapist':
-            return Response(
-                {'detail': 'Only therapists can access this endpoint.'}, 
-                status=status.HTTP_403_FORBIDDEN
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'therapist':
+            self.permission_denied(
+                request,
+                message='Only therapists can access this endpoint.',
             )
-        return super().dispatch(request, *args, **kwargs)
 
 
 @extend_schema(tags=['Connection Requests'])
@@ -664,6 +681,22 @@ class ConnectionRequestActionView(APIView):
         # Update connection request
         connection_request.status = 'accepted'
         connection_request.save()
+
+        try:
+            create_notification(
+                recipient=patient_user,
+                notification_type='therapist_message',
+                title='Connection Request Accepted',
+                message=f'Dr. {therapist_profile.user.full_name} accepted your connection request.',
+                action_url='/users/therapists',
+                source_event='connection.request.accepted',
+                metadata={
+                    'request_id': str(connection_request.id),
+                    'therapist_id': str(therapist_profile.user.id),
+                },
+            )
+        except Exception:
+            pass
         
         return Response({
             'detail': 'Connection request accepted. Patient is now connected.',
@@ -679,6 +712,22 @@ class ConnectionRequestActionView(APIView):
         """Reject the connection request"""
         connection_request.status = 'rejected'
         connection_request.save()
+
+        try:
+            create_notification(
+                recipient=connection_request.patient_user,
+                notification_type='therapist_message',
+                title='Connection Request Rejected',
+                message='Your connection request was declined by the therapist.',
+                action_url='/users/therapists',
+                source_event='connection.request.rejected',
+                metadata={
+                    'request_id': str(connection_request.id),
+                    'reason': reason or '',
+                },
+            )
+        except Exception:
+            pass
         
         return Response({
             'detail': 'Connection request rejected.',
@@ -715,6 +764,22 @@ class ConnectionRequestActionView(APIView):
         connection_request.status = 'merged'
         connection_request.merged_with_patient = existing_patient
         connection_request.save()
+
+        try:
+            create_notification(
+                recipient=requesting_user,
+                notification_type='therapist_message',
+                title='Connection Request Merged',
+                message=f'Your request was merged with existing patient records by Dr. {therapist_profile.user.full_name}.',
+                action_url='/users/therapists',
+                source_event='connection.request.merged',
+                metadata={
+                    'request_id': str(connection_request.id),
+                    'merged_with_patient_id': str(existing_patient.user.id),
+                },
+            )
+        except Exception:
+            pass
         
         return Response({
             'detail': f'Connection request merged with existing patient {existing_patient.user.full_name}.',

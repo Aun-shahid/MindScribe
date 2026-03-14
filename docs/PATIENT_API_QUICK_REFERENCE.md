@@ -5,6 +5,9 @@
 /api/patients/
 ```
 
+For detailed mood internals (alerts, realtime notifications, daily aggregation), see:
+`Backend/docs/MOOD_LOGGING_SYSTEM.md`
+
 ## 📍 All Endpoints at a Glance
 
 ### Dashboard

@@ -282,9 +282,9 @@ class TherapistService {
 
   async addPatient(patientData: PatientFormData): Promise<Patient> {
     try {
-      console.log('[TherapistService] POST /therapy_sessions/patients/', patientData);
-      const response = await api.post<Patient>('/therapy_sessions/patients/', patientData);
-      return response.data;
+      console.log('[TherapistService] POST /therapy_sessions/patients/create/', patientData);
+      const response = await api.post<{message: string, patient: Patient}>('/therapy_sessions/patients/create/', patientData);
+      return response.data.patient || response.data as unknown as Patient; // backend returns {"message":..., "patient":...} or similar
     } catch (error: any) {
       throw this.handleError(error);
     }

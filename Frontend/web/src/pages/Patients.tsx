@@ -1,6 +1,6 @@
 // src/pages/Patients.tsx
 import { Link } from 'react-router-dom';
-import { useTherapistPatients } from '../hooks/useTherapist';
+import { useTherapistPatients } from '../hooks/usePatients';
 import { useState } from 'react';
 
 

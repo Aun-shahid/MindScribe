@@ -190,3 +190,37 @@ def validate_session_access(
             detail="Access denied: token session ID does not match requested session"
         )
     return True
+
+
+def generate_websocket_token(session_id: str, therapist_id: str, expires_hours: int = 24) -> str:
+    """
+    Generate a JWT token for WebSocket authentication.
+    
+    Args:
+        session_id: Session ID to encode in token
+        therapist_id: Therapist ID to encode in token
+        expires_hours: Token expiration time in hours (default 24)
+        
+    Returns:
+        str: Encoded JWT token
+    """
+    import uuid
+    from datetime import timedelta
+    
+    now = datetime.utcnow()
+    payload = {
+        "session_id": session_id,
+        "therapist_id": therapist_id,
+        "type": "session_token",
+        "iat": now,
+        "exp": now + timedelta(hours=expires_hours),
+        "jti": str(uuid.uuid4())
+    }
+    
+    token = jwt.encode(
+        payload,
+        settings.ai_service_secret_key,
+        algorithm=settings.jwt_algorithm
+    )
+    
+    return token

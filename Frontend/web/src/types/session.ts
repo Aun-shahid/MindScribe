@@ -57,7 +57,11 @@ export interface AIAnalysisStatus {
 export interface StartSessionResponse {
   detail: string;
   session: SessionDetailData;
-  ai_service_token?: string;
+  session_id?: string; // From AI Service
+  status?: string; // From AI Service
+  websocket_token?: string; // From AI Service
+  message?: string; // From AI Service
+  ai_service_token?: string; // Legacy field for compatibility
   ai_service_url?: string;
   token_info?: {
     expires_in_hours: number;
@@ -396,58 +400,12 @@ export interface PatientWithSessions {
   created_at: string;
 }
 
-export interface DashboardData {
-  therapist_info?: Record<string, string>;
-  today_sessions?: any[];
-  upcoming_sessions?: any[];
-  patient_stats?: Record<string, string>;
-  session_stats?: Record<string, string>;
-  recent_patients?: any[];
-  mood_alerts?: any[];
-  soap_notes?: any[];
-  session_hours?: {
-    total: number;
-    today: number;
-    thisWeek: number;
-  };
-  progress_data?: {
-    soap_progress: number;
-    patient_moods: any[];
-  };
-}
-
-export interface DashboardState {
-  dashboardData: DashboardData | null;
-  loading: boolean;
-  error: string | null;
-}
-
-export interface DashboardActions {
-  fetchDashboard: () => Promise<void>;
-  refreshDashboard: () => Promise<void>;
-  handleStartSession: () => void;
-  clearError: () => void;
-}
-
 export interface RecentActivity {
   id: string;
   type: 'session_completed' | 'patient_added' | 'notes_updated';
   description: string;
   timestamp: string;
   patient_name?: string;
-}
-
-export interface DashboardStats {
-  total_patients: number;
-  upcoming_sessions: number;
-  completed_sessions: number;
-  cancelled_sessions: number;
-}
-
-export interface DashboardResponse {
-  stats: DashboardStats;
-  upcoming_sessions: UpcomingSession[];
-  recent_activities: RecentActivity[];
 }
 
 export interface SessionInsight {

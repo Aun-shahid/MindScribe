@@ -1,4 +1,4 @@
-import { useTherapistDashboard } from '../hooks/useTherapist';
+import { useDashboard } from '../hooks/useDashboard';
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import sessionsService from '../services/sessions.service';
@@ -17,7 +17,7 @@ interface SessionStats {
 }
 
 const Dashboard = () => {
-  const { dashboard, loading, error, refreshDashboard } = useTherapistDashboard();
+  const { dashboard, loading, error, refreshDashboard } = useDashboard();
   const location = useLocation();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);

@@ -5,6 +5,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from ..models import PatientGoal
 from ..serializers import PatientGoalSerializer
 from .permissions import IsPatient
+from users.models import PatientProfile
+from ..services.notification_center import create_notification
 
 
 @extend_schema_view(
@@ -42,6 +44,27 @@ class PatientGoalListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(status=goal_status)
         
         return queryset
+
+    def perform_create(self, serializer):
+        goal = serializer.save()
+        try:
+            patient_profile = PatientProfile.objects.select_related('therapist__user').get(user=goal.patient)
+            therapist_profile = patient_profile.therapist
+            if therapist_profile and therapist_profile.user:
+                create_notification(
+                    recipient=therapist_profile.user,
+                    notification_type='therapist_message',
+                    title='New Patient Goal',
+                    message=f'{goal.patient.full_name} created a new therapy goal.',
+                    action_url=f'/therapist/patients/{goal.patient.id}/goals',
+                    source_event='goal.created.by_patient',
+                    metadata={
+                        'patient_id': str(goal.patient.id),
+                        'goal_id': str(goal.id),
+                    },
+                )
+        except Exception:
+            pass
 
 
 @extend_schema_view(
