@@ -4,6 +4,8 @@ dockerfilePath = "Backend/Dockerfile"
 context = "Backend"
 
 [deploy]
+# Default service role is web. For additional Railway services from same repo,
+# set env var PROCESS_TYPE=worker or PROCESS_TYPE=beat.
 startCommand = "/app/start.sh"
 healthcheckPath = "/api/authenticator/health/"
 healthcheckTimeout = 100
