@@ -181,7 +181,7 @@ export interface JournalAnalytics {
   longest_streak: number;
   current_streak: number;
   favorite_count: number;
-  common_tags: Array<{ tag: string; count: number }>;
+  common_tags: { tag: string; count: number }[];
 }
 
 export interface RelaxationContent {
@@ -570,8 +570,8 @@ class PatientService {
   }
 
   async getUnreadNotificationCount(): Promise<number> {
-    const response = await api.get<{ count: number }>('/patients/notifications/unread-count/');
-    return response.data?.count ?? 0;
+    const response = await api.get<{ unread_count: number }>('/patients/notifications/unread-count/');
+    return response.data?.unread_count ?? 0;
   }
 
   async markNotificationRead(notificationId: string): Promise<any> {

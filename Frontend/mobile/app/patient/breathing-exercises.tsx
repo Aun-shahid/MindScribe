@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Image,
   Animated,
   Alert,
@@ -15,6 +14,7 @@ import { useRouter } from 'expo-router';
 import PatientService, { RelaxationContent } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 export default function BreathingExercisesScreen() {
   const router = useRouter();
@@ -179,12 +179,12 @@ export default function BreathingExercisesScreen() {
 
   if (loading) {
     return (
-      <LinearGradient colors={['#342949', '#4A3B5C', '#342949']} style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#B8A8E6" />
-          <Text style={styles.loadingText}>Loading breathing exercises...</Text>
-        </View>
-      </LinearGradient>
+      <TabLoaderCard
+        fullScreen
+        title="Loading breathing exercises..."
+        subtitle="Setting up guided calm sessions"
+        spinnerColor="#B8A8E6"
+      />
     );
   }
 

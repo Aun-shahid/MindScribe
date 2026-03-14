@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   Dimensions,
   Animated,
@@ -13,6 +12,7 @@ import { useRouter } from 'expo-router';
 import PatientService, { JournalAnalytics } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2; // 2 columns with padding
@@ -320,10 +320,12 @@ export default function JournalAnalyticsScreen() {
   if (loading) {
     console.log('⏳ Rendering loading state');
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FFB36B" />
-        <Text style={styles.loadingText}>Loading analytics...</Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading analytics..."
+        subtitle="Preparing your journal insights"
+        spinnerColor="#FFB36B"
+      />
     );
   }
 

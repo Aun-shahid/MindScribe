@@ -1,17 +1,28 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Switch, ActivityIndicator, TouchableOpacity, Alert, Platform, ScrollView, Animated } from 'react-native';
 import PatientService from '../services/patient.service';
-import { useTheme } from '../contexts/ThemeContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function NotificationSettings() {
-  const { themeStyle } = useTheme();
   const [prefs, setPrefs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [showJournalPicker, setShowJournalPicker] = useState(false);
 
@@ -40,7 +51,25 @@ export default function NotificationSettings() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const count = await PatientService.getUnreadNotificationCount();
+      setUnreadCount(count);
+    } catch (err) {
+      console.warn('[NotifySettings] unread count error', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    loadUnreadCount();
+  }, [loadUnreadCount]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUnreadCount();
+    }, [loadUnreadCount])
+  );
 
   // Bubble animation effect
   useEffect(() => {
@@ -101,12 +130,18 @@ export default function NotificationSettings() {
     createFloatingAnimation(bubble3Y, bubble3X, 4500, 3800, 400, 200);
     createFloatingAnimation(bubble4Y, bubble4X, 5500, 4200, 600, 300);
     createFloatingAnimation(bubble5Y, bubble5X, 4800, 4000, 300, 500);
-  }, []);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   const save = async () => {
     try {
       await PatientService.updateNotificationPreferences(prefs);
-      Alert.alert('Saved', 'Notification preferences updated');
+      const scheduleResult = await syncLocalDailyReminders(prefs);
+      if (!scheduleResult.ok) {
+        Alert.alert('Saved with warning', 'Preferences were saved, but local reminder permissions are disabled. Enable notifications in iPhone Settings to receive reminders.');
+        return;
+      }
+
+      Alert.alert('Saved', 'Notification preferences updated and daily reminders synced on this device.');
     } catch (err: any) {
       console.error('[NotifySettings] save error', err);
       Alert.alert('Error', 'Failed to save preferences');
@@ -122,11 +157,18 @@ export default function NotificationSettings() {
   }
 
   const registerForPush = async () => {
-    // expo-notifications is not available in Expo Go (SDK 53+).
-    // Inform the user to use a dev/build client or a standalone app to enable push.
+    const isExpoGo = Constants.appOwnership === 'expo';
+    if (!Device.isDevice || isExpoGo) {
+      Alert.alert(
+        'Push not available in Expo Go',
+        'Use a development build or production app to test push notifications. In Expo Go this toggle stays off.'
+      );
+      return null;
+    }
+
     Alert.alert(
-      'Push not available in Expo Go',
-      'Push notifications are not supported in Expo Go. Build a development client or a standalone app to enable push notifications.'
+      'Push Setup Required',
+      'Push token registration is not yet implemented in this screen. Add expo-notifications token flow to enable this.'
     );
     return null;
   };
@@ -223,6 +265,18 @@ export default function NotificationSettings() {
           onPress={() => router.back()}
         >
           <FontAwesome name="arrow-left" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.notificationsButton}
+          onPress={() => router.push('./notifications' as any)}
+        >
+          <FontAwesome name="bell" size={20} color="#FFFFFF" />
+          {unreadCount > 0 && (
+            <View style={styles.notificationsBadge}>
+              <Text style={styles.notificationsBadgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>
@@ -408,39 +462,59 @@ export default function NotificationSettings() {
         </View>
 
         {showMoodPicker && (
-          <DateTimePicker
-            value={parseMoodTime()}
-            mode="time"
-            is24Hour={true}
-            display="default"
-            onChange={(e, date) => {
-              setShowMoodPicker(false);
-              if (Platform.OS === 'android' && e.type === 'dismissed') return;
-              if (date) {
-                const hrs = date.getHours().toString().padStart(2, '0');
-                const min = date.getMinutes().toString().padStart(2, '0');
-                setPrefs({ ...prefs, mood_reminder_time: `${hrs}:${min}` });
-              }
-            }}
-          />
+          <View style={styles.pickerCard}>
+            <DateTimePicker
+              value={parseMoodTime(prefs?.mood_reminder_time)}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minuteInterval={1}
+              onChange={(e, date) => {
+                if (Platform.OS === 'android') {
+                  setShowMoodPicker(false);
+                  if (e.type === 'dismissed') return;
+                }
+                if (date) {
+                  const hrs = date.getHours().toString().padStart(2, '0');
+                  const min = date.getMinutes().toString().padStart(2, '0');
+                  setPrefs({ ...prefs, mood_reminder_time: `${hrs}:${min}` });
+                }
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setShowMoodPicker(false)}>
+                <Text style={styles.pickerDoneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {showJournalPicker && (
-          <DateTimePicker
-            value={parseJournalTime()}
-            mode="time"
-            is24Hour={true}
-            display="default"
-            onChange={(e, date) => {
-              setShowJournalPicker(false);
-              if (Platform.OS === 'android' && e.type === 'dismissed') return;
-              if (date) {
-                const hrs = date.getHours().toString().padStart(2, '0');
-                const min = date.getMinutes().toString().padStart(2, '0');
-                setPrefs({ ...prefs, journal_reminder_time: `${hrs}:${min}` });
-              }
-            }}
-          />
+          <View style={styles.pickerCard}>
+            <DateTimePicker
+              value={parseJournalTime(prefs?.journal_reminder_time)}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minuteInterval={1}
+              onChange={(e, date) => {
+                if (Platform.OS === 'android') {
+                  setShowJournalPicker(false);
+                  if (e.type === 'dismissed') return;
+                }
+                if (date) {
+                  const hrs = date.getHours().toString().padStart(2, '0');
+                  const min = date.getMinutes().toString().padStart(2, '0');
+                  setPrefs({ ...prefs, journal_reminder_time: `${hrs}:${min}` });
+                }
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setShowJournalPicker(false)}>
+                <Text style={styles.pickerDoneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         <TouchableOpacity style={styles.saveBtn} onPress={save}>
@@ -452,18 +526,137 @@ export default function NotificationSettings() {
   );
 }
 
-function SettingRow({ label, value, onToggle, themeStyle }: any) {
-  return (
-    <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
-      <Switch 
-        value={!!value} 
-        onValueChange={onToggle}
-        trackColor={{ false: '#5B5270', true: '#A78BFA' }}
-        thumbColor={value ? '#FFFFFF' : '#B8A8E6'}
-      />
-    </View>
+function parseTimeValue(value: string | null | undefined, fallbackHour: number, fallbackMinute: number): Date {
+  const now = new Date();
+  const parsed = new Date(now);
+
+  if (typeof value !== 'string' || !value.trim()) {
+    parsed.setHours(fallbackHour, fallbackMinute, 0, 0);
+    return parsed;
+  }
+
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) {
+    parsed.setHours(fallbackHour, fallbackMinute, 0, 0);
+    return parsed;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    parsed.setHours(fallbackHour, fallbackMinute, 0, 0);
+    return parsed;
+  }
+
+  parsed.setHours(hours, minutes, 0, 0);
+  return parsed;
+}
+
+function parseMoodTime(rawTime?: string | null): Date {
+  return parseTimeValue(rawTime, 20, 0);
+}
+
+function parseJournalTime(rawTime?: string | null): Date {
+  return parseTimeValue(rawTime, 21, 0);
+}
+
+async function ensureLocalNotificationPermissions(): Promise<boolean> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+    return true;
+  }
+
+  const requested = await Notifications.requestPermissionsAsync();
+  return requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+}
+
+function parseHoursMinutes(rawTime: string | null | undefined, fallbackHour: number, fallbackMinute: number): { hour: number; minute: number } {
+  const parsedDate = parseTimeValue(rawTime, fallbackHour, fallbackMinute);
+  return {
+    hour: parsedDate.getHours(),
+    minute: parsedDate.getMinutes(),
+  };
+}
+
+async function cancelReminderByType(reminderType: 'mood_reminder' | 'journal_reminder'): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+
+  const matching = scheduled.filter((item) => {
+    const data = item.content.data as Record<string, unknown> | undefined;
+    return data?.reminderType === reminderType;
+  });
+
+  await Promise.all(matching.map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
+}
+
+async function scheduleDailyReminder(
+  reminderType: 'mood_reminder' | 'journal_reminder',
+  enabled: boolean,
+  hour: number,
+  minute: number,
+  title: string,
+  body: string
+): Promise<void> {
+  await cancelReminderByType(reminderType);
+
+  if (!enabled) {
+    return;
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('reminders', {
+      name: 'Reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+      vibrationPattern: [0, 250, 200, 250],
+    });
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      sound: true,
+      data: { reminderType },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+      channelId: Platform.OS === 'android' ? 'reminders' : undefined,
+    },
+  });
+}
+
+async function syncLocalDailyReminders(prefs: any): Promise<{ ok: boolean }> {
+  const hasPermission = await ensureLocalNotificationPermissions();
+  if (!hasPermission) {
+    return { ok: false };
+  }
+
+  const moodTime = parseHoursMinutes(prefs?.mood_reminder_time, 20, 0);
+  const journalTime = parseHoursMinutes(prefs?.journal_reminder_time, 21, 0);
+
+  await scheduleDailyReminder(
+    'mood_reminder',
+    !!prefs?.mood_reminder_enabled,
+    moodTime.hour,
+    moodTime.minute,
+    'Mood Check-in Reminder',
+    'How are you feeling right now? Take a quick moment to log your mood.'
   );
+
+  await scheduleDailyReminder(
+    'journal_reminder',
+    !!prefs?.journal_reminder_enabled,
+    journalTime.hour,
+    journalTime.minute,
+    'Journal Reminder',
+    'Take a few minutes to write your journal entry for today.'
+  );
+
+  return { ok: true };
 }
 
 const styles = StyleSheet.create({
@@ -495,6 +688,32 @@ const styles = StyleSheet.create({
     top: 52,
     padding: 8,
     zIndex: 10,
+  },
+  notificationsButton: {
+    position: 'absolute',
+    right: 20,
+    top: 52,
+    padding: 8,
+    zIndex: 10,
+  },
+  notificationsBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: '#FF6B86',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#342949',
+  },
+  notificationsBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   headerTitle: {
     fontSize: 26,
@@ -658,5 +877,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
+  },
+  pickerCard: {
+    backgroundColor: '#473F5A',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginTop: 8,
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  pickerDoneButton: {
+    alignSelf: 'flex-end',
+    marginRight: 12,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#A78BFA',
+  },
+  pickerDoneText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

@@ -2,13 +2,21 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import CustomTabBar from '../components/CustomTabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Layout() {
+  const insets = useSafeAreaInsets();
+  const tabSceneBottomPadding = Math.max(insets.bottom + 92, 112);
+
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        sceneStyle: {
+          backgroundColor: '#342949',
+          paddingBottom: tabSceneBottomPadding,
+        },
       }}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />

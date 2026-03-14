@@ -16,17 +16,20 @@ import {
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { validatePasswordField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
 
 export default function ResetConfirmScreen() {
   const { token } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const { confirmPasswordReset, isLoading, error, clearError } = useAuth();
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 8 : 0;
 
   const handleReset = async () => {
     // Validate password
@@ -85,10 +88,18 @@ export default function ResetConfirmScreen() {
   return (
     <SafeAreaView style={styles.wrapper}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={keyboardVerticalOffset}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          bounces={false}
+          overScrollMode="never"
+        >
           <Text style={styles.title}>Reset Your Password</Text>
           
           <Image
@@ -169,9 +180,13 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   container: {
+    flexGrow: 1,
     paddingTop: 60,
     paddingHorizontal: 24,
     alignItems: 'center',
+  },
+  scrollView: {
+    backgroundColor: '#342949',
   },
   title: {
     fontSize: 28,

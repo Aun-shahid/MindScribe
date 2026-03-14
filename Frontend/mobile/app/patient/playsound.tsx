@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import PatientService, { RelaxationContent } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 // Image mapping for sounds
 const SOUND_IMAGES: Record<string, any> = {
@@ -433,9 +434,12 @@ export default function PlaySoundScreen() {
   };
 
   if (loading) return (
-    <View style={[styles.center, { backgroundColor: '#342949' }]}>
-      <ActivityIndicator size="large" color="#A78BFA" />
-    </View>
+    <TabLoaderCard
+      fullScreen
+      title="Loading sound session..."
+      subtitle="Preparing your relaxation audio"
+      spinnerColor="#A78BFA"
+    />
   );
 
   if (error || !content) return (

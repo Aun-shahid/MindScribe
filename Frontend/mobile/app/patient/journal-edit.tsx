@@ -9,7 +9,6 @@ import {
   Platform,
   Animated,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -18,6 +17,7 @@ import PatientService from '../services/patient.service';
 import type { CreateJournalEntryData, JournalEntry } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
 
@@ -195,12 +195,12 @@ export default function JournalEdit() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
-        <ActivityIndicator size="large" color="#FFB36B" />
-        <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-          Loading journal entry...
-        </Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading journal entry..."
+        subtitle="Preparing your editor"
+        spinnerColor="#FFB36B"
+      />
     );
   }
 

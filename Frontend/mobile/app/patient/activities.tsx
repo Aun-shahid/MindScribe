@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { SafeAreaView, View, Text, TouchableOpacity, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import { router } from 'expo-router';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 export default function Activities() {
   const { themeStyle } = useTheme();
@@ -69,7 +70,11 @@ export default function Activities() {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 40 }} size="large" color={themeStyle.text} />
+          <TabLoaderCard
+            title="Loading activities..."
+            subtitle="Fetching your recent activity logs"
+            spinnerColor={themeStyle.text}
+          />
         ) : error ? (
           <View style={{ padding: 16 }}>
             <Text style={{ color: themeStyle.label, marginBottom: 12 }}>{error}</Text>

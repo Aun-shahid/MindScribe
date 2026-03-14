@@ -1,14 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+  AppState,
+  View, Text, StyleSheet, TouchableOpacity,
   Alert, Animated, StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
+import { BASE_URL } from '../config';
 
 // import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 // import { router } from 'expo-router';
@@ -23,15 +28,18 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const websocketRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const shouldReconnectRef = useRef(true);
 
-  // const websocketRef = useRef<WebSocket | null>(null);
 
-
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await PatientService.getNotifications({});
-      const list = Array.isArray(data) ? data : data?.results || data?.notifications || [];
+      const list = Array.isArray(data) ? data : [];
       setNotifications(list);
     } catch (err: any) {
       console.error('[Notifications] load error', err);
@@ -39,13 +47,64 @@ export default function NotificationsScreen() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const getNotificationIconName = (notificationType?: string) => {
+    switch (notificationType) {
+      case 'session_reminder':
+      case 'session_summary':
+      case 'session_approved':
+      case 'session_cancelled':
+        return 'calendar';
+      case 'mood_reminder':
+        return 'smile-o';
+      case 'journal_reminder':
+        return 'book';
+      case 'goal_reminder':
+        return 'flag';
+      case 'therapist_message':
+        return 'comment';
+      default:
+        return 'bell';
+    }
   };
 
+  const normalizeNotification = (payload: any) => {
+    const incoming = payload?.notification || {};
+    const dbRecord = incoming?.db_record || {};
+    const notificationId = incoming?.id || dbRecord?.id;
+
+    if (!notificationId) {
+      return null;
+    }
+
+    return {
+      id: notificationId,
+      notification_type: incoming?.notification_type || dbRecord?.notification_type || 'general',
+      title: incoming?.title || dbRecord?.title || 'Notification',
+      message: incoming?.message || dbRecord?.message || '',
+      action_url: incoming?.action_url || dbRecord?.action_url || null,
+      is_read: Boolean(dbRecord?.is_read ?? incoming?.read ?? false),
+      sent_at: dbRecord?.sent_at || dbRecord?.createdAt || incoming?.createdAt || new Date().toISOString(),
+    };
+  };
+
+  const clearRealtimeTimers = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+  };
 
   useEffect(() => {
     load();
+    shouldReconnectRef.current = true;
 
-    const connectRealtimeNotifications = async () => {
+    const connectRealtimeNotifications = async (): Promise<void> => {
       try {
         const token = await AsyncStorage.getItem('access_token');
         if (!token) {
@@ -61,41 +120,38 @@ export default function NotificationsScreen() {
         const ws = new WebSocket(wsUrl);
         websocketRef.current = ws;
 
+        ws.onopen = () => {
+          reconnectAttemptsRef.current = 0;
+          clearRealtimeTimers();
+          pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ event: 'ping' }));
+            }
+          }, 25000);
+        };
+
         ws.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            if (payload?.event !== 'notification.created') {
-              return;
+
+            if (payload?.event === 'notification.created') {
+              const normalized = normalizeNotification(payload);
+              if (!normalized) {
+                return;
+              }
+
+              if (normalized.id && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  event: 'notification.delivered',
+                  notification_id: normalized.id,
+                }));
+              }
+
+              setNotifications((prev) => {
+                const filtered = prev.filter((item) => item.id !== normalized.id);
+                return [normalized, ...filtered];
+              });
             }
-
-            const incoming = payload?.notification || {};
-            const dbRecord = incoming?.db_record || {};
-            const notificationId = incoming?.id || dbRecord?.id;
-
-            if (notificationId && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                event: 'notification.delivered',
-                notification_id: notificationId,
-              }));
-            }
-
-            const normalized = {
-              id: notificationId,
-              title: incoming?.title || dbRecord?.title || 'Notification',
-              message: incoming?.message || dbRecord?.message || '',
-              action_url: incoming?.action_url || dbRecord?.action_url || null,
-              is_read: Boolean(dbRecord?.is_read ?? incoming?.read ?? false),
-              sent_at: dbRecord?.sent_at || incoming?.createdAt || new Date().toISOString(),
-            };
-
-            if (!normalized.id) {
-              return;
-            }
-
-            setNotifications((prev) => {
-              const filtered = prev.filter((item) => item.id !== normalized.id);
-              return [normalized, ...filtered];
-            });
           } catch (error) {
             console.warn('[Notifications] websocket parse error', error);
           }
@@ -103,6 +159,21 @@ export default function NotificationsScreen() {
 
         ws.onerror = (error) => {
           console.warn('[Notifications] websocket error', error);
+        };
+
+        ws.onclose = () => {
+          clearRealtimeTimers();
+          websocketRef.current = null;
+
+          if (!shouldReconnectRef.current) {
+            return;
+          }
+
+          reconnectAttemptsRef.current += 1;
+          const backoffMs = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectRealtimeNotifications();
+          }, backoffMs);
         };
       } catch (error) {
         console.warn('[Notifications] websocket init error', error);
@@ -112,12 +183,35 @@ export default function NotificationsScreen() {
     connectRealtimeNotifications();
 
     return () => {
+      shouldReconnectRef.current = false;
+      clearRealtimeTimers();
       if (websocketRef.current) {
         websocketRef.current.close();
         websocketRef.current = null;
       }
     };
-  }, []);
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+
+      const intervalId = setInterval(() => {
+        load();
+      }, 30000);
+
+      const appStateSub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          load();
+        }
+      });
+
+      return () => {
+        clearInterval(intervalId);
+        appStateSub.remove();
+      };
+    }, [load])
+  );
 
 
   const handlePress = async (item: any) => {
@@ -181,7 +275,11 @@ export default function NotificationsScreen() {
       </Animated.View>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#B8A8E6" />
+        <TabLoaderCard
+          title="Loading notifications..."
+          subtitle="Checking for your latest updates"
+          spinnerColor="#B8A8E6"
+        />
       ) : (
         <Animated.ScrollView
           contentContainerStyle={styles.container}
@@ -196,7 +294,7 @@ export default function NotificationsScreen() {
             <View style={styles.emptyState}>
               <FontAwesome name="bell-slash" size={48} color="#B8A8E6" style={{ marginBottom: 16 }} />
               <Text style={styles.emptyText}>No notifications yet</Text>
-              <Text style={styles.emptySubText}>You're all caught up!</Text>
+              <Text style={styles.emptySubText}>You are all caught up!</Text>
             </View>
           ) : (
             notifications.map((item) => (
@@ -209,7 +307,7 @@ export default function NotificationsScreen() {
                 <View style={styles.cardRow}>
                   <View style={[styles.iconCircle, { backgroundColor: item.is_read ? 'rgba(184,168,230,0.15)' : 'rgba(167,139,250,0.25)' }]}>
                     <FontAwesome
-                      name={item.notification_type === 'session' ? 'calendar' : item.notification_type === 'mood' ? 'smile-o' : 'bell'}
+                      name={getNotificationIconName(item.notification_type)}
                       size={18}
                       color={item.is_read ? '#B8A8E6' : '#A78BFA'}
                     />

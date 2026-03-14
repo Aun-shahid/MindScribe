@@ -1,51 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from '@expo/vector-icons';
-import { FontAwesome5 } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   TextInput,
   Animated,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 import PatientService from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import type { JournalEntry, JournalFilters } from '../services/patient.service';
-import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
 
 export default function JournalList() {
   const { themeStyle } = useTheme();
-  // returns tag colors to match mock: blue for Sad, orange for Anxious, green for Stressed, fallback gray
-  const tagStyleFor = (tag: string) => {
-    const t = (tag || '').toLowerCase();
-    if (t.includes('sad')) return { bg: '#E3F2FD', color: '#1976D2' };
-    if (t.includes('anx') || t.includes('anxious')) return { bg: '#FFF3E0', color: '#FB8C00' };
-    if (t.includes('stress') || t.includes('stressed')) return { bg: '#FFE6EA', color: '#D32F2F' };
-    if (t.includes('happy') || t.includes('joy') || t.includes('joyful') || t.includes('glad')) return { bg: '#E8F5E9', color: '#2e7d32' };
-    return { bg: '#F5F5F5', color: '#616161' };
-  };
-  // convert hex color to rgba string with alpha for subtle borders
-  const hexToRgba = (hex: string, alpha = 0.15) => {
-    if (!hex) return `rgba(0,0,0,${alpha})`;
-    const h = hex.replace('#', '');
-    const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [ordering, setOrdering] = useState<string>('-created_at');
@@ -66,8 +46,17 @@ export default function JournalList() {
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
 
-  // Scroll animation for sticky header
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const loadEntries = useCallback(async () => {
+    try {
+      const data = await PatientService.getJournalEntries(filters);
+      setEntries(data);
+    } catch (err: any) {
+      console.error('[JournalList] Error loading:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [filters]);
 
   useEffect(() => {
     loadEntries();
@@ -83,7 +72,7 @@ export default function JournalList() {
     };
     const off = eventBus.subscribe('journalUpdated', onJournalUpdated);
     return () => off();
-  }, [loadEntries, fadeAnim]);
+  }, [fadeAnim, loadEntries]);
 
   useEffect(() => {
     // Floating bubble animations
@@ -132,39 +121,7 @@ export default function JournalList() {
     createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
     createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
-  }, []);
-
-  const loadEntries = useCallback(async () => {
-    try {
-      console.log('[JournalList] Starting to load entries with filters:', filters);
-      const data = await PatientService.getJournalEntries(filters);
-      console.log('[JournalList] Loaded entries:', data?.length, 'entries');
-      console.log('[JournalList] First entry sample:', data?.[0]);
-      
-      // Ensure we always set an array
-      if (Array.isArray(data)) {
-        setEntries(data);
-      } else {
-        console.warn('[JournalList] Data is not an array:', data);
-        setEntries([]);
-      }
-    } catch (err: any) {
-      console.error('[JournalList] Error loading:', err);
-      console.error('[JournalList] Error response:', err?.response);
-      console.error('[JournalList] Error details:', err?.response?.data);
-      // Set empty array on error
-      setEntries([]);
-      // Show user-friendly error
-      Alert.alert(
-        'Failed to Load Journals',
-        err?.response?.data?.detail || 'Could not load your journal entries. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [filters]);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -174,12 +131,6 @@ export default function JournalList() {
   const handleSearch = (text: string) => {
     setSearchQuery(text);
     setFilters(prev => ({ ...prev, search: text || undefined }));
-  };
-
-  const toggleFavorites = () => {
-    const newValue = !showFavoritesOnly;
-    setShowFavoritesOnly(newValue);
-    setFilters(prev => ({ ...prev, favorite: newValue ? 'true' : undefined }));
   };
 
   const handleOrdering = (order: string) => {
@@ -216,33 +167,6 @@ export default function JournalList() {
       default:
         return { name: 'pencil', color: '#616161' };
     }
-  };
-
-  const handleDelete = (id: string, title: string) => {
-    Alert.alert(
-      'Delete Journal Entry',
-      `Are you sure you want to delete "${title}"? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await PatientService.deleteJournalEntry(id);
-              // Refresh the list
-              loadEntries();
-            } catch (err: any) {
-              console.error('[JournalList] Error deleting:', err);
-              Alert.alert('Error', 'Failed to delete journal entry. Please try again.');
-            }
-          },
-        },
-      ]
-    );
   };
 
   const renderJournalCard = ({ item }: { item: JournalEntry }) => {
@@ -285,7 +209,6 @@ export default function JournalList() {
           {((item as any).mood_tags_list || item.tags_list) && (((item as any).mood_tags_list || item.tags_list).length > 0) && (
             <View style={styles.tagsContainer}>
               {((item as any).mood_tags_list || item.tags_list).slice(0, 3).map((tag: string, index: number) => {
-                const ts = tagStyleFor(tag);
                 return (
                   <View
                     key={index}
@@ -329,23 +252,117 @@ export default function JournalList() {
   if (loading) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
-        <ActivityIndicator size="large" color="#FFB36B" />
-        <Text style={[styles.loadingText, { color: '#B8A8E6' }]}>
-          Loading journal entries...
-        </Text>
+        <TabLoaderCard
+          title="Loading Journal"
+          subtitle="Fetching your journal entries..."
+          spinnerColor="#FFB36B"
+          fullScreen
+        />
       </View>
     );
   }
+
+  const listHeader = (
+    <>
+      {/* Gradient CTA */}
+      <View style={styles.ctaWrap}>
+        <TouchableOpacity onPress={() => router.push('/patient/create-journal')} style={styles.newEntryButton}>
+          <Text style={styles.newEntryText}>+ New Journal Entry</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search & Filters */}
+      <View style={styles.filterSection}>
+        <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
+          <FontAwesome5 name="search" size={16} color="#B8A8E6" style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: '#FFFFFF' }]}
+            placeholder="Search journals..."
+            placeholderTextColor="#B8A8E6"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+
+        <View style={styles.filterRow}>
+          <View style={styles.filterRowLeft}>
+            <TouchableOpacity
+              style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
+              onPress={() => {
+                setShowFavoritesOnly(false);
+                setFilters((prev) => ({ ...prev, favorite: undefined }));
+              }}
+            >
+              <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+              <Text style={[styles.pillText, !showFavoritesOnly ? { color: '#fff' } : { color: '#B8A8E6' }]}>All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
+              onPress={() => {
+                setShowFavoritesOnly(true);
+                setFilters((prev) => ({ ...prev, favorite: 'true' }));
+              }}
+            >
+              <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
+              <Text style={[styles.pillText, showFavoritesOnly ? { color: '#fff' } : { color: '#B8A8E6' }]}>Favorites</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.filterRowRight}>
+            {ordering !== '-created_at' && (
+              <TouchableOpacity style={styles.clearButtonActive} onPress={clearFilters} accessibilityLabel="Clear filters">
+                <Text style={styles.clearX}>✕</Text>
+                <Text style={styles.clearText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.pillAlt} onPress={() => setShowOrderingPicker(!showOrderingPicker)}>
+              <Text style={[styles.pillText, { color: '#B8A8E6' }]}>{getOrderingLabel()}</Text>
+              <FontAwesome name="chevron-down" size={14} color="#B8A8E6" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {showOrderingPicker && (
+          <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
+            <TouchableOpacity
+              style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive]}
+              onPress={() => handleOrdering('-created_at')}
+            >
+              <Text style={[styles.orderingText, { color: themeStyle.text }]}>Newest First</Text>
+              {ordering === '-created_at' && <Text style={styles.checkIcon}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.orderingOption, ordering === 'created_at' && styles.orderingOptionActive]}
+              onPress={() => handleOrdering('created_at')}
+            >
+              <Text style={[styles.orderingText, { color: themeStyle.text }]}>Oldest First</Text>
+              {ordering === 'created_at' && <Text style={styles.checkIcon}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.orderingOption, ordering === '-updated_at' && styles.orderingOptionActive]}
+              onPress={() => handleOrdering('-updated_at')}
+            >
+              <Text style={[styles.orderingText, { color: themeStyle.text }]}>Recently Updated</Text>
+              {ordering === '-updated_at' && <Text style={styles.checkIcon}>✓</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: '#342949' }]}>
       <LinearGradient
         colors={['#342949', '#2A1F3D', '#342949']}
         style={styles.screenGradient}
-        pointerEvents="none"
       />
       
-      <View style={styles.floatingBubbles} pointerEvents="none">
+      <View style={styles.floatingBubbles}>
         <Animated.View
           style={[
             styles.bubble,
@@ -428,7 +445,6 @@ export default function JournalList() {
         />
       </View>
 
-      {/* Sticky Header - Appears on scroll */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="Journal"
@@ -436,152 +452,63 @@ export default function JournalList() {
         onBackPress={() => router.back()}
       />
 
-      {/* Analytics Button (fixed position) */}
-      <TouchableOpacity
-        style={styles.analyticsButtonFixed}
-        onPress={() => router.push('./journal-analytics-detail')}
+      <Animated.View
+        style={[
+          styles.headerContainer,
+          {
+            backgroundColor: 'transparent',
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100, 150],
+              outputRange: [1, 0.5, 0],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
       >
-        <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
 
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        {/* Entries List */}
-        {entries.length === 0 ? (
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>
+          <Text style={styles.headerWhite}>Journal</Text>
+          <Text style={styles.headerPurple}> Home</Text>
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.analyticsButton, { backgroundColor: '#473F5A' }]}
+          onPress={() => router.push('./journal-analytics-detail')}
+        >
+          <FontAwesome name="bar-chart" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      <Animated.FlatList
+        style={{ flex: 1, opacity: fadeAnim }}
+        data={entries}
+        renderItem={renderJournalCard}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <FontAwesome5 name="book-open" size={48} color="#B8A8E6" style={styles.emptyEmoji} />
-            <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
-              No journal entries yet
-            </Text>
-            <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>
-              Start journaling to track your thoughts
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => router.push('/patient/create-journal')}
-            >
+            <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>No journal entries yet</Text>
+            <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>Start journaling to track your thoughts</Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/patient/create-journal')}>
               <Text style={styles.emptyButtonText}>✍️ Write First Entry</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <Animated.FlatList
-            data={entries}
-            renderItem={renderJournalCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true }
-            )}
-            scrollEventThrottle={16}
-            ListHeaderComponent={
-              <>
-                {/* Original Header */}
-                <OriginalHeader
-                  scrollY={scrollY}
-                  firstWord="Journal"
-                  secondWord="Home"
-                  onBackPress={() => router.back()}
-                />
-
-                {/* Gradient CTA */}
-                <View style={styles.ctaWrap}>
-                  <TouchableOpacity onPress={() => router.push('/patient/create-journal') } style={styles.newEntryButton}>
-                    <Text style={styles.newEntryText}>+ New Journal Entry</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search & Filters */}
-                <View style={styles.filterSection}>
-                  <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-                    <FontAwesome5 name="search" size={16} color="#B8A8E6" style={styles.searchIcon} />
-                    <TextInput
-                      style={[styles.searchInput, { color: '#FFFFFF' }]}
-                      placeholder="Search journals..."
-                      placeholderTextColor="#B8A8E6"
-                      value={searchQuery}
-                      onChangeText={handleSearch}
-                    />
-                  </View>
-
-                  <View style={styles.filterRow}> 
-                    <View style={styles.filterRowLeft}>
-                      <TouchableOpacity
-                        style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
-                        onPress={() => { setShowFavoritesOnly(false); setFilters(prev => ({ ...prev, favorite: undefined })); }}
-                      >
-                        <FontAwesome5 name="layer-group" size={12} color={!showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
-                        <Text style={[styles.pillText, !showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>All</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive]}
-                        onPress={() => { setShowFavoritesOnly(true); setFilters(prev => ({ ...prev, favorite: 'true' })); }}
-                      >
-                        <FontAwesome5 name="star" solid size={12} color={showFavoritesOnly ? '#fff' : '#B8A8E6'} style={styles.pillIcon} />
-                        <Text style={[styles.pillText, showFavoritesOnly ? {color: '#fff'} : {color: '#B8A8E6'}]}>Favorites</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.filterRowRight}>
-                      {ordering !== '-created_at' && (
-                        <TouchableOpacity style={styles.clearButtonActive} onPress={clearFilters} accessibilityLabel="Clear filters">
-                          <Text style={styles.clearX}>✕</Text>
-                          <Text style={styles.clearText}>Clear</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      <TouchableOpacity
-                        style={styles.pillAlt}
-                        onPress={() => setShowOrderingPicker(!showOrderingPicker)}
-                      >
-                        <Text style={[styles.pillText, {color: '#B8A8E6'}]}>{getOrderingLabel()}</Text>
-                        <FontAwesome name="chevron-down" size={14} color="#B8A8E6" style={{ marginLeft: 8 }} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {showOrderingPicker && (
-                    <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                      <TouchableOpacity
-                        style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive]}
-                        onPress={() => handleOrdering('-created_at')}
-                      >
-                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                          Newest First
-                        </Text>
-                        {ordering === '-created_at' && <Text style={styles.checkIcon}>✓</Text>}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.orderingOption, ordering === 'created_at' && styles.orderingOptionActive]}
-                        onPress={() => handleOrdering('created_at')}
-                      >
-                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                          Oldest First
-                        </Text>
-                        {ordering === 'created_at' && <Text style={styles.checkIcon}>✓</Text>}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.orderingOption, ordering === '-updated_at' && styles.orderingOptionActive]}
-                        onPress={() => handleOrdering('-updated_at')}
-                      >
-                        <Text style={[styles.orderingText, { color: themeStyle.text }]}>
-                          Recently Updated
-                        </Text>
-                        {ordering === '-updated_at' && <Text style={styles.checkIcon}>✓</Text>}
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </>
-            }
-          />
-        )}
-      </Animated.View>
+        }
+        contentContainerStyle={[
+          styles.listContent,
+          entries.length === 0 && styles.listContentEmpty,
+        ]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }
@@ -626,14 +553,28 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   backButton: {
-    fontSize: 16,
-    color: '#524f85',
-    fontWeight: '600',
+    position: 'absolute',
+    left: 20,
+    top: 52,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    zIndex: 2,
   },
   headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 900,
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 26,
+    paddingBottom: 22,
   },
   backBtnCircle: {
     position: 'absolute',
@@ -677,23 +618,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 4,
-  },
-  analyticsButtonFixed: {
-    position: 'absolute',
-    right: 18,
-    top: 52,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#473F5A',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 1001,
   },
   createButton: {
     backgroundColor: '#524f85',
@@ -935,8 +859,12 @@ const styles = StyleSheet.create({
     color: '#FFB36B',
   },
   listContent: {
-    padding: 16,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 124,
+    paddingBottom: 20,
+  },
+  listContentEmpty: {
+    paddingBottom: 32,
   },
   cardWrapper: {
     marginBottom: 12,

@@ -3,7 +3,6 @@ import {
   Text,
   View,
   ScrollView,
-  ActivityIndicator,
   Alert,
   SafeAreaView,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../utils/api';
 import { router } from 'expo-router';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const { width } = Dimensions.get('window');
 
@@ -448,7 +448,7 @@ const HistoryDashboard = () => {
         </View>
         
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A78BFA" />
+          <TabLoaderCard spinnerColor="#A78BFA" icon="brain" />
         </View>
       </SafeAreaView>
     );

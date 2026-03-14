@@ -4,8 +4,12 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../config';
 
+const ENABLE_API_LOGS = __DEV__;
+
 // Log the base URL being used
-console.log(`[API Config] Base URL: ${BASE_URL}`);
+if (ENABLE_API_LOGS) {
+  console.log(`[API Config] Base URL: ${BASE_URL}`);
+}
 
 const api = axios.create({
   baseURL: `${BASE_URL}/api`,
@@ -21,8 +25,10 @@ api.interceptors.request.use(async (config) => {
   
   // Log the full URL being called
   const fullUrl = `${config.baseURL}${config.url}`;
-  console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
-  if (config.data) {
+  if (ENABLE_API_LOGS) {
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
+  }
+  if (ENABLE_API_LOGS && config.data) {
     console.log(`[API Request Data]`, config.data);
   }
   
@@ -34,7 +40,9 @@ api.interceptors.response.use(
   (response) => {
     // Log successful responses
     const fullUrl = `${response.config.baseURL}${response.config.url}`;
-    console.log(`[API Response] ${response.status} ${fullUrl}`);
+    if (ENABLE_API_LOGS) {
+      console.log(`[API Response] ${response.status} ${fullUrl}`);
+    }
     return response;
   },
   async (error) => {
@@ -52,7 +60,9 @@ api.interceptors.response.use(
 
       try {
         const refreshUrl = `${BASE_URL}/api/authenticator/token/refresh/`;
-        console.log(`[API Token Refresh] POST ${refreshUrl}`);
+        if (ENABLE_API_LOGS) {
+          console.log(`[API Token Refresh] POST ${refreshUrl}`);
+        }
         const response = await axios.post(refreshUrl, {
           refresh,
         });
@@ -70,12 +80,14 @@ api.interceptors.response.use(
       }
     }
 
-    // Log error responses
-    if (error.response) {
-      const fullUrl = `${error.config?.baseURL}${error.config?.url}`;
-      console.log(`[API Error] ${error.response.status} ${fullUrl}`, error.response.data);
-    } else {
-      console.log(`[API Network Error]`, error.message);
+    if (ENABLE_API_LOGS) {
+      // Log error responses
+      if (error.response) {
+        const fullUrl = `${error.config?.baseURL}${error.config?.url}`;
+        console.log(`[API Error] ${error.response.status} ${fullUrl}`, error.response.data);
+      } else {
+        console.log(`[API Network Error]`, error.message);
+      }
     }
     
     return Promise.reject(error);

@@ -18,6 +18,7 @@ import Slider from '@react-native-community/slider';
 import api from '../utils/api';
 import { FontAwesome } from '@expo/vector-icons';
 import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 // Mood options
 const moods = [
@@ -236,14 +237,12 @@ export default function MoodEditScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: '#342949' }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-            Loading mood entry...
-          </Text>
-        </View>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading mood entry..."
+        subtitle="Preparing your mood editor"
+        spinnerColor="#8B5CF6"
+      />
     );
   }
 

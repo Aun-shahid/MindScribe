@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   Animated,
   Alert,
@@ -17,6 +16,7 @@ import PatientService from '../services/patient.service';
 import type { JournalEntry } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 export default function JournalDetail() {
   const { themeStyle } = useTheme();
@@ -210,12 +210,12 @@ export default function JournalDetail() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: '#342949' }]}>
-        <ActivityIndicator size="large" color="#FFB36B" />
-        <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-          Loading journal entry...
-        </Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading journal entry..."
+        subtitle="Fetching your saved reflection"
+        spinnerColor="#FFB36B"
+      />
     );
   }
 

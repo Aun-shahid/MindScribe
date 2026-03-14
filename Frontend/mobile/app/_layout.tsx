@@ -16,7 +16,6 @@
 import { Slot } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./contexts/AuthContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
 
 console.log('🌟 ROOT: Root layout loading...');
 
@@ -25,11 +24,9 @@ export default function RootLayout() {
   
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <Slot />
-        </AuthProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <Slot />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

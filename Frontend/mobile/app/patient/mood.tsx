@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,18 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  Dimensions,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import Slider from '@react-native-community/slider';
 import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../utils/api';
 import eventBus from '../utils/eventBus';
 
@@ -36,12 +38,25 @@ const moods = [
   { value: 'stressed', emoji: '😫', label: 'Stressed', color: '#FF8C00' },
 ];
 
+const moodCardThemes: Record<string, { colors: [string, string]; wave: string }> = {
+  happy: { colors: ['#F4C400', '#F5A300'], wave: 'rgba(255, 226, 120, 0.78)' },
+  excited: { colors: ['#D94A9B', '#F04293'], wave: 'rgba(242, 152, 212, 0.6)' },
+  grateful: { colors: ['#08C768', '#3FD481'], wave: 'rgba(145, 234, 183, 0.55)' },
+  hopeful: { colors: ['#F9C61A', '#F4A51C'], wave: 'rgba(255, 224, 141, 0.7)' },
+  peaceful: { colors: ['#6AB8E7', '#169FDF'], wave: 'rgba(144, 215, 247, 0.52)' },
+  anxious: { colors: ['#F58A00', '#F16600'], wave: 'rgba(255, 184, 137, 0.58)' },
+  stressed: { colors: ['#EE5D67', '#F76722'], wave: 'rgba(255, 173, 142, 0.6)' },
+  overwhelmed: { colors: ['#A666E6', '#8B39E5'], wave: 'rgba(204, 162, 246, 0.58)' },
+  sad: { colors: ['#4F8FE3', '#2B68DB'], wave: 'rgba(156, 191, 255, 0.56)' },
+  angry: { colors: ['#E31829', '#C80020'], wave: 'rgba(255, 166, 179, 0.55)' },
+};
+
 // Common triggers
 const commonTriggers = [
   'Work/Career',
   'Family',
-  'Relationships',
   'Health',
+  'Relationships',
   'Finances',
   'Social',
   'Weather',
@@ -87,11 +102,43 @@ interface MoodHistoryEntry {
   updated_at: string;
 }
 
-const screenHeight = Dimensions.get('window').height;
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 export default function MoodTrackerScreen() {
   const { themeStyle } = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const pageInset = clamp(width * 0.05, 16, 22);
+  const headerTopPadding = insets.top + clamp(height * 0.017, 14, 22);
+  const headerButtonSize = clamp(width * 0.105, 36, 42);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.05, 18, 20);
+  const headerTitleSize = clamp(width * 0.074, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.024, 18, 24);
+  const menuBarPadding = clamp(width * 0.008, 2, 4);
+  const menuTabVerticalPadding = clamp(height * 0.012, 8, 10);
+  const menuTabHorizontalPadding = clamp(width * 0.022, 8, 12);
+  const menuTabTextSize = clamp(width * 0.033, 12, 13);
+  const weeklyTabTextSize = clamp(width * 0.029, 10.5, 11.5);
+  const contentTopPadding = clamp(height * 0.016, 10, 16);
+  const contentBottomPadding = clamp(insets.bottom + height * 0.02, 24, 38);
+  const entryBottomPadding = clamp(insets.bottom + height * 0.006, 8, 14);
+  const historyCardRadius = clamp(width * 0.05, 14, 20);
+  const historyCardPadding = clamp(width * 0.036, 12, 16);
+  const historyTitleSize = clamp(width * 0.039, 14, 16);
+  const historyMetaSize = clamp(width * 0.032, 12, 13);
+  const moodCardRadius = clamp(width * 0.07, 22, 30);
+  const moodCardMinHeight = clamp(height * 0.24, 170, 220);
+  const moodCardTopPad = clamp(height * 0.034, 22, 32);
+  const detailCardRadius = clamp(width * 0.062, 20, 28);
+  const detailCardPadX = clamp(width * 0.055, 18, 24);
+  const detailCardPadY = clamp(height * 0.032, 20, 28);
+  const controlRadius = clamp(width * 0.045, 14, 20);
+  const inputMinHeight = clamp(height * 0.07, 48, 60);
+  const textAreaMinHeight = clamp(height * 0.16, 108, 140);
+  const saveButtonRadius = clamp(width * 0.07, 22, 30);
+  const saveButtonMinHeight = clamp(height * 0.078, 56, 68);
 
   // Animated values for floating bubbles
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -124,6 +171,8 @@ export default function MoodTrackerScreen() {
   const [globalIntensity, setGlobalIntensity] = useState<number>(3);
   // Last selected mood (used to edit intensity for a specific mood)
   const [lastSelectedMood, setLastSelectedMood] = useState<string | null>(null);
+  const selectedMood = moods.find((mood) => mood.value === lastSelectedMood) || null;
+  const selectedMoodTheme = selectedMood ? moodCardThemes[selectedMood.value] || moodCardThemes.happy : null;
 
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
   const [activities, setActivities] = useState('');
@@ -131,7 +180,6 @@ export default function MoodTrackerScreen() {
   // Reflective emotional insight fields (merged into today's mood)
   
   const [loading, setLoading] = useState(false);
-  const [showContextSection, setShowContextSection] = useState(false);
 
   // History state
   const [moodHistory, setMoodHistory] = useState<MoodHistoryEntry[]>([]);
@@ -144,7 +192,21 @@ export default function MoodTrackerScreen() {
   // Date picker state
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showOrderingModal, setShowOrderingModal] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const hasActiveHistoryFilters = !!startDate || !!endDate || ordering !== '-mood_date';
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+  const isFirstTabRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstTabRender.current) {
+      isFirstTabRender.current = false;
+      return;
+    }
+
+    setIsTabSwitching(true);
+    const timer = setTimeout(() => setIsTabSwitching(false), 220);
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   // Animate floating bubbles
   useEffect(() => {
@@ -193,35 +255,14 @@ export default function MoodTrackerScreen() {
     createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
     createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'history') {
-      loadMoodHistory();
-    }
-    if (activeTab === 'weekly') {
-      loadWeeklyTrend();
-    }
-  }, [activeTab, startDate, endDate, ordering]);
-
-  // Refresh history when screen comes into focus (after edit/delete)
-  useFocusEffect(
-    React.useCallback(() => {
-      if (activeTab === 'history') {
-        loadMoodHistory();
-      }
-      if (activeTab === 'weekly') {
-        loadWeeklyTrend();
-      }
-    }, [activeTab])
-  );
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   // Weekly trend state and loader (inlined so Weekly tab does not navigate away)
   const [weeklyLoading, setWeeklyLoading] = useState<boolean>(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
   const [weeklyData, setWeeklyData] = useState<any | null>(null);
 
-  const loadWeeklyTrend = async () => {
+  const loadWeeklyTrend = useCallback(async () => {
     try {
       setWeeklyLoading(true);
       setWeeklyError(null);
@@ -233,7 +274,7 @@ export default function MoodTrackerScreen() {
     } finally {
       setWeeklyLoading(false);
     }
-  };
+  }, []);
 
   // Update mood intensity
   const updateMoodIntensity = (moodValue: string, intensity: number) => {
@@ -242,6 +283,120 @@ export default function MoodTrackerScreen() {
       [moodValue]: intensity,
     }));
   };
+
+  const selectSingleMood = (moodValue: string) => {
+    const selectedIntensity = moodIntensities[moodValue] > 0 ? moodIntensities[moodValue] : globalIntensity;
+    const nextIntensities: MoodIntensities = {};
+    moods.forEach((mood) => {
+      nextIntensities[mood.value] = mood.value === moodValue ? selectedIntensity : 0;
+    });
+    setMoodIntensities(nextIntensities);
+    setLastSelectedMood(moodValue);
+    setGlobalIntensity(selectedIntensity);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo?.({ y: 0, animated: true });
+    });
+  };
+
+  const clearSelectedMood = () => {
+    const resetIntensities: MoodIntensities = {};
+    moods.forEach((mood) => {
+      resetIntensities[mood.value] = 0;
+    });
+    setMoodIntensities(resetIntensities);
+    setLastSelectedMood(null);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo?.({ y: 0, animated: true });
+    });
+  };
+
+  const getIntensityColor = (value: number) => {
+    const palette = ['#FF4D8D', '#FF7A78', '#FFC12D', '#8BDA67', '#22D3AE'];
+    const index = Math.max(0, Math.min(4, value - 1));
+    return palette[index];
+  };
+
+  const renderMenuBar = (compact = false) => (
+    <View style={[styles.menuBarContainer, compact ? styles.menuBarInlineCompact : styles.menuBarInline, { padding: menuBarPadding }]}> 
+      <TouchableOpacity onPress={() => setActiveTab('entry')} style={styles.menuTabButton} activeOpacity={0.8}>
+        {activeTab === 'entry' ? (
+          <LinearGradient
+            colors={['#FF5AA8', '#FFB36B']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={[styles.menuTabActive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}
+          >
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} style={[styles.menuTabActiveText, { fontSize: menuTabTextSize }]}>New Entry</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.menuTabInactive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}> 
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} style={[styles.menuTabInactiveText, { fontSize: menuTabTextSize }]}>New Entry</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setActiveTab('history')} style={styles.menuTabButton} activeOpacity={0.8}>
+        {activeTab === 'history' ? (
+          <LinearGradient
+            colors={['#FF5AA8', '#FFB36B']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={[styles.menuTabActive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}
+          >
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} style={[styles.menuTabActiveText, { fontSize: menuTabTextSize }]}>History</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.menuTabInactive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}> 
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} style={[styles.menuTabInactiveText, { fontSize: menuTabTextSize }]}>History</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setActiveTab('weekly')} style={[styles.menuTabButton, styles.menuTabButtonWide]} activeOpacity={0.8}>
+        {activeTab === 'weekly' ? (
+          <LinearGradient
+            colors={['#FF5AA8', '#FFB36B']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={[styles.menuTabActive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}
+          >
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.menuTabActiveText, styles.menuTabWideText, { fontSize: weeklyTabTextSize }]}>Weekly Trend</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.menuTabInactive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}> 
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.menuTabInactiveText, styles.menuTabWideText, { fontSize: weeklyTabTextSize }]}>Weekly Trend</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderHistoryFilterBar = () => (
+    <View style={styles.historyFilterRow}>
+      <TouchableOpacity
+        style={styles.historyFilterTrigger}
+        activeOpacity={0.85}
+        onPress={() => setShowFiltersModal(true)}
+      >
+        <Text style={styles.historyFilterTriggerText}>Filters</Text>
+        <FontAwesome name="chevron-down" size={12} color="#D6CFF0" />
+      </TouchableOpacity>
+
+      {hasActiveHistoryFilters && (
+        <TouchableOpacity
+          style={styles.historyFilterClearIcon}
+          activeOpacity={0.85}
+          onPress={clearFilters}
+        >
+          <FontAwesome name="times" size={12} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderTabLoader = (title: string, subtitle: string) => (
+    <TabLoaderCard title={title} subtitle={subtitle} spinnerColor="#FFB36B" />
+  );
 
   // Note: we no longer apply `globalIntensity` to all selected moods automatically.
   // Changing the slider will only affect the `lastSelectedMood` if set, otherwise it
@@ -257,7 +412,7 @@ export default function MoodTrackerScreen() {
   };
 
   // Load mood history
-  const loadMoodHistory = async () => {
+  const loadMoodHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
       const params: any = {
@@ -286,7 +441,28 @@ export default function MoodTrackerScreen() {
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }, [endDate, ordering, startDate]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadMoodHistory();
+    }
+    if (activeTab === 'weekly') {
+      loadWeeklyTrend();
+    }
+  }, [activeTab, loadMoodHistory, loadWeeklyTrend]);
+
+  // Refresh history when screen comes into focus (after edit/delete)
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'history') {
+        loadMoodHistory();
+      }
+      if (activeTab === 'weekly') {
+        loadWeeklyTrend();
+      }
+    }, [activeTab, loadMoodHistory, loadWeeklyTrend])
+  );
 
   // Submit mood entry
   const handleSubmit = async () => {
@@ -353,8 +529,6 @@ export default function MoodTrackerScreen() {
       setSelectedTriggers([]);
       setActivities('');
       setNotes('');
-      setShowContextSection(false);
-      
     } catch (error: any) {
       console.error('❌ Error submitting mood entry:', error);
       const errorMessage =
@@ -378,44 +552,6 @@ export default function MoodTrackerScreen() {
   const getMoodLabel = (moodValue: string) => {
     const mood = moods.find((m) => m.value === moodValue);
     return mood ? mood.label : moodValue;
-  };
-
-  // Get intensity color
-  const getIntensityColor = (intensity: number) => {
-    if (intensity >= 4) return '#4CAF50'; // Green for high
-    if (intensity === 3) return '#FF9800'; // Orange for medium
-    return '#F44336'; // Red for low
-  };
-
-  // Format date
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-
-    // Support date-only strings (YYYY-MM-DD) and full ISO timestamps
-    let date: Date;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      // Treat as local start of day to avoid timezone shifts
-      date = new Date(dateString + 'T00:00:00');
-    } else {
-      date = new Date(dateString);
-    }
-
-    const now = new Date();
-
-    // Compare by calendar day in local time to avoid timezone issues
-    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffDays = Math.round((todayLocal.getTime() - localDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays > 1 && diffDays < 7) return `${diffDays} days ago`;
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
   };
 
   // Format an exact readable date for display (e.g., "Sunday, Feb 2, 2026")
@@ -458,7 +594,7 @@ export default function MoodTrackerScreen() {
         colors={['#342949', '#342949', '#342949']}
         start={[0, 0]}
         end={[0, 1]}
-        style={[styles.screenGradient, { height: screenHeight }]}
+        style={[styles.screenGradient, { height }]}
         pointerEvents="none"
       />
       {/* Floating bubble decorations with animation */}
@@ -500,74 +636,59 @@ export default function MoodTrackerScreen() {
 
       {/* Animated Header - Fades out on scroll */}
       <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: clamp(height * 0.004, 2, 6),
         opacity: scrollY.interpolate({
           inputRange: [0, 100, 150],
           outputRange: [1, 0.5, 0],
           extrapolate: 'clamp',
         })
       }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[
+            styles.backButton,
+            {
+              left: pageInset,
+              top: headerTopPadding + clamp(height * 0.003, 2, 5),
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
           <Text style={styles.headerWhite}>Mood </Text>
           <Text style={styles.headerPurple}>Break</Text>
         </Text>
 
         <TouchableOpacity
-          style={styles.analyticsButton}
+          style={[
+            styles.analyticsButton,
+            {
+              right: pageInset,
+              top: headerTopPadding + clamp(height * 0.003, 2, 5),
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+            },
+          ]}
           onPress={() => router.push('/patient/mood-analytics-detail')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <FontAwesome name="bar-chart" size={20} color="#FFFFFF" />
+          <FontAwesome name="bar-chart" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
       </Animated.View>
-
-      {/* Menu Bar: New Entry | History | Weekly Trends (rounded pill tabs) */}
-      <View style={styles.menuBarContainer}>
-        <TouchableOpacity onPress={() => setActiveTab('entry')} style={styles.menuTabButton} activeOpacity={0.8}>
-          {activeTab === 'entry' ? (
-            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
-              <Text style={styles.menuTabActiveText}>New Entry</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.menuTabInactive}>
-              <Text style={styles.menuTabInactiveText}>New Entry</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => setActiveTab('history')} style={styles.menuTabButton} activeOpacity={0.8}>
-          {activeTab === 'history' ? (
-            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
-              <Text style={styles.menuTabActiveText}>History</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.menuTabInactive}>
-              <Text style={styles.menuTabInactiveText}>History</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => setActiveTab('weekly')} style={styles.menuTabButton} activeOpacity={0.8}>
-          {activeTab === 'weekly' ? (
-            <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0, 0]} end={[1, 0]} style={styles.menuTabActive}>
-              <Text style={styles.menuTabActiveText}>Weekly Trend</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.menuTabInactive}>
-              <Text style={styles.menuTabInactiveText}>Weekly Trend</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
 
       {/* Entry Tab Content */}
       {activeTab === 'entry' && (
         <Animated.ScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: entryBottomPadding }]}
           showsVerticalScrollIndicator={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -575,219 +696,196 @@ export default function MoodTrackerScreen() {
           )}
           scrollEventThrottle={16}
         >
-          {/* Mood Intensities Section */}
-          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Select Mood</Text>
-            <View style={styles.selectGrid}>
-              {moods.map((mood) => {
-                const intensity = moodIntensities[mood.value] || 0;
-                const isSelected = intensity > 0;
-                return (
-                  <TouchableOpacity
-                    key={mood.value}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                        setMoodIntensities((prev) => {
-                          const isSelected = !!(prev[mood.value] && prev[mood.value] > 0);
-                          const next = { ...prev };
-                          if (isSelected) {
-                            next[mood.value] = 0;
-                            // deselecting: if this was the active mood, clear it
-                            setLastSelectedMood((cur) => (cur === mood.value ? null : cur));
-                          } else {
-                            next[mood.value] = globalIntensity;
-                            // newly selected mood becomes the active mood for intensity edits
-                            setLastSelectedMood(mood.value);
-                          }
-                          return next;
-                        });
-                      }}
-                    style={[
-                          styles.moodTile,
-                          { backgroundColor: '#473F5A', borderColor: isSelected ? '#FFB36B' : 'rgba(255,255,255,0.1)' },
-                          lastSelectedMood === mood.value && { borderWidth: 2, borderColor: '#FFB36B', shadowOpacity: 0.08, elevation: 6 },
+          {renderMenuBar()}
+
+          {isTabSwitching ? (
+            renderTabLoader('Loading New Entry', 'Preparing your mood tools...')
+          ) : !selectedMood ? (
+            <>
+              <Text style={styles.entryPromptTitle}>How are you feeling today?</Text>
+              <View style={styles.moodCardsList}>
+                {moods.map((mood) => {
+                  const theme = moodCardThemes[mood.value] || moodCardThemes.happy;
+                  return (
+                    <TouchableOpacity
+                      key={mood.value}
+                      activeOpacity={0.92}
+                      style={styles.moodCardPressable}
+                      onPress={() => selectSingleMood(mood.value)}
+                    >
+                      <LinearGradient
+                        colors={theme.colors}
+                        start={[0, 0]}
+                        end={[1, 1]}
+                        style={[
+                          styles.moodChoiceCard,
+                          {
+                            minHeight: moodCardMinHeight,
+                            borderRadius: moodCardRadius,
+                            paddingTop: moodCardTopPad,
+                            paddingHorizontal: clamp(width * 0.046, 14, 20),
+                          },
                         ]}
-                  >
-                    <View style={[styles.emojiContainer, isSelected && { shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 4 }]}>
-                      <Text style={isSelected ? styles.emojiTextLarge : styles.emojiText}>{mood.emoji}</Text>
-                    </View>
-                    <Text style={[styles.moodLabel, { color: '#FFFFFF' }]}>{mood.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Mood Intensity Card (separate) */}
-          <View style={[styles.card, { backgroundColor: '#473F5A', marginTop: 12 }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Mood Intensity</Text>
-            <Text style={[styles.helperText, { color: '#B8A8E6' }]}>How intense is this feeling?</Text>
-            <View style={styles.gradientTrackWrapper}>
-              <LinearGradient
-                colors={[ '#FF7A7A', '#FF9F6B', '#6FD8BE' ]}
-                start={[0, 0]}
-                end={[1, 0]}
-                style={styles.gradientTrack}
-              />
-              <Slider
-                style={[styles.slider, { position: 'absolute', left: 0, right: 0 }]}
-                minimumValue={1}
-                maximumValue={5}
-                step={1}
-                value={lastSelectedMood ? (moodIntensities[lastSelectedMood] || globalIntensity) : globalIntensity}
-                onValueChange={(value) => {
-                  if (lastSelectedMood) {
-                    updateMoodIntensity(lastSelectedMood, value);
-                  } else {
-                    setGlobalIntensity(value);
-                  }
-                }}
-                minimumTrackTintColor={'transparent'}
-                maximumTrackTintColor={'transparent'}
-                thumbTintColor={themeStyle.button}
-              />
-            </View>
-            <View style={styles.intensityButtonsRow}>
-              {[1,2,3,4,5].map((n) => (
+                      >
+                        <Text style={styles.moodChoiceEmoji}>{mood.emoji}</Text>
+                        <Text style={styles.moodChoiceLabel}>I&apos;m Feeling {mood.label}</Text>
+                        <View style={styles.moodChoiceWaveWrap}>
+                          <View style={[styles.moodChoiceWave, { backgroundColor: theme.wave }]} />
+                          <View style={styles.moodChoiceMiniEmojiRow}>
+                            {[0, 1, 2, 3, 4].map((index) => (
+                              <View key={`${mood.value}-${index}`} style={styles.moodChoiceMiniEmojiBubble}>
+                                <Text style={styles.moodChoiceMiniEmoji}>{mood.emoji}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.selectedMoodHeaderRow}>
                 <TouchableOpacity
-                  key={n}
-                  onPress={() => {
-                    if (lastSelectedMood) {
-                      updateMoodIntensity(lastSelectedMood, n);
-                      setGlobalIntensity(n);
-                    } else {
-                      setGlobalIntensity(n);
-                    }
-                  }}
-                  style={[
-                    styles.intensityNumber, 
-                    { borderColor: 'rgba(255,255,255,0.2)' },
-                    (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { backgroundColor: '#FFB36B', borderColor: '#FFB36B' }
-                  ]}
+                  style={[styles.changeMoodButton, { borderRadius: controlRadius, paddingVertical: clamp(height * 0.015, 10, 14), paddingHorizontal: clamp(width * 0.04, 14, 18) }]}
+                  activeOpacity={0.85}
+                  onPress={clearSelectedMood}
                 >
-                  <Text style={[
-                    styles.intensityNumberText, 
-                    { color: '#E5E5E5' },
-                    (lastSelectedMood ? (moodIntensities[lastSelectedMood] === n) : globalIntensity === n) && { color: '#FFFFFF' }
-                  ]}>{n}</Text>
+                  <FontAwesome name="arrow-left" size={15} color="#E6E2F4" />
+                  <Text style={styles.changeMoodButtonText}>Change Mood</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={[styles.sliderCaption, { color: '#B8A8E6' }]}>Very Low</Text>
-            <Text style={[styles.sliderCaptionRight, { color: '#B8A8E6' }]}>Very High</Text>
-          </View>
 
-          {/* Additional Context Section (Collapsible) */}
-          {/* Optional information separator */}
-          <View style={{ width: '100%', alignItems: 'center', marginVertical: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-              <Text style={{ marginHorizontal: 12, color: '#B8A8E6', fontWeight: '600' }}>Optional information</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-            </View>
-          </View>
+                <LinearGradient
+                  colors={(selectedMoodTheme || moodCardThemes.happy).colors}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={[styles.selectedMoodPill, { borderRadius: controlRadius, paddingVertical: clamp(height * 0.015, 10, 14), paddingHorizontal: clamp(width * 0.04, 14, 18), minWidth: clamp(width * 0.3, 116, 148) }]}
+                >
+                  <Text style={styles.selectedMoodPillEmoji}>{selectedMood.emoji}</Text>
+                  <Text style={styles.selectedMoodPillText}>{selectedMood.label}</Text>
+                </LinearGradient>
+              </View>
 
-          {/* Triggers */}
-          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>What triggered these moods?</Text>
-            <View style={styles.triggersGrid}>
-              {commonTriggers.map((trigger) => {
-                const isSelected = selectedTriggers.includes(trigger);
-                return (
-                  <TouchableOpacity
-                    key={trigger}
-                    onPress={() => toggleTrigger(trigger)}
+              <View style={[styles.card, styles.enhancedDetailCard, { backgroundColor: '#2D2740', borderRadius: detailCardRadius, paddingHorizontal: detailCardPadX, paddingVertical: detailCardPadY }]}>
+                <Text style={[styles.enhancedSectionTitle, { color: '#FFFFFF' }]}>What&apos;s your intensity level?</Text>
+                <Text style={[styles.helperText, styles.enhancedHelperText, { color: '#8FA2C7' }]}>How strong is this feeling?</Text>
+                <View style={styles.intensityHeroWrap}>
+                  <Text
                     style={[
-                      styles.triggerChip,
+                      styles.intensityHeroNumber,
                       {
-                        backgroundColor: isSelected ? '#FFB36B' : '#5B5270',
-                        borderColor: isSelected ? '#FFB36B' : 'rgba(255,255,255,0.1)',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: isSelected ? 0.08 : 0.03,
-                        shadowRadius: 8,
-                        elevation: isSelected ? 4 : 2,
+                        color: getIntensityColor(moodIntensities[selectedMood.value] || globalIntensity),
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.triggerText,
-                        {
-                          color: isSelected ? '#FFFFFF' : '#E5E5E5',
-                        },
-                      ]}
-                    >
-                      {trigger}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+                    {moodIntensities[selectedMood.value] || globalIntensity}
+                  </Text>
+                  <Text style={styles.intensityHeroLabel}>
+                    {['Very Low', 'Low', 'Moderate', 'High', 'Very High'][(moodIntensities[selectedMood.value] || globalIntensity) - 1]}
+                  </Text>
+                </View>
+                <View style={styles.gradientTrackWrapper}>
+                  <LinearGradient
+                    colors={['#FF4D8D', '#FFC12D', '#22D3AE']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.gradientTrack}
+                  />
+                  <Slider
+                    style={[styles.slider, { position: 'absolute', left: 0, right: 0 }]}
+                    minimumValue={1}
+                    maximumValue={5}
+                    step={1}
+                    value={moodIntensities[selectedMood.value] || globalIntensity}
+                    onValueChange={(value) => {
+                      updateMoodIntensity(selectedMood.value, value);
+                      setGlobalIntensity(value);
+                    }}
+                    minimumTrackTintColor={'transparent'}
+                    maximumTrackTintColor={'transparent'}
+                    thumbTintColor={themeStyle.button}
+                  />
+                </View>
+                <Text style={[styles.sliderCaption, { color: '#7D7A96' }]}>Very Low</Text>
+                <Text style={[styles.sliderCaptionRight, { color: '#7D7A96' }]}>Very High</Text>
+              </View>
 
-          {/* Activities */}
-          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Activities Today</Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                {
-                  backgroundColor: '#5B5270',
-                  color: '#FFFFFF',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                },
-              ]}
-              placeholder="e.g., Yoga, Work meeting, Walk in park..."
-              placeholderTextColor="#B8A8E6"
-              value={activities}
-              onChangeText={setActivities}
-              multiline
-            />
-          </View>
+              <View style={[styles.card, styles.enhancedDetailCard, { backgroundColor: '#2D2740', borderRadius: detailCardRadius, paddingHorizontal: detailCardPadX, paddingVertical: detailCardPadY }]}>
+                <Text style={[styles.enhancedSectionTitle, { color: '#FFFFFF' }]}>What triggered this mood?</Text>
+                <View style={styles.triggersGrid}>
+                  {commonTriggers.map((trigger) => {
+                    const isSelected = selectedTriggers.includes(trigger);
+                    return (
+                      <TouchableOpacity
+                        key={trigger}
+                        onPress={() => toggleTrigger(trigger)}
+                        style={[
+                          styles.triggerChip,
+                          styles.enhancedTriggerChip,
+                          isSelected && styles.enhancedTriggerChipSelected,
+                        ]}
+                      >
+                        <Text style={[styles.triggerText, styles.enhancedTriggerText, isSelected && styles.enhancedTriggerTextSelected]}>
+                          {trigger}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
-          {/* Notes */}
-          <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-            <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Additional Notes</Text>
-            <TextInput
-              style={[
-                styles.textArea,
-                {
-                  backgroundColor: '#5B5270',
-                  color: '#FFFFFF',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                },
-              ]}
-              placeholder="How are you feeling? Any specific thoughts or experiences?"
-              placeholderTextColor="#B8A8E6"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
+              <View style={[styles.card, styles.enhancedDetailCard, { backgroundColor: '#2D2740', borderRadius: detailCardRadius, paddingHorizontal: detailCardPadX, paddingVertical: detailCardPadY }]}>
+                <Text style={[styles.enhancedSectionTitle, { color: '#FFFFFF' }]}>Activities (Optional)</Text>
+                <TextInput
+                  style={[styles.textInput, styles.enhancedTextInput, { color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.04)', borderRadius: controlRadius, minHeight: inputMinHeight }]}
+                  placeholder="What did you do? (e.g., Meditation, Exercise)"
+                  placeholderTextColor="#687296"
+                  value={activities}
+                  onChangeText={setActivities}
+                  multiline
+                />
+              </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              { backgroundColor: '#8B5CF6' },
-              loading && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>
-                Save Mood Entry
-              </Text>
-            )}
-          </TouchableOpacity>
+              <View style={[styles.card, styles.enhancedDetailCard, { backgroundColor: '#2D2740', borderRadius: detailCardRadius, paddingHorizontal: detailCardPadX, paddingVertical: detailCardPadY }]}>
+                <Text style={[styles.enhancedSectionTitle, { color: '#FFFFFF' }]}>Additional Notes (Optional)</Text>
+                <TextInput
+                  style={[styles.textArea, styles.enhancedTextArea, { color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.04)', borderRadius: controlRadius, minHeight: textAreaMinHeight }]}
+                  placeholder="Any thoughts or reflections you'd like to add..."
+                  placeholderTextColor="#687296"
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
 
-          <View style={styles.bottomPadding} />
+              <TouchableOpacity
+                style={[styles.submitButton, styles.enhancedSubmitButton, { borderRadius: saveButtonRadius }, loading && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={(selectedMoodTheme || moodCardThemes.happy).colors}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={[styles.enhancedSubmitGradient, { minHeight: saveButtonMinHeight, borderRadius: saveButtonRadius }]}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <View style={styles.enhancedSubmitInner}>
+                      <FontAwesome name="save" size={18} color="#FFFFFF" />
+                      <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>Save Mood Entry</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          )}
+
         </Animated.ScrollView>
       )}
 
@@ -795,18 +893,17 @@ export default function MoodTrackerScreen() {
       {activeTab === 'weekly' && (
         <Animated.ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 80 }}
+          contentContainerStyle={{ paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
           )}
           scrollEventThrottle={16}
         >
-          {weeklyLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#8B5CF6" />
-              <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>Loading weekly trend...</Text>
-            </View>
+          {renderMenuBar()}
+
+          {isTabSwitching || weeklyLoading ? (
+            renderTabLoader('Loading Weekly Trend', 'Building your mood graph...')
           ) : weeklyError ? (
             <View style={[styles.contextToggle, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }] }>
               <Text style={[styles.contextToggleText, { color: '#FF6B6B' }]}>❌ {weeklyError}</Text>
@@ -816,29 +913,49 @@ export default function MoodTrackerScreen() {
             </View>
           ) : weeklyData ? (
             <>
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-                <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Your Weekly Mood Trend</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6 }}>
+              <View style={[styles.card, { backgroundColor: '#433B5A', borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1 }]}>
+                <Text style={[styles.sectionTitle, { color: '#FFFFFF', marginBottom: 2 }]}>Your Weekly Mood Trend</Text>
+                <Text style={{ color: '#B7AEDA', fontSize: 12, marginBottom: 10 }}>Intensity by day</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 4, paddingBottom: 6 }}>
                   {(() => {
-                    const width = Dimensions.get('window').width - 80;
-                    const BAR_WIDTH = width / 7;
+                    const chartWidth = Math.max(width - (pageInset * 2) - 42, 238);
+                    const BAR_WIDTH = chartWidth / 7;
                     const weekly = weeklyData.weekly_moods || [];
                     const maxIntensity = Math.max(...weekly.map((d: any) => (d.intensity || 1)), 5);
                     return weekly.map((dayData: any, index: number) => {
-                      const barHeight = ((dayData.intensity || 0) / maxIntensity) * 140;
-                      const emoji = dayData.mood || '';
+                      const barHeight = ((dayData.intensity || 0) / maxIntensity) * 118;
+                      const moodKey = (dayData.mood || '') as string;
+                      const barColors = (moodCardThemes[moodKey]?.colors || ['#6D5DD3', '#7A6ED8']) as [string, string];
                       return (
                         <View key={index} style={{ width: BAR_WIDTH, alignItems: 'center' }}>
-                          <Text style={{ marginBottom: 4, fontSize: 16 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
-                          <LinearGradient
-                            colors={[ '#FF5AA8', '#FFB36B', '#6FD8BE' ]}
-                            start={[0,0]}
-                            end={[0,1]}
-                            style={{ width: BAR_WIDTH - 12, height: Math.max(barHeight, dayData.intensity ? 8 : 0), borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                          <Text style={{ marginBottom: 6, fontSize: 15 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
+                          <View
+                            style={{
+                              width: BAR_WIDTH - 10,
+                              height: 126,
+                              borderRadius: 12,
+                              backgroundColor: 'rgba(255,255,255,0.07)',
+                              justifyContent: 'flex-end',
+                              alignItems: 'center',
+                              paddingBottom: 4,
+                            }}
                           >
-                            {dayData.intensity > 0 && <Text style={{ color: '#fff', fontWeight: '700' }}>{dayData.intensity}</Text>}
-                          </LinearGradient>
-                          <Text style={{ marginTop: 6, color: dayData.mood ? '#FFFFFF' : '#B8A8E6', fontSize: 12 }}>{dayData.day}</Text>
+                            <LinearGradient
+                              colors={barColors}
+                              start={[0, 0]}
+                              end={[0, 1]}
+                              style={{
+                                width: BAR_WIDTH - 16,
+                                height: Math.max(barHeight, dayData.intensity ? 8 : 0),
+                                borderRadius: 9,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              {dayData.intensity > 0 && <Text style={{ color: '#fff', fontWeight: '700', fontSize: 11 }}>{dayData.intensity}</Text>}
+                            </LinearGradient>
+                          </View>
+                          <Text style={{ marginTop: 8, color: dayData.mood ? '#EDE8FA' : '#9F95C7', fontSize: 11, fontWeight: '600' }}>{dayData.day}</Text>
                         </View>
                       );
                     });
@@ -846,15 +963,17 @@ export default function MoodTrackerScreen() {
                 </View>
               </View>
 
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+              <View style={[styles.card, { backgroundColor: '#433B5A', borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1 }]}>
                 <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Daily Breakdown</Text>
                 <View style={{ marginTop: 6 }}>
                   {weeklyData.weekly_moods.map((dayData: any, index: number) => {
                     const containerKey = `weekly-${index}`;
+                    const moodKey = (dayData.mood || '') as string;
+                    const avatarColors = (moodCardThemes[moodKey]?.colors || ['#6D5DD3', '#7A6ED8']) as [string, string];
                     return (
                       <View key={containerKey} style={[styles.weeklyListCard, index === weeklyData.weekly_moods.length - 1 && { marginBottom: 0 }]}> 
                         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                          <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} style={styles.weeklyAvatar}>
+                          <LinearGradient colors={avatarColors} start={[0, 0]} end={[1, 1]} style={styles.weeklyAvatar}>
                             <Text style={{ fontSize: 18 }}>{dayData.mood ? getMoodEmoji(dayData.mood) : '—'}</Text>
                           </LinearGradient>
                           <View style={{ marginLeft: 10, flex: 1 }}>
@@ -875,56 +994,13 @@ export default function MoodTrackerScreen() {
       {activeTab === 'history' && (
         <View style={styles.historyContainer}>
           {/* Mood History List */}
-          {historyLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#8B5CF6" />
-              <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>
-                Loading mood history...
-              </Text>
-            </View>
+          {isTabSwitching || historyLoading ? (
+            renderTabLoader('Loading Mood History', 'Gathering your recent entries...')
           ) : moodHistory.length === 0 ? (
-            <ScrollView contentContainerStyle={{ paddingTop: 20 }}>
-              {/* Filters */}
-              <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
-                <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}>
+              {renderMenuBar(true)}
 
-                <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
-                <TouchableOpacity
-                  style={[styles.sortSelect, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                  onPress={() => setShowOrderingModal(true)}
-                >
-                  <Text style={[styles.sortSelectText, { color: '#FFFFFF' }]}>
-                    {orderingOptions.find((o) => o.value === ordering)?.label || 'Newest First'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Mood-type filter removed (backend does not support mood-type filtering for this structure) */}
-
-                <View style={styles.dateRow}>
-                  <TouchableOpacity
-                    style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                    onPress={() => setShowStartDatePicker(true)}
-                  >
-                    <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {startDate ? startDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {endDate ? endDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {(startDate || endDate || ordering !== '-created_at') && (
-                  <TouchableOpacity
-                    style={[styles.clearFiltersButton, { backgroundColor: '#EF4444' }]}
-                    onPress={clearFilters}
-                  >
-                    <Text style={[styles.clearFiltersText, { color: '#FFFFFF' }]}>Clear Filters</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              {renderHistoryFilterBar()}
 
               <View style={{ height: 12 }} />
 
@@ -933,7 +1009,7 @@ export default function MoodTrackerScreen() {
                   No mood entries found
                 </Text>
                 <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>
-                  Create your first entry in the "New Entry" tab
+                  Create your first entry in the &quot;New Entry&quot; tab
                 </Text>
               </View>
             </ScrollView>
@@ -941,7 +1017,7 @@ export default function MoodTrackerScreen() {
             <Animated.FlatList
               data={moodHistory}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.historyList}
+              contentContainerStyle={[styles.historyList, { paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }]}
               onScroll={Animated.event(
                 [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                 { useNativeDriver: true }
@@ -949,47 +1025,9 @@ export default function MoodTrackerScreen() {
               scrollEventThrottle={16}
               ListHeaderComponent={
                 <>
-                  {/* Filters */}
-                  <View style={[styles.filtersCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, marginTop: 20 }]}>
-                    <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Filters</Text>
+                  {renderMenuBar(true)}
 
-                    <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
-                    <TouchableOpacity
-                      style={[styles.sortSelect, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                      onPress={() => setShowOrderingModal(true)}
-                    >
-                      <Text style={[styles.sortSelectText, { color: '#FFFFFF' }]}>
-                        {orderingOptions.find((o) => o.value === ordering)?.label || 'Newest First'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Mood-type filter removed (backend does not support mood-type filtering for this structure) */}
-
-                    <View style={styles.dateRow}>
-                      <TouchableOpacity
-                        style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                        onPress={() => setShowStartDatePicker(true)}
-                      >
-                        <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {startDate ? startDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
-                        onPress={() => setShowEndDatePicker(true)}
-                      >
-                        <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}> {endDate ? endDate.toLocaleDateString() : 'dd/mm/yyyy'}</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {(startDate || endDate || ordering !== '-created_at') && (
-                      <TouchableOpacity
-                        style={[styles.clearFiltersButton, { backgroundColor: '#EF4444' }]}
-                        onPress={clearFilters}
-                      >
-                        <Text style={[styles.clearFiltersText, { color: '#FFFFFF' }]}>Clear Filters</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  {renderHistoryFilterBar()}
 
                   <View style={{ height: 12 }} />
                 </>
@@ -1012,23 +1050,28 @@ export default function MoodTrackerScreen() {
 
                 return (
                   <TouchableOpacity
-                    style={[styles.historyCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}
+                    style={[styles.historyCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderRadius: historyCardRadius, padding: historyCardPadding, marginBottom: clamp(height * 0.012, 8, 12) }]}
                     onPress={() => router.push(`/patient/mood-detail?id=${item.id}`)}
                     activeOpacity={0.8}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <LinearGradient colors={[ '#FF5AA8', '#FFB36B' ]} style={styles.moodAvatar}>
+                      <LinearGradient
+                        colors={(moodCardThemes[dominantMood]?.colors || moodCardThemes.happy.colors) as [string, string]}
+                        start={[0, 0]}
+                        end={[1, 1]}
+                        style={styles.moodAvatar}
+                      >
                         <Text style={styles.avatarEmoji}>{getMoodEmoji(dominantMood)}</Text>
                       </LinearGradient>
 
                       <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={[styles.historyMood, { color: '#FFFFFF' }]}>{getMoodLabel(dominantMood)}</Text>
+                        <Text style={[styles.historyMood, { color: '#FFFFFF', fontSize: historyTitleSize }]}>{getMoodLabel(dominantMood)}</Text>
                         {tieLabel && (
-                          <Text style={{ color: '#B8A8E6', fontSize: 11, marginTop: 2 }}>{tieLabel}</Text>
+                          <Text style={{ color: '#B8A8E6', fontSize: historyMetaSize, marginTop: 2 }}>{tieLabel}</Text>
                         )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                           <FontAwesome name="calendar" size={11} color="#B8A8E6" />
-                          <Text style={{ marginLeft: 6, color: '#B8A8E6', fontSize: 12 }}>{formatExactDate(item.mood_date || item.created_at)}</Text>
+                          <Text style={{ marginLeft: 6, color: '#B8A8E6', fontSize: historyMetaSize }}>{formatExactDate(item.mood_date || item.created_at)}</Text>
                         </View>
                       </View>
 
@@ -1073,45 +1116,69 @@ export default function MoodTrackerScreen() {
         />
       )}
 
-      {/* Ordering Modal */}
+      {/* History Filters Modal */}
       <Modal
-        visible={showOrderingModal}
+        visible={showFiltersModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowOrderingModal(false)}
+        onRequestClose={() => setShowFiltersModal(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setShowOrderingModal(false)}
+          onPress={() => setShowFiltersModal(false)}
         >
-          <View style={[styles.modalContent, { backgroundColor: '#473F5A' }]}>
-            <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>Sort By</Text>
+          <View style={[styles.modalContent, styles.filtersModalContent, { backgroundColor: '#473F5A' }]}>
+            <View style={styles.filtersModalHeader}>
+              <Text style={[styles.modalTitle, { color: '#FFFFFF', marginBottom: 0 }]}>Filters</Text>
+              <TouchableOpacity style={styles.filtersModalClose} onPress={() => setShowFiltersModal(false)}>
+                <FontAwesome name="times" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.filterLabel, { color: '#B8A8E6' }]}>Sort By</Text>
             {orderingOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.modalOption,
-                  ordering === option.value && {
-                    backgroundColor: '#5B5270',
-                  },
+                  ordering === option.value && { backgroundColor: '#5B5270' },
                 ]}
-                onPress={() => {
-                  setOrdering(option.value);
-                  setShowOrderingModal(false);
-                }}
+                onPress={() => setOrdering(option.value)}
               >
-                <Text
-                  style={[
-                    styles.modalOptionText,
-                    { color: '#FFFFFF' },
-                    ordering === option.value && { fontWeight: '700' },
-                  ]}
-                >
+                <Text style={[styles.modalOptionText, { color: '#FFFFFF' }, ordering === option.value && { fontWeight: '700' }]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
             ))}
+
+            <View style={[styles.dateRow, { marginTop: 10 }]}>
+              <TouchableOpacity
+                style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                onPress={() => setShowStartDatePicker(true)}
+              >
+                <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}>{startDate ? startDate.toLocaleDateString() : 'Start date'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.dateInput, { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' }]}
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text style={[styles.dateInputText, { color: '#FFFFFF' }]}>{endDate ? endDate.toLocaleDateString() : 'End date'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filtersModalFooter}>
+              {hasActiveHistoryFilters && (
+                <TouchableOpacity style={[styles.clearFiltersButton, styles.filtersModalClear]} onPress={clearFilters}>
+                  <Text style={[styles.clearFiltersText, { color: '#FFFFFF' }]}>Clear</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={styles.filtersModalApply} onPress={() => setShowFiltersModal(false)}>
+                <Text style={styles.filtersModalApplyText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -1206,12 +1273,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     top: 52,
-    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
-    marginBottom: 10,
+    marginBottom: 2,
     marginTop: 20,
     textAlign: 'center',
   },
@@ -1221,18 +1292,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     top: 52,
-    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   menuBarContainer: {
-    position: 'absolute',
-    top: 125,
-    left: 20,
-    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4A4458',
     borderRadius: 25,
-    padding: 6,
+    padding: 4,
     zIndex: 1001,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1240,19 +1311,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  menuBarInline: {
+    marginBottom: 18,
+  },
+  menuBarInlineCompact: {
+    marginBottom: 10,
+  },
   menuTabButton: {
     flex: 1,
   },
+  menuTabButtonWide: {
+    flex: 1.18,
+  },
   menuTabActive: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuTabInactive: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1267,6 +1347,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#A0A0A0',
+  },
+  menuTabWideText: {
+    flexShrink: 1,
   },
   /* Unified header card styles */
   headerCard: {
@@ -1365,8 +1448,227 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 80,
+    paddingBottom: 30,
     backgroundColor: 'transparent',
     zIndex: 1,
+  },
+  entryPromptTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 22,
+  },
+  moodCardsList: {
+    gap: 16,
+  },
+  moodCardPressable: {
+    width: '100%',
+  },
+  moodChoiceCard: {
+    minHeight: 184,
+    borderRadius: 26,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 26,
+    paddingHorizontal: 18,
+    position: 'relative',
+  },
+  moodChoiceEmoji: {
+    fontSize: 68,
+    lineHeight: 76,
+    zIndex: 2,
+  },
+  moodChoiceLabel: {
+    marginTop: 8,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    zIndex: 2,
+  },
+  moodChoiceWaveWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 74,
+    justifyContent: 'flex-end',
+  },
+  moodChoiceWave: {
+    position: 'absolute',
+    left: -18,
+    right: -18,
+    bottom: -12,
+    height: 58,
+    borderTopLeftRadius: 70,
+    borderTopRightRadius: 90,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    transform: [{ rotate: '-3deg' }],
+  },
+  moodChoiceMiniEmojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 26,
+    paddingBottom: 18,
+    zIndex: 2,
+  },
+  moodChoiceMiniEmojiBubble: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodChoiceMiniEmoji: {
+    fontSize: 13,
+  },
+  selectedMoodHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  changeMoodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2F2941',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  changeMoodButtonText: {
+    color: '#E6E2F4',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  selectedMoodPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    minWidth: 122,
+    justifyContent: 'center',
+  },
+  selectedMoodPillEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  selectedMoodPillText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  enhancedDetailCard: {
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+    marginTop: 0,
+    marginBottom: 16,
+  },
+  enhancedSectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  enhancedHelperText: {
+    textAlign: 'center',
+    marginBottom: 22,
+    fontSize: 14,
+  },
+  intensityHeroWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  intensityHeroNumber: {
+    color: '#FFC107',
+    fontSize: 72,
+    lineHeight: 78,
+    fontWeight: '900',
+  },
+  intensityHeroLabel: {
+    color: '#EDE7FF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: -4,
+  },
+  enhancedIntensityNumber: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#473F5A',
+  },
+  enhancedIntensityNumberActive: {
+    backgroundColor: '#F04C94',
+    borderColor: '#F38ABD',
+    shadowColor: '#F04C94',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  enhancedIntensityText: {
+    color: '#E8DFF9',
+  },
+  enhancedIntensityTextActive: {
+    color: '#FFFFFF',
+  },
+  enhancedTriggerChip: {
+    backgroundColor: '#1F1B2E',
+    borderColor: 'rgba(255,255,255,0.02)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  enhancedTriggerChipSelected: {
+    backgroundColor: '#FFB43D',
+    borderColor: '#FFB43D',
+  },
+  enhancedTriggerText: {
+    color: '#9FB3D8',
+  },
+  enhancedTriggerTextSelected: {
+    color: '#FFFFFF',
+  },
+  enhancedTextInput: {
+    backgroundColor: '#1F1B2E',
+    borderRadius: 16,
+    minHeight: 50,
+    paddingHorizontal: 16,
+  },
+  enhancedTextArea: {
+    backgroundColor: '#1F1B2E',
+    borderRadius: 18,
+    minHeight: 116,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  enhancedSubmitButton: {
+    borderRadius: 22,
+    paddingVertical: 0,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  enhancedSubmitGradient: {
+    minHeight: 60,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enhancedSubmitInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   moodCarouselContainer: {
     borderRadius: 20,
@@ -1639,8 +1941,8 @@ const styles = StyleSheet.create({
   historyContainer: {
     flex: 1,
     backgroundColor: 'transparent',
-    paddingTop: 20,
-    paddingHorizontal: 10,
+    paddingTop: 0,
+    paddingHorizontal: 0,
   },
   filtersContainer: {
     padding: 20,
@@ -1679,6 +1981,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  tabLoaderWrap: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+  },
+  tabLoaderCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    backgroundColor: 'rgba(63, 56, 88, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  tabLoaderIconShell: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  tabLoaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  tabLoaderSubtitle: {
+    color: '#B9AFDD',
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center',
   },
   loadingText: {
     marginTop: 10,
@@ -1862,6 +2209,37 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
+  historyFilterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  historyFilterTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#3E3653',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  historyFilterTriggerText: {
+    color: '#EDE8FA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  historyFilterClearIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5484D',
+  },
   filterLabel: {
     fontSize: 14,
     marginBottom: 8,
@@ -1909,6 +2287,9 @@ const styles = StyleSheet.create({
   },
   avatarEmoji: {
     fontSize: 22,
+    textShadowColor: 'rgba(0,0,0,0.18)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   intensityPill: {
     backgroundColor: '#FFDFF4',
@@ -1935,6 +2316,54 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     maxHeight: '70%',
+  },
+  filtersModalContent: {
+    width: '88%',
+    maxHeight: '78%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  filtersModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  filtersModalClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  filtersModalFooter: {
+    marginTop: 14,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+  },
+  filtersModalClear: {
+    backgroundColor: '#E5484D',
+    marginTop: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    minHeight: 36,
+  },
+  filtersModalApply: {
+    backgroundColor: '#6D5DD3',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  filtersModalApplyText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   modalTitle: {
     fontSize: 20,

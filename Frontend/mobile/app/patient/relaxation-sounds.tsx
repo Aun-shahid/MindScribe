@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Dimensions,
   Modal,
   Animated,
@@ -17,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import StickyHeader from '../components/StickyHeader';
 import OriginalHeader from '../components/OriginalHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -254,12 +254,12 @@ export default function RelaxationSoundsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: '#342949' }]}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#B8A8E6" />
-          <Text style={[styles.loadingText, { color: '#FFFFFF' }]}>Loading relaxation sounds...</Text>
-        </View>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading relaxation sounds..."
+        subtitle="Preparing calming content for you"
+        spinnerColor="#B8A8E6"
+      />
     );
   }
 

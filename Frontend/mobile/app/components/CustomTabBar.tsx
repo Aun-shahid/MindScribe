@@ -2,17 +2,12 @@ import React, { useRef, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
-  Text,
   Animated,
   StyleSheet,
-  Platform,
-  Dimensions,
 } from 'react-native';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 const VISIBLE_TABS = ['dashboard', 'actions', 'profile'];
 
@@ -31,7 +26,6 @@ const TAB_META: Record<string, { label: string; icon: (color: string, size: numb
   },
 };
 
-const ACTIVE_BG = '#B8A8E6';
 const ACTIVE_ICON = '#1e1530';
 const INACTIVE_ICON = '#6d6a8a';
 const BAR_BG = '#1a1230';
@@ -57,7 +51,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
         friction: 8,
       }).start();
     });
-  }, [state.index]);
+  }, [animations, state.index, state.routes]);
 
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom || 8 }]}>
@@ -147,9 +141,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 20,
-    // subtle top border glow
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(184,168,230,0.18)',
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
   },
   container: {
     flexDirection: 'row',

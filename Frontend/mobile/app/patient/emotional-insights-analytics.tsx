@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   SafeAreaView,
   Dimensions,
   Animated,
@@ -14,6 +13,7 @@ import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import PatientService from '../services/patient.service';
 import type { EmotionalInsightsAnalytics } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const { width } = Dimensions.get('window');
 
@@ -202,12 +202,12 @@ export default function EmotionalInsightsAnalytics() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: themeStyle.background }]}>
-        <ActivityIndicator size="large" color="#524f85" />
-        <Text style={[styles.loadingText, { color: themeStyle.label }]}>
-          Loading analytics...
-        </Text>
-      </View>
+      <TabLoaderCard
+        fullScreen
+        title="Loading analytics..."
+        subtitle="Crunching your emotional trends"
+        spinnerColor="#524f85"
+      />
     );
   }
 
