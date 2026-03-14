@@ -45,7 +45,8 @@ User = get_user_model()
 
 
 # TherapistPatientMoodTrendView: Fetch 7-day mood trend for a patient
-from patients.models import MoodEntry
+from patients.models import MoodEntry, Notification
+from patients.services.notification_categories import build_therapist_notification_summary
 from patients.services.notification_center import create_notification
 
 @extend_schema(
@@ -1648,6 +1649,7 @@ class TherapistDashboardView(generics.GenericAPIView):
         upcoming_sessions = serializers.ListField()
         patient_stats = serializers.DictField()
         session_stats = serializers.DictField()
+        notification_stats = serializers.DictField()
         recent_patients = serializers.ListField()
     
     serializer_class = TherapistDashboardResponseSerializer
@@ -1690,6 +1692,13 @@ class TherapistDashboardView(generics.GenericAPIView):
                 therapist=user,
                 scheduled_date__gte=thirty_days_ago
             )
+            therapist_notifications = Notification.objects.filter(patient=user)
+            notification_stats = build_therapist_notification_summary(therapist_notifications)
+            notification_stats['navigation'] = {
+                'notifications_page': '/notifications',
+                'mood_tab_query': '?category=mood',
+                'session_tab_query': '?category=session',
+            }
             
             dashboard_data = {
                 'therapist_info': {
@@ -1713,6 +1722,7 @@ class TherapistDashboardView(generics.GenericAPIView):
                     'completed_sessions_30_days': sessions_last_30_days.filter(status='COMPLETED').count(),
                     'cancelled_sessions_30_days': sessions_last_30_days.filter(status='CANCELLED').count(),
                 },
+                'notification_stats': notification_stats,
                 'today_sessions': SessionSerializer(today_sessions, many=True).data,
                 'upcoming_sessions': SessionSerializer(upcoming_sessions[:5], many=True).data,
                 'recent_patients': PatientListSerializer(recent_patients, many=True).data,

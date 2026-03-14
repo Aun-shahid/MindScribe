@@ -6,6 +6,10 @@ from datetime import timedelta
 
 User = get_user_model()
 
+
+def default_email_verification_expiry():
+    return timezone.now() + timedelta(days=1)
+
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, unique=True)
@@ -20,7 +24,7 @@ class EmailVerificationToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(default=timezone.now() + timedelta(days=1))
+    expires_at = models.DateTimeField(default=default_email_verification_expiry)
     is_used = models.BooleanField(default=False)
     
     class Meta:

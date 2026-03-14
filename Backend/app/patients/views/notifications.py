@@ -5,6 +5,11 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from ..models import NotificationPreference, Notification
 from ..serializers import NotificationPreferenceSerializer, NotificationSerializer
+from ..services.notification_categories import (
+    VALID_NOTIFICATION_CATEGORIES,
+    apply_notification_category_filter,
+    build_therapist_notification_summary,
+)
 from .permissions import IsPatient, IsTherapist
 
 
@@ -185,12 +190,16 @@ class TherapistNotificationListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         is_read = self.request.query_params.get('is_read', None)
+        category = self.request.query_params.get('category', None)
 
         queryset = Notification.objects.filter(patient=user)
 
         if is_read is not None:
             is_read_bool = is_read.lower() == 'true'
             queryset = queryset.filter(is_read=is_read_bool)
+
+        if category:
+            queryset = apply_notification_category_filter(queryset, category)
 
         return queryset.order_by('-sent_at')
 
@@ -204,12 +213,51 @@ class TherapistNotificationListView(generics.ListAPIView):
                 'description': 'Filter by read status (true/false)',
                 'required': False,
                 'schema': {'type': 'string', 'enum': ['true', 'false']}
+            },
+            {
+                'name': 'category',
+                'in': 'query',
+                'description': 'Filter therapist notifications by tab/category.',
+                'required': False,
+                'schema': {'type': 'string', 'enum': sorted(list(VALID_NOTIFICATION_CATEGORIES))}
             }
         ],
         responses={200: NotificationSerializer(many=True)}
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+
+@extend_schema(tags=['Therapist Notifications'])
+class TherapistNotificationSummaryView(APIView):
+    """Get therapist notification counts grouped for dashboard/tabs."""
+    permission_classes = [permissions.IsAuthenticated, IsTherapist]
+
+    @extend_schema(
+        summary="Get therapist notification summary",
+        description="Return grouped notification counts for therapist dashboard cards and notification tabs.",
+        responses={
+            200: OpenApiResponse(
+                description='Notification summary',
+                response={
+                    'type': 'object',
+                    'properties': {
+                        'total_notifications': {'type': 'integer'},
+                        'unread_notifications': {'type': 'integer'},
+                        'session_notifications': {'type': 'integer'},
+                        'session_unread_notifications': {'type': 'integer'},
+                        'mood_notifications': {'type': 'integer'},
+                        'mood_unread_notifications': {'type': 'integer'},
+                        'mood_alert_patients': {'type': 'integer'},
+                        'other_notifications': {'type': 'integer'},
+                    },
+                }
+            )
+        }
+    )
+    def get(self, request):
+        queryset = Notification.objects.filter(patient=request.user)
+        return Response(build_therapist_notification_summary(queryset))
 
 
 @extend_schema(tags=['Therapist Notifications'])
