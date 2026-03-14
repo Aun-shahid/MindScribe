@@ -15,6 +15,7 @@ from datetime import timedelta # Import timedelta for JWT settings
 import os # Import os for environment variables
 from dotenv import load_dotenv # Import load_dotenv for .env file support
 import dj_database_url # Import dj_database_url for DATABASE_URL support
+from celery.schedules import crontab
 
 # Load environment variables from .env file (if it exists)
 # Make sure your .env file is in the same directory as manage.py
@@ -272,14 +273,51 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# Celery settings (for background tasks like audio processing, AI pipeline)
-# IMPORTANT: Use environment variables for production!
-# CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-# CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+# Celery settings (for background tasks like reminders, retries, AI pipeline)
+# IMPORTANT: Use environment variables for production.
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = USE_TZ
+
+# Reminder matching windows
+DAILY_REMINDER_WINDOW_MINUTES = int(os.environ.get('DAILY_REMINDER_WINDOW_MINUTES', '5'))
+SESSION_REMINDER_WINDOW_MINUTES = int(os.environ.get('SESSION_REMINDER_WINDOW_MINUTES', '10'))
+
+# Push retry/dead-letter controls
+PUSH_RETRY_MAX_TO_PROCESS = int(os.environ.get('PUSH_RETRY_MAX_TO_PROCESS', '200'))
+PUSH_DEAD_LETTER_AFTER_HOURS = int(os.environ.get('PUSH_DEAD_LETTER_AFTER_HOURS', '24'))
+
+# Celery Beat periodic tasks for reminders and delivery retries
+CELERY_BEAT_SCHEDULE = {
+    'send-session-reminders-every-minute': {
+        'task': 'patients.tasks.send_session_reminder_notifications_task',
+        'schedule': crontab(),
+    },
+    'send-mood-reminders-every-minute': {
+        'task': 'patients.tasks.send_mood_reminder_notifications_task',
+        'schedule': crontab(),
+    },
+    'send-journal-reminders-every-minute': {
+        'task': 'patients.tasks.send_journal_reminder_notifications_task',
+        'schedule': crontab(),
+    },
+    'retry-failed-push-every-5-minutes': {
+        'task': 'patients.tasks.retry_failed_push_notifications_task',
+        'schedule': crontab(minute='*/5'),
+        'kwargs': {
+            'max_to_process': PUSH_RETRY_MAX_TO_PROCESS,
+            'dead_letter_after_hours': PUSH_DEAD_LETTER_AFTER_HOURS,
+        },
+    },
+    'retry-failed-websocket-every-minute': {
+        'task': 'patients.tasks.retry_failed_websocket_notifications_task',
+        'schedule': crontab(),
+    },
+}
 
 # AWS S3 Storage settings (using django-storages and boto3)
 # Only enable these if you are ready to use S3 for file storage

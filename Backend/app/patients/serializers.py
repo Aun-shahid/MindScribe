@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .services.notification_categories import get_notification_category
 from .models import (
     MoodEntry, JournalEntry, EmotionalInsight, 
     RelaxationContent, RelaxationSession, DailyInspiration, PatientGoal, RelaxationTip, JournalPrompt,
@@ -351,12 +352,14 @@ class NotificationSerializer(serializers.ModelSerializer):
     """Serializer for notifications"""
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
     time_ago = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     
     class Meta:
         model = Notification
         fields = [
             'id', 'patient', 'patient_name',
             'notification_type', 'title', 'message',
+            'category',
             'session_id', 'goal_id', 'action_url',
             'is_read', 'read_at', 'sent_at', 'time_ago',
             'push_sent', 'push_sent_at',
@@ -384,6 +387,9 @@ class NotificationSerializer(serializers.ModelSerializer):
             return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
         else:
             return "Just now"
+
+    def get_category(self, obj):
+        return get_notification_category(obj)
         
 class ActivityLogSerializer(serializers.ModelSerializer):
     """Serializer for activity logs"""

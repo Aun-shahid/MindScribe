@@ -11,8 +11,6 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from ..models import JournalEntry, JournalPrompt
 from ..serializers import JournalEntrySerializer, JournalAnalyticsSerializer, JournalPromptSerializer
 from .permissions import IsPatient
-from users.models import PatientProfile
-from ..services.notification_center import create_notification
 
 
 @extend_schema_view(
@@ -64,25 +62,7 @@ class JournalEntryListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        journal_entry = serializer.save()
-        try:
-            patient_profile = PatientProfile.objects.select_related('therapist__user').get(user=journal_entry.patient)
-            therapist_profile = patient_profile.therapist
-            if therapist_profile and therapist_profile.user:
-                create_notification(
-                    recipient=therapist_profile.user,
-                    notification_type='therapist_message',
-                    title='New Journal Entry',
-                    message=f'{journal_entry.patient.full_name} added a journal entry.',
-                    action_url=f'/therapist/patients/{journal_entry.patient.id}/journal',
-                    source_event='journal.entry.created',
-                    metadata={
-                        'patient_id': str(journal_entry.patient.id),
-                        'journal_entry_id': str(journal_entry.id),
-                    },
-                )
-        except Exception:
-            pass
+        serializer.save()
 
 
 @extend_schema_view(

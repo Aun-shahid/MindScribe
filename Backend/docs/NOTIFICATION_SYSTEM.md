@@ -260,7 +260,8 @@ These endpoints are therapist-only and complement live updates from `ws/notifica
 1. **send_session_reminder_notifications()**
    - Checks for upcoming sessions based on patient preferences
    - Sends reminders according to configured time before session
-   - Should be called hourly via Celery task
+  - Uses session datetime field and active statuses (`UPCOMING`, `RESCHEDULED`)
+  - Should be called frequently (recommended every 1 minute)
 
 2. **send_session_summary_notification(session)**
    - Called when therapist completes session summary
@@ -277,23 +278,47 @@ These endpoints are therapist-only and complement live updates from `ws/notifica
 5. **send_mood_reminder_notifications()**
    - Sends daily mood tracking reminders
    - Only sends if patient hasn't logged mood today
-   - Should be called at configured times via Celery task
+  - Respects each user's configured `mood_reminder_time` with a scheduler window
 
 6. **send_journal_reminder_notifications()**
    - Sends daily journal writing reminders
    - Only sends if patient hasn't written journal entry today
-   - Should be called at configured times via Celery task
+  - Respects each user's configured `journal_reminder_time` with a scheduler window
+
+### Scheduler Command
+
+The backend includes a management command scheduler that runs reminder checks in a loop:
+
+```bash
+python manage.py run_notification_scheduler --interval-seconds 60 --retry-websocket
+```
+
+Useful modes:
+
+```bash
+# Single tick (for cron/health checks)
+python manage.py run_notification_scheduler --once
+
+# Continuous loop (recommended as a worker process)
+python manage.py run_notification_scheduler --interval-seconds 60 --retry-websocket
+```
+
+Recommended deployment: run this as a dedicated worker process (separate from web server).
 
 ### Push Notification Integration
 
-The `send_push_notification(preference, notification)` function is a placeholder for actual push notification implementation. To integrate:
+`send_push_notification(preference, notification)` now attempts real Firebase delivery when `firebase-admin` is installed and credentials are configured.
+
+If Firebase is not configured, push sends are not marked as successful and `push_error` stores the reason.
+
+To enable push delivery:
 
 1. **Install Firebase Admin SDK**:
    ```bash
    pip install firebase-admin
    ```
 
-2. **Configure Firebase** in settings.py:
+2. **Configure Firebase** (environment variable preferred):
    ```python
    import firebase_admin
    from firebase_admin import credentials
@@ -301,6 +326,11 @@ The `send_push_notification(preference, notification)` function is a placeholder
    cred = credentials.Certificate('path/to/serviceAccountKey.json')
    firebase_admin.initialize_app(cred)
    ```
+
+  Or set environment variable:
+  ```bash
+  FIREBASE_CREDENTIALS_PATH=/path/to/serviceAccountKey.json
+  ```
 
 3. **Implement push notification sending**:
    ```python
@@ -362,8 +392,8 @@ Notification preferences and notifications can be managed in Django Admin:
 
 ## Future Enhancements
 
-1. **Celery Tasks**: Set up periodic tasks for automated notifications
-2. **Push Notification Service**: Integrate Firebase Cloud Messaging or similar
+1. **Celery/Queue Integration**: Move scheduler loop to Celery beat + workers if needed
+2. **Push Notification Service**: Add APNS/WebPush provider fallback in addition to Firebase
 3. **Email Notifications**: Add email fallback option
 4. **SMS Notifications**: Add SMS option for critical notifications
 5. **Notification Templates**: Create reusable templates for common notifications

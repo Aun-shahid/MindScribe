@@ -28,7 +28,7 @@ from .notifications import (
     MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView,
     TherapistNotificationListView, TherapistUnreadNotificationCountView,
     TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
-    TherapistDeleteNotificationView
+    TherapistDeleteNotificationView, TherapistNotificationSummaryView
 )
 
 __all__ = [
@@ -80,4 +80,5 @@ __all__ = [
     'TherapistMarkNotificationReadView',
     'TherapistMarkAllNotificationsReadView',
     'TherapistDeleteNotificationView',
+    'TherapistNotificationSummaryView',
 ]
