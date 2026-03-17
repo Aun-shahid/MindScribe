@@ -367,7 +367,7 @@ _default_from_env = os.environ.get("DEFAULT_FROM_EMAIL", "").strip()
 DEFAULT_FROM_EMAIL = _default_from_env or EMAIL_FROM
 
 # --- Frontend Configuration ---
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 # --- Site Configuration ---
 SITE_NAME = os.environ.get("SITE_NAME", "MindScribe")

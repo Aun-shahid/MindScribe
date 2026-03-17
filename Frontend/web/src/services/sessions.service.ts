@@ -2,6 +2,7 @@
 // Session-specific service for analysis, transcription, WebSocket, and AI integration
 import api, { aiApi } from '../utils/api';
 import { aiServiceUrl, backendUrl } from '../config';
+import axios from 'axios';
 import type {
   SessionTranscription,
   SessionEmotionalAnalysis,
@@ -21,12 +22,13 @@ import type { TherapistError } from '../types/therapist';
 
 class SessionsService {
   /**
-   * Start a therapy session - calls AI Service directly
-   * Returns AI service token and session info
+   * Start a therapy session.
+   * 1) Mark Django session as IN_PROGRESS
+   * 2) Start AI Service session and obtain WebSocket token
    */
   async startSession(sessionId: string): Promise<StartSessionResponse> {
     try {
-      console.log('[SessionsService] 🚀 Starting session via AI Service...');
+      console.log('[SessionsService] 🚀 Starting session via Django backend and AI Service...');
 
       // Get the access token for authentication
       const accessToken = localStorage.getItem('access_token');
@@ -34,27 +36,55 @@ class SessionsService {
         throw new Error('No access token found');
       }
 
-      // Call AI Service start endpoint
-      const response = await aiApi.post<any>(
-        '/session/start',
-        { session_id: sessionId },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      // 1) Start session in Django backend to keep canonical session status in sync.
+      const backendResponse = await api.post<any>(`/therapy_sessions/sessions/${sessionId}/start/`);
 
-      console.log('[SessionsService] ✅ AI Service session started:', response.data);
+      console.log('[SessionsService] ✅ Backend session started:', backendResponse.data);
 
-      // Map AI Service response to frontend format
-      // AI Service returns: { session_id, status, websocket_token, message }
-      // Frontend expects: { ai_service_token, session, ... }
-      return {
-        detail: response.data.message || 'Session started successfully',
-        session: {} as any, // AI Service doesn't return full session object
-        session_id: response.data.session_id,
-        status: response.data.status,
-        websocket_token: response.data.websocket_token,
-        ai_service_token: response.data.websocket_token, // Map for compatibility
-        message: response.data.message,
-      };
+      // Prefer backend-provided AI URL when available so frontend env mismatches do not break startup.
+      const effectiveAiServiceUrl = backendResponse.data?.ai_service_url || aiServiceUrl;
+
+      try {
+        // 2) Start AI Service session for live transcription pipeline.
+        const response = await axios.post<any>(
+          `${effectiveAiServiceUrl}/api/v1/session/start`,
+          { session_id: sessionId },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            withCredentials: true,
+          }
+        );
+
+        console.log('[SessionsService] ✅ AI Service session started:', response.data);
+
+        // Map merged backend + AI response to frontend format.
+        // AI Service returns: { session_id, status, websocket_token, message }.
+        return {
+          detail: response.data.message || 'Session started successfully',
+          session: backendResponse.data.session,
+          session_id: response.data.session_id,
+          status: response.data.status,
+          websocket_token: response.data.websocket_token,
+          ai_service_token: response.data.websocket_token, // Map for compatibility
+          message: response.data.message,
+          ai_service_url: effectiveAiServiceUrl,
+        };
+      } catch (aiError) {
+        console.error('[SessionsService] ⚠️ AI Service unavailable, continuing with session control only:', aiError);
+
+        // Keep session usable even if AI service is offline.
+        return {
+          detail: 'Session started. AI transcription service is currently unavailable.',
+          session: backendResponse.data.session,
+          status: 'in_progress',
+          ai_service_url: effectiveAiServiceUrl,
+          ai_service_info: 'AI transcription unavailable. Verify AI service is running and reachable.',
+          message: 'AI transcription service unavailable',
+        };
+      }
     } catch (error) {
       console.error('[SessionsService] ❌ Failed to start AI session:', error);
       throw this.handleError(error);
@@ -255,7 +285,7 @@ class SessionsService {
    */
   async bulkUpdateSessions(data: any): Promise<any> {
     try {
-      const response = await api.post('/therapy_sessions/sessions/bulk_update/', data);
+      const response = await api.post('/therapy_sessions/schedule/bulk-update/', data);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -300,7 +330,7 @@ class SessionsService {
    */
   async autoSchedulePatientSessions(patientId: string): Promise<any> {
     try {
-      const response = await api.post(`/therapy_sessions/patients/${patientId}/auto_schedule/`);
+      const response = await api.post(`/therapy_sessions/patients/${patientId}/auto-schedule/`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -312,7 +342,7 @@ class SessionsService {
    */
   async getPatientSchedulePreferences(patientId: string): Promise<any> {
     try {
-      const response = await api.get(`/therapy_sessions/patients/${patientId}/schedule_preferences/`);
+      const response = await api.get(`/therapy_sessions/patients/${patientId}/preferences/`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -327,7 +357,10 @@ class SessionsService {
       let endpoint = `/therapy_sessions/patients/${patientId}/sessions/`;
       const params = new URLSearchParams();
       if (options.status) params.append('status', options.status);
+      if (typeof options.include_past === 'boolean') params.append('include_past', String(options.include_past));
+      if (typeof options.include_upcoming === 'boolean') params.append('include_upcoming', String(options.include_upcoming));
       if (options.limit) params.append('limit', options.limit.toString());
+      if (options.offset) params.append('offset', options.offset.toString());
 
       const queryString = params.toString();
       if (queryString) endpoint += `?${queryString}`;
@@ -364,7 +397,7 @@ class SessionsService {
    */
   async scheduleRecurringSessions(data: any): Promise<any> {
     try {
-      const response = await api.post('/therapy_sessions/sessions/schedule_recurring/', data);
+      const response = await api.post('/therapy_sessions/schedule/recurring/', data);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -387,18 +420,23 @@ class SessionsService {
    */
   async getCalendarSessions(date: string): Promise<CalendarSession[]> {
     try {
-      const response = await api.get(`/therapy_sessions/sessions/?date=${date}&limit=50`);
+      const response = await api.get(`/therapy_sessions/sessions/?date=${encodeURIComponent(date)}&limit=300`);
       let sessionsData: CalendarSession[] = [];
       if (response.data && Array.isArray(response.data.sessions)) {
-        sessionsData = response.data.sessions.map((s: SessionType) => ({
-          id: s.id,
-          patient_name: s.patient_name || 'Unknown',
-          session_date: s.session_date || 'Unknown',
-          status: s.status || 'UNKNOWN',
-          session_type: s.session_type || 'General',
-          location: s.location || 'Unknown',
-          duration_minutes: s.duration_minutes || 0,
-        }));
+        sessionsData = response.data.sessions
+          .map((s: any) => ({
+            id: s.id,
+            patient_name: s.patient_name || s.patient?.full_name || 'Unknown',
+            session_date: s.session_date || s.scheduled_date || '',
+            status: s.status || 'UNKNOWN',
+            session_type: s.session_type || 'General',
+            location: s.location || 'Unknown',
+            duration_minutes: s.duration_minutes || 0,
+          }))
+          .filter((s: CalendarSession) => !Number.isNaN(new Date(s.session_date).getTime()))
+          .sort((a: CalendarSession, b: CalendarSession) => {
+            return new Date(a.session_date).getTime() - new Date(b.session_date).getTime();
+          });
       }
       return sessionsData;
     } catch (error) {
@@ -438,7 +476,7 @@ class SessionsService {
       onUserJoined?: (user: { user_id: string; user_name: string; user_type: string }) => void;
       onUserLeft?: (user: { user_id: string; user_name: string; user_type: string }) => void;
       onError?: (error: { message: string; code: string }) => void;
-      onClose?: (code: number) => void;
+      onClose?: (code: number, reason?: string) => void;
       onOpen?: () => void;
     }
   ): WebSocket {
@@ -497,8 +535,8 @@ class SessionsService {
     };
 
     ws.onclose = (event) => {
-      console.log('[SessionWS] Connection closed', event.code);
-      handlers.onClose?.(event.code);
+      console.log('[SessionWS] Connection closed', event.code, event.reason);
+      handlers.onClose?.(event.code, event.reason);
     };
 
     return ws;
@@ -552,7 +590,9 @@ class SessionsService {
       onTranscription?: (segment: {
         id: string;
         speaker: string;
-        text: string;
+        text?: string;
+        text_urdu?: string;
+        text_english?: string;
         start_time: number;
         end_time: number;
         emotion?: string;
@@ -666,6 +706,14 @@ class SessionsService {
    * Error handler
    */
   private handleError(error: unknown): TherapistError {
+    if (axios.isAxiosError(error) && error.code === 'ERR_NETWORK') {
+      const targetUrl = error.config?.url || 'AI service endpoint';
+      return {
+        message: `Network Error. Could not reach ${targetUrl}. Ensure the AI service is running and CORS allows this origin.`,
+        code: 'NETWORK_ERROR',
+      };
+    }
+
     if (typeof error === 'object' && error !== null && 'response' in error) {
       const err = error as { response?: { data?: Record<string, unknown>; status?: number } };
       if (err.response?.data) {

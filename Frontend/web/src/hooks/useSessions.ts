@@ -475,6 +475,29 @@ export const useLiveSession = (
   >([]);
   const [error, setError] = useState<string | null>(null);
 
+  const getWsCloseMessage = useCallback((code: number, reason?: string) => {
+    if (reason && reason.trim().length > 0) {
+      return `Session control disconnected (${code}): ${reason}`;
+    }
+
+    switch (code) {
+      case 4001:
+        return 'Session control disconnected: unauthorized token (4001).';
+      case 4003:
+        return 'Session control disconnected: access denied for this session (4003).';
+      case 4004:
+        return 'Session control disconnected: session room not found (4004).';
+      case 1006:
+        return 'Session control connection dropped unexpectedly (1006).';
+      case 1008:
+        return 'Session control rejected by server policy (1008).';
+      case 1011:
+        return 'Session control server error (1011).';
+      default:
+        return `Session control disconnected (code ${code}).`;
+    }
+  }, []);
+
   const connect = useCallback(() => {
     if (!roomId) return;
     const token = localStorage.getItem('access_token') || '';
@@ -508,8 +531,9 @@ export const useLiveSession = (
       onError: (err) => {
         setError(err.message);
       },
-      onClose: () => {
+      onClose: (code, reason) => {
         setConnected(false);
+        setError(getWsCloseMessage(code, reason));
         if (heartbeatRef.current) {
           clearInterval(heartbeatRef.current);
           heartbeatRef.current = null;
@@ -518,7 +542,7 @@ export const useLiveSession = (
     });
 
     wsRef.current = ws;
-  }, [roomId, heartbeatIntervalMs]);
+  }, [roomId, heartbeatIntervalMs, getWsCloseMessage]);
 
   const disconnect = useCallback(() => {
     if (wsRef.current) {
@@ -593,7 +617,9 @@ export const useAIServiceWebSocket = (
     Array<{
       id: string;
       speaker: string;
-      text: string;
+      text?: string;
+      text_urdu?: string;
+      text_english?: string;
       start_time: number;
       end_time: number;
       emotion?: string;

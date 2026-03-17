@@ -6,6 +6,7 @@ import type {
   Patient,
   PatientFilter,
   PatientFormData,
+  CreatePatientData,
   PatientDetailsType,
   PatientDetailsState,
   PatientDetailsActions,
@@ -206,24 +207,24 @@ export const useCreatePatient = () => {
       };
 
       // Sanitize and map data to backend requirements
-      // PatientFormData requires full_name and nested patient_profile
-      const sanitizedData: PatientFormData = {
+      // Backend expects profile fields at top-level (not nested in patient_profile).
+      const sanitizedData: CreatePatientData = {
         first_name: patientData.first_name,
         last_name: patientData.last_name,
-        full_name: `${patientData.first_name} ${patientData.last_name}`,
         email: patientData.email || '',
         phone_number: patientData.phone_number || '',
         date_of_birth: patientData.date_of_birth || '',
         gender: patientData.gender || '',
-        patient_profile: {
-          primary_concern: patientData.primary_concern || '',
-          therapy_start_date: patientData.therapy_start_date || '',
-          session_frequency: patientData.session_frequency || 'weekly',
-          preferred_session_days: patientData.preferred_session_days?.map(mapDayToBackendFormat) || [],
-          emergency_contact_name: patientData.emergency_contact_name || '',
-          emergency_contact_phone: patientData.emergency_contact_phone || '',
-          preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
-        }
+        primary_concern: patientData.primary_concern || '',
+        therapy_start_date: patientData.therapy_start_date || '',
+        session_frequency: patientData.session_frequency || 'weekly',
+        preferred_session_days: patientData.preferred_session_days?.map(mapDayToBackendFormat) || [],
+        emergency_contact_name: patientData.emergency_contact_name || '',
+        emergency_contact_phone: patientData.emergency_contact_phone || '',
+        address: patientData.address || '',
+        medical_history: patientData.medical_history || '',
+        current_medications: patientData.current_medications || '',
+        preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
       };
 
       // Use the correct endpoint for patient creation

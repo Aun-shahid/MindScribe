@@ -1,9 +1,10 @@
 import { useDashboard } from '../hooks/useDashboard';
 import { Link, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import sessionsService from '../services/sessions.service';
 import { useAuth } from '../contexts/AuthContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { listenToAppEvent } from '../utils/events';
 
 interface SessionStats {
   total_sessions: number;
@@ -22,24 +23,54 @@ const Dashboard = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [statsDays, setStatsDays] = useState(30);
+  const [statsDays, setStatsDays] = useState(3650);
   const { user } = useAuth();
+  const notificationStats = dashboard?.notification_stats;
+  const completedSessionsCount = sessionStats?.completed_sessions ?? dashboard?.stats?.completed_sessions ?? 0;
+  const upcomingSessionsCount = sessionStats?.upcoming_sessions ?? dashboard?.stats?.upcoming_sessions ?? 0;
+  const cancelledSessionsCount = sessionStats?.cancelled_sessions ?? dashboard?.stats?.cancelled_sessions ?? 0;
+
+  const notificationsPage = notificationStats?.navigation?.notifications_page || '/notifications';
+  const moodNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.mood_tab_query || '?category=mood'}`;
+  const sessionNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.session_tab_query || '?category=session'}`;
+
+  const loadSessionStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const stats = await sessionsService.getSessionStats(statsDays);
+      setSessionStats(stats);
+    } catch (err) {
+      console.error('Failed to load session stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [statsDays]);
+
+  const refreshAllDashboardData = useCallback(() => {
+    refreshDashboard();
+    loadSessionStats();
+  }, [refreshDashboard, loadSessionStats]);
 
   // Load session statistics
   useEffect(() => {
-    const loadStats = async () => {
-      setStatsLoading(true);
-      try {
-        const stats = await sessionsService.getSessionStats(statsDays);
-        setSessionStats(stats);
-      } catch (err) {
-        console.error('Failed to load session stats:', err);
-      } finally {
-        setStatsLoading(false);
-      }
+    loadSessionStats();
+  }, [loadSessionStats]);
+
+  // Keep analytics in sync with session mutations coming from other screens.
+  useEffect(() => {
+    const cleanupUpdated = listenToAppEvent('session-updated', () => {
+      refreshAllDashboardData();
+    });
+
+    const cleanupCreated = listenToAppEvent('session-created', () => {
+      refreshAllDashboardData();
+    });
+
+    return () => {
+      cleanupUpdated();
+      cleanupCreated();
     };
-    loadStats();
-  }, [statsDays]);
+  }, [refreshAllDashboardData]);
 
   // Check for success message from navigation
   useEffect(() => {
@@ -52,10 +83,16 @@ const Dashboard = () => {
 
   // Prepare pie chart data
   const pieChartData = sessionStats ? [
-    { name: 'Completed', value: sessionStats.completed_sessions || 0, color: '#10b981' },
-    { name: 'Upcoming', value: sessionStats.upcoming_sessions || 0, color: '#3b82f6' },
-    { name: 'Cancelled', value: sessionStats.cancelled_sessions || 0, color: '#ef4444' },
+    { name: 'Completed', value: completedSessionsCount, color: '#10b981' },
+    { name: 'Upcoming', value: upcomingSessionsCount, color: '#3b82f6' },
+    { name: 'Cancelled', value: cancelledSessionsCount, color: '#ef4444' },
   ].filter(item => item.value > 0) : [];
+
+  const notificationChartData = [
+    { name: 'Session', value: notificationStats?.session_notifications || 0, color: '#2563eb' },
+    { name: 'Mood', value: notificationStats?.mood_notifications || 0, color: '#f97316' },
+    { name: 'Other', value: notificationStats?.other_notifications || 0, color: '#8b5cf6' },
+  ].filter((item) => item.value > 0);
 
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({
@@ -92,7 +129,7 @@ const Dashboard = () => {
       <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
         <p className="font-medium">Error loading dashboard: {error.message}</p>
         <button
-          onClick={refreshDashboard}
+          onClick={refreshAllDashboardData}
           className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-sm font-medium transition-colors"
         >
           Try again
@@ -177,7 +214,7 @@ const Dashboard = () => {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-cyan-100 text-sm font-medium mb-1">Upcoming Sessions</p>
-                <h2 className="text-4xl font-bold">{sessionStats?.upcoming_sessions || 0}</h2>
+                <h2 className="text-4xl font-bold">{upcomingSessionsCount}</h2>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-2">
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -203,7 +240,7 @@ const Dashboard = () => {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-orange-100 text-sm font-medium mb-1">Completed Sessions</p>
-                <h2 className="text-4xl font-bold">{dashboard?.stats?.completed_sessions || 0}</h2>
+                <h2 className="text-4xl font-bold">{completedSessionsCount}</h2>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-2">
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -273,7 +310,7 @@ const Dashboard = () => {
             </Link>
 
             <button
-              onClick={refreshDashboard}
+              onClick={refreshAllDashboardData}
               className="flex items-center p-5 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl hover:shadow-lg transition-all duration-200 group border border-blue-100"
             >
               <div className="p-3 bg-blue-100 rounded-xl mr-4 group-hover:scale-110 transition-transform">
@@ -300,6 +337,7 @@ const Dashboard = () => {
                 onChange={(e) => setStatsDays(Number(e.target.value))}
                 className="text-sm border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50 hover:bg-gray-100 transition-colors"
               >
+                <option value={3650}>All time</option>
                 <option value={7}>Last 7 days</option>
                 <option value={30}>Last 30 days</option>
                 <option value={90}>Last 90 days</option>
@@ -382,19 +420,19 @@ const Dashboard = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-green-500"></div>
                     <span className="text-sm font-medium text-gray-700">
-                      Completed: <strong className="text-green-700">{sessionStats.completed_sessions || 0}</strong>
+                      Completed: <strong className="text-green-700">{completedSessionsCount}</strong>
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-blue-500"></div>
                     <span className="text-sm font-medium text-gray-700">
-                      Upcoming: <strong className="text-blue-700">{sessionStats.upcoming_sessions || 0}</strong>
+                      Upcoming: <strong className="text-blue-700">{upcomingSessionsCount}</strong>
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-red-500"></div>
                     <span className="text-sm font-medium text-gray-700">
-                      Cancelled: <strong className="text-red-700">{sessionStats.cancelled_sessions || 0}</strong>
+                      Cancelled: <strong className="text-red-700">{cancelledSessionsCount}</strong>
                     </span>
                   </div>
                 </div>
@@ -429,40 +467,82 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Patient Status - Takes 1 column */}
+          {/* Notification Overview - Takes 1 column */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Status</h2>
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative w-48 h-48">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-5xl font-bold text-purple-600">{dashboard?.stats?.total_patients || 0}</p>
-                    <p className="text-sm text-gray-500 mt-1">Active Patients</p>
-                  </div>
-                </div>
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle cx="96" cy="96" r="80" fill="none" stroke="#e5e7eb" strokeWidth="16" />
-                  <circle cx="96" cy="96" r="80" fill="none" stroke="#ec4899" strokeWidth="16"
-                    strokeDasharray="502" strokeDashoffset="125" strokeLinecap="round" />
-                </svg>
-              </div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Notification Overview</h2>
+              <Link
+                to={notificationsPage}
+                className="text-sm font-medium text-purple-700 hover:text-purple-800"
+              >
+                Open notifications
+              </Link>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-pink-400 rounded-full mr-2"></div>
-                  <span className="text-gray-600">Active</span>
+
+            {notificationChartData.length > 0 ? (
+              <div className="space-y-4">
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={notificationChartData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        innerRadius={45}
+                        dataKey="value"
+                        paddingAngle={3}
+                      >
+                        {notificationChartData.map((entry, index) => (
+                          <Cell key={`notification-cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any) => [`${value} notifications`, '']} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-                <span className="font-semibold text-gray-900">{dashboard?.stats?.total_patients || 0}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-purple-400 rounded-full mr-2"></div>
-                  <span className="text-gray-600">In Progress</span>
+
+                <div className="space-y-2">
+                  {notificationChartData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-gray-600">{item.name}</span>
+                      </div>
+                      <span className="font-semibold text-gray-900">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
-                <span className="font-semibold text-gray-900">{dashboard?.stats?.upcoming_sessions || 0}</span>
+
+                <div className="grid grid-cols-1 gap-3 pt-1">
+                  <Link
+                    to={sessionNotificationsHref}
+                    className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-blue-900">Session notifications</span>
+                    <span className="text-lg font-bold text-blue-700">
+                      {notificationStats?.session_notifications || 0}
+                    </span>
+                  </Link>
+                  <Link
+                    to={moodNotificationsHref}
+                    className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 hover:bg-orange-100 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-orange-900">Mood alerts</span>
+                    <span className="text-lg font-bold text-orange-700">
+                      {notificationStats?.mood_notifications || 0}
+                    </span>
+                  </Link>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="h-52 flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl text-center px-4">
+                <div>
+                  <p className="text-gray-700 font-medium">No notification data available yet</p>
+                  <p className="text-sm text-gray-500 mt-1">New therapist alerts will populate this chart.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

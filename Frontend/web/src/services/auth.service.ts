@@ -32,6 +32,27 @@ interface AuthResponse {
 }
 
 class AuthService {
+  private createFieldError(field: string, message: string): Error {
+    const customError = new Error(`${field}: ${message}`);
+    (customError as any).details = { [field]: message };
+    return customError;
+  }
+
+  private parseDuplicateConstraintError(rawText: string): Error | null {
+    const duplicateMatch = rawText.match(/Key \(([^)]+)\)=\(([^)]*)\) already exists\./i);
+    if (!duplicateMatch) {
+      return null;
+    }
+
+    const field = duplicateMatch[1];
+    const value = duplicateMatch[2];
+    const message = value
+      ? `${field.replace(/_/g, ' ')} already exists (${value}).`
+      : `${field.replace(/_/g, ' ')} already exists.`;
+
+    return this.createFieldError(field, message);
+  }
+
   async login(data: LoginData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/login/', data);
@@ -155,7 +176,7 @@ class AuthService {
     }
   }
 
-  async verifyEmail(data: { token: string }): Promise<void> {
+  async verifyEmail(data: { code: string }): Promise<void> {
     try {
       console.log('[AuthService] POST /authenticator/verify-email/', data);
       await api.post('/authenticator/verify-email/', data);
@@ -187,6 +208,15 @@ class AuthService {
   private handleError(error: any): Error {
     if (error.response?.data) {
       const { data } = error.response;
+
+      if (typeof data === 'string') {
+        const duplicateError = this.parseDuplicateConstraintError(data);
+        if (duplicateError) {
+          return duplicateError;
+        }
+
+        return new Error(data || `Request failed with status ${error.response?.status}`);
+      }
       
       if (data.detail) {
         return new Error(data.detail);
@@ -197,13 +227,23 @@ class AuthService {
       }
       
       if (typeof data === 'object') {
+        if (typeof data.message === 'string' && data.message.trim()) {
+          return new Error(data.message);
+        }
+
+        if (typeof data.error === 'string' && data.error.trim()) {
+          return new Error(data.error);
+        }
+
         // Check if this is field validation errors
-        const hasFieldErrors = Object.keys(data).some(key => key !== 'non_field_errors');
+        const hasFieldErrors = Object.keys(data).some(
+          key => !['non_field_errors', 'message', 'error', 'detail'].includes(key)
+        );
         
         if (hasFieldErrors) {
           // Create a custom error with field details attached
           const fieldErrors = Object.entries(data)
-            .filter(([key]) => key !== 'non_field_errors')
+            .filter(([key]) => !['non_field_errors', 'message', 'error', 'detail'].includes(key))
             .reduce((acc, [field, errors]) => {
               const errorMsg = Array.isArray(errors) ? errors.join(', ') : String(errors);
               acc[field] = errorMsg;
@@ -220,7 +260,7 @@ class AuthService {
         }
       }
       
-      return new Error(data.message || 'An error occurred');
+      return new Error(`Request failed with status ${error.response?.status || 'unknown'}`);
     }
     
     if (error.message) {

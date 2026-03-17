@@ -216,8 +216,12 @@ export const patientService = {
           preferred_language: typeof patient.patient_profile.preferred_language === 'string' ? patient.patient_profile.preferred_language : '',
           connected_at: typeof patient.patient_profile.connected_at === 'string' ? patient.patient_profile.connected_at : ''
         } : null,
-        last_session: typeof patient.last_session === 'string' ? patient.last_session : null,
-        next_session: typeof patient.next_session === 'string' ? patient.next_session : null,
+        last_session: typeof patient.last_session === 'string'
+          ? patient.last_session
+          : (typeof patient.last_session?.date === 'string' ? patient.last_session.date : null),
+        next_session: typeof patient.next_session === 'string'
+          ? patient.next_session
+          : (typeof patient.next_session?.date === 'string' ? patient.next_session.date : null),
         total_sessions: patient.total_sessions?.toString() || '0',
         created_at: typeof patient.created_at === 'string' ? patient.created_at : ''
       }));

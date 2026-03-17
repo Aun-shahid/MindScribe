@@ -153,7 +153,7 @@ const Landing = () => {
         {/* Background Image with Purple Overlay */}
         <div className="absolute inset-0">
           <img
-            src="/images/lands.jpg"
+            src="/images/lands.png"
             alt="Hero Background"
             className="w-full h-full object-cover"
           />

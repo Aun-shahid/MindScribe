@@ -89,20 +89,13 @@ const PatientDetail = () => {
 
     setLoadingUpcomingSessions(true);
     try {
-      const sessions = await sessionsService.getPatientSessions(patientId);
-      console.log('Loaded sessions for patient:', sessions);
-      // Filter for upcoming sessions only (include UPCOMING, IN_PROGRESS, RESCHEDULED statuses)
-      const now = new Date();
-      const upcoming = sessions.filter((s: any) => {
-        // API returns session_date, not scheduled_date
-        const dateStr = s.session_date || s.scheduled_date || s.start_time || '';
-        const sessionDate = new Date(dateStr);
-        const isUpcoming = sessionDate >= now;
-        const isActiveStatus = !['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(s.status || '');
-        console.log(`Session ${s.id}: date=${dateStr}, isUpcoming=${isUpcoming}, status=${s.status}, isActiveStatus=${isActiveStatus}`);
-        return isUpcoming && isActiveStatus;
+      const response = await sessionsService.getPatientSessions(patientId, {
+        include_upcoming: true,
+        include_past: false,
       });
-      console.log('Filtered upcoming sessions:', upcoming);
+      const upcoming = Array.isArray(response?.sessions?.upcoming)
+        ? response.sessions.upcoming
+        : [];
       setUpcomingSessions(upcoming);
     } catch (err) {
       console.error('Failed to load upcoming sessions:', err);
@@ -190,8 +183,13 @@ const PatientDetail = () => {
 
       setLoadingPastSessions(true);
       try {
-        const sessions = await sessionsService.getPastSessions({ patientId, limit: 10 });
-        setPastSessions(sessions);
+        const response = await sessionsService.getPatientSessions(patientId, {
+          include_upcoming: false,
+          include_past: true,
+          limit: 10,
+        });
+        const past = Array.isArray(response?.sessions?.past) ? response.sessions.past : [];
+        setPastSessions(past);
       } catch (err) {
         console.error('Failed to load past sessions:', err);
       } finally {
@@ -437,18 +435,8 @@ const PatientDetail = () => {
       setScheduleSuccess(result);
       setShowRecurringModal(false);
 
-      // Update local preferences state with the values used for scheduling
-      if (result.schedule_summary) {
-        setPreferences((prev: any) => ({
-          ...prev,
-          preferences: {
-            ...prev?.preferences,
-            session_frequency: result.schedule_summary.frequency || prev?.preferences?.session_frequency,
-            preferred_session_days: result.schedule_summary.days || prev?.preferences?.preferred_session_days,
-          },
-          upcoming_sessions_count: (prev?.upcoming_sessions_count || 0) + result.sessions_created,
-        }));
-      }
+      // Always reload from backend as source of truth to avoid drift.
+      await Promise.all([loadPreferences(), loadUpcomingSessions()]);
 
       // Reset form
       setRecurringFormData({
@@ -625,21 +613,21 @@ const PatientDetail = () => {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="flex flex-wrap gap-4 pt-2">
+                {/* <div className="flex flex-wrap gap-4 pt-2">
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
                     <p className="text-xs text-white/70 mb-1">Last session</p>
-                    <p className="font-semibold">{patient.last_session ? formatDate(patient.last_session) : '3 days ago'}</p>
+                    <p className="font-semibold">{patient.last_session ? formatDate(patient.last_session) : 'No previous sessions'}</p>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
                     <p className="text-xs text-white/70 mb-1">Total sessions</p>
-                    <p className="font-semibold">{patient.total_sessions || '12'}</p>
+                    <p className="font-semibold">{patient.total_sessions || '0'}</p>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
                     <p className="text-xs text-white/70 mb-1">Started</p>
                     <p className="font-semibold">
                       {patient.patient_profile?.therapy_start_date
                         ? new Date(patient.patient_profile.therapy_start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                        : 'January 2024'}
+                        : 'Not set'}
                     </p>
                   </div>
                   <div className="bg-gradient-to-r from-green-400/20 to-emerald-400/20 backdrop-blur-sm rounded-lg px-4 py-2 border border-green-400/30 flex items-center space-x-2">
@@ -648,7 +636,7 @@ const PatientDetail = () => {
                     </svg>
                     <span className="font-semibold text-sm">Mood improving</span>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -962,11 +950,28 @@ const PatientDetail = () => {
                           </svg>
                         </div>
                       </div>
-                      {(session as any).session_summary && (
-                        <p className="mt-3 text-sm text-gray-600 line-clamp-2 pl-1">
-                          {(session as any).session_summary}
-                        </p>
-                      )}
+                      {(() => {
+                        const summary = (session as any).session_summary;
+                        if (!summary) return null;
+
+                        const summaryText = typeof summary === 'string'
+                          ? summary
+                          : [
+                            summary.has_notes ? 'Notes added' : null,
+                            summary.has_mood_data ? 'Mood tracked' : null,
+                            summary.has_homework ? 'Homework assigned' : null,
+                            summary.effectiveness_rating ? `Effectiveness ${summary.effectiveness_rating}/10` : null,
+                            summary.is_emergency ? 'Emergency session' : null,
+                          ].filter(Boolean).join(' • ');
+
+                        if (!summaryText) return null;
+
+                        return (
+                          <p className="mt-3 text-sm text-gray-600 line-clamp-2 pl-1">
+                            {summaryText}
+                          </p>
+                        );
+                      })()}
                     </Link>
                   ))}
                 </div>
