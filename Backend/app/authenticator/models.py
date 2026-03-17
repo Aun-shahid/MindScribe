@@ -23,6 +23,7 @@ class PasswordResetToken(models.Model):
 class EmailVerificationToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, unique=True)
+    verification_code = models.CharField(max_length=6, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=default_email_verification_expiry)
     is_used = models.BooleanField(default=False)

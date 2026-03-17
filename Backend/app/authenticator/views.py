@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 import uuid
+import secrets
 from datetime import timedelta
 
 from .models import PasswordResetToken, EmailVerificationToken
@@ -21,6 +22,14 @@ from users.models import TherapistProfile
 from users.services import AccountLinkingService
 
 User = get_user_model()
+
+
+def _generate_email_verification_code():
+    for _ in range(20):
+        code = f"{secrets.randbelow(1000000):06d}"
+        if not EmailVerificationToken.objects.filter(verification_code=code).exists():
+            return code
+    return f"{secrets.randbelow(1000000):06d}"
 
 
 class LoginView(APIView):
@@ -221,21 +230,25 @@ class RegisterView(generics.CreateAPIView):
                     'message': message
                 }
 
-        # Email verification token
+        # Email verification token/code
         token = uuid.uuid4()
+        verification_code = _generate_email_verification_code()
         expires_at = timezone.now() + timedelta(days=1)
+
+        EmailVerificationToken.objects.filter(user=user, is_used=False).delete()
 
         EmailVerificationToken.objects.create(
             user=user,
             token=token,
+            verification_code=verification_code,
             expires_at=expires_at
         )
 
-        email_sent, email_message = ResendEmailService.send_verification_email(user, token)
+        email_sent, email_message = ResendEmailService.send_verification_email(user, verification_code)
         if not email_sent:
             print(f"Email verification send failed for {user.email}: {email_message}")
 
-        print(f"Verification token for {user.email}: {token}")
+        print(f"Verification code for {user.email}: {verification_code}")
         if therapist_pin:
             print(f"Therapist PIN for {user.email}: {therapist_pin}")
 
@@ -424,15 +437,15 @@ class EmailVerificationView(APIView):
             400: OpenApiResponse(description='Invalid verification token.')
         },
         summary="Verify Email",
-        description="Verify user email using verification token."
+        description="Verify user email using a 6-digit verification code."
     )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            token_uuid = serializer.validated_data['token']
+            code = serializer.validated_data['code']
             try:
                 verification_token = EmailVerificationToken.objects.get(
-                    token=token_uuid,
+                    verification_code=code,
                     is_used=False,
                     expires_at__gt=timezone.now()
                 )
@@ -449,7 +462,7 @@ class EmailVerificationView(APIView):
                 
             except EmailVerificationToken.DoesNotExist:
                 return Response(
-                    {'detail': 'Invalid or expired verification token.'},
+                    {'detail': 'Invalid or expired verification code.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

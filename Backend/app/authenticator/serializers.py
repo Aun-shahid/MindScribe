@@ -172,6 +172,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 
 class EmailVerificationSerializer(serializers.Serializer):
-    token = serializers.UUIDField(required=True)
+    code = serializers.RegexField(regex=r'^\d{6}$', required=True)
 
 

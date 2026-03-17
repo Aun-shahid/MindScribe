@@ -17,6 +17,7 @@ class ResendEmailService:
 		return {
 			"Authorization": f"Bearer {settings.RESEND_API_KEY}",
 			"Content-Type": "application/json",
+			"User-Agent": "MindScribe-Django-Client/1.0",
 		}
 
 	@classmethod
@@ -29,8 +30,14 @@ class ResendEmailService:
 			logger.warning("Resend email skipped: RESEND_API_KEY is not configured")
 			return False, "RESEND_API_KEY is not configured"
 
+		from_email = (
+			getattr(settings, "EMAIL_FROM", "")
+			or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+			or "info@mindscribe.live"
+		)
+
 		payload = {
-			"from": settings.EMAIL_FROM,
+			"from": from_email,
 			"to": [to_email],
 			"subject": subject,
 			"text": text,
@@ -72,13 +79,12 @@ class ResendEmailService:
 		return cls.send_email(user.email, subject, text)
 
 	@classmethod
-	def send_verification_email(cls, user, token):
-		verification_link = f"{settings.FRONTEND_URL}/verify-email/{token}"
+	def send_verification_email(cls, user, code):
 		subject = "✅ Verify your MindScribe email"
 		text = (
 			f"Hi {user.first_name or user.username},\n\n"
-			"Welcome to MindScribe! Please verify your email address by clicking the link below:\n\n"
-			f"{verification_link}\n\n"
-			"This link expires in 24 hours."
+			"Welcome to MindScribe! Use the 6-digit code below to verify your email address:\n\n"
+			f"{code}\n\n"
+			"This code expires in 24 hours."
 		)
 		return cls.send_email(user.email, subject, text)
