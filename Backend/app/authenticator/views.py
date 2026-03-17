@@ -6,13 +6,12 @@ from django.contrib.auth import get_user_model, authenticate, logout
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
-from django.core.mail import send_mail
-from django.conf import settings
 import uuid
 from datetime import timedelta
 
 from .models import PasswordResetToken, EmailVerificationToken
 from .token_manager import TokenManager
+from .services.email_service import ResendEmailService
 from .serializers import (
     LoginSerializer, RegisterSerializer, UserProfileSerializer, 
     ChangePasswordSerializer, PasswordResetRequestSerializer,
@@ -232,6 +231,10 @@ class RegisterView(generics.CreateAPIView):
             expires_at=expires_at
         )
 
+        email_sent, email_message = ResendEmailService.send_verification_email(user, token)
+        if not email_sent:
+            print(f"Email verification send failed for {user.email}: {email_message}")
+
         print(f"Verification token for {user.email}: {token}")
         if therapist_pin:
             print(f"Therapist PIN for {user.email}: {therapist_pin}")
@@ -353,33 +356,10 @@ class PasswordResetRequestView(APIView):
                     token=token,
                     expires_at=expiry
                 )
-                
-                # In production, send actual email, we'll handle this at the end or smth
-                # reset_link = f"{settings.FRONTEND_URL}/reset-password/{token}"
-                # send_mail(
-                #     'Reset Your Password',
-                #     f'Click this link to reset your password: {reset_link}',
-                #     settings.DEFAULT_FROM_EMAIL,
-                #     [user.email],
-                #     fail_silently=False,
-                # )
 
-
-                # trying for the frontend
-                # frontend_url = "http://192.168.100.117:8081"
-                # reset_link = f"{frontend_url}/auth/reset-confirm?token={token}"
-                
-                # Web frontend URL
-                frontend_url = "http://localhost:5173"  # Vite dev server default port
-                reset_link = f"{frontend_url}/ResetConfirm?token={token}"
-
-                send_mail(
-                    subject="🔐 Reset Your TherapEase Password",
-                    message=f"Hi {user.first_name},\n\nYou requested a password reset. Click the link below to set a new password:\n\n{reset_link}\n\nIf you didn't request this, you can ignore this email.",
-                    from_email="noreply@therapease.local",
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
+                email_sent, email_message = ResendEmailService.send_password_reset_email(user, token)
+                if not email_sent:
+                    print(f"Password reset email send failed for {user.email}: {email_message}")
                 
                 print(f"Reset token for {user.email}: {token}")
                 
