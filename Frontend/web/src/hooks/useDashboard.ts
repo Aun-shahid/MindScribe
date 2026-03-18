@@ -47,10 +47,22 @@ export const useDashboard = () => {
       fetchDashboard();
     });
 
+    const cleanupSessionCreated = listenToAppEvent('session-created', () => {
+      console.log('Session created, refreshing dashboard...');
+      fetchDashboard();
+    });
+
+    const cleanupSessionUpdated = listenToAppEvent('session-updated', () => {
+      console.log('Session updated, refreshing dashboard...');
+      fetchDashboard();
+    });
+
     return () => {
       cleanupCreated();
       cleanupUpdated();
       cleanupDeleted();
+      cleanupSessionCreated();
+      cleanupSessionUpdated();
     };
   }, [fetchDashboard]);
 

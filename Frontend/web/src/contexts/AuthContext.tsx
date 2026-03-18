@@ -30,7 +30,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   requestPasswordReset: (email: string) => Promise<void>;
   confirmPasswordReset: (token: string, password: string) => Promise<void>;
-  verifyEmail: (token: string) => Promise<void>;
+  verifyEmail: (code: string) => Promise<void>;
   fetchProfile: () => Promise<void>;
   updateProfile: (profileData: Partial<User>) => Promise<void>;
   profileLoading: boolean;
@@ -196,10 +196,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const verifyEmail = async (token: string): Promise<void> => {
+  const verifyEmail = async (code: string): Promise<void> => {
     try {
       setLoading(true);
-      await authService.verifyEmail({ token });
+      await authService.verifyEmail({ code });
     } catch (error) {
       console.error('Email verification failed:', error);
       throw error;

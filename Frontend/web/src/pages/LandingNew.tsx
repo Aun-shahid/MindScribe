@@ -1,21 +1,14 @@
 import { Link } from 'react-router-dom';
-import { 
-  FileText, 
+import {
+  FileText,
   Mic,
-  MessageSquare,
   Brain,
-  ChevronDown,
   Play,
   BarChart3,
   Calendar,
   Clock,
-  Smile,
-  Frown,
-  Meh,
   Users,
-  CheckCircle2,
-  ArrowRight,
-  Sparkles
+  ArrowRight
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
@@ -24,7 +17,6 @@ const LandingNew = () => {
   const containerRef = useRef(null);
   const heroRef = useRef(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [typingText, setTypingText] = useState('');
 
   // Check for reduced motion preference
   useEffect(() => {
@@ -36,14 +28,9 @@ const LandingNew = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
-
   const { scrollYProgress: heroScrollProgress } = useScroll({
     target: heroRef,
-    offset: ["start start", "end start"]
+    offset: ['start start', 'end start']
   });
 
   // Enhanced parallax effects with performance optimization
@@ -51,12 +38,6 @@ const LandingNew = () => {
     heroScrollProgress,
     [0, 0.5, 1],
     prefersReducedMotion ? [1, 1, 1] : [1, 1.08, 1.15]
-  );
-
-  const heroBlur = useTransform(
-    heroScrollProgress,
-    [0, 0.5, 1],
-    prefersReducedMotion ? [0, 0, 0] : [0, 4, 8]
   );
 
   const heroOpacity = useTransform(
@@ -77,241 +58,242 @@ const LandingNew = () => {
     [0.7, 0.5, 0.3]
   );
 
-  // Scroll indicator animation
-  const scrollIndicatorY = useTransform(scrollYProgress, [0, 0.1], [0, 20]);
-  const scrollIndicatorOpacity = useTransform(heroScrollProgress, [0, 0.3], [1, 0]);
-
-  // Typing animation effect for transcription - continuous
-  useEffect(() => {
-    const fullText = "Patient reports feeling anxious about work deadlines and struggling with sleep patterns...";
-    let currentIndex = 0;
-    setTypingText('');
-    
-    const typingInterval = setInterval(() => {
-      if (currentIndex <= fullText.length) {
-        setTypingText(fullText.slice(0, currentIndex));
-        currentIndex++;
-      } else {
-        clearInterval(typingInterval);
-      }
-    }, 30);
-
-    return () => clearInterval(typingInterval);
-  }, []);
-
   // Workflow timeline data
   const workflowSteps = [
     {
       id: 1,
       icon: Play,
-      title: "Session Begins",
-      description: "Start your therapy session with confidence. MindScribe listens in the background.",
-      color: "from-purple-400 to-purple-600",
-      bgColor: "bg-purple-50",
-      glowColor: "shadow-purple-500/50"
+      title: 'Session Begins',
+      description: 'Start your therapy session with confidence. MindScribe listens in the background.',
+      color: 'from-purple-400 to-purple-600',
+      bgColor: 'bg-purple-50',
+      glowColor: 'shadow-purple-500/50'
     },
     {
       id: 2,
       icon: Mic,
-      title: "Listening & Recording",
-      description: "Crystal-clear audio capture with intelligent noise reduction and speaker detection.",
-      color: "from-blue-400 to-blue-600",
-      bgColor: "bg-blue-50",
-      glowColor: "shadow-blue-500/50"
+      title: 'Listening & Recording',
+      description: 'Crystal-clear audio capture with intelligent noise reduction and speaker detection.',
+      color: 'from-blue-400 to-blue-600',
+      bgColor: 'bg-blue-50',
+      glowColor: 'shadow-blue-500/50'
     },
-    {
-      id: 3,
-      icon: MessageSquare,
-      title: "Real-Time Transcription",
-      description: "Bilingual transcription with 95%+ accuracy. See your session documented as it happens.",
-      color: "from-teal-400 to-teal-600",
-      bgColor: "bg-teal-50",
-      glowColor: "shadow-teal-500/50"
-    },
+    
     {
       id: 4,
       icon: FileText,
-      title: "SOAP Note Generation",
-      description: "Comprehensive SOAP notes created automatically, following clinical best practices.",
-      color: "from-indigo-400 to-indigo-600",
-      bgColor: "bg-indigo-50",
-      glowColor: "shadow-indigo-500/50"
+      title: 'SOAP Note Generation',
+      description: 'Comprehensive SOAP notes created automatically, following clinical best practices.',
+      color: 'from-indigo-400 to-indigo-600',
+      bgColor: 'bg-indigo-50',
+      glowColor: 'shadow-indigo-500/50'
     },
     {
       id: 5,
       icon: Brain,
-      title: "AI Insights",
-      description: "Emotional sentiment analysis and behavioral patterns identified through advanced AI.",
-      color: "from-pink-400 to-pink-600",
-      bgColor: "bg-pink-50",
-      glowColor: "shadow-pink-500/50"
+      title: 'AI Insights',
+      description: 'Emotional sentiment analysis and behavioral patterns identified through advanced AI.',
+      color: 'from-pink-400 to-pink-600',
+      bgColor: 'bg-pink-50',
+      glowColor: 'shadow-pink-500/50'
     },
     {
       id: 6,
       icon: BarChart3,
-      title: "Session Summary",
-      description: "Complete patient overview with progress tracking and actionable insights.",
-      color: "from-orange-400 to-orange-600",
-      bgColor: "bg-orange-50",
-      glowColor: "shadow-orange-500/50"
+      title: 'Session Summary',
+      description: 'Complete patient overview with progress tracking and actionable insights.',
+      color: 'from-orange-400 to-orange-600',
+      bgColor: 'bg-orange-50',
+      glowColor: 'shadow-orange-500/50'
     }
-  ];
-
-  // Live session simulation data - removed transcriptLines as it's not used
-
-  const soapNotes = {
-    subjective: "Patient reports increased anxiety symptoms, particularly in morning hours. Expresses concern about work-related stressors and upcoming deadlines.",
-    objective: "Patient appeared moderately anxious. Maintained eye contact, speech was clear and coherent. Fidgeting noted during discussion of work stressors.",
-    assessment: "Generalized anxiety disorder symptoms exacerbated by occupational stress. Patient demonstrates insight into triggers.",
-    plan: "Continue cognitive behavioral therapy. Introduce stress management techniques. Schedule follow-up in one week."
-  };
-
-  // Emotion visualization data
-  const emotions = [
-    { label: "Anxious", intensity: 75, color: "text-red-500", bgColor: "bg-red-100" },
-    { label: "Reflective", intensity: 60, color: "text-blue-500", bgColor: "bg-blue-100" },
-    { label: "Hopeful", intensity: 45, color: "text-green-500", bgColor: "bg-green-100" },
-    { label: "Concerned", intensity: 55, color: "text-orange-500", bgColor: "bg-orange-100" }
   ];
 
   return (
     <div ref={containerRef} className="min-h-screen bg-white overflow-hidden">
-      {/* SECTION 1 - Full Screen Hero */}
-      <section ref={heroRef} className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Image with Enhanced Scroll Effects */}
-        <motion.div 
-          className="absolute inset-0"
-          style={{ 
-            scale: heroScale,
-            filter: heroBlur.get() !== undefined ? `blur(${heroBlur.get()}px)` : 'blur(0px)',
-          }}
-        >
-          <motion.img
-            src="/images/lands.jpg"
-            alt="Therapy Session Background"
-            className="w-full h-full object-cover"
-            style={{ 
-              filter: useTransform(heroBlur, (blur) => `blur(${blur}px)`)
-            }}
-          />
-          <motion.div 
-            className="absolute inset-0 bg-gradient-to-br from-purple-900/70 via-indigo-900/60 to-purple-800/70"
-            style={{ opacity: overlayOpacity }}
-          />
+      {/* SECTION 1 - Therapist Hero */}
+      <section
+        ref={heroRef}
+        className="relative h-screen overflow-hidden px-4 md:px-8"
+        style={{
+          background: 'linear-gradient(135deg, #F6F2FF 0%, #E9E1FF 100%)'
+        }}
+      >
+        <div className="absolute inset-y-0 right-0 w-[42%] bg-[#6E5F9E]" />
+
+        <motion.div className="absolute inset-0" style={{ opacity: overlayOpacity }}>
+          <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-[#B8A3FF]/20 blur-3xl" />
+          <div className="absolute top-20 -right-20 h-[24rem] w-[24rem] rounded-full bg-[#CFC2FF]/20 blur-3xl" />
         </motion.div>
 
-        {/* Gradient Bridge to Next Section */}
         <motion.div
-          className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent via-gray-50/50 to-gray-50 pointer-events-none z-20"
-          style={{ opacity: heroScrollProgress }}
-        />
+          className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-6 py-6 md:px-8 md:py-8"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="mb-5 flex items-center md:mb-7">
+            <Brain className="text-[#7B5FCB]" size={28} />
+            <div className="flex items-center gap-2 p-1 text-md font-semibold text-[#1f2d29]">
+              
+              MindScribe
+            </div>
+          </div>
 
-        {/* Floating Particles */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
+          <div className="grid flex-1 items-center gap-8 lg:grid-cols-[60%_40%]">
             <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-white/20 rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                y: [0, -30, 0],
-                opacity: [0.2, 0.5, 0.2],
-              }}
-              transition={{
-                duration: 3 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Hero Content with Enhanced Scroll Animation */}
-        <motion.div
-          className="relative z-10 max-w-5xl mx-auto px-6 text-center"
-          style={{ 
-            opacity: heroOpacity,
-            y: heroTextY
-          }}
-        >
-          <motion.h1 
-            className="text-5xl md:text-6xl lg:text-7xl font-serif text-white mb-6 leading-tight"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-          >
-            Meet <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300">MindScribe</span>
-            <br />
-            <span className="text-4xl md:text-5xl">your therapy assistant.</span>
-          </motion.h1>
-
-          <motion.p
-            className="text-xl md:text-2xl text-purple-100 mb-12 max-w-3xl mx-auto"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.7 }}
-          >
-            Supporting therapists with clarity, care, and intelligent documentation.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.9 }}
-          >
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-3 bg-white hover:bg-gray-100 text-purple-900 px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-2xl hover:shadow-purple-500/50"
+              style={{ opacity: heroOpacity, y: heroTextY }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="max-w-xl lg:pr-8"
             >
-              Start Your Journey
-              <ArrowRight size={20} />
-            </Link>
-          </motion.div>
-        </motion.div>
+              <p className="mb-5 text-sm tracking-[0.25em] text-[#6E5F9E] uppercase">Your AI Therapy Assistant</p>
+              <h1
+                className="text-4xl font-semibold leading-[1.1] text-[#5A45A5] md:text-6xl"
+                style={{ fontFamily: 'serif' }}
+              >
+                MindScribe
+              </h1>
+              <p className="mt-5 max-w-xl text-2xl font-serif leading-tight text-[#4E3D88] md:text-4xl">
+                Clarity for every therapy session, every note you write.
+              </p>
+              <p className="mt-6 text-base font-serif leading-relaxed text-[#6E5F9E] md:text-lg">
+                Supporting therapists with real-time transcription, structured SOAP notes, and AI-powered insights so you can focus on patient care.
+              </p>
 
-        {/* Enhanced Scroll Indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-30"
-          style={{ 
-            y: scrollIndicatorY,
-            opacity: scrollIndicatorOpacity
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-        >
-          <span className="text-white/70 text-sm font-medium">Scroll to explore</span>
-          <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
-            <ChevronDown className="text-white/70" size={32} />
-          </motion.div>
+              <div className="mt-8">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold text-white transition hover:-translate-y-0.5"
+                  style={{
+                    background: 'linear-gradient(135deg, #7B5FCB, #8F74FF)',
+                    boxShadow: '0 10px 25px rgba(143,116,255,0.35)'
+                  }}
+                >
+                  Get Started
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+
+              <div className="mt-10 flex items-center gap-4">
+                <div className="flex -space-x-2">
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#d4d9d6]" />
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#c0c8c4]" />
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#a9b4af]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#5A45A5]">500+ Testimonials</p>
+                  <p className="text-sm text-[#6E5F9E]">Listen to what they say about us.</p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="image-container relative mx-auto h-[23rem] w-full max-w-[34rem] overflow-visible md:h-[25rem] lg:h-[78vh]"
+              style={{ scale: heroScale }}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <div
+                className="absolute inset-y-0 right-0 h-full w-full "
+                style={{ background: 'purple-900', borderRadius: '0px' }}
+              />
+
+              <img
+                src="/images/profff.png"
+                alt="Therapist portrait"
+                className="therapist-image absolute left-1/5 top-1/2 z-10 m-0 h-[120%] w-max max-w-none -translate-x-1/2 -translate-y-1/2 object-contain p-0"
+              />
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 
-      {/* SECTION 2 - Therapy Workflow Timeline with Timeline Reveal */}
-      <section className="py-32 bg-gradient-to-br from-gray-50 to-purple-50/30 relative overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute top-20 right-0 w-96 h-96 bg-purple-200 rounded-full opacity-20 blur-3xl" />
-        <div className="absolute bottom-20 left-0 w-96 h-96 bg-blue-200 rounded-full opacity-20 blur-3xl" />
+      {/* SECTION 2 - About MindScribe */}
+      <section className="relative bg-[#f6f1f4] px-6 py-24 md:px-10">
+        <div className="mx-auto max-w-6xl">
+          <motion.div
+            className="relative overflow-visible rounded-[1.8rem] border border-[#e7d7df] bg-[#cbc1eb] p-6 shadow-[0_18px_45px_rgba(127,83,108,0.12)] md:p-10 lg:p-14"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="grid items-center gap-8 md:grid-cols-[36%_64%] md:gap-12">
+              <motion.div
+                initial={{ opacity: 0, x: -18 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.65, delay: 0.15 }}
+                className="relative"
+              >
+                <img
+                  src="/images/lands.jpg"
+                  alt="Therapist using MindScribe during documentation"
+                  className="h-[19rem] w-full rounded-2xl object-cover shadow-lg md:h-[22rem]"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden h-[19rem] w-full rounded-2xl bg-gradient-to-br from-[#f5e9ef] to-[#e8d2dc] p-6 text-center shadow-lg md:h-[22rem]">
+                  <p className="mt-20 text-sm text-[#7d5c6f]">Add image:<br /><code className="rounded bg-white/80 px-2 py-1 text-xs">about-therapy-benefit.png</code></p>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 18 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.65, delay: 0.2 }}
+              >
+                <p className="text-[0.65rem] font-semibold tracking-[0.32em] text-[#8b6a7d] uppercase">About MindScribe</p>
+                <h2
+                  className="mt-3 text-4xl leading-tight text-[#5f3f52] md:text-5xl"
+                  style={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif' }}
+                >
+                  Support Your Clients,
+                  <br />
+                  Not Your Paperwork
+                </h2>
+                <p className="mt-6 max-w-2xl text-[0.98rem] leading-7 text-[#6e4f61] md:text-[1.02rem]">
+                  MindScribe helps therapists spend less emotional energy on documentation and more on real human care.
+                  By turning session conversations into clear clinical notes and organized summaries, it reduces after-hours
+                  admin load and gives you reliable continuity across every patient journey.
+                </p>
+                <p className="mt-4 max-w-2xl text-[0.98rem] leading-7 text-[#6e4f61] md:text-[1.02rem]">
+                  The result is a calmer workflow: better focus during sessions, fewer missed details, and more time to prepare
+                  for meaningful treatment decisions without documentation fatigue.
+                </p>
+
+                
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* SECTION 3 - Therapy Workflow Timeline with Timeline Reveal */}
+      <section className="relative overflow-hidden bg-[#f8f3f6] py-28 md:py-32">
 
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <motion.div
-            className="text-center mb-20"
+            className="mb-16 text-center md:mb-20"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-5xl md:text-6xl font-serif text-gray-900 mb-6">
+            <p className="mb-4 text-[0.65rem] font-semibold tracking-[0.32em] text-[#8b6a7d] uppercase">How It Works</p>
+            <h2
+              className="mb-5 text-4xl leading-tight text-[#5A45A5] md:text-5xl"
+              style={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif' }}
+            >
               Your Session,
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600"> Simplified</span>
+              <span className="text-[#5A45A5]"> Simplified</span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-base leading-relaxed text-[#5A45A5] md:text-lg">
               Follow the journey from session start to comprehensive documentation
             </p>
           </motion.div>
@@ -319,16 +301,16 @@ const LandingNew = () => {
           {/* Timeline with Side-by-Side Visualizations */}
           <div className="relative">
             {/* Vertical Timeline Line */}
-            <motion.div 
-              className="absolute left-8 md:left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 via-blue-400 to-pink-400 rounded-full"
+            <motion.div
+              className="absolute bottom-0 top-0 left-8 w-[2px] rounded-full bg-[#dbc7d2] md:left-1/2"
               initial={{ scaleY: 0, transformOrigin: 'top' }}
               whileInView={{ scaleY: 1 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
             />
 
             {/* Timeline Steps */}
-            <div className="space-y-24">
+            <div className="space-y-16 md:space-y-20">
               {workflowSteps.map((step, index) => {
                 const isEven = index % 2 === 0;
                 const StepIcon = step.icon;
@@ -336,37 +318,37 @@ const LandingNew = () => {
                 return (
                   <motion.div
                     key={step.id}
-                    className="relative grid md:grid-cols-2 gap-8 items-center"
+                    className="relative grid items-center gap-8 md:grid-cols-2"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-100px" }}
+                    viewport={{ once: true, margin: '-100px' }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
                     {/* Icon Circle */}
-                    <div className="absolute left-8 md:left-1/2 -translate-x-1/2 z-20">
+                    <div className="absolute left-8 z-20 -translate-x-1/2 md:left-1/2">
                       <motion.div
-                        className={`w-16 h-16 rounded-full bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg`}
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-[#d6bcc9] bg-[#f5e9ef] shadow-sm md:h-14 md:w-14"
                         whileInView={{ scale: [0, 1.2, 1] }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
                       >
-                        <StepIcon className="text-white" size={28} />
+                        <StepIcon className="text-[#5A45A5]" size={22} />
                       </motion.div>
                     </div>
 
                     {/* Content Side (Text Description) */}
                     <motion.div
-                      className={`${isEven ? 'md:order-2 md:pl-12' : 'md:order-1 md:pr-12'} ml-24 md:ml-0`}
+                      className={`${isEven ? 'md:order-2 md:pl-12' : 'md:order-1 md:pr-12'} ml-20 md:ml-0`}
                       initial={{ opacity: 0, x: isEven ? 50 : -50 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: index * 0.1 + 0.2 }}
                     >
-                      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                        <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                      <div className="rounded-2xl border border-[#e6d6de] bg-white/85 p-5 shadow-[0_10px_28px_rgba(120,83,104,0.08)] md:p-6">
+                        <h3 className="mb-2 text-xl font-semibold text-[#863898] md:text-2xl">
                           {step.title}
                         </h3>
-                        <p className="text-gray-600 leading-relaxed">
+                        <p className="text-sm leading-relaxed text-[#5A45A5] md:text-base">
                           {step.description}
                         </p>
                       </div>
@@ -374,7 +356,7 @@ const LandingNew = () => {
 
                     {/* Visualization Side */}
                     <motion.div
-                      className={`${isEven ? 'md:order-1 md:pr-12' : 'md:order-2 md:pl-12'} ml-24 md:ml-0`}
+                      className={`${isEven ? 'md:order-1 md:pr-12' : 'md:order-2 md:pl-12'} ml-20 md:ml-0`}
                       initial={{ opacity: 0, x: isEven ? -50 : 50 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
@@ -382,18 +364,18 @@ const LandingNew = () => {
                     >
                       {/* Step 1: Dashboard Image */}
                       {step.id === 1 && (
-                        <div className="bg-white rounded-2xl p-4 shadow-lg border border-purple-100">
-                          <img 
-                            src="/images/session-begins-dashboard.png" 
+                        <div className="overflow-hidden rounded-2xl border border-[#e6d6de] bg-white/85 p-3 shadow-[0_10px_28px_rgba(120,83,104,0.08)]">
+                          <img
+                            src="/images/session-begins-dashboard.png"
                             alt="Dashboard"
-                            className="w-full h-auto rounded-xl"
+                            className="h-auto w-full rounded-xl"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
                               e.currentTarget.nextElementSibling?.classList.remove('hidden');
                             }}
                           />
-                          <div className="hidden bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl p-8 text-center">
-                            <Play className="mx-auto mb-3 text-purple-600" size={48} />
+                          <div className="hidden rounded-xl bg-gradient-to-br from-[#f5e9ef] to-[#e9d7df] p-8 text-center">
+                            <Play className="mx-auto mb-3 text-[#7b5f70]" size={48} />
                             <p className="text-xs text-gray-600">Add image:<br /><code className="text-xs bg-white px-2 py-1 rounded">session-begins-dashboard.png</code></p>
                           </div>
                         </div>
@@ -401,12 +383,12 @@ const LandingNew = () => {
 
                       {/* Step 2: Animated Waveform */}
                       {step.id === 2 && (
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100">
+                        <div className="rounded-2xl border border-[#e6d6de] bg-white/85 p-6 shadow-[0_10px_28px_rgba(120,83,104,0.08)]">
                           <div className="flex items-center justify-center gap-1 h-32">
                             {[...Array(30)].map((_, i) => (
                               <motion.div
                                 key={i}
-                                className="w-2 bg-gradient-to-t from-blue-400 to-blue-600 rounded-full"
+                                className="w-1.5 rounded-full bg-gradient-to-t from-[#bea3b1] to-[#5A45A5]"
                                 animate={{
                                   height: [
                                     Math.random() * 80 + 30,
@@ -426,22 +408,11 @@ const LandingNew = () => {
                       )}
 
                       {/* Step 3: Live Transcription */}
-                      {step.id === 3 && (
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-teal-100 space-y-3">
-                          <div className="bg-purple-50 rounded-xl p-3">
-                            <p className="text-xs font-semibold text-purple-600 mb-1">THERAPIST</p>
-                            <p className="text-sm text-gray-800">How have you been feeling this week?</p>
-                          </div>
-                          <div className="bg-blue-50 rounded-xl p-3 ml-6">
-                            <p className="text-xs font-semibold text-blue-600 mb-1">PATIENT</p>
-                            <p className="text-sm text-gray-800">{typingText}<motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }}>|</motion.span></p>
-                          </div>
-                        </div>
-                      )}
+                      
 
                       {/* Step 4: SOAP Note */}
                       {step.id === 4 && (
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-indigo-100 space-y-3">
+                        <div className="space-y-3 rounded-2xl border border-[#e6d6de] bg-white/85 p-6 shadow-[0_10px_28px_rgba(120,83,104,0.08)]">
                           {[
                             { label: 'S', content: 'Patient reports increased anxiety...', delay: 0 },
                             { label: 'O', content: 'Patient appeared moderately anxious...', delay: 0.2 },
@@ -454,9 +425,9 @@ const LandingNew = () => {
                               whileInView={{ opacity: 1, x: 0 }}
                               viewport={{ once: true }}
                               transition={{ delay: section.delay, duration: 0.6 }}
-                              className="border-l-4 border-indigo-400 pl-3"
+                              className="border-l-4 border-[#b793a6] pl-3"
                             >
-                              <h5 className="text-xs font-bold text-indigo-600 mb-1">{section.label}</h5>
+                              <h5 className="mb-1 text-xs font-bold text-[#7d3f9f]">{section.label}</h5>
                               <p className="text-sm text-gray-700">{section.content}</p>
                             </motion.div>
                           ))}
@@ -465,26 +436,27 @@ const LandingNew = () => {
 
                       {/* Step 5: Emotion Chart */}
                       {step.id === 5 && (
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-pink-100">
+                        <div className="rounded-2xl border border-[#e6d6de] bg-white/85 p-6 shadow-[0_10px_28px_rgba(120,83,104,0.08)]">
                           <div className="grid grid-cols-2 gap-3">
                             {[
-                              { label: 'Anxious', value: 75, color: 'red' },
-                              { label: 'Hopeful', value: 45, color: 'green' },
-                              { label: 'Reflective', value: 60, color: 'blue' },
-                              { label: 'Concerned', value: 55, color: 'orange' }
+                              { label: 'Anxious', value: 75, tone: '#b46b78' },
+                              { label: 'Hopeful', value: 45, tone: '#7fa089' },
+                              { label: 'Reflective', value: 60, tone: '#7894aa' },
+                              { label: 'Concerned', value: 55, tone: '#b09173' }
                             ].map((emotion, i) => (
                               <motion.div
                                 key={emotion.label}
-                                className={`bg-${emotion.color}-50 rounded-lg p-3`}
+                                className="rounded-lg bg-[#f7f1f4] p-3"
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 whileInView={{ opacity: 1, scale: 1 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: i * 0.1 }}
                               >
-                                <span className={`text-sm font-bold text-${emotion.color}-600`}>{emotion.label}</span>
-                                <div className="relative h-2 bg-white rounded-full overflow-hidden mt-2">
+                                <span className="text-sm font-bold" style={{ color: emotion.tone }}>{emotion.label}</span>
+                                <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-white">
                                   <motion.div
-                                    className={`absolute inset-y-0 left-0 bg-${emotion.color}-500 rounded-full`}
+                                    className="absolute inset-y-0 left-0 rounded-full"
+                                    style={{ backgroundColor: emotion.tone }}
                                     initial={{ width: 0 }}
                                     whileInView={{ width: `${emotion.value}%` }}
                                     viewport={{ once: true }}
@@ -499,12 +471,12 @@ const LandingNew = () => {
 
                       {/* Step 6: Progress Chart */}
                       {step.id === 6 && (
-                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-orange-100">
+                        <div className="rounded-2xl border border-[#e6d6de] bg-white/85 p-6 shadow-[0_10px_28px_rgba(120,83,104,0.08)]">
                           <div className="flex items-end gap-2 h-32">
                             {[40, 55, 45, 65, 70, 60, 80, 82].map((height, i) => (
                               <motion.div
                                 key={i}
-                                className="flex-1 bg-gradient-to-t from-orange-400 to-orange-600 rounded-t-lg"
+                                className="flex-1 rounded-t-lg bg-gradient-to-t from-[#b89aaa] to-[#7b5f70]"
                                 initial={{ height: 0 }}
                                 whileInView={{ height: `${height}%` }}
                                 viewport={{ once: true }}
@@ -523,297 +495,10 @@ const LandingNew = () => {
         </div>
       </section>
 
-      {/* SECTION 3 - Interactive Live Session Simulation */}
-      <section className="py-32 bg-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50" />
-        
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-5xl md:text-6xl font-serif text-gray-900 mb-6">
-              See It In
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600"> Action</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Experience how MindScribe transforms your session into comprehensive documentation
-            </p>
-          </motion.div>
-
-          {/* Three Column Layout */}
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* LEFT - Recording Interface */}
-            <motion.div
-              className="bg-gradient-to-br from-purple-50 to-white rounded-3xl p-8 border border-purple-200 shadow-xl"
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <motion.div
-                  className="w-3 h-3 bg-red-500 rounded-full"
-                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-                <span className="text-sm font-semibold text-gray-700">Recording</span>
-              </div>
-
-              <div className="mb-6">
-                <div className="flex items-center justify-center w-20 h-20 mx-auto bg-gradient-to-br from-purple-500 to-purple-700 rounded-full mb-4 shadow-lg">
-                  <Mic className="text-white" size={32} />
-                </div>
-                <p className="text-center text-sm text-gray-600">Session in Progress</p>
-              </div>
-
-              {/* Audio Waveform */}
-              <div className="flex items-center justify-center gap-1 h-24 mb-6">
-                {[...Array(20)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="w-1 bg-gradient-to-t from-purple-400 to-purple-600 rounded-full"
-                    animate={{
-                      height: [
-                        Math.random() * 60 + 20,
-                        Math.random() * 60 + 20,
-                        Math.random() * 60 + 20
-                      ]
-                    }}
-                    transition={{
-                      duration: 0.5,
-                      repeat: Infinity,
-                      delay: i * 0.05
-                    }}
-                  />
-                ))}
-              </div>
-
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-900">12:34</p>
-                <p className="text-sm text-gray-500">Session Duration</p>
-              </div>
-            </motion.div>
-
-            {/* CENTER - Live Transcription */}
-            {/* <motion.div
-              className="bg-white rounded-3xl p-8 border border-gray-200 shadow-xl"
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <div className="flex items-center gap-2 mb-6">
-                <MessageSquare className="text-blue-600" size={24} />
-                <h3 className="text-lg font-bold text-gray-900">Live Transcription</h3>
-              </div>
-
-              <div className="space-y-4 h-96 overflow-y-auto">
-                {transcriptLines.map((line, index) => (
-                  <motion.div
-                    key={index}
-                    className={`p-4 rounded-2xl ${
-                      line.speaker === 'Therapist' 
-                        ? 'bg-purple-50 ml-0 mr-8' 
-                        : 'bg-blue-50 ml-8 mr-0'
-                    }`}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.8 }}
-                    transition={{ duration: 0.5, delay: index * 0.3 }}
-                  >
-                    <p className="text-xs font-semibold text-gray-500 mb-1">
-                      {line.speaker}
-                    </p>
-                    <p className="text-sm text-gray-700">{line.text}</p>
-                  </motion.div>
-                ))}
-              </div>
-
-              <motion.div
-                className="mt-4 flex items-center gap-2 text-sm text-gray-500"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <Activity size={16} className="text-green-500" />
-                <span>Transcribing in real-time...</span>
-              </motion.div>
-            </motion.div> */}
-
-            {/* RIGHT - SOAP Note */}
-            <motion.div
-              className="bg-gradient-to-br from-indigo-50 to-white rounded-3xl p-8 border border-indigo-200 shadow-xl"
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              <div className="flex items-center gap-2 mb-6">
-                <FileText className="text-indigo-600" size={24} />
-                <h3 className="text-lg font-bold text-gray-900">SOAP Note</h3>
-              </div>
-
-              <div className="space-y-6">
-                {Object.entries(soapNotes).map(([key, value], index) => (
-                  <motion.div
-                    key={key}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.8 }}
-                    transition={{ duration: 0.5, delay: index * 0.2 }}
-                  >
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-2">
-                      {key}
-                    </h4>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {value}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-
-              <motion.div
-                className="mt-6 flex items-center gap-2 text-xs text-green-600 bg-green-50 px-4 py-2 rounded-full"
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 1 }}
-              >
-                <CheckCircle2 size={14} />
-                <span>Auto-generated & ready to review</span>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4 - Emotional Insight Visualization */}
-      <section className="py-32 bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6 relative z-10">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-5xl md:text-6xl font-serif text-gray-900 mb-6">
-              Emotional
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600"> Intelligence</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              AI-powered sentiment analysis reveals emotional patterns and insights
-            </p>
-          </motion.div>
-
-          {/* Emotion Visualization */}
-          <div className="relative">
-            {/* Center Waveform */}
-            <motion.div
-              className="flex items-center justify-center gap-2 h-32 mb-12"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              {[...Array(40)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="w-2 bg-gradient-to-t from-pink-400 via-purple-400 to-blue-400 rounded-full"
-                  animate={{
-                    height: [
-                      Math.random() * 80 + 20,
-                      Math.random() * 80 + 20,
-                      Math.random() * 80 + 20
-                    ]
-                  }}
-                  transition={{
-                    duration: 1,
-                    repeat: Infinity,
-                    delay: i * 0.03
-                  }}
-                />
-              ))}
-            </motion.div>
-
-            {/* Floating Emotion Tags */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {emotions.map((emotion, index) => (
-                <motion.div
-                  key={emotion.label}
-                  className={`${emotion.bgColor} rounded-2xl p-6 border border-gray-200 shadow-lg`}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  whileHover={{ 
-                    y: -10,
-                    scale: 1.05,
-                    transition: { type: "spring", stiffness: 300 }
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`text-lg font-bold ${emotion.color}`}>
-                      {emotion.label}
-                    </span>
-                    {emotion.label === "Anxious" && <Frown className={emotion.color} size={24} />}
-                    {emotion.label === "Reflective" && <Meh className={emotion.color} size={24} />}
-                    {emotion.label === "Hopeful" && <Smile className={emotion.color} size={24} />}
-                    {emotion.label === "Concerned" && <Frown className={emotion.color} size={24} />}
-                  </div>
-                  
-                  <div className="relative h-2 bg-white rounded-full overflow-hidden">
-                    <motion.div
-                      className={`absolute inset-y-0 left-0 ${emotion.color.replace('text', 'bg')}`}
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${emotion.intensity}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 1, delay: index * 0.1 + 0.3 }}
-                    />
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mt-2">{emotion.intensity}% detected</p>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Key Phrases */}
-            <motion.div
-              className="mt-12 bg-white rounded-3xl p-8 border border-gray-200 shadow-xl"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <Sparkles className="text-purple-600" size={24} />
-                Key Emotional Phrases
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {["I've been struggling", "feeling anxious", "work-related stressors", "upcoming deadlines"].map((phrase, index) => (
-                  <motion.span
-                    key={phrase}
-                    className="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-medium"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    "{phrase}"
-                  </motion.span>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
       {/* SECTION 5 - Dashboard Preview */}
-      <section className="py-32 bg-gradient-to-br from-gray-50 to-white relative overflow-hidden">
+      <section className="relative overflow-hidden bg-[#f6f1f7] py-28 md:py-32">
+        <div className="pointer-events-none absolute -left-16 top-8 h-72 w-72 rounded-full bg-[#5A45A5]/8 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-[#7A68BA]/10 blur-3xl" />
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <motion.div
             className="text-center mb-16"
@@ -822,11 +507,15 @@ const LandingNew = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-5xl md:text-6xl font-serif text-gray-900 mb-6">
+            <p className="mb-4 text-[0.65rem] font-semibold tracking-[0.32em] text-[#7a68a8] uppercase">Dashboard Preview</p>
+            <h2
+              className="mb-5 text-4xl text-[#4b3a8d] md:text-5xl"
+              style={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif' }}
+            >
               Manage With
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600"> Ease</span>
+              <span className="text-[#6a57b4]"> Ease</span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-base text-[#62558d] md:text-lg">
               Your complete practice management hub
             </p>
           </motion.div>
@@ -839,75 +528,75 @@ const LandingNew = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            {/* Glass Cards Grid */}
+            {/* Insight Cards Grid */}
             <div className="grid md:grid-cols-3 gap-6">
               {/* Patient Stats Card */}
               <motion.div
-                className="bg-white/70 backdrop-blur-lg rounded-3xl p-8 border border-purple-200 shadow-xl hover:shadow-2xl transition-all"
-                whileHover={{ y: -10, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                className="rounded-3xl border border-[#ddd2ee] bg-white/90 p-8 shadow-[0_14px_30px_rgba(90,69,165,0.10)] transition-all"
+                whileHover={{ y: -6, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 300 }}
               >
                 <div className="flex items-center justify-between mb-6">
-                  <Users className="text-purple-600" size={32} />
-                  <span className="text-sm font-semibold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">
+                  <Users className="text-[#5A45A5]" size={30} />
+                  <span className="rounded-full bg-[#efebfb] px-3 py-1 text-sm font-semibold text-[#5A45A5]">
                     +12%
                   </span>
                 </div>
-                <h3 className="text-4xl font-bold text-gray-900 mb-2">142</h3>
-                <p className="text-gray-600">Active Patients</p>
+                <h3 className="mb-2 text-4xl font-bold text-[#3f3176]">142</h3>
+                <p className="text-[#6b5d93]">Active Patients</p>
               </motion.div>
 
               {/* Sessions Card */}
               <motion.div
-                className="bg-white/70 backdrop-blur-lg rounded-3xl p-8 border border-blue-200 shadow-xl hover:shadow-2xl transition-all"
-                whileHover={{ y: -10, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                className="rounded-3xl border border-[#ddd2ee] bg-white/90 p-8 shadow-[0_14px_30px_rgba(90,69,165,0.10)] transition-all"
+                whileHover={{ y: -6, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 300 }}
               >
                 <div className="flex items-center justify-between mb-6">
-                  <Calendar className="text-blue-600" size={32} />
-                  <span className="text-sm font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+                  <Calendar className="text-[#6A57B4]" size={30} />
+                  <span className="rounded-full bg-[#f1edfb] px-3 py-1 text-sm font-semibold text-[#6A57B4]">
                     This week
                   </span>
                 </div>
-                <h3 className="text-4xl font-bold text-gray-900 mb-2">28</h3>
-                <p className="text-gray-600">Completed Sessions</p>
+                <h3 className="mb-2 text-4xl font-bold text-[#3f3176]">28</h3>
+                <p className="text-[#6b5d93]">Completed Sessions</p>
               </motion.div>
 
               {/* Time Saved Card */}
               <motion.div
-                className="bg-white/70 backdrop-blur-lg rounded-3xl p-8 border border-green-200 shadow-xl hover:shadow-2xl transition-all"
-                whileHover={{ y: -10, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                className="rounded-3xl border border-[#ddd2ee] bg-white/90 p-8 shadow-[0_14px_30px_rgba(90,69,165,0.10)] transition-all"
+                whileHover={{ y: -6, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 300 }}
               >
                 <div className="flex items-center justify-between mb-6">
-                  <Clock className="text-green-600" size={32} />
-                  <span className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                  <Clock className="text-[#7B68C2]" size={30} />
+                  <span className="rounded-full bg-[#f2effc] px-3 py-1 text-sm font-semibold text-[#7B68C2]">
                     Saved
                   </span>
                 </div>
-                <h3 className="text-4xl font-bold text-gray-900 mb-2">18h</h3>
-                <p className="text-gray-600">Documentation Time</p>
+                <h3 className="mb-2 text-4xl font-bold text-[#3f3176]">18h</h3>
+                <p className="text-[#6b5d93]">Documentation Time</p>
               </motion.div>
             </div>
 
             {/* Session List Preview */}
             <motion.div
-              className="mt-8 bg-white/70 backdrop-blur-lg rounded-3xl p-8 border border-gray-200 shadow-xl"
+              className="mt-8 rounded-3xl border border-[#ddd2ee] bg-white/90 p-8 shadow-[0_14px_30px_rgba(90,69,165,0.10)]"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Recent Sessions</h3>
+              <h3 className="mb-6 text-2xl font-bold text-[#4b3a8d]">Recent Sessions</h3>
               <div className="space-y-4">
                 {[
-                  { patient: "Sarah M.", time: "Today, 2:00 PM", status: "Completed", color: "green" },
-                  { patient: "John D.", time: "Today, 3:30 PM", status: "In Progress", color: "blue" },
-                  { patient: "Emily R.", time: "Tomorrow, 10:00 AM", status: "Scheduled", color: "purple" }
+                  { patient: 'Sarah M.', time: 'Today, 2:00 PM', status: 'Completed' },
+                  { patient: 'John D.', time: 'Today, 3:30 PM', status: 'In Progress' },
+                  { patient: 'Emily R.', time: 'Tomorrow, 10:00 AM', status: 'Scheduled' }
                 ].map((session, index) => (
                   <motion.div
                     key={session.patient}
-                    className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow"
+                    className="flex items-center justify-between rounded-2xl border border-[#e7def3] bg-white p-4 transition-shadow hover:shadow-md"
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
@@ -915,15 +604,15 @@ const LandingNew = () => {
                     whileHover={{ x: 5 }}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#7A68BA] to-[#5A45A5] font-bold text-white">
                         {session.patient.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">{session.patient}</p>
-                        <p className="text-sm text-gray-500">{session.time}</p>
+                        <p className="font-semibold text-[#43347d]">{session.patient}</p>
+                        <p className="text-sm text-[#7a6da7]">{session.time}</p>
                       </div>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium bg-${session.color}-100 text-${session.color}-700`}>
+                    <span className="rounded-full bg-[#f1edfb] px-3 py-1 text-sm font-medium text-[#5A45A5]">
                       {session.status}
                     </span>
                   </motion.div>
@@ -935,28 +624,31 @@ const LandingNew = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-800 relative overflow-hidden">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#4c398f] via-[#5A45A5] to-[#6e5bb8] py-28 md:py-32">
         <div className="absolute inset-0">
           {[...Array(30)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-1 h-1 bg-white/30 rounded-full"
+              className="absolute h-1 w-1 rounded-full bg-white/25"
               style={{
                 left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`
               }}
               animate={{
                 opacity: [0.2, 1, 0.2],
-                scale: [1, 1.5, 1],
+                scale: [1, 1.5, 1]
               }}
               transition={{
                 duration: 3 + Math.random() * 2,
                 repeat: Infinity,
-                delay: Math.random() * 2,
+                delay: Math.random() * 2
               }}
             />
           ))}
         </div>
+
+        <div className="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-[#9b8ad7]/30 blur-3xl" />
 
         <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
           <motion.div
@@ -965,10 +657,14 @@ const LandingNew = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-serif text-white mb-6">
+            <p className="mb-4 text-[0.65rem] font-semibold tracking-[0.3em] text-[#d7ccfa] uppercase">Get Started</p>
+            <h2
+              className="mb-6 text-4xl text-white md:text-5xl lg:text-6xl"
+              style={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif' }}
+            >
               Ready to Transform Your Practice?
             </h2>
-            <p className="text-xl text-purple-200 mb-12 max-w-2xl mx-auto">
+            <p className="mx-auto mb-12 max-w-2xl text-lg text-[#e2d9ff] md:text-xl">
               Join thousands of therapists who trust MindScribe for their documentation needs.
             </p>
 
@@ -976,26 +672,13 @@ const LandingNew = () => {
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
                   to="/register"
-                  className="inline-flex items-center gap-3 bg-white text-purple-900 px-8 py-4 rounded-full font-bold text-lg shadow-2xl hover:bg-gray-100 transition-all"
+                  className="inline-flex items-center gap-3 rounded-full bg-white px-8 py-4 text-lg font-bold text-[#4f3d93] shadow-2xl transition-all hover:bg-[#f4efff]"
                 >
                   Start Free Trial
                   <ArrowRight size={20} />
                 </Link>
               </motion.div>
-              
-              {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link
-                  to="/demo"
-                  className="inline-flex items-center gap-3 bg-purple-800/50 text-white border-2 border-white/30 px-8 py-4 rounded-full font-bold text-lg hover:bg-purple-800 transition-all"
-                >
-                  Watch Demo
-                </Link>
-              </motion.div> */}
             </div>
-
-            {/* <p className="mt-8 text-purple-200 text-sm">
-              No credit card required • 14-day free trial • Cancel anytime
-            </p> */}
           </motion.div>
         </div>
       </section>
@@ -1026,3 +709,6 @@ const LandingNew = () => {
 };
 
 export default LandingNew;
+
+
+

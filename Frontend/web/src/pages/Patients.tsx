@@ -69,7 +69,7 @@ const Patients = () => {
         {/* Purple overlay for better text visibility */}
         <div className="absolute inset-0 bg-[#5c4092] opacity-60"></div>
         {/* Add Patient button on top right of image */}
-        <div className="absolute top-4 right-8 z-20">
+        <div className="absolute top-4 bottom-2 right-8 z-20">
           <Link
             to="/patients/new"
             className="bg-[#43275a] hover:bg-[#2d183a] text-white px-5 py-2 rounded-lg font-semibold shadow-lg"

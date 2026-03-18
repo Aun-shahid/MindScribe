@@ -2,35 +2,19 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, Brain } from 'lucide-react';
-import InAppNotificationToasts from './InAppNotificationToasts';
+import { useNotifications } from '../hooks/useNotifications';
+import NotificationToast from './NotificationToast';
 
 const Layout = () => {
   const { logout } = useAuth();
   const location = useLocation();
-  // const [alertCount, setAlertCount] = useState<number>(0);
-
-  // useEffect(() => {
-  //   fetchAlertCount();
-  //   // Poll for new alerts every 2 minutes
-  //   const interval = setInterval(fetchAlertCount, 120000);
-  //   return () => clearInterval(interval);
-  // }, []);
-
-  // const fetchAlertCount = async () => {
-  //   try {
-  //     const data = await therapistService.getMoodAlerts(undefined, undefined, 7);
-  //     const count = (data.summary?.critical_alerts || 0) + (data.summary?.high_alerts || 0);
-  //     setAlertCount(count);
-  //   } catch (err) {
-  //     console.error('Failed to fetch alert count:', err);
-  //   }
-  // };
+  const { unreadCount, toasts, dismissToast } = useNotifications();
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path);
   };
 
-  const navLinkClass = (path: string) => 
+  const navLinkClass = (path: string) =>
     `flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
       isActive(path)
         ? 'bg-white/20 backdrop-blur-sm text-white shadow-lg'
@@ -39,9 +23,8 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
-      <InAppNotificationToasts />
       {/* Enhanced Professional Navbar with Purple Theme */}
-      <nav className="bg-gradient-to-r from-purple-900 via-purple-700 to-purple-900 shadow-xl border-b border-purple-500/20">
+      <nav className="bg-gradient-to-r from-purple-900 via-purple-900 to-purple-900 shadow-xl border-b border-purple-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -54,7 +37,7 @@ const Layout = () => {
             </div>
                 </div>
               </Link>
-              
+
               {/* Navigation Links */}
               <div className="hidden md:block ml-10">
                 <div className="flex items-center space-x-2">
@@ -82,8 +65,8 @@ const Layout = () => {
                     </svg>
                     QR Code
                   </Link>
-                  <Link 
-                    to="/notifications" 
+                  <Link
+                    to="/notifications"
                     className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive('/notifications')
                         ? 'bg-white/20 backdrop-blur-sm text-white shadow-lg'
@@ -91,28 +74,25 @@ const Layout = () => {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Bell size={18} />
+                      <div className="relative">
+                        <Bell size={18} />
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg leading-none">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                      </div>
                       <span>Notifications</span>
-                      {/* {alertCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg">
-                          {alertCount > 99 ? '99+' : alertCount}
-                        </span>
-                      )} */}
                     </div>
                   </Link>
                 </div>
               </div>
             </div>
-            
+
             {/* Right Side Actions */}
             <div className="flex items-center space-x-3">
-              {/* <div className="hidden md:block">
-                <span className="text-white/90 text-sm font-medium">
-                  Welcome, {user?.username}
-                </span>
-              </div> */}
-              <Link 
-                to="/profile" 
+              <Link
+                to="/profile"
                 className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-all"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,6 +119,9 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Real-time notification toasts — rendered at bottom-right */}
+      <NotificationToast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

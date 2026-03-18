@@ -20,6 +20,14 @@ class DashboardService {
           completed_sessions: backendData.session_stats?.completed_sessions_30_days || 0,
           cancelled_sessions: backendData.session_stats?.cancelled_sessions_30_days || 0,
         },
+        session_stats: {
+          today_sessions: backendData.session_stats?.today_sessions || 0,
+          upcoming_sessions: backendData.session_stats?.upcoming_sessions || 0,
+          total_sessions_30_days: backendData.session_stats?.total_sessions_30_days || 0,
+          completed_sessions_30_days: backendData.session_stats?.completed_sessions_30_days || 0,
+          cancelled_sessions_30_days: backendData.session_stats?.cancelled_sessions_30_days || 0,
+        },
+        notification_stats: backendData.notification_stats,
         upcoming_sessions: backendData.upcoming_sessions || [],
         recent_activities: backendData.recent_activities || [],
       };

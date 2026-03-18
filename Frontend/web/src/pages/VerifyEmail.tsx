@@ -4,45 +4,46 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const VerifyEmail = () => {
-  const [token, setToken] = useState('');
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { verifyEmail, loading } = useAuth();
   const navigate = useNavigate();
 
-  const validateToken = (token: string): boolean => {
-    return token.trim().length > 0;
+  const validateCode = (value: string): boolean => {
+    return /^\d{6}$/.test(value);
   };
 
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Clear previous errors
-    setTokenError(null);
+    setCodeError(null);
 
-    // Validate token
-    if (!token.trim()) {
-      setTokenError('Please enter the verification token');
+    // Validate 6-digit code
+    if (!code.trim()) {
+      setCodeError('Please enter the 6-digit verification PIN');
       return;
     }
 
-    if (!validateToken(token)) {
-      setTokenError('Please enter a valid verification token');
+    if (!validateCode(code)) {
+      setCodeError('PIN must be exactly 6 digits');
       return;
     }
 
     try {
-      await verifyEmail(token.trim());
+      await verifyEmail(code);
       setIsSubmitted(true);
     } catch (error: any) {
-      setTokenError(error.message || 'Email verification failed. Please check your token and try again.');
+      setCodeError(error.message || 'Email verification failed. Please check your 6-digit PIN and try again.');
     }
   };
 
-  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setToken(e.target.value);
-    if (tokenError) {
-      setTokenError(null);
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitizedValue = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setCode(sanitizedValue);
+    if (codeError) {
+      setCodeError(null);
     }
   };
 
@@ -94,7 +95,7 @@ const VerifyEmail = () => {
             Verify Your Email
           </h2>
           <p className="text-sm text-gray-600">
-            Enter the verification token sent to your email. This helps us ensure your identity.
+            Enter the 6-digit verification PIN sent to your email.
           </p>
         </div>
       </div>
@@ -102,7 +103,7 @@ const VerifyEmail = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleVerifyEmail}>
-            {tokenError && (
+            {codeError && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -119,15 +120,15 @@ const VerifyEmail = () => {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-red-800">{tokenError}</p>
+                    <p className="text-sm text-red-800">{codeError}</p>
                   </div>
                 </div>
               </div>
             )}
 
             <div>
-              <label htmlFor="token" className="block text-sm font-medium text-gray-700">
-                Verification Token
+              <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+                6-Digit Verification PIN
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -146,22 +147,25 @@ const VerifyEmail = () => {
                   </svg>
                 </div>
                 <input
-                  id="token"
-                  name="token"
+                  id="code"
+                  name="code"
                   type="text"
                   autoComplete="off"
                   required
                   className={`appearance-none block w-full pl-10 pr-3 py-2 border ${
-                    tokenError ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                  placeholder="Enter verification token"
-                  value={token}
-                  onChange={handleTokenChange}
+                    codeError ? 'border-red-300' : 'border-gray-300'
+                  } rounded-md placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm`}
+                  placeholder="Enter 6-digit PIN"
+                  value={code}
+                  onChange={handleCodeChange}
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
                   disabled={loading}
                 />
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Check your email for the verification token sent after registration.
+                Check your email for the 6-digit verification PIN sent after registration.
               </p>
             </div>
 
@@ -172,7 +176,7 @@ const VerifyEmail = () => {
                 className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
                   loading
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                    : 'bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
                 }`}
               >
                 {loading ? (
@@ -211,7 +215,7 @@ const VerifyEmail = () => {
               <span className="text-gray-500">Didn't receive the email? </span>
               <button
                 type="button"
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-medium text-purple-600 hover:text-purple-500"
                 onClick={() => navigate('/register')}
                 disabled={loading}
               >
@@ -221,7 +225,7 @@ const VerifyEmail = () => {
             <div className="text-center mt-4">
               <Link
                 to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-medium text-purple-600 hover:text-purple-500"
                 tabIndex={loading ? -1 : 0}
               >
                 ← Back to Login

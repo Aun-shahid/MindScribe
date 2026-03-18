@@ -68,7 +68,7 @@ const EnhancedCalendar: React.FC<{
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Calendar Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+      <div className="bg-gradient-to-r from-purple-800 to-purple-800 px-6 py-4">
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigateMonth('prev')}
@@ -121,7 +121,7 @@ const EnhancedCalendar: React.FC<{
                 className={`h-10 w-10 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${selected
                     ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-300'
                     : today
-                      ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 ring-1 ring-purple-300'
+                      ? 'bg-purple-100 text-purple-900 hover:bg-purple-200 ring-1 ring-purple-300'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
               >
@@ -137,8 +137,16 @@ const EnhancedCalendar: React.FC<{
 
 const SessionCalendar: React.FC = () => {
   const navigate = useNavigate();
+  const toLocalDateKey = (dateValue: Date | string) => {
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
+    toLocalDateKey(new Date())
   );
 
   const {
@@ -153,7 +161,7 @@ const SessionCalendar: React.FC = () => {
     if (!allSessions) return [];
 
     return allSessions.filter(session => {
-      const sessionDate = session.session_date?.split('T')[0];
+      const sessionDate = toLocalDateKey(session.session_date);
       return sessionDate === selectedDate;
     });
   }, [allSessions, selectedDate]);
@@ -243,7 +251,7 @@ const SessionCalendar: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-purple-700 text-white">
+      <div className="bg-purple-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">

@@ -1,9 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LandingNew from './pages/LandingNew';
-import Login_new from './pages/Login_new';
+import Login from './pages/Login';
 import Register from './pages/Register';
 import RequestReset from './pages/RequestReset';
 import ResetConfirm from './pages/ResetConfirm';
@@ -16,6 +16,7 @@ import ActiveSession from './pages/ActiveSession';
 import EndSession from './pages/EndSession';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
+import PatientSessions from './pages/PatientSessions';
 import Profile from './pages/Profile';
 import QRCode from './pages/QRCode';
 import NewSession from './pages/NewSession';
@@ -23,6 +24,11 @@ import NewPatient from './pages/NewPatient';
 import SessionCalendar from './pages/SessionCalendar';
 import Notifications from './pages/Notifications';
 import './App.css';
+
+const RedirectWithQuery = ({ to }: { to: string }) => {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}`} replace />;
+};
 
 function App() {
   return (
@@ -32,11 +38,12 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<LandingNew />} />
-            <Route path="/login" element={<Login_new />} />
-            <Route path="/login_new" element={<Login_new />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/request-reset" element={<RequestReset />} />
             <Route path="/reset-confirm" element={<ResetConfirm />} />
+            <Route path="/ResetConfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
+            <Route path="/resetconfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             
             {/* Protected routes */}
@@ -53,9 +60,10 @@ function App() {
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />
-                <Route path="/notifications" element={<Notifications />} />
+                <Route path="/patients/:patientId/sessions" element={<PatientSessions />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />
+                <Route path="/notifications" element={<Notifications />} />
                 {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}
               </Route>
             </Route>

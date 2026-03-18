@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSessions } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
+import { emitAppEvent } from '../utils/events';
 import type { SessionFilter } from '../types/session';
 
 const Sessions = () => {
@@ -101,20 +102,11 @@ const Sessions = () => {
 
       const result = await sessionsService.bulkUpdateSessions(data);
 
-      // Workaround: After rescheduling, update status back to UPCOMING
-      // Backend sets status to RESCHEDULED which hides sessions from upcoming list
-      if (bulkAction === 'reschedule' && result.updated_sessions > 0) {
-        console.log('Updating rescheduled sessions status back to UPCOMING...');
-        for (const sessionId of selectedSessions) {
-          try {
-            await sessionsService.updateSession(sessionId, { status: 'UPCOMING' });
-          } catch (err) {
-            console.warn(`Failed to update status for session ${sessionId}:`, err);
-          }
-        }
-      }
-
       setBulkResult(result);
+      emitAppEvent('session-updated', {
+        action: actualAction,
+        updatedSessions: result?.updated_sessions ?? selectedSessions.length,
+      });
       setSelectedSessions([]);
       setBulkReason('');
       setNewDate('');

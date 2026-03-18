@@ -59,7 +59,7 @@ const ActiveSession: React.FC = () => {
     error: aiError,
     connect: connectAIService,
     disconnect: disconnectAIService,
-    sendAudioChunk: _sendAudioChunk, // TODO: Wire to MediaRecorder API
+    sendAudioChunk,
   } = useAIServiceWebSocket(
     sessionStarted ? id! : null,
     aiServiceToken,
@@ -70,11 +70,122 @@ const ActiveSession: React.FC = () => {
   const transcript = aiTranscriptionSegments.length > 0
     ? aiTranscriptionSegments.map((seg) => ({
       speaker: seg.speaker,
-      text: seg.text,
+      text: seg.text || seg.text_urdu || seg.text_english || '',
       time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
       emotion: seg.emotion,
     }))
     : [];
+
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const pendingSamplesRef = useRef<number[]>([]);
+  const chunkSamplesRef = useRef<number>(32000); // 2s @ 16kHz
+
+  const encodeInt16ToBase64 = (samples: Int16Array): string => {
+    const bytes = new Uint8Array(samples.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  };
+
+  const downsampleTo16k = (input: Float32Array, inputRate: number): Int16Array => {
+    if (inputRate === 16000) {
+      const output = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i += 1) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return output;
+    }
+
+    const ratio = inputRate / 16000;
+    const outputLength = Math.max(1, Math.floor(input.length / ratio));
+    const output = new Int16Array(outputLength);
+    let inputOffset = 0;
+
+    for (let i = 0; i < outputLength; i += 1) {
+      const nextOffset = Math.min(input.length, Math.floor((i + 1) * ratio));
+      let total = 0;
+      let count = 0;
+
+      for (let j = inputOffset; j < nextOffset; j += 1) {
+        total += input[j];
+        count += 1;
+      }
+
+      const avg = count > 0 ? total / count : input[Math.min(inputOffset, input.length - 1)] || 0;
+      const s = Math.max(-1, Math.min(1, avg));
+      output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      inputOffset = nextOffset;
+    }
+
+    return output;
+  };
+
+  const stopAudioCapture = useCallback(async () => {
+    processorNodeRef.current?.disconnect();
+    sourceNodeRef.current?.disconnect();
+
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    if (audioContextRef.current) {
+      await audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    processorNodeRef.current = null;
+    sourceNodeRef.current = null;
+    pendingSamplesRef.current = [];
+  }, []);
+
+  const startAudioCapture = useCallback(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+      },
+      video: false,
+    });
+
+    mediaStreamRef.current = stream;
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+
+    const sourceNode = audioContext.createMediaStreamSource(stream);
+    sourceNodeRef.current = sourceNode;
+
+    // ScriptProcessorNode is deprecated but still broadly supported and simple here.
+    const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+    processorNodeRef.current = processorNode;
+
+    processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
+      const input = event.inputBuffer.getChannelData(0);
+      const pcm16 = downsampleTo16k(input, audioContext.sampleRate);
+
+      const pending = pendingSamplesRef.current;
+      for (let i = 0; i < pcm16.length; i += 1) {
+        pending.push(pcm16[i]);
+      }
+
+      while (pending.length >= chunkSamplesRef.current) {
+        const chunkSamples = pending.splice(0, chunkSamplesRef.current);
+        const chunk = new Int16Array(chunkSamples);
+        const base64 = encodeInt16ToBase64(chunk);
+        sendAudioChunk(base64, 16000, 'pcm16');
+      }
+    };
+
+    sourceNode.connect(processorNode);
+    processorNode.connect(audioContext.destination);
+  }, [sendAudioChunk]);
 
   // Use analysis data if available
   // For now, emotion data is mock until we aggregate from transcription segments
@@ -103,67 +214,72 @@ const ActiveSession: React.FC = () => {
 
       isInitializing.current = true;
 
-      // Use either the fetched session or the passed initial session
-      const currentSession = session || initialSession;
-      if (!currentSession) {
-        isInitializing.current = false;
-        return;
-      }
-
-      // If already in progress, just connect sockets
-      if (currentSession.status === 'IN_PROGRESS') {
-        console.log('ℹ️ Session already in progress, connecting sockets...');
-        setSessionStarted(true);
-        setWebsocketRoomId(currentSession.websocket_room_id || null);
-
-        const storedToken = localStorage.getItem('ai_service_token');
-        if (storedToken) {
-          setAiServiceToken(storedToken);
-          console.log('🔌 Connecting to Django WebSocket...');
-          setTimeout(() => connectWebSocket(), 500);
-          console.log('🔌 Connecting to AI Service WebSocket...');
-          setTimeout(() => connectAIService(), 1000);
+      try {
+        // Use either the fetched session or the passed initial session
+        const currentSession = session || initialSession;
+        if (!currentSession) {
+          return;
         }
-        return;
-      }
 
-      // If upcoming/scheduled, start it now
-      if (currentSession.status === 'UPCOMING' || currentSession.status === 'SCHEDULED' || currentSession.status === 'REQUESTED') {
-        console.log('🚀 Starting upcoming session:', id);
-        const result = await startSession(id);
-
-        if (result) {
-          console.log('✅ Session started successfully');
+        // If already in progress, initialize local state and connect via dedicated effects.
+        if (currentSession.status === 'IN_PROGRESS') {
+          console.log('ℹ️ Session already in progress, initializing socket state...');
           setSessionStarted(true);
+          setWebsocketRoomId(currentSession.websocket_room_id || null);
 
-          // Set Django WebSocket room ID if available
-          if (result.session.websocket_room_id) {
-            setWebsocketRoomId(result.session.websocket_room_id);
-            console.log('🔌 Connecting to Django WebSocket...');
-            setTimeout(() => connectWebSocket(), 500);
-          }
-
-          // Connect to AI Service WebSocket using session ID
-          if (result.ai_service_token) {
-            console.log('🔌 Setting AI Service token and will connect...');
-            setAiServiceToken(result.ai_service_token);
-            // Connection will happen in useEffect when aiServiceToken changes
-          }
-        } else if (startError) {
-          console.error('❌ Failed to start session:', startError);
-          const errorMsg = startError.message || '';
-          if (!errorMsg.includes('IN_PROGRESS') && !errorMsg.includes('COMPLETED')) {
-            alert(`Failed to start session: ${errorMsg || 'Unknown error'}`);
-            navigate('/sessions');
+          const storedToken = localStorage.getItem('ai_service_token');
+          if (storedToken) {
+            setAiServiceToken(storedToken);
           } else {
+            console.warn('⚠️ No AI token in localStorage; AI transcription will stay disconnected until token is available.');
+          }
+          return;
+        }
+
+        // If upcoming/scheduled, start it now
+        if (currentSession.status === 'UPCOMING' || currentSession.status === 'SCHEDULED' || currentSession.status === 'REQUESTED') {
+          console.log('🚀 Starting upcoming session:', id);
+          const result = await startSession(id);
+
+          if (result) {
+            console.log('✅ Session started successfully');
             setSessionStarted(true);
+
+            // Save room/token and let dedicated effects perform actual connects.
+            if (result.session.websocket_room_id) {
+              setWebsocketRoomId(result.session.websocket_room_id);
+            }
+
+            if (result.ai_service_token) {
+              console.log('🔌 AI Service token received and stored for WebSocket connect.');
+              setAiServiceToken(result.ai_service_token);
+            }
+          } else if (startError) {
+            console.error('❌ Failed to start session:', startError);
+            const errorMsg = startError.message || '';
+            if (!errorMsg.includes('IN_PROGRESS') && !errorMsg.includes('COMPLETED')) {
+              alert(`Failed to start session: ${errorMsg || 'Unknown error'}`);
+              navigate('/sessions');
+            } else {
+              setSessionStarted(true);
+            }
           }
         }
+      } finally {
+        isInitializing.current = false;
       }
     };
 
     initializeSession();
   }, [id, initialSession, session, startSession, sessionStarted, startingSession, startError, navigate]);
+
+  // Connect Django session-control WebSocket when room ID becomes available.
+  useEffect(() => {
+    if (sessionStarted && websocketRoomId && !wsConnected) {
+      console.log('🔌 Session control room ready, connecting Django WebSocket...');
+      connectWebSocket();
+    }
+  }, [sessionStarted, websocketRoomId, wsConnected, connectWebSocket]);
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
@@ -176,6 +292,7 @@ const ActiveSession: React.FC = () => {
   // Cleanup WebSockets on unmount
   useEffect(() => {
     return () => {
+      stopAudioCapture();
       if (wsConnected) {
         console.log('🔌 Disconnecting Django WebSocket on unmount');
         disconnectWebSocket();
@@ -185,7 +302,7 @@ const ActiveSession: React.FC = () => {
         disconnectAIService();
       }
     };
-  }, [wsConnected, aiConnected, disconnectWebSocket, disconnectAIService]);
+  }, [wsConnected, aiConnected, disconnectWebSocket, disconnectAIService, stopAudioCapture]);
 
   // Timer effect
   useEffect(() => {
@@ -202,25 +319,37 @@ const ActiveSession: React.FC = () => {
     return () => clearInterval(interval);
   }, [isRecording, sessionStartTime]);
 
-  const handleStartRecording = useCallback(() => {
+  const handleStartRecording = useCallback(async () => {
+    if (!aiConnected) {
+      alert('AI transcription service is not connected yet. Please wait and try again.');
+      return;
+    }
+
     setIsRecording(true);
     // Send control message to Django WebSocket
     if (wsConnected) {
       sendControl('start_session');
     }
-    // TODO: Start capturing audio from microphone and send to AI Service
-    // For now, this is a placeholder - actual audio capture requires MediaRecorder API
-    console.log('🎤 Recording started - audio streaming to AI Service');
-  }, [wsConnected, sendControl]);
 
-  const handleStopRecording = useCallback(() => {
+    try {
+      await startAudioCapture();
+      console.log('🎤 Recording started - audio streaming to AI Service');
+    } catch (captureError) {
+      console.error('❌ Failed to access microphone:', captureError);
+      setIsRecording(false);
+      alert('Unable to access microphone. Please allow microphone access and try again.');
+    }
+  }, [aiConnected, wsConnected, sendControl, startAudioCapture]);
+
+  const handleStopRecording = useCallback(async () => {
     setIsRecording(false);
     // Send pause control to Django WebSocket
     if (wsConnected) {
       sendControl('pause_session');
     }
+    await stopAudioCapture();
     console.log('🎤 Recording stopped');
-  }, [wsConnected, sendControl]);
+  }, [wsConnected, sendControl, stopAudioCapture]);
 
   const handleEndSession = useCallback(() => {
     if (window.confirm('Are you sure you want to end this session? You will be taken to the completion form.')) {

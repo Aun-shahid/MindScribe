@@ -39,8 +39,17 @@ const PatientSessions = () => {
       console.log('[PatientSessions] Response type:', typeof response);
       console.log('[PatientSessions] Is array:', Array.isArray(response));
 
-      // Ensure response is an array
-      let sessionsArray = Array.isArray(response) ? response : [];
+      // Backend returns { sessions: { upcoming: [], past: [] }, patient_info, ... }
+      // Keep compatibility with any legacy array response shape.
+      let sessionsArray: SessionType[] = [];
+
+      if (Array.isArray(response)) {
+        sessionsArray = response;
+      } else if (response?.sessions) {
+        const upcoming = Array.isArray(response.sessions.upcoming) ? response.sessions.upcoming : [];
+        const past = Array.isArray(response.sessions.past) ? response.sessions.past : [];
+        sessionsArray = [...upcoming, ...past];
+      }
 
       // Remove duplicates based on session ID
       const uniqueSessions = sessionsArray.reduce((acc: SessionType[], current: SessionType) => {
@@ -55,8 +64,9 @@ const PatientSessions = () => {
       console.log('[PatientSessions] Unique sessions:', uniqueSessions.length);
       setSessions(uniqueSessions);
 
-      // Get patient name from first session
-      if (sessionsArray.length > 0 && sessionsArray[0].patient_name) {
+      if (response?.patient_info?.full_name) {
+        setPatientName(response.patient_info.full_name);
+      } else if (sessionsArray.length > 0 && sessionsArray[0].patient_name) {
         setPatientName(sessionsArray[0].patient_name);
       }
     } catch (err: any) {

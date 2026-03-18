@@ -1,6 +1,20 @@
 import axios from 'axios';
 import { backendUrl, aiServiceUrl } from '../config';
 
+const AUTH_ENDPOINT_PREFIXES = [
+  '/authenticator/login/',
+  '/authenticator/register/',
+  '/authenticator/token/refresh/',
+  '/authenticator/password-reset/',
+  '/authenticator/password-reset-confirm/',
+  '/authenticator/verify-email/',
+];
+
+const isAuthEndpoint = (url?: string): boolean => {
+  if (!url) return false;
+  return AUTH_ENDPOINT_PREFIXES.some((prefix) => url.includes(prefix));
+};
+
 const api = axios.create({
   baseURL: `${backendUrl}/api`,
   headers: {
@@ -12,6 +26,10 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
+    if (isAuthEndpoint(config.url)) {
+      return config;
+    }
+
     const token = localStorage.getItem('access_token');
     if (token) {
       console.log('[API] Adding token to request:', config.url);
@@ -31,8 +49,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const authEndpoint = isAuthEndpoint(originalRequest?.url);
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest?._retry && !authEndpoint) {
       originalRequest._retry = true;
 
       console.warn('[API] 401 Unauthorized - Attempting token refresh');
@@ -86,7 +105,8 @@ aiApi.interceptors.request.use(
   (config) => {
     // Note: ai_service_token can be retrieved from localStorage
     const token = localStorage.getItem('ai_service_token');
-    if (token) {
+    // Do not override an explicit Authorization header set by the caller.
+    if (token && !config.headers?.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
