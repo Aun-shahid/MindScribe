@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY app /app/
 # Also copy start.sh
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Expose the port (Railway uses PORT env var, but 8000 is a good default)
 EXPOSE 8000
