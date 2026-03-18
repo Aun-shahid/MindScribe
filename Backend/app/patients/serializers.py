@@ -335,8 +335,6 @@ class NotificationPreferenceSerializer(serializers.ModelSerializer):
             'journal_reminder_enabled', 'journal_reminder_time',
             # Communication
             'therapist_messages_enabled',
-            # Push tokens
-            'push_token', 'device_type',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'patient', 'created_at', 'updated_at']
@@ -362,13 +360,12 @@ class NotificationSerializer(serializers.ModelSerializer):
             'category',
             'session_id', 'goal_id', 'action_url',
             'is_read', 'read_at', 'sent_at', 'time_ago',
-            'push_sent', 'push_sent_at',
             'delivery_status', 'delivery_attempts',
             'last_delivery_attempt_at', 'next_retry_at',
             'delivered_at', 'delivery_error'
         ]
         read_only_fields = [
-            'id', 'patient', 'sent_at', 'push_sent', 'push_sent_at',
+            'id', 'patient', 'sent_at',
             'delivery_status', 'delivery_attempts', 'last_delivery_attempt_at',
             'next_retry_at', 'delivered_at', 'delivery_error'
         ]

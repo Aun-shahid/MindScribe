@@ -2,6 +2,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, Brain } from 'lucide-react';
+import InAppNotificationToasts from './InAppNotificationToasts';
 
 const Layout = () => {
   const { logout } = useAuth();
@@ -38,6 +39,7 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
+      <InAppNotificationToasts />
       {/* Enhanced Professional Navbar with Purple Theme */}
       <nav className="bg-gradient-to-r from-purple-900 via-purple-700 to-purple-900 shadow-xl border-b border-purple-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

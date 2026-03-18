@@ -72,20 +72,6 @@ class NotificationPreference(models.Model):
         help_text="Receive notifications from therapist"
     )
     
-    # Push Notification Tokens (for mobile)
-    push_token = models.CharField(
-        max_length=500,
-        blank=True,
-        null=True,
-        help_text="FCM/APNS push notification token"
-    )
-    device_type = models.CharField(
-        max_length=20,
-        choices=[('ios', 'iOS'), ('android', 'Android'), ('web', 'Web')],
-        blank=True,
-        null=True
-    )
-    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -167,11 +153,6 @@ class Notification(models.Model):
     delivery_error = models.TextField(blank=True, null=True)
     
     sent_at = models.DateTimeField(auto_now_add=True)
-    
-    # Push notification status
-    push_sent = models.BooleanField(default=False)
-    push_sent_at = models.DateTimeField(null=True, blank=True)
-    push_error = models.TextField(blank=True, null=True)
     
     class Meta:
         db_table = 'notifications'

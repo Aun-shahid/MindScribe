@@ -31,10 +31,9 @@ from .serializers import (
     TherapistAvailabilitySerializer, SessionInsightSerializer,
     PatientListSerializer, SessionStatsSerializer, EnhancedPatientCreateSerializer,
     PatientSessionSerializer, TherapistSessionSerializer, SessionListSerializer,
-    SessionRequestSerializer, SessionScheduleSerializer, RecurringSessionScheduleSerializer,
+    SessionScheduleSerializer, RecurringSessionScheduleSerializer,
     SessionScheduleResponseSerializer, BulkSessionUpdateSerializer,
-    TherapistDateOverrideSerializer, PatientBookingSerializer, 
-    EmergencySessionRequestSerializer, AvailableSlotSerializer, SessionSummarySerializer
+    TherapistDateOverrideSerializer, AvailableSlotSerializer, SessionSummarySerializer
 )
 from users.models import PatientProfile, TherapistProfile
 # Removed: transcription_service import - migrated to FastAPI AI service
@@ -958,61 +957,6 @@ class SessionsListView(generics.ListAPIView):
             'total_count': len(serializer.data),
             'user_type': request.user.user_type
         }, status=status.HTTP_200_OK)
-
-
-@extend_schema(
-    tags=['Therapy Sessions'],
-    summary="Request therapy session",
-    description="Allow patients to request a therapy session from their connected therapist. The session will be created with REQUESTED status and basic information.",
-    request=SessionRequestSerializer,
-    responses={
-        201: OpenApiResponse(description='Session request created successfully.'),
-        400: OpenApiResponse(description='Invalid data or patient not connected to therapist.'),
-        403: OpenApiResponse(description='Only patients can request sessions.')
-    },
-    examples=[
-        OpenApiExample(
-            'Session Request',
-            summary='Patient requesting a therapy session',
-            description='Patient creates a session request with basic information',
-            value={
-                "therapist_id": "456e7890-e89b-12d3-a456-426614174001",
-                "scheduled_date": "2024-01-25T14:00:00Z",
-                "location": "Clinic Room 1",
-                "is_online": False,
-                "patient_goals": "Need help with anxiety management",
-                "duration_minutes": 60
-            },
-            request_only=True,
-        ),
-    ]
-)
-class SessionRequestView(generics.CreateAPIView):
-    """Allow patients to request therapy sessions"""
-    serializer_class = SessionRequestSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def create(self, request, *args, **kwargs):
-        """Create a session request"""
-        if request.user.user_type != 'patient':
-            return Response(
-                {'detail': 'Only patients can request sessions.'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        serializer = self.get_serializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        
-        # Create the session request
-        session = serializer.save()
-        
-        # Return session data using SessionSerializer
-        response_serializer = SessionSerializer(session, context={'request': request})
-        
-        return Response({
-            'detail': 'Session request created successfully.',
-            'session': response_serializer.data
-        }, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(
@@ -3822,139 +3766,6 @@ class AvailableSlotsView(APIView):
             'available_slots': slots_data,
             'total_slots': len(slots_data)
         }, status=status.HTTP_200_OK)
-
-
-@extend_schema(tags=['Patient Booking'])
-class PatientBookSessionView(APIView):
-    """Patient books a session from available slots"""
-    permission_classes = [IsAuthenticated]
-    
-    @extend_schema(
-        request=PatientBookingSerializer,
-        responses={
-            201: SessionSerializer,
-            400: OpenApiResponse(description='Invalid booking or slot not available.')
-        },
-        summary="Book Session",
-        description="Book a session from an available slot."
-    )
-    def post(self, request):
-        if request.user.user_type != 'patient':
-            return Response(
-                {'detail': 'Only patients can book sessions.'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        from .serializers import PatientBookingSerializer
-        
-        serializer = PatientBookingSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Create the session
-        therapist = serializer.validated_data['therapist']
-        session = Session.objects.create(
-            patient=request.user,
-            therapist=therapist,
-            scheduled_date=serializer.validated_data['slot_start'],
-            duration_minutes=serializer.validated_data['duration_minutes'],
-            is_online=serializer.validated_data['is_online'],
-            patient_goals=serializer.validated_data.get('patient_goals', ''),
-            status='UPCOMING',
-            session_type='individual',
-            created_by=request.user,
-        )
-
-        try:
-            create_notification(
-                recipient=therapist,
-                notification_type='therapist_message',
-                title='New Session Booking',
-                message=f'{request.user.full_name} booked a session for {session.scheduled_date.strftime("%B %d at %I:%M %p")}.',
-                session_id=str(session.id),
-                action_url=f'/therapy/sessions/{session.id}',
-                source_event='session.booked.by_patient',
-                metadata={
-                    'session_id': str(session.id),
-                    'patient_id': str(request.user.id),
-                },
-            )
-        except Exception:
-            pass
-        
-        response_serializer = SessionSerializer(session, context={'request': request})
-        return Response({
-            'detail': 'Session booked successfully.',
-            'session': response_serializer.data
-        }, status=status.HTTP_201_CREATED)
-
-
-@extend_schema(tags=['Patient Booking'])
-class EmergencySessionRequestView(APIView):
-    """Patient requests an emergency session"""
-    permission_classes = [IsAuthenticated]
-    
-    @extend_schema(
-        request=EmergencySessionRequestSerializer,
-        responses={
-            201: SessionSerializer,
-            400: OpenApiResponse(description='Invalid request.')
-        },
-        summary="Request Emergency Session",
-        description="Request an emergency session. The therapist will be notified and can schedule freely."
-    )
-    def post(self, request):
-        if request.user.user_type != 'patient':
-            return Response(
-                {'detail': 'Only patients can request emergency sessions.'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        from .serializers import EmergencySessionRequestSerializer
-        
-        serializer = EmergencySessionRequestSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        therapist = serializer.validated_data['therapist']
-        
-        # Create emergency session request
-        session = Session.objects.create(
-            patient=request.user,
-            therapist=therapist,
-            scheduled_date=serializer.validated_data.get('preferred_date') or timezone.now(),
-            is_online=serializer.validated_data['is_online'],
-            patient_goals=serializer.validated_data['reason'],
-            status='REQUESTED',
-            session_type='individual',
-            is_emergency=True,
-            created_by=request.user,
-        )
-
-        try:
-            create_notification(
-                recipient=therapist,
-                notification_type='therapist_message',
-                title='Emergency Session Request',
-                message=f'{request.user.full_name} requested an emergency session.',
-                session_id=str(session.id),
-                action_url=f'/therapy/sessions/{session.id}',
-                priority='high',
-                source_event='session.emergency_requested',
-                metadata={
-                    'session_id': str(session.id),
-                    'patient_id': str(request.user.id),
-                    'is_emergency': True,
-                },
-            )
-        except Exception:
-            pass
-        
-        response_serializer = SessionSerializer(session, context={'request': request})
-        return Response({
-            'detail': 'Emergency session request submitted. Your therapist will be notified.',
-            'session': response_serializer.data
-        }, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=['Therapist Availability'])

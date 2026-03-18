@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.utils import timezone
@@ -8,9 +7,6 @@ from django.utils import timezone
 from ..models import Notification
 
 logger = logging.getLogger(__name__)
-
-MAX_WEBSOCKET_DELIVERY_ATTEMPTS = 3
-RETRY_BACKOFF_MINUTES = [1, 5, 15]
 
 
 def get_user_notification_group(user_id):
@@ -111,11 +107,6 @@ def push_notification_to_websocket(recipient, payload):
     return True, None
 
 
-def _get_next_retry_at(attempt_number):
-    backoff_index = min(max(attempt_number - 1, 0), len(RETRY_BACKOFF_MINUTES) - 1)
-    return timezone.now() + timedelta(minutes=RETRY_BACKOFF_MINUTES[backoff_index])
-
-
 def _record_delivery_result(notification, success, error_message=None):
     if not notification:
         return
@@ -128,36 +119,11 @@ def _record_delivery_result(notification, success, error_message=None):
         )
         return
 
-    next_attempt_number = (notification.delivery_attempts or 0) + 1
-    can_retry = next_attempt_number < MAX_WEBSOCKET_DELIVERY_ATTEMPTS
-    next_retry_at = _get_next_retry_at(next_attempt_number) if can_retry else None
-    status = Notification.DELIVERY_STATUS_FAILED
-
     notification.mark_delivery_attempt(
-        status=status,
+        status=Notification.DELIVERY_STATUS_FAILED,
         error_message=error_message or "websocket_delivery_failed",
-        next_retry_at=next_retry_at,
+        next_retry_at=None,
     )
-
-
-def retry_notification_delivery(notification):
-    if not notification:
-        return False
-
-    payload = build_notification_payload(
-        recipient=notification.patient,
-        notification_type=notification.notification_type,
-        title=notification.title,
-        message=notification.message,
-        action_url=notification.action_url,
-        session_id=notification.session_id,
-        goal_id=notification.goal_id,
-        persisted_notification=notification,
-    )
-
-    delivered, error_message = push_notification_to_websocket(notification.patient, payload)
-    _record_delivery_result(notification, delivered, error_message)
-    return delivered
 
 
 def create_notification(

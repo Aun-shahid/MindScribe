@@ -135,13 +135,13 @@ export const patientService = {
     return response.data;
   },
 
-  markNotificationRead: async (id: number) => {
-    const response = await api.post(`/patients/notifications/${id}/mark_read/`);
+  markNotificationRead: async (id: string) => {
+    const response = await api.post(`/patients/notifications/${id}/read/`);
     return response.data;
   },
 
   markAllNotificationsRead: async () => {
-    const response = await api.post('/patients/notifications/mark_all_read/');
+    const response = await api.post('/patients/notifications/mark-all-read/');
     return response.data;
   },
 

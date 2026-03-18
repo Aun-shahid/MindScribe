@@ -1,0 +1,56 @@
+name: Mobile OTA Update
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'Frontend/mobile/**'
+      - '.github/workflows/mobile-ota-update.yml'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Validate Expo config
+        run: npx expo-doctor
+
+      - name: Publish OTA update (dev -> preview)
+        if: github.ref_name == 'dev'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas update \
+            --branch preview \
+            --message "CI OTA: ${GITHUB_SHA}" \
+            --non-interactive
+
+      - name: Publish OTA update (main -> production)
+        if: github.ref_name == 'main'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas update \
+            --branch production \
+            --message "CI OTA: ${GITHUB_SHA}" \
+            --non-interactive

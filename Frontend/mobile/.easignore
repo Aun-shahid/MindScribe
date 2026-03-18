@@ -1,0 +1,22 @@
+# Keep EAS uploads small and fast
+.git
+.github
+node_modules
+.vscode
+.expo
+.expo-shared
+android
+ios
+
+# Logs and caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Large unrelated workspace dirs
+../../Backend
+../../AIService
+../../AIModel
+../../Frontend/web
+../../Test-Frontend

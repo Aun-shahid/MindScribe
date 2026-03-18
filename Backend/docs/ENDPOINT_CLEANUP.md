@@ -1,63 +1,38 @@
-# API Endpoint Cleanup - January 20, 2026
+# API Endpoint Cleanup - March 17, 2026
 
 ## Summary
-Removed duplicate and deprecated endpoints to streamline the API and avoid confusion.
+Removed duplicate, deprecated, and unsupported patient session-creation endpoints to streamline the API and avoid confusion.
 
-## ❌ Removed Endpoints
+## Removed Endpoints
 
 ### 1. Duplicate Patient Dashboard
-**Removed:** `/api/therapy_sessions/dashboard/patient/`
-- **Reason:** Duplicate of `/api/patients/dashboard/`
-- **Replacement:** Use `/api/patients/dashboard/` instead
-- **Why:** The patients app dashboard is more comprehensive, including:
-  - Mood tracking data
-  - Journal statistics
-  - Goals progress
-  - Relaxation stats
-  - Daily inspiration
-  - Session information (already included)
+Removed: `/api/therapy_sessions/dashboard/patient/`
+- Reason: Duplicate of `/api/patients/dashboard/`
+- Replacement: Use `/api/patients/dashboard/` instead
+- Why: The patients app dashboard is the primary patient dashboard and already includes session information
 
-**Impact:** Frontend should use `/api/patients/dashboard/` for all patient dashboard needs
+### 2. Deprecated Patient Session Request
+Removed: `/api/therapy_sessions/sessions/request/`
+- Reason: Patient-initiated session creation is no longer supported
+- Replacement: Patients must contact their therapist; therapists create and schedule sessions
+- Why: Session creation is therapist-managed only
 
----
+### 3. Patient Booking Endpoint
+Removed: `/api/therapy_sessions/booking/book/`
+- Reason: Patients should not be able to add or request sessions
+- Replacement: No direct patient replacement endpoint
+- Why: Session creation is therapist-managed only
 
-### 2. Deprecated Session Request
-**Removed:** `/api/therapy_sessions/sessions/request/`
-- **Reason:** Replaced by new booking flow
-- **Replacement:** Use `/api/therapy_sessions/booking/book/` instead
-- **Why:** The new booking endpoint:
-  - Validates available slots
-  - Prevents double-booking
-  - Integrates with therapist availability
-  - Better error handling
+### 4. Patient Emergency Booking Endpoint
+Removed: `/api/therapy_sessions/booking/emergency/`
+- Reason: Patients should not be able to emergency-request sessions
+- Replacement: No direct patient replacement endpoint
+- Why: Session creation is therapist-managed only
 
-**Migration Path:**
-```javascript
-// OLD (removed)
-POST /api/therapy_sessions/sessions/request/
-{
-  "therapist_id": "uuid",
-  "scheduled_date": "2026-01-21T14:00:00Z",
-  ...
-}
-
-// NEW (use this)
-POST /api/therapy_sessions/booking/book/
-{
-  "therapist": "uuid",
-  "slot_start": "2026-01-21T14:00:00Z",
-  "duration_minutes": 60,
-  "is_online": true,
-  "patient_goals": "Anxiety management"
-}
-```
-
----
-
-## ✅ Current Endpoint Structure
+## Current Endpoint Structure
 
 ### Patient Endpoints (`/api/patients/`)
-- `GET /dashboard/` - **PRIMARY patient dashboard** ✅
+- `GET /dashboard/` - Primary patient dashboard
 - `GET,POST /mood/` - Mood tracking
 - `GET,POST /journal/` - Journal entries
 - `GET,POST /emotions/` - Emotional insights
@@ -69,92 +44,78 @@ POST /api/therapy_sessions/booking/book/
 - `GET /notifications/` - Notification list
 
 ### Session Endpoints (`/api/therapy_sessions/`)
-- `GET /sessions/upcoming/` - Upcoming sessions ✅
-- `GET /sessions/past/` - Past sessions ✅
+- `GET /sessions/upcoming/` - Upcoming sessions
+- `GET /sessions/past/` - Past sessions
 - `GET /sessions/my/` - All my sessions
 - `GET /sessions/<uuid>/` - Session detail
 - `POST /sessions/<uuid>/start/` - Start session
 - `POST /sessions/<uuid>/end/` - End session
 - `GET,PATCH /sessions/<uuid>/summary/` - Session summary
 
-### Booking Endpoints (`/api/therapy_sessions/booking/`)
+### Availability Endpoints (`/api/therapy_sessions/booking/`)
 - `GET /slots/` - Available time slots
 - `GET /dates/` - Available dates
-- `POST /book/` - **Book regular session** ✅
-- `POST /emergency/` - **Request emergency session** ✅
 
 ### Dashboard Endpoints
-- `GET /api/patients/dashboard/` - **Patient dashboard** ✅
-- `GET /api/therapy_sessions/dashboard/therapist/` - Therapist dashboard ✅
+- `GET /api/patients/dashboard/` - Patient dashboard
+- `GET /api/therapy_sessions/dashboard/therapist/` - Therapist dashboard
 
----
-
-## 🔧 Changes Made
+## Changes Made
 
 ### File: `therapy_sessions/urls.py`
 
-**Removed imports:**
+Removed imports:
 ```python
-SessionRequestView  # Deprecated
-PatientDashboardView  # Duplicate
+SessionRequestView
+PatientBookSessionView
+EmergencySessionRequestView
 ```
 
-**Removed URL patterns:**
+Removed URL patterns:
 ```python
-path('dashboard/patient/', ...)  # Use /api/patients/dashboard/
-path('sessions/request/', ...)  # Use /api/therapy_sessions/booking/book/
+path('sessions/request/', ...)
+path('booking/book/', ...)
+path('booking/emergency/', ...)
 ```
 
-**Added comment:**
+Retained URL patterns:
 ```python
-# Note: Patient dashboard is now at /api/patients/dashboard/ (more comprehensive)
+path('booking/slots/', ...)
+path('booking/dates/', ...)
 ```
 
----
+### File: `therapy_sessions/views.py`
 
-## 📋 Frontend Migration Checklist
+Removed views:
+```python
+SessionRequestView
+PatientBookSessionView
+EmergencySessionRequestView
+```
 
-- [ ] Update all references from `/api/therapy_sessions/dashboard/patient/` to `/api/patients/dashboard/`
-- [ ] Update session request calls from `/sessions/request/` to `/booking/book/`
-- [ ] Test patient dashboard still loads correctly
-- [ ] Test session booking still works
+## Frontend Migration Checklist
+
+- [ ] Remove any calls to `/api/therapy_sessions/sessions/request/`
+- [ ] Remove any calls to `/api/therapy_sessions/booking/book/`
+- [ ] Remove any calls to `/api/therapy_sessions/booking/emergency/`
+- [ ] Keep patient session listing and detail views working
 - [ ] Update API documentation if applicable
-- [ ] Update frontend constants/config files
 
----
+## Benefits
 
-## 🎯 Benefits
+1. Single source of truth for patient dashboard data
+2. Clear permissions: only therapists create and schedule sessions
+3. Cleaner API with fewer unsupported paths
+4. Availability lookup can remain exposed without allowing patient-created sessions
 
-1. **Single Source of Truth**: One patient dashboard endpoint eliminates confusion
-2. **Better Booking Flow**: New booking endpoint validates slots and prevents conflicts
-3. **Cleaner API**: Fewer endpoints = easier to maintain and understand
-4. **Future-Proof**: Booking flow supports therapist availability features
+## Notes
 
----
+- Therapist-managed scheduling remains available.
+- Patient session listing and session detail access remain available.
+- Availability lookup endpoints still exist unless you want those removed too.
 
-## ⚠️ No Breaking Changes
+## Endpoint Count
 
-Both removed endpoints were either:
-1. Duplicates (dashboard) - other endpoint provides same/better data
-2. Deprecated (request) - replacement already exists and is better
-
-All existing functionality is preserved through the recommended replacements.
-
----
-
-## 📊 Endpoint Count
-
-**Before cleanup:** 36 endpoints (therapy_sessions) + 24 endpoints (patients) = 60 total
-**After cleanup:** 34 endpoints (therapy_sessions) + 24 endpoints (patients) = 58 total
-**Reduction:** 2 redundant endpoints removed ✅
-
----
-
-## ✅ Validation
-
-- Django check: ✅ Passed (0 issues)
-- URL routing: ✅ No conflicts
-- Imports: ✅ Clean
-- Logic: ✅ No functionality lost
-
-**Status: Safe for production** 🚀
+Before cleanup: 36 endpoints (therapy_sessions) + 24 endpoints (patients) = 60 total
+After cleanup: 32 endpoints (therapy_sessions) + 24 endpoints (patients) = 56 total
+Reduction: 4 redundant or unsupported endpoints removed

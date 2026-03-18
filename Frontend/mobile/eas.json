@@ -1,0 +1,36 @@
+{
+  "cli": {
+    "version": ">= 10.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "BACKEND_URL": "http://10.0.2.2:8000"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "BACKEND_URL": "https://mindscribe-backend-production-ca1e.up.railway.app"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "BACKEND_URL": "https://mindscribe-backend-production-ca1e.up.railway.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -21,6 +21,7 @@ import QRCode from './pages/QRCode';
 import NewSession from './pages/NewSession';
 import NewPatient from './pages/NewPatient';
 import SessionCalendar from './pages/SessionCalendar';
+import Notifications from './pages/Notifications';
 import './App.css';
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />
+                <Route path="/notifications" element={<Notifications />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />
                 {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}

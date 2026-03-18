@@ -23,6 +23,7 @@ export default function NotificationSettings() {
   const [prefs, setPrefs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [showJournalPicker, setShowJournalPicker] = useState(false);
 
@@ -134,7 +135,7 @@ export default function NotificationSettings() {
 
   const save = async () => {
     try {
-      await PatientService.updateNotificationPreferences(prefs);
+      await PatientService.updateNotificationPreferences(buildPreferencesPayload(prefs));
       const scheduleResult = await syncLocalDailyReminders(prefs);
       if (!scheduleResult.ok) {
         Alert.alert('Saved with warning', 'Preferences were saved, but local reminder permissions are disabled. Enable notifications in iPhone Settings to receive reminders.');
@@ -302,38 +303,23 @@ export default function NotificationSettings() {
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Push Notifications</Text>
               <Text style={styles.cardStatus}>
-                {(prefs.push_enabled ?? !!prefs.push_token) ? 'Enabled' : 'Disabled'}
+                {pushEnabled ? 'Enabled on this device' : 'Disabled'}
               </Text>
             </View>
             <Switch 
-              value={prefs.push_enabled ?? !!prefs.push_token}
+              value={pushEnabled}
               onValueChange={async (v: boolean) => {
-                // If enabling, register for push token and persist
                 if (v) {
-                  const token = prefs.push_token || await registerForPush();
+                  const token = await registerForPush();
                   if (token) {
-                    const newPrefs = { ...prefs, push_enabled: true, push_token: token };
-                    setPrefs(newPrefs);
-                    try {
-                      await PatientService.updateNotificationPreferences({ push_token: token, push_enabled: true });
-                    } catch (err: any) {
-                      console.error('[NotifySettings] save push token error', err);
-                      Alert.alert('Error', 'Failed to save push token to server');
-                    }
+                    setPushEnabled(true);
                     return;
                   }
-                  // If token not obtained, do not enable
-                  setPrefs({ ...prefs, push_enabled: false });
+                  setPushEnabled(false);
                   return;
                 }
 
-                // Disabling: clear push_enabled and optionally remove token on server
-                setPrefs({ ...prefs, push_enabled: false });
-                try {
-                  await PatientService.updateNotificationPreferences({ push_enabled: false });
-                } catch (err: any) {
-                  console.error('[NotifySettings] disable push error', err);
-                }
+                setPushEnabled(false);
               }}
               trackColor={{ false: '#5B5270', true: '#FF6B9D' }}
               thumbColor="#FFFFFF"
@@ -551,6 +537,22 @@ function parseTimeValue(value: string | null | undefined, fallbackHour: number, 
 
   parsed.setHours(hours, minutes, 0, 0);
   return parsed;
+}
+
+function buildPreferencesPayload(prefs: any): Record<string, any> {
+  return {
+    session_reminders_enabled: !!prefs?.session_reminders_enabled,
+    session_reminder_time: prefs?.session_reminder_time,
+    session_summary_enabled: !!prefs?.session_summary_enabled,
+    session_approved_enabled: !!prefs?.session_approved_enabled,
+    session_cancelled_enabled: !!prefs?.session_cancelled_enabled,
+    goal_reminders_enabled: !!prefs?.goal_reminders_enabled,
+    mood_reminder_enabled: !!prefs?.mood_reminder_enabled,
+    mood_reminder_time: prefs?.mood_reminder_time,
+    journal_reminder_enabled: !!prefs?.journal_reminder_enabled,
+    journal_reminder_time: prefs?.journal_reminder_time,
+    therapist_messages_enabled: !!prefs?.therapist_messages_enabled,
+  };
 }
 
 function parseMoodTime(rawTime?: string | null): Date {

@@ -113,8 +113,6 @@ PATCH /api/patients/notifications/preferences/
   "journal_reminder_time": "21:00:00",
   "goal_reminders_enabled": true,
   "therapist_messages_enabled": true,
-  "push_token": null,
-  "device_type": null,
   "created_at": "2025-01-15T10:00:00Z",
   "updated_at": "2025-01-15T10:00:00Z"
 }
@@ -234,9 +232,6 @@ These endpoints are therapist-only and complement live updates from `ws/notifica
 - **Other**:
   - goal_reminders_enabled (default: True)
   - therapist_messages_enabled (default: True)
-- **Push Notifications**:
-  - push_token (max 500 characters)
-  - device_type (ios/android/web)
 
 ### Notification
 - **patient**: ForeignKey to User
@@ -248,9 +243,6 @@ These endpoints are therapist-only and complement live updates from `ws/notifica
 - **action_url**: CharField(max_length=500, optional) - Deep link URL
 - **is_read**: BooleanField (default: False)
 - **read_at**: DateTimeField (auto-set when marked read)
-- **push_sent**: BooleanField (default: False)
-- **push_sent_at**: DateTimeField (auto-set when push sent)
-- **push_error**: TextField (stores push notification errors)
 - **sent_at**: DateTimeField (auto-set on creation)
 
 ## Notification Service
@@ -287,10 +279,18 @@ These endpoints are therapist-only and complement live updates from `ws/notifica
 
 ### Scheduler Command
 
-The backend includes a management command scheduler that runs reminder checks in a loop:
+The backend uses APScheduler in-process (inside the web app) to run reminder checks every 10-60 seconds.
+
+Configure interval with environment variable:
 
 ```bash
-python manage.py run_notification_scheduler --interval-seconds 60 --retry-websocket
+IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS=30
+```
+
+The management command remains available for manual runs/debugging:
+
+```bash
+python manage.py run_notification_scheduler --interval-seconds 60
 ```
 
 Useful modes:
@@ -299,79 +299,18 @@ Useful modes:
 # Single tick (for cron/health checks)
 python manage.py run_notification_scheduler --once
 
-# Continuous loop (recommended as a worker process)
-python manage.py run_notification_scheduler --interval-seconds 60 --retry-websocket
+# Continuous loop (manual fallback)
+python manage.py run_notification_scheduler --interval-seconds 60
 ```
 
-Recommended deployment: run this as a dedicated worker process (separate from web server).
+Recommended deployment: keep APScheduler enabled in the web process and avoid separate worker/beat for reminders.
 
-### Push Notification Integration
+### Delivery Model
 
-`send_push_notification(preference, notification)` now attempts real Firebase delivery when `firebase-admin` is installed and credentials are configured.
-
-If Firebase is not configured, push sends are not marked as successful and `push_error` stores the reason.
-
-To enable push delivery:
-
-1. **Install Firebase Admin SDK**:
-   ```bash
-   pip install firebase-admin
-   ```
-
-2. **Configure Firebase** (environment variable preferred):
-   ```python
-   import firebase_admin
-   from firebase_admin import credentials
-   
-   cred = credentials.Certificate('path/to/serviceAccountKey.json')
-   firebase_admin.initialize_app(cred)
-   ```
-
-  Or set environment variable:
-  ```bash
-  FIREBASE_CREDENTIALS_PATH=/path/to/serviceAccountKey.json
-  ```
-
-3. **Implement push notification sending**:
-   ```python
-   from firebase_admin import messaging
-   
-   def send_push_notification(preference, notification):
-       message = messaging.Message(
-           notification=messaging.Notification(
-               title=notification.title,
-               body=notification.message,
-           ),
-           data={
-               'notification_id': str(notification.id),
-               'type': notification.notification_type,
-               'action_url': notification.action_url or '',
-           },
-           token=preference.push_token,
-       )
-       
-       response = messaging.send(message)
-       
-       notification.push_sent = True
-       notification.push_sent_at = timezone.now()
-       notification.save()
-       
-       return response
-   ```
-
-## Mobile App Integration
-
-### Storing Push Token
-```javascript
-// When user logs in or grants notification permission
-const pushToken = await getPushToken(); // Get from FCM/APNS
-
-PATCH /api/patients/notifications/preferences/
-{
-  "push_token": pushToken,
-  "device_type": "ios" // or "android" or "web"
-}
-```
+This system is focused on in-app reminders only:
+- Reminders are persisted in the notifications table
+- Live events are pushed through `ws/notifications/`
+- Frontend receives events and shows in-app notification UI (toast/list)
 
 ### Handling Deep Links
 When notification is tapped, use the `action_url` field to navigate:
@@ -392,8 +331,8 @@ Notification preferences and notifications can be managed in Django Admin:
 
 ## Future Enhancements
 
-1. **Celery/Queue Integration**: Move scheduler loop to Celery beat + workers if needed
-2. **Push Notification Service**: Add APNS/WebPush provider fallback in addition to Firebase
+1. **Queue Integration**: Move scheduler loop to a distributed queue if scale requires it
+2. **Push Notification Service**: Add optional APNS/WebPush provider if push delivery is needed in future
 3. **Email Notifications**: Add email fallback option
 4. **SMS Notifications**: Add SMS option for critical notifications
 5. **Notification Templates**: Create reusable templates for common notifications

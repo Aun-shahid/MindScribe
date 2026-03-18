@@ -5,16 +5,6 @@ PROCESS_TYPE=${PROCESS_TYPE:-web}
 
 echo "Starting process type: ${PROCESS_TYPE}"
 
-if [ "${PROCESS_TYPE}" = "worker" ]; then
-	echo "Starting Celery worker..."
-	exec celery -A app worker -l info
-fi
-
-if [ "${PROCESS_TYPE}" = "beat" ]; then
-	echo "Starting Celery beat..."
-	exec celery -A app beat -l info
-fi
-
 # Collect static files
 echo "Collecting static files..."
 python manage.py collectstatic --noinput

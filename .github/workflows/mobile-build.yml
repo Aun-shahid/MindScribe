@@ -1,0 +1,74 @@
+name: Mobile Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Frontend/mobile/app.json'
+      - 'Frontend/mobile/package.json'
+      - 'Frontend/mobile/eas.json'
+      - 'Frontend/mobile/app.config.js'
+      - '.github/workflows/mobile-build.yml'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS profile to build
+        required: true
+        default: production
+        type: choice
+        options:
+          - preview
+          - production
+      platform:
+        description: Platform
+        required: true
+        default: android
+        type: choice
+        options:
+          - android
+          - ios
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Resolve build params
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "profile=${{ github.event.inputs.profile }}" >> $GITHUB_OUTPUT
+            echo "platform=${{ github.event.inputs.platform }}" >> $GITHUB_OUTPUT
+          else
+            echo "profile=production" >> $GITHUB_OUTPUT
+            echo "platform=android" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger EAS build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build \
+            --platform ${{ steps.params.outputs.platform }} \
+            --profile ${{ steps.params.outputs.profile }} \
+            --non-interactive \
+            --no-wait

@@ -9,17 +9,27 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "extra": {
-      "BACKEND_URL": "http://192.168.100.118:8000"
+      "BACKEND_URL": "https://mindscribe-backend-production-ca1e.up.railway.app",
+      "router": {},
+      "eas": {
+        "projectId": "5097b0d1-f21e-4a52-9ce4-a7269df5634f"
+      }
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mindscribe.mobile"
     },
     "android": {
+      "package": "com.mindscribe.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +56,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5097b0d1-f21e-4a52-9ce4-a7269df5634f"
     }
   }
 }

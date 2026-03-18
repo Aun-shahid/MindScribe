@@ -12,9 +12,9 @@ from .views import (
     PatientSessionsListView, SessionEmotionalAnalysisView, SessionTranscriptionView,
     TherapistMoodAlertsView, PatientMoodSummaryView, MySessionsView,
     UpcomingSessionsView, PastSessionsView,
-    # New availability and booking views
+    # Availability views
     TherapistAvailabilityView, TherapistDateOverrideView,
-    AvailableSlotsView, PatientBookSessionView, EmergencySessionRequestView,
+    AvailableSlotsView,
     TherapistAvailableDatesView,
     TherapistPatientMoodTrendView
 )
@@ -60,11 +60,9 @@ urlpatterns = [
     path('schedule/recurring/', RecurringSessionScheduleView.as_view(), name='schedule_recurring_sessions'),
     path('schedule/bulk-update/', BulkSessionUpdateView.as_view(), name='bulk_update_sessions'),
     
-    # Patient booking
+    # Patient availability lookup
     path('booking/slots/', AvailableSlotsView.as_view(), name='available_slots'),
     path('booking/dates/', TherapistAvailableDatesView.as_view(), name='available_dates'),
-    path('booking/book/', PatientBookSessionView.as_view(), name='book_session'),
-    path('booking/emergency/', EmergencySessionRequestView.as_view(), name='emergency_session'),
     
     # Session analysis and transcription
     path('sessions/<uuid:session_id>/analysis/', SessionEmotionalAnalysisView.as_view(), name='session_emotional_analysis'),

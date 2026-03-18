@@ -1,4 +1,3 @@
-import os
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
@@ -9,6 +8,7 @@ from .notification_center import create_notification
 
 DEFAULT_DAILY_REMINDER_WINDOW_MINUTES = 5
 DEFAULT_SESSION_REMINDER_WINDOW_MINUTES = 10
+DEFAULT_THERAPIST_SESSION_LOOKAHEAD_HOURS = 48
 ACTIVE_SESSION_STATUSES = ('UPCOMING', 'RESCHEDULED', 'scheduled')
 
 
@@ -40,16 +40,17 @@ def _session_window_minutes():
     return int(getattr(settings, 'SESSION_REMINDER_WINDOW_MINUTES', DEFAULT_SESSION_REMINDER_WINDOW_MINUTES))
 
 
-def _attempt_push_notification(preference, notification):
-    """Attempt push delivery and persist push delivery error when it fails."""
-    if not preference.push_token:
-        return False
-
-    sent, error = send_push_notification(preference, notification)
-    if not sent and error:
-        notification.push_error = error
-        notification.save(update_fields=['push_error'])
-    return sent
+def _therapist_session_lookahead_hours():
+    raw_value = getattr(
+        settings,
+        'THERAPIST_SESSION_REMINDER_LOOKAHEAD_HOURS',
+        DEFAULT_THERAPIST_SESSION_LOOKAHEAD_HOURS,
+    )
+    try:
+        hours = int(raw_value)
+    except (TypeError, ValueError):
+        hours = DEFAULT_THERAPIST_SESSION_LOOKAHEAD_HOURS
+    return max(1, hours)
 
 
 def send_session_reminder_notifications():
@@ -57,7 +58,7 @@ def send_session_reminder_notifications():
     Check for upcoming sessions and send reminder notifications
     based on each patient's notification preferences.
     
-    This function should be called periodically (recommended every minute via Celery Beat)
+    This function should be called periodically by the in-app APScheduler tick.
     """
     now = timezone.now()
     sent_count = 0
@@ -106,12 +107,59 @@ def send_session_reminder_notifications():
                         'hours_until': hours_until,
                     },
                 )
-                notification = notification_result['notification']
-                
-                _attempt_push_notification(pref, notification)
-                
+
                 sent_count += 1
     
+    return sent_count
+
+
+def send_therapist_upcoming_session_notifications():
+    """
+    Send one reminder to therapists when a session is approaching soon.
+
+    A reminder is created once per session when it enters the configured
+    lookahead window so it shows up in the therapist's session notifications.
+    """
+    now = timezone.now()
+    sent_count = 0
+    lookahead = timedelta(hours=_therapist_session_lookahead_hours())
+
+    upcoming_sessions = Session.objects.filter(
+        status__in=ACTIVE_SESSION_STATUSES,
+        scheduled_date__gte=now,
+        scheduled_date__lte=now + lookahead,
+    ).select_related('patient', 'therapist')
+
+    for session in upcoming_sessions:
+        existing_notification = Notification.objects.filter(
+            patient=session.therapist,
+            notification_type='session_reminder',
+            session_id=str(session.id),
+        ).exists()
+
+        if existing_notification:
+            continue
+
+        create_notification(
+            recipient=session.therapist,
+            notification_type='session_reminder',
+            title='Upcoming Session Approaching',
+            message=(
+                f'You have an upcoming session with {session.patient.full_name} on '
+                f'{_format_session_datetime(_session_datetime(session))}. '
+                'Review prior notes and prepare for the session.'
+            ),
+            session_id=str(session.id),
+            action_url=f'/sessions/{session.id}/view',
+            source_event='session.reminder.therapist',
+            metadata={
+                'session_id': str(session.id),
+                'recipient_role': 'therapist',
+                'lookahead_hours': _therapist_session_lookahead_hours(),
+            },
+        )
+        sent_count += 1
+
     return sent_count
 
 
@@ -141,11 +189,7 @@ def send_session_summary_notification(session):
         source_event='session.summary.available',
         metadata={'session_id': str(session.id)},
     )
-    notification = notification_result['notification']
-    
-    _attempt_push_notification(pref, notification)
-    
-    return notification
+    return notification_result['notification']
 
 
 def send_session_approved_notification(session):
@@ -174,11 +218,7 @@ def send_session_approved_notification(session):
         source_event='session.approved',
         metadata={'session_id': str(session.id)},
     )
-    notification = notification_result['notification']
-    
-    _attempt_push_notification(pref, notification)
-    
-    return notification
+    return notification_result['notification']
 
 
 def send_session_cancelled_notification(session, cancelled_by='therapist'):
@@ -211,11 +251,7 @@ def send_session_cancelled_notification(session, cancelled_by='therapist'):
             'cancelled_by': cancelled_by,
         },
     )
-    notification = notification_result['notification']
-    
-    _attempt_push_notification(pref, notification)
-    
-    return notification
+    return notification_result['notification']
 
 
 def send_mood_reminder_notifications():
@@ -264,10 +300,7 @@ def send_mood_reminder_notifications():
                     action_url='/mood',
                     source_event='mood.reminder',
                 )
-                notification = notification_result['notification']
-                
-                _attempt_push_notification(pref, notification)
-                
+
                 sent_count += 1
     
     return sent_count
@@ -319,127 +352,7 @@ def send_journal_reminder_notifications():
                     action_url='/journal',
                     source_event='journal.reminder',
                 )
-                notification = notification_result['notification']
-                
-                _attempt_push_notification(pref, notification)
-                
+
                 sent_count += 1
     
     return sent_count
-
-
-def send_push_notification(preference, notification):
-    """
-    Send push notification via Firebase Cloud Messaging when configured.
-    
-    Args:
-        preference: NotificationPreference object with push_token and device_type
-        notification: Notification object to send
-    
-    Returns:
-        tuple[bool, str|None]: (sent, error_message)
-    """
-    if not preference.push_token:
-        return False, 'missing_push_token'
-
-    try:
-        import firebase_admin
-        from firebase_admin import credentials, messaging
-    except Exception:
-        return False, 'firebase_admin_not_installed'
-
-    try:
-        if not firebase_admin._apps:
-            credentials_path = os.environ.get('FIREBASE_CREDENTIALS_PATH') or getattr(settings, 'FIREBASE_CREDENTIALS_PATH', None)
-            if credentials_path:
-                cred = credentials.Certificate(credentials_path)
-                firebase_admin.initialize_app(cred)
-            else:
-                firebase_admin.initialize_app()
-
-        message = messaging.Message(
-            notification=messaging.Notification(
-                title=notification.title,
-                body=notification.message,
-            ),
-            data={
-                'notification_id': str(notification.id),
-                'type': notification.notification_type,
-                'action_url': notification.action_url or '',
-            },
-            token=preference.push_token,
-        )
-
-        messaging.send(message)
-
-        notification.push_sent = True
-        notification.push_sent_at = timezone.now()
-        notification.push_error = None
-        notification.save(update_fields=['push_sent', 'push_sent_at', 'push_error'])
-
-        return True, None
-    except Exception as exc:
-        return False, str(exc)
-
-
-def retry_failed_push_notifications(max_to_process=200, dead_letter_after_hours=24):
-    """
-    Retry failed/unsent push notifications and dead-letter stale ones.
-
-    Strategy:
-    - Retry unsent notifications that are newer than dead-letter threshold.
-    - Mark older unsent notifications as dead-lettered (stored in push_error).
-
-    Returns:
-        dict with counters for processed/retried/sent/failed/dead_lettered
-    """
-    now = timezone.now()
-    stale_cutoff = now - timedelta(hours=max(1, int(dead_letter_after_hours)))
-    limit = max(1, int(max_to_process))
-
-    pending = Notification.objects.filter(
-        push_sent=False
-    ).exclude(
-        push_error__startswith='dead_letter:'
-    ).select_related('patient').order_by('sent_at')[:limit]
-
-    processed = 0
-    retried = 0
-    sent = 0
-    failed = 0
-    dead_lettered = 0
-
-    for notification in pending:
-        processed += 1
-
-        if notification.sent_at and notification.sent_at < stale_cutoff:
-            existing = notification.push_error or 'stale_notification'
-            notification.push_error = f'dead_letter:{existing}'
-            notification.save(update_fields=['push_error'])
-            dead_lettered += 1
-            continue
-
-        pref = getattr(notification.patient, 'notification_preferences', None)
-        if not pref or not pref.push_token:
-            notification.push_error = 'missing_push_token'
-            notification.save(update_fields=['push_error'])
-            failed += 1
-            continue
-
-        retried += 1
-        push_sent, push_error = send_push_notification(pref, notification)
-        if push_sent:
-            sent += 1
-            continue
-
-        notification.push_error = push_error or 'push_retry_failed'
-        notification.save(update_fields=['push_error'])
-        failed += 1
-
-    return {
-        'processed': processed,
-        'retried': retried,
-        'sent': sent,
-        'failed': failed,
-        'dead_lettered': dead_lettered,
-    }

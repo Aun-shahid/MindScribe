@@ -13,9 +13,23 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta # Import timedelta for JWT settings
 import os # Import os for environment variables
+import sys
 from dotenv import load_dotenv # Import load_dotenv for .env file support
 import dj_database_url # Import dj_database_url for DATABASE_URL support
-from celery.schedules import crontab
+
+
+def env_bool(key: str, default: bool) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return default
+    return value.lower() == "true"
+
+
+def env_list(key: str, default: list[str] | None = None) -> list[str]:
+    value = os.environ.get(key, "").strip()
+    if value:
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return list(default or [])
 
 # Load environment variables from .env file (if it exists)
 # Make sure your .env file is in the same directory as manage.py
@@ -34,12 +48,15 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-xlb)p+*0f81&n^
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # IMPORTANT: In production, set DEBUG to False!
-DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
+DEBUG = env_bool("DJANGO_DEBUG", True)
 
 # ALLOWED_HOSTS for production. Add your domain and Elastic Beanstalk URL here.
 # For development, if DEBUG is True, ['*'] is often used, but it's safer to specify.
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if os.environ.get("DJANGO_ALLOWED_HOSTS") else []
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    ["localhost", "127.0.0.1", ".localhost", ".railway.app"],
+)
 
 
 # Application definition
@@ -106,11 +123,22 @@ WSGI_APPLICATION = "app.wsgi.application"
 ASGI_APPLICATION = "app.asgi.application"
 
 # Channels layer configuration
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+# Uses Redis in production (set REDIS_URL env var), falls back to in-memory for local dev
+if os.environ.get("REDIS_URL"):
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [os.environ.get("REDIS_URL")],
+            },
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 
 # Database
@@ -121,6 +149,23 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
 }
+
+# Avoid collisions when multiple local test runs target the same Postgres test DB.
+# You can override with DJANGO_TEST_DATABASE_NAME for deterministic keepdb workflows.
+if 'test' in sys.argv:
+    default_db = DATABASES.get('default', {})
+    test_config = default_db.setdefault('TEST', {})
+    explicit_test_name = os.environ.get('DJANGO_TEST_DATABASE_NAME', '').strip()
+
+    if explicit_test_name:
+        test_config['NAME'] = explicit_test_name
+    else:
+        engine = str(default_db.get('ENGINE', ''))
+        if engine.endswith('postgresql'):
+            db_name = str(default_db.get('NAME') or 'railway')
+            base_test_name = db_name if db_name.startswith('test_') else f'test_{db_name}'
+            unique_name = f'{base_test_name}_{os.getpid()}'
+            test_config.setdefault('NAME', unique_name[:63])
 
 
 # Password validation
@@ -238,17 +283,31 @@ SIMPLE_JWT = {
 # ]
 
 
-# Enable this setting to allow requests from all origins
-CORS_ALLOW_ALL_ORIGINS = True
+# In development, allow all origins by default unless overridden.
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", DEBUG)
+
+if CORS_ALLOW_ALL_ORIGINS:
+    CORS_ALLOWED_ORIGINS = []
+else:
+    CORS_ALLOWED_ORIGINS = env_list(
+        "CORS_ALLOWED_ORIGINS",
+        [
+            os.environ.get("FRONTEND_URL", "http://localhost:3000"),
+            "http://127.0.0.1:3000",
+        ],
+    )
 
 CORS_ALLOW_CREDENTIALS = True # Allow cookies/auth headers to be sent cross-origin
 
 # CSRF Trusted Origins for Railway and Localhood
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.railway.app",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    [
+        "https://*.railway.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+)
 
 # DRF Spectacular (OpenAPI/Swagger) settings
 SPECTACULAR_SETTINGS = {
@@ -273,51 +332,14 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# Celery settings (for background tasks like reminders, retries, AI pipeline)
-# IMPORTANT: Use environment variables for production.
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_ENABLE_UTC = USE_TZ
-
 # Reminder matching windows
 DAILY_REMINDER_WINDOW_MINUTES = int(os.environ.get('DAILY_REMINDER_WINDOW_MINUTES', '5'))
 SESSION_REMINDER_WINDOW_MINUTES = int(os.environ.get('SESSION_REMINDER_WINDOW_MINUTES', '10'))
 
-# Push retry/dead-letter controls
-PUSH_RETRY_MAX_TO_PROCESS = int(os.environ.get('PUSH_RETRY_MAX_TO_PROCESS', '200'))
-PUSH_DEAD_LETTER_AFTER_HOURS = int(os.environ.get('PUSH_DEAD_LETTER_AFTER_HOURS', '24'))
-
-# Celery Beat periodic tasks for reminders and delivery retries
-CELERY_BEAT_SCHEDULE = {
-    'send-session-reminders-every-minute': {
-        'task': 'patients.tasks.send_session_reminder_notifications_task',
-        'schedule': crontab(),
-    },
-    'send-mood-reminders-every-minute': {
-        'task': 'patients.tasks.send_mood_reminder_notifications_task',
-        'schedule': crontab(),
-    },
-    'send-journal-reminders-every-minute': {
-        'task': 'patients.tasks.send_journal_reminder_notifications_task',
-        'schedule': crontab(),
-    },
-    'retry-failed-push-every-5-minutes': {
-        'task': 'patients.tasks.retry_failed_push_notifications_task',
-        'schedule': crontab(minute='*/5'),
-        'kwargs': {
-            'max_to_process': PUSH_RETRY_MAX_TO_PROCESS,
-            'dead_letter_after_hours': PUSH_DEAD_LETTER_AFTER_HOURS,
-        },
-    },
-    'retry-failed-websocket-every-minute': {
-        'task': 'patients.tasks.retry_failed_websocket_notifications_task',
-        'schedule': crontab(),
-    },
-}
+# In-app reminder scheduler interval (seconds). Clamped to 10-60 in scheduler code.
+IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS = int(
+    os.environ.get('IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS', '30')
+)
 
 # AWS S3 Storage settings (using django-storages and boto3)
 # Only enable these if you are ready to use S3 for file storage

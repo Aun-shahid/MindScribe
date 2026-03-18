@@ -270,10 +270,6 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
         ('Other Notifications', {
             'fields': ('goal_reminders_enabled', 'therapist_messages_enabled')
         }),
-        ('Push Notifications', {
-            'fields': ('push_token', 'device_type'),
-            'classes': ('collapse',)
-        }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
@@ -283,11 +279,11 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['patient', 'notification_type', 'title', 'is_read', 'push_sent', 'sent_at']
-    list_filter = ['notification_type', 'is_read', 'push_sent', 'sent_at']
+    list_display = ['patient', 'notification_type', 'title', 'is_read', 'sent_at']
+    list_filter = ['notification_type', 'is_read', 'sent_at']
     search_fields = ['patient__email', 'patient__first_name', 'patient__last_name', 'title', 'message']
     date_hierarchy = 'sent_at'
-    readonly_fields = ['sent_at', 'read_at', 'push_sent_at']
+    readonly_fields = ['sent_at', 'read_at']
     ordering = ['-sent_at']
     
     fieldsets = (
@@ -303,10 +299,6 @@ class NotificationAdmin(admin.ModelAdmin):
         }),
         ('Status', {
             'fields': ('is_read', 'read_at')
-        }),
-        ('Push Notification', {
-            'fields': ('push_sent', 'push_sent_at', 'push_error'),
-            'classes': ('collapse',)
         }),
         ('Timestamps', {
             'fields': ('sent_at',),
