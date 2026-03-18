@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     MoodEntry, JournalEntry, EmotionalInsight,
     RelaxationContent, RelaxationSession, DailyInspiration, PatientGoal, RelaxationTip, JournalPrompt,
-    NotificationPreference, Notification
+    NotificationPreference, Notification, NotificationDevice
 )
 
 
@@ -302,6 +302,28 @@ class NotificationAdmin(admin.ModelAdmin):
         }),
         ('Timestamps', {
             'fields': ('sent_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(NotificationDevice)
+class NotificationDeviceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'platform', 'is_active', 'device_id', 'updated_at']
+    list_filter = ['platform', 'is_active', 'created_at']
+    search_fields = ['user__email', 'user__first_name', 'user__last_name', 'expo_push_token', 'device_id']
+    readonly_fields = ['created_at', 'updated_at', 'last_seen_at']
+    ordering = ['-updated_at']
+
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Device', {
+            'fields': ('expo_push_token', 'device_id', 'platform', 'is_active')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'last_seen_at'),
             'classes': ('collapse',)
         }),
     )

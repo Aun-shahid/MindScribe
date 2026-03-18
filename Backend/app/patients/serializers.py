@@ -3,7 +3,7 @@ from .services.notification_categories import get_notification_category
 from .models import (
     MoodEntry, JournalEntry, EmotionalInsight, 
     RelaxationContent, RelaxationSession, DailyInspiration, PatientGoal, RelaxationTip, JournalPrompt,
-    NotificationPreference, Notification, ActivityLog
+    NotificationPreference, Notification, NotificationDevice, ActivityLog
 )
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -387,6 +387,45 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def get_category(self, obj):
         return get_notification_category(obj)
+
+
+class DevicePushTokenSerializer(serializers.Serializer):
+    """Register/update an Expo push token for the authenticated device."""
+
+    push_token = serializers.CharField(max_length=255)
+    device_id = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    platform = serializers.ChoiceField(
+        choices=[
+            NotificationDevice.PLATFORM_IOS,
+            NotificationDevice.PLATFORM_ANDROID,
+            NotificationDevice.PLATFORM_UNKNOWN,
+        ],
+        required=False,
+        default=NotificationDevice.PLATFORM_UNKNOWN,
+    )
+
+    def validate_push_token(self, value):
+        token = (value or '').strip()
+        if not token:
+            raise serializers.ValidationError('Push token is required.')
+
+        valid_prefixes = ('ExpoPushToken[', 'ExponentPushToken[')
+        if not token.startswith(valid_prefixes):
+            raise serializers.ValidationError('Invalid Expo push token format.')
+
+        return token
+
+
+class DevicePushTokenUnregisterSerializer(serializers.Serializer):
+    """Unregister/deactivate a push token (or all current user tokens)."""
+
+    push_token = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    device_id = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+
+    def validate(self, attrs):
+        attrs['push_token'] = (attrs.get('push_token') or '').strip() or None
+        attrs['device_id'] = (attrs.get('device_id') or '').strip() or None
+        return attrs
         
 class ActivityLogSerializer(serializers.ModelSerializer):
     """Serializer for activity logs"""

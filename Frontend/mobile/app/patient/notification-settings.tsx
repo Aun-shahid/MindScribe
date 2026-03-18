@@ -24,6 +24,7 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [registeredPushToken, setRegisteredPushToken] = useState<string | null>(null);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [showJournalPicker, setShowJournalPicker] = useState(false);
 
@@ -65,6 +66,38 @@ export default function NotificationSettings() {
     load();
     loadUnreadCount();
   }, [loadUnreadCount]);
+
+  useEffect(() => {
+    const bootstrapPushState = async () => {
+      try {
+        const token = await registerForPush({
+          silent: true,
+          requestPermissions: false,
+        });
+
+        if (!token) {
+          setPushEnabled(false);
+          setRegisteredPushToken(null);
+          return;
+        }
+
+        await PatientService.registerDevicePushToken({
+          push_token: token,
+          platform: getDevicePlatform(),
+          device_id: token,
+        });
+
+        setRegisteredPushToken(token);
+        setPushEnabled(true);
+      } catch (error) {
+        console.warn('[NotifySettings] bootstrap push registration skipped', error);
+        setPushEnabled(false);
+        setRegisteredPushToken(null);
+      }
+    };
+
+    bootstrapPushState();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -157,21 +190,58 @@ export default function NotificationSettings() {
     );
   }
 
-  const registerForPush = async () => {
+  const registerForPush = async (
+    options: { silent?: boolean; requestPermissions?: boolean } = {}
+  ): Promise<string | null> => {
+    const { silent = false, requestPermissions = true } = options;
     const isExpoGo = Constants.appOwnership === 'expo';
     if (!Device.isDevice || isExpoGo) {
-      Alert.alert(
-        'Push not available in Expo Go',
-        'Use a development build or production app to test push notifications. In Expo Go this toggle stays off.'
-      );
+      if (!silent) {
+        Alert.alert(
+          'Push not available in Expo Go',
+          'Use a development build or production app to test push notifications. In Expo Go this toggle stays off.'
+        );
+      }
       return null;
     }
 
-    Alert.alert(
-      'Push Setup Required',
-      'Push token registration is not yet implemented in this screen. Add expo-notifications token flow to enable this.'
-    );
-    return null;
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      let granted = current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+
+      if (!granted && requestPermissions) {
+        const requested = await Notifications.requestPermissionsAsync();
+        granted = requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      }
+
+      if (!granted) {
+        if (!silent) {
+          Alert.alert('Permission Required', 'Enable notifications in device settings to receive push alerts.');
+        }
+        return null;
+      }
+
+      const projectId =
+        (Constants.expoConfig as any)?.extra?.eas?.projectId ||
+        (Constants as any)?.easConfig?.projectId;
+
+      if (!projectId) {
+        if (!silent) {
+          Alert.alert('Push setup missing', 'Expo project ID is missing. Configure EAS project ID to enable push notifications.');
+        }
+        return null;
+      }
+
+      const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+      const token = tokenResponse?.data ?? null;
+      return token;
+    } catch (error) {
+      console.error('[NotifySettings] registerForPush error', error);
+      if (!silent) {
+        Alert.alert('Push setup failed', 'Unable to register this device for push notifications.');
+      }
+      return null;
+    }
   };
 
   return (
@@ -312,14 +382,30 @@ export default function NotificationSettings() {
                 if (v) {
                   const token = await registerForPush();
                   if (token) {
+                    await PatientService.registerDevicePushToken({
+                      push_token: token,
+                      platform: getDevicePlatform(),
+                      device_id: token,
+                    });
+                    setRegisteredPushToken(token);
                     setPushEnabled(true);
+                    Alert.alert('Enabled', 'Push notifications are enabled for this device.');
                     return;
                   }
                   setPushEnabled(false);
+                  setRegisteredPushToken(null);
                   return;
                 }
 
+                try {
+                  await PatientService.unregisterDevicePushToken(
+                    registeredPushToken ? { push_token: registeredPushToken } : undefined
+                  );
+                } catch (error) {
+                  console.warn('[NotifySettings] unregister push token failed', error);
+                }
                 setPushEnabled(false);
+                setRegisteredPushToken(null);
               }}
               trackColor={{ false: '#5B5270', true: '#FF6B9D' }}
               thumbColor="#FFFFFF"
@@ -435,15 +521,6 @@ export default function NotificationSettings() {
               />
             </View>
 
-            <View style={styles.settingRowInCard}>
-              <Text style={styles.settingLabel}>Therapist Messages</Text>
-              <Switch 
-                value={!!prefs.therapist_messages_enabled}
-                onValueChange={(v) => setPrefs({ ...prefs, therapist_messages_enabled: v })}
-                trackColor={{ false: '#5B5270', true: '#B8A8E6' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
           </View>
         </View>
 
@@ -551,7 +628,7 @@ function buildPreferencesPayload(prefs: any): Record<string, any> {
     mood_reminder_time: prefs?.mood_reminder_time,
     journal_reminder_enabled: !!prefs?.journal_reminder_enabled,
     journal_reminder_time: prefs?.journal_reminder_time,
-    therapist_messages_enabled: !!prefs?.therapist_messages_enabled,
+    therapist_messages_enabled: false,
   };
 }
 
@@ -561,6 +638,18 @@ function parseMoodTime(rawTime?: string | null): Date {
 
 function parseJournalTime(rawTime?: string | null): Date {
   return parseTimeValue(rawTime, 21, 0);
+}
+
+function getDevicePlatform(): 'ios' | 'android' | 'unknown' {
+  if (Platform.OS === 'ios') {
+    return 'ios';
+  }
+
+  if (Platform.OS === 'android') {
+    return 'android';
+  }
+
+  return 'unknown';
 }
 
 async function ensureLocalNotificationPermissions(): Promise<boolean> {

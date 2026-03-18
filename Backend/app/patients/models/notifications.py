@@ -195,3 +195,47 @@ class Notification(models.Model):
         self.delivery_error = None
         self.next_retry_at = None
         self.save(update_fields=['delivery_status', 'delivered_at', 'delivery_error', 'next_retry_at'])
+
+
+class NotificationDevice(models.Model):
+    """Registered devices/tokens used for remote push notifications."""
+
+    PLATFORM_IOS = 'ios'
+    PLATFORM_ANDROID = 'android'
+    PLATFORM_UNKNOWN = 'unknown'
+
+    PLATFORM_CHOICES = [
+        (PLATFORM_IOS, 'iOS'),
+        (PLATFORM_ANDROID, 'Android'),
+        (PLATFORM_UNKNOWN, 'Unknown'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notification_devices',
+    )
+    expo_push_token = models.CharField(max_length=255, unique=True)
+    device_id = models.CharField(max_length=255, null=True, blank=True)
+    platform = models.CharField(
+        max_length=20,
+        choices=PLATFORM_CHOICES,
+        default=PLATFORM_UNKNOWN,
+    )
+    is_active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_devices'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['platform', 'is_active']),
+        ]
+
+    def __str__(self):
+        suffix = self.expo_push_token[-10:] if self.expo_push_token else 'none'
+        return f"{self.user.full_name} ({self.platform}) ...{suffix}"

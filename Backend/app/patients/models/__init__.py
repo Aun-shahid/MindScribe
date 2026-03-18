@@ -10,7 +10,7 @@ from .emotional_insights import EmotionalInsight
 from .relaxation import RelaxationContent, RelaxationSession, RelaxationTip
 from .goals import PatientGoal
 from .inspiration import DailyInspiration
-from .notifications import NotificationPreference, Notification
+from .notifications import NotificationPreference, Notification, NotificationDevice
 from .activities import ActivityLog
 __all__ = [
     'MoodEntry',
@@ -24,5 +24,6 @@ __all__ = [
     'DailyInspiration',
     'NotificationPreference',
     'Notification',
+    'NotificationDevice',
     'ActivityLog',
 ]

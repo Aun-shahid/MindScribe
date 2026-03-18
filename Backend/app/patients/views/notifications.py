@@ -3,8 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from ..models import NotificationPreference, Notification
-from ..serializers import NotificationPreferenceSerializer, NotificationSerializer
+from ..models import NotificationPreference, Notification, NotificationDevice
+from ..serializers import (
+    NotificationPreferenceSerializer,
+    NotificationSerializer,
+    DevicePushTokenSerializer,
+    DevicePushTokenUnregisterSerializer,
+)
 from ..services.notification_categories import (
     VALID_NOTIFICATION_CATEGORIES,
     apply_notification_category_filter,
@@ -45,6 +50,118 @@ class NotificationPreferenceView(generics.RetrieveUpdateAPIView):
     
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
+
+
+@extend_schema(tags=['Patient Notifications'])
+class DevicePushTokenView(APIView):
+    """Register or unregister push tokens for the authenticated patient."""
+
+    permission_classes = [permissions.IsAuthenticated, IsPatient]
+
+    @extend_schema(
+        summary="Register device push token",
+        description="Registers or refreshes an Expo push token for this patient device.",
+        request=DevicePushTokenSerializer,
+        responses={
+            200: OpenApiResponse(
+                description='Push token registered',
+                response={
+                    'type': 'object',
+                    'properties': {
+                        'detail': {'type': 'string'},
+                        'token_id': {'type': 'string'},
+                        'is_active': {'type': 'boolean'},
+                    },
+                },
+            )
+        },
+    )
+    def post(self, request):
+        serializer = DevicePushTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        push_token = serializer.validated_data['push_token']
+        device_id = serializer.validated_data.get('device_id')
+        platform = serializer.validated_data.get('platform', NotificationDevice.PLATFORM_UNKNOWN)
+
+        token, _ = NotificationDevice.objects.get_or_create(
+            expo_push_token=push_token,
+            defaults={
+                'user': request.user,
+                'device_id': device_id,
+                'platform': platform,
+                'is_active': True,
+            },
+        )
+
+        changed_fields = []
+        if token.user_id != request.user.id:
+            token.user = request.user
+            changed_fields.append('user')
+        if token.device_id != device_id:
+            token.device_id = device_id
+            changed_fields.append('device_id')
+        if token.platform != platform:
+            token.platform = platform
+            changed_fields.append('platform')
+        if not token.is_active:
+            token.is_active = True
+            changed_fields.append('is_active')
+
+        if changed_fields:
+            changed_fields.extend(['last_seen_at', 'updated_at'])
+            token.save(update_fields=changed_fields)
+        else:
+            token.save(update_fields=['last_seen_at', 'updated_at'])
+
+        return Response(
+            {
+                'detail': 'Push token registered successfully.',
+                'token_id': str(token.id),
+                'is_active': token.is_active,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        summary="Unregister device push token",
+        description="Deactivates a push token for this patient. If no token/device is provided, all patient tokens are deactivated.",
+        request=DevicePushTokenUnregisterSerializer,
+        responses={
+            200: OpenApiResponse(
+                description='Push token(s) unregistered',
+                response={
+                    'type': 'object',
+                    'properties': {
+                        'detail': {'type': 'string'},
+                        'deactivated_count': {'type': 'integer'},
+                    },
+                },
+            )
+        },
+    )
+    def delete(self, request):
+        serializer = DevicePushTokenUnregisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        push_token = serializer.validated_data.get('push_token')
+        device_id = serializer.validated_data.get('device_id')
+
+        queryset = NotificationDevice.objects.filter(user=request.user, is_active=True)
+        if push_token:
+            queryset = queryset.filter(expo_push_token=push_token)
+        elif device_id:
+            queryset = queryset.filter(device_id=device_id)
+
+        deactivated_count = queryset.update(is_active=False, updated_at=timezone.now())
+
+        return Response(
+            {
+                'detail': 'Push token(s) deactivated successfully.',
+                'deactivated_count': deactivated_count,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(tags=['Patient Notifications'])

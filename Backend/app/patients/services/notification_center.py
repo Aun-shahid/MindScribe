@@ -5,6 +5,7 @@ from channels.layers import get_channel_layer
 from django.utils import timezone
 
 from ..models import Notification
+from .push_notifications import send_push_for_notification
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,20 @@ def create_notification(
     notification_level="info",
     related_entity_id=None,
 ):
+    if notification_type == 'therapist_message':
+        return {
+            "notification": None,
+            "payload": None,
+            "websocket_delivered": False,
+            "websocket_error": "therapist_message_disabled",
+            "push": {
+                "attempted": False,
+                "reason": "therapist_message_disabled",
+                "success_count": 0,
+                "failure_count": 0,
+            },
+        }
+
     persisted_notification = None
 
     if persist:
@@ -174,6 +189,12 @@ def create_notification(
 
     websocket_delivered = False
     websocket_error = None
+    push_result = {
+        "attempted": False,
+        "reason": "send_realtime_disabled",
+        "success_count": 0,
+        "failure_count": 0,
+    }
     if send_realtime:
         try:
             websocket_delivered, websocket_error = push_notification_to_websocket(recipient, payload)
@@ -183,9 +204,28 @@ def create_notification(
 
         _record_delivery_result(persisted_notification, websocket_delivered, websocket_error)
 
+        try:
+            push_result = send_push_for_notification(
+                recipient=recipient,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            logger.exception("Failed to send push notification: %s", exc)
+            push_result = {
+                "attempted": True,
+                "reason": "push_send_exception",
+                "success_count": 0,
+                "failure_count": 1,
+                "errors": [{"error": str(exc)}],
+            }
+
     return {
         "notification": persisted_notification,
         "payload": payload,
         "websocket_delivered": websocket_delivered,
         "websocket_error": websocket_error,
+        "push": push_result,
     }

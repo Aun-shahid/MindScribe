@@ -173,7 +173,12 @@ class TherapySessionConsumer(AsyncWebsocketConsumer):
             
             # Handle different message types
             if message_type == 'session_message':
-                await self.handle_session_message(text_data_json)
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Session chat is disabled',
+                    'code': 'SESSION_CHAT_DISABLED'
+                }))
+                return
             elif message_type == 'session_control':
                 await self.handle_session_control(text_data_json)
             elif message_type == 'audio_data':

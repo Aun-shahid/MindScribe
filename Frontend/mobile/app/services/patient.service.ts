@@ -564,6 +564,16 @@ class PatientService {
     return response.data;
   }
 
+  async registerDevicePushToken(data: { push_token: string; device_id?: string; platform?: 'ios' | 'android' | 'unknown' }): Promise<any> {
+    const response = await api.post('/patients/notifications/device-token/', data);
+    return response.data;
+  }
+
+  async unregisterDevicePushToken(data?: { push_token?: string; device_id?: string }): Promise<any> {
+    const response = await api.delete('/patients/notifications/device-token/', { data });
+    return response.data;
+  }
+
   async getNotifications(params?: Record<string, any>): Promise<any[]> {
     const response = await api.get<any[]>('/patients/notifications/', { params });
     return response.data;
