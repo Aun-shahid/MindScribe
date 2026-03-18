@@ -22,9 +22,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
           cache-dependency-path: Frontend/mobile/package-lock.json
+
+      - name: Validate Expo token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "EXPO_TOKEN secret is missing. Add it in GitHub repo secrets."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
@@ -38,19 +45,19 @@ jobs:
       - name: Publish OTA update (dev -> preview)
         if: github.ref_name == 'dev'
         env:
+          CI: '1'
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas update \
             --branch preview \
-            --message "CI OTA: ${GITHUB_SHA}" \
-            --non-interactive
+            --message "CI OTA: ${GITHUB_SHA}"
 
       - name: Publish OTA update (main -> production)
         if: github.ref_name == 'main'
         env:
+          CI: '1'
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas update \
             --branch production \
-            --message "CI OTA: ${GITHUB_SHA}" \
-            --non-interactive
+            --message "CI OTA: ${GITHUB_SHA}"
