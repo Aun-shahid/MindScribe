@@ -26,24 +26,30 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/mobile/package-lock.json
 
-      - name: Validate Expo token
+      - name: Detect Expo token
+        id: expo_auth
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "EXPO_TOKEN secret is missing. Add it in GitHub repo secrets."
-            exit 1
+            echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "::warning::EXPO_TOKEN is missing. Skipping OTA publish for this run."
+          else
+            echo "has_token=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Install dependencies
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: npm ci
 
       - name: Install EAS CLI
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: npm install -g eas-cli
 
       - name: Validate Expo config
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: npx expo-doctor
 
       - name: Publish OTA update (dev -> preview)
-        if: github.ref_name == 'dev'
+        if: github.ref_name == 'dev' && steps.expo_auth.outputs.has_token == 'true'
         env:
           CI: '1'
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -53,7 +59,7 @@ jobs:
             --message "CI OTA: ${GITHUB_SHA}"
 
       - name: Publish OTA update (main -> production)
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'main' && steps.expo_auth.outputs.has_token == 'true'
         env:
           CI: '1'
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -61,3 +67,7 @@ jobs:
           eas update \
             --branch production \
             --message "CI OTA: ${GITHUB_SHA}"
+
+      - name: OTA skipped (missing token)
+        if: steps.expo_auth.outputs.has_token != 'true'
+        run: echo "OTA publish skipped because EXPO_TOKEN is not configured."
