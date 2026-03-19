@@ -429,8 +429,19 @@ export default function NotificationSettings() {
               value={pushEnabled}
               onValueChange={async (v: boolean) => {
                 if (v) {
+                  setPushEnabled(true);
+                  await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
+
                   const token = await registerForPush();
-                  if (token) {
+                  if (!token) {
+                    Alert.alert(
+                      'Enabled',
+                      'Notifications stay enabled. If device token registration is delayed, background push may start after a short while.'
+                    );
+                    return;
+                  }
+
+                  try {
                     await PatientService.registerDevicePushToken({
                       push_token: token,
                       platform: getDevicePlatform(),
@@ -438,15 +449,16 @@ export default function NotificationSettings() {
                     });
                     setRegisteredPushToken(token);
                     await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
-                    await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
-                    setPushEnabled(true);
                     Alert.alert('Enabled', 'Push notifications are enabled for this device.');
-                    return;
+                  } catch (error) {
+                    console.warn('[NotifySettings] register push token failed', error);
+                    setRegisteredPushToken(token);
+                    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+                    Alert.alert(
+                      'Enabled with warning',
+                      'Notifications are enabled, but server sync is pending. It will retry automatically.'
+                    );
                   }
-                  setPushEnabled(false);
-                  setRegisteredPushToken(null);
-                  await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
-                  await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
                   return;
                 }
 
