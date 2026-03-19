@@ -478,6 +478,29 @@ export default function NotificationSettings() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          <TouchableOpacity
+            style={styles.pushTestButton}
+            onPress={async () => {
+              try {
+                const result = await PatientService.runPushDiagnostics();
+                const pushResult = result?.push_result || {};
+                const success = pushResult?.success_count ?? 0;
+                const failure = pushResult?.failure_count ?? 0;
+                const reason = pushResult?.reason || 'none';
+
+                Alert.alert(
+                  'Push Diagnostics',
+                  `Active tokens: ${result?.active_tokens ?? 0}\nSuccess: ${success}\nFailure: ${failure}\nReason: ${reason}`
+                );
+              } catch (error: any) {
+                const msg = error?.response?.data?.detail || error?.message || 'Unknown error';
+                Alert.alert('Push Diagnostics Failed', String(msg));
+              }
+            }}
+          >
+            <Text style={styles.pushTestButtonText}>Test Push Now</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Mood Check-in Card */}
@@ -1035,6 +1058,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
+  },
+  pushTestButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 157, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 157, 0.45)',
+  },
+  pushTestButtonText: {
+    color: '#FFB3CE',
+    fontWeight: '700',
+    fontSize: 12,
   },
   pickerCard: {
     backgroundColor: '#473F5A',
