@@ -1,35 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Alert,
-  Animated,
-} from 'react-native';
-import { Audio } from 'expo-av';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated, useWindowDimensions, Image } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Audio, ResizeMode, Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService, { RelaxationContent } from '../services/patient.service';
+import StickyHeader from '../components/StickyHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
 
-const BREATHING_IMAGES: Record<string, any> = {
-  '5min': require('../../assets/images/5minbreathe.png'),
-  '10min': require('../../assets/images/5minbreathe.png'),
-  'default': require('../../assets/images/5minbreathe.png'),
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+
+const GUIDED_DURATIONS_SECONDS = {
+  breathing: 331,
+  visualization: 1072,
+  bodyScan: 631,
 };
 
 export default function PlayBreathingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const [content, setContent] = useState<RelaxationContent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+
   const listenedMsRef = useRef(0);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const isCleaningRef = useRef(false);
+  const isSeekingRef = useRef(false);
+  const runningBubbleAnimationsRef = useRef<Animated.CompositeAnimation[]>([]);
 
   const bubble1Y = useRef(new Animated.Value(0)).current;
   const bubble1X = useRef(new Animated.Value(0)).current;
@@ -41,15 +45,58 @@ export default function PlayBreathingScreen() {
   const bubble4X = useRef(new Animated.Value(0)).current;
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadContent();
-    startBubbleAnimations();
-    setupAudio();
-    return () => {
-      cleanupAudio();
-    };
-  }, [id]);
+  const pageInset = clamp(width * 0.03, 12, 18);
+  const headerBackOffset = clamp(width * 0.018, 6, 8);
+  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding = clamp(height * 0.02, 14, 22);
+  const headerButtonSize = clamp(width * 0.098, 34, 40);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.047, 16, 20);
+  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.046, 28, 44);
+  const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
+
+  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.014, 8, 12);
+  const contentBottomPadding = clamp(insets.bottom + height * 0.03, 28, 44);
+  const contentMaxWidth = clamp(width * 0.92, 320, 460);
+
+  const bubbleLarge = clamp(width * 0.34, 100, 140);
+  const bubbleMedium = clamp(width * 0.29, 90, 120);
+  const bubbleSmall = clamp(width * 0.26, 82, 108);
+  const bubbleShiftY = clamp(height * 0.035, 16, 30);
+  const bubbleShiftX = clamp(width * 0.045, 14, 20);
+
+  const playerCardRadius = clamp(width * 0.05, 16, 22);
+  const playerCardPadding = clamp(width * 0.05, 16, 22);
+  const playerCardShadowOffsetY = clamp(height * 0.014, 6, 10);
+  const playerCardShadowRadius = clamp(width * 0.05, 12, 18);
+  const heroImageHeight = clamp(width * 0.62, 210, 290);
+
+  const titleSize = clamp(width * 0.065, 22, 30);
+  const titleMarginBottom = clamp(height * 0.012, 8, 14);
+  const subtitleSize = clamp(width * 0.034, 12, 14);
+  const subtitleMarginBottom = clamp(height * 0.022, 14, 20);
+
+  const progressMarginBottom = clamp(height * 0.026, 16, 28);
+  const progressGap = clamp(width * 0.03, 8, 12);
+  const progressBarHeight = clamp(height * 0.008, 5, 7);
+  const progressBarRadius = progressBarHeight / 2;
+  const timeTextSize = clamp(width * 0.034, 12, 14);
+  const timeTextMinWidth = clamp(width * 0.11, 38, 48);
+
+  const controlsMarginBottom = clamp(height * 0.035, 22, 38);
+  const controlGap = clamp(width * 0.065, 18, 30);
+  const skipBtnSize = clamp(width * 0.145, 48, 60);
+  const skipIconSize = clamp(width * 0.095, 28, 36);
+  const playBtnSize = clamp(width * 0.21, 72, 96);
+  const playBtnRadius = playBtnSize / 2;
+  const playIconSize = clamp(width * 0.13, 44, 60);
+
+  const donePaddingV = clamp(height * 0.018, 12, 18);
+  const doneFontSize = clamp(width * 0.043, 15, 19);
+  const doneRadius = clamp(width * 0.065, 22, 30);
 
   const setupAudio = async () => {
     try {
@@ -65,41 +112,55 @@ export default function PlayBreathingScreen() {
     }
   };
 
-  const cleanupAudio = async () => {
+  // ── KEY FIX: reset position/duration/listenedMs on cleanup ────────────────
+  const cleanupAudio = useCallback(async () => {
+    if (isCleaningRef.current) return;
+    isCleaningRef.current = true;
     try {
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-          await sound.stopAsync();
-          await sound.unloadAsync();
+      const currentSound = soundRef.current;
+      if (!currentSound) return;
+      const status = await currentSound.getStatusAsync();
+      if (status.isLoaded) {
+        try { await currentSound.pauseAsync(); } catch {}
+        try {
+          await currentSound.stopAsync();
+        } catch (err: any) {
+          const msg = String(err?.message || err || '');
+          if (!msg.toLowerCase().includes('seeking interrupted')) {
+            console.error('Error stopping audio:', err);
+          }
+        }
+        try {
+          await currentSound.unloadAsync();
+        } catch (err: any) {
+          const msg = String(err?.message || err || '');
+          if (!msg.toLowerCase().includes('seeking interrupted')) {
+            console.error('Error unloading audio:', err);
+          }
         }
       }
     } catch (err) {
       console.error('Error cleaning up audio:', err);
+    } finally {
+      soundRef.current = null;
+      listenedMsRef.current = 0; // reset listened time
+      setIsPlaying(false);
+      setPosition(0);            // reset position to start
+      setDuration(0);            // reset duration
+      isCleaningRef.current = false;
     }
-  };
+  }, []);
 
-  const loadContent = async () => {
+  const loadContent = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Playbreathing: Loading content for id:', id);
       const data = await PatientService.getRelaxationContent({});
-      console.log('Playbreathing: Total items received:', data.length);
-      
-      // Handle both string UUID and numeric IDs
-      const item = data.find((c: any) => {
-        const matches = c.id === id || c.id.toString() === id || c.id === parseInt(id || '0', 10);
-        if (matches) {
-          console.log('Found match:', c.id, c.title);
-        }
-        return matches;
-      });
-      
+      const item = data.find(
+        (c: any) => c.id === id || c.id.toString() === id || c.id === parseInt(id || '0', 10)
+      );
       if (item) {
-        console.log('Playbreathing: Content loaded:', item.title);
         setContent(item);
       } else {
-        console.log('Playbreathing: Content not found. Available IDs:', data.map((c: any) => c.id).join(', '));
         Alert.alert('Error', 'Content not found');
         router.push('./breathing-exercises');
       }
@@ -110,94 +171,128 @@ export default function PlayBreathingScreen() {
     } finally {
       setLoading(false);
     }
+  }, [id, router]);
+
+  const createFloatingAnimation = useCallback(
+    (translateY: Animated.Value, translateX: Animated.Value, dur: number, delay: number) => {
+      return Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(translateY, { toValue: -bubbleShiftY, duration: dur, delay, useNativeDriver: true }),
+            Animated.timing(translateY, { toValue: 0, duration: dur, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(translateX, { toValue: bubbleShiftX, duration: dur * 0.7, delay, useNativeDriver: true }),
+            Animated.timing(translateX, { toValue: -bubbleShiftX, duration: dur * 0.7, useNativeDriver: true }),
+            Animated.timing(translateX, { toValue: 0, duration: dur * 0.6, useNativeDriver: true }),
+          ]),
+        ])
+      );
+    },
+    [bubbleShiftX, bubbleShiftY]
+  );
+
+  const startBubbleAnimations = useCallback(() => {
+    bubble1Y.setValue(0); bubble1X.setValue(0);
+    bubble2Y.setValue(0); bubble2X.setValue(0);
+    bubble3Y.setValue(0); bubble3X.setValue(0);
+    bubble4Y.setValue(0); bubble4X.setValue(0);
+    bubble5Y.setValue(0); bubble5X.setValue(0);
+
+    const animations = [
+      createFloatingAnimation(bubble1Y, bubble1X, 4000, 0),
+      createFloatingAnimation(bubble2Y, bubble2X, 5000, 500),
+      createFloatingAnimation(bubble3Y, bubble3X, 4500, 1000),
+      createFloatingAnimation(bubble4Y, bubble4X, 5500, 1500),
+      createFloatingAnimation(bubble5Y, bubble5X, 4800, 2000),
+    ];
+    animations.forEach(anim => anim.start());
+    return animations;
+  }, [
+    bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X,
+    bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y,
+    createFloatingAnimation,
+  ]);
+
+  useEffect(() => {
+    loadContent();
+    setupAudio();
+    return () => {
+      runningBubbleAnimationsRef.current.forEach(anim => anim.stop());
+      runningBubbleAnimationsRef.current = [];
+      cleanupAudio();
+    };
+  }, [cleanupAudio, loadContent]);
+
+  // ── useFocusEffect: stops + resets audio when navigating away ─────────────
+  useFocusEffect(
+    useCallback(() => {
+      runningBubbleAnimationsRef.current.forEach(anim => anim.stop());
+      const running = startBubbleAnimations();
+      runningBubbleAnimationsRef.current = running;
+
+      return () => {
+        running.forEach(anim => anim.stop());
+        runningBubbleAnimationsRef.current = [];
+        cleanupAudio(); // stops audio + resets position to 0
+      };
+    }, [startBubbleAnimations, cleanupAudio])
+  );
+
+  const onPlaybackStatusUpdate = (status: any) => {
+    if (!status.isLoaded) return;
+    setPosition(status.positionMillis || 0);
+    setDuration(status.durationMillis || 0);
+    setIsPlaying(status.isPlaying);
+    if (status.isPlaying) {
+      listenedMsRef.current = status.positionMillis || listenedMsRef.current;
+    }
+    if (status.didJustFinish) {
+      setIsPlaying(false);
+    }
   };
 
-  const createFloatingAnimation = (
-    translateY: Animated.Value,
-    translateX: Animated.Value,
-    duration: number,
-    yRange: number,
-    xRange: number
-  ) => {
-    return Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(translateY, {
-            toValue: -yRange,
-            duration: duration,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: duration,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(translateX, {
-            toValue: xRange,
-            duration: duration * 0.7,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: -xRange,
-            duration: duration * 0.7,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: 0,
-            duration: duration * 0.6,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    );
-  };
-
-  const startBubbleAnimations = () => {
-    createFloatingAnimation(bubble1Y, bubble1X, 4000, 30, 15).start();
-    createFloatingAnimation(bubble2Y, bubble2X, 5000, 40, 20).start();
-    createFloatingAnimation(bubble3Y, bubble3X, 6000, 35, 18).start();
-    createFloatingAnimation(bubble4Y, bubble4X, 4500, 38, 16).start();
-    createFloatingAnimation(bubble5Y, bubble5X, 5500, 32, 22).start();
+  const resolveLoadedSound = async () => {
+    const current = soundRef.current;
+    if (!current) return null;
+    try {
+      const status = await current.getStatusAsync();
+      if (!status.isLoaded) return null;
+      return { current, status };
+    } catch {
+      return null;
+    }
   };
 
   const handlePlay = async () => {
     try {
       if (!content) return;
-
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-          if (isPlaying) {
-            await sound.pauseAsync();
-            setIsPlaying(false);
-          } else {
-            await sound.playAsync();
-            setIsPlaying(true);
-          }
+      const loaded = await resolveLoadedSound();
+      if (loaded) {
+        if (loaded.status.isPlaying) {
+          await loaded.current.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await loaded.current.playAsync();
+          setIsPlaying(true);
         }
         return;
       }
-
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: content.audio_url },
-        { shouldPlay: false },
+        { shouldPlay: false, volume: 1.0 },
         onPlaybackStatusUpdate
       );
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
+      await new Promise(resolve => setTimeout(resolve, 100));
       const status = await newSound.getStatusAsync();
       if (!status.isLoaded) {
-        console.error('Sound not loaded after creation');
-        Alert.alert('Error', 'Unable to load audio. Please try again.');
-        return;
+        try { await newSound.unloadAsync(); } catch {}
+        throw new Error('Unable to load audio');
       }
-
       await newSound.setIsLoopingAsync(false);
+      soundRef.current = newSound;
+      listenedMsRef.current = 0;
       await newSound.playAsync();
-      setSound(newSound);
       setIsPlaying(true);
     } catch (err) {
       console.error('Audio play error', err);
@@ -205,76 +300,44 @@ export default function PlayBreathingScreen() {
     }
   };
 
-  const handlePause = async () => {
-    try {
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded && isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        }
-      }
-    } catch (err) {
-      console.error('Pause error', err);
-    }
-  };
-
   const handleSkipBackward = async () => {
+    if (isCleaningRef.current || isSeekingRef.current) return;
+    isSeekingRef.current = true;
+    const loaded = await resolveLoadedSound();
+    if (!loaded) { isSeekingRef.current = false; return; }
     try {
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-          const newPosition = Math.max(0, position - 10000);
-          await sound.setPositionAsync(newPosition);
-        }
-      }
-    } catch (err) {
-      console.error('Skip backward error', err);
+      const currentPos = loaded.status.positionMillis || 0;
+      await loaded.current.setPositionAsync(Math.max(0, currentPos - 10000));
+    } catch (err: any) {
+      const msg = String(err?.message || err || '');
+      if (!msg.toLowerCase().includes('seeking interrupted')) console.error('Skip backward error', err);
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
   const handleSkipForward = async () => {
+    if (isCleaningRef.current || isSeekingRef.current) return;
+    isSeekingRef.current = true;
+    const loaded = await resolveLoadedSound();
+    if (!loaded) { isSeekingRef.current = false; return; }
     try {
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-          const newPosition = Math.min(duration, position + 10000);
-          await sound.setPositionAsync(newPosition);
-        }
-      }
-    } catch (err) {
-      console.error('Skip forward error', err);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying);
-
-      if (status.isPlaying) {
-        listenedMsRef.current = status.positionMillis;
-      }
-
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-      }
+      const currentPos = loaded.status.positionMillis || 0;
+      const maxDuration = loaded.status.durationMillis || duration || 0;
+      const nextPos = maxDuration > 0 ? Math.min(maxDuration, currentPos + 10000) : currentPos + 10000;
+      await loaded.current.setPositionAsync(nextPos);
+    } catch (err: any) {
+      const msg = String(err?.message || err || '');
+      if (!msg.toLowerCase().includes('seeking interrupted')) console.error('Skip forward error', err);
+    } finally {
+      isSeekingRef.current = false;
     }
   };
 
   const handleDone = async () => {
     try {
       const durationListened = Math.floor(listenedMsRef.current / 1000);
-
-      if (sound) {
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-          await sound.stopAsync();
-          await sound.unloadAsync();
-        }
-      }
-
+      await cleanupAudio();
       router.push({
         pathname: './relaxation-sessions',
         params: {
@@ -297,13 +360,11 @@ export default function PlayBreathingScreen() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const getBreathingImage = () => {
-    if (!content) return BREATHING_IMAGES['5min'];
-    const title = content.title.toLowerCase();
-    if (title.includes('10') || title.includes('body scan')) {
-      return BREATHING_IMAGES['10min'];
-    }
-    return BREATHING_IMAGES['5min'];
+  // ── Determine if body scan to show image instead of video ─────────────────
+  const isBodyScanContent = () => {
+    const title = (content?.title || '').toLowerCase();
+    const category = String(content?.category || '').toLowerCase();
+    return title.includes('body scan') || title.includes('body-scan') || category === 'body_scan';
   };
 
   if (loading) {
@@ -319,223 +380,249 @@ export default function PlayBreathingScreen() {
 
   if (!content) {
     return (
-      <LinearGradient colors={['#342949', '#2A1F3D', '#1E1529']} style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Content not found</Text>
-        </View>
-      </LinearGradient>
+      <View style={[styles.center, { backgroundColor: '#342949' }]}>
+        <Text style={styles.errorText}>Content not found</Text>
+      </View>
     );
   }
 
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
+  const titleLower = (content.title || '').toLowerCase();
+  const categoryLower = (content.category || '').toLowerCase();
+  const isBodyScan = titleLower.includes('body scan') || titleLower.includes('body-scan') || categoryLower === 'body_scan';
+  const isVisualization = titleLower.includes('visualization') || categoryLower === 'visualization' || categoryLower === 'guided_meditation';
+  const isBreathing = titleLower.includes('breath') || categoryLower === 'breathing';
+  const exactDurationSeconds = isBodyScan
+    ? GUIDED_DURATIONS_SECONDS.bodyScan
+    : isVisualization
+    ? GUIDED_DURATIONS_SECONDS.visualization
+    : isBreathing
+    ? GUIDED_DURATIONS_SECONDS.breathing
+    : (content.duration_seconds || Math.floor((duration || 0) / 1000) || 0);
+  const displayedTotalDurationMillis = exactDurationSeconds * 1000;
 
   return (
-    <LinearGradient colors={['#342949', '#2A1F3D', '#1E1529']} style={styles.container}>
-      <Animated.View
-        style={[
-          styles.bubble,
-          { top: '15%', left: '10%', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.bubble,
-          { top: '30%', right: '15%', transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.bubble,
-          { top: '50%', left: '20%', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.bubble,
-          { top: '70%', right: '10%', transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.bubble,
-          { top: '85%', left: '50%', transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] },
-        ]}
+    <View style={styles.container}>
+      <LinearGradient colors={['#342949', '#342949', '#342949']} style={styles.screenGradient} />
+
+      <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, top: '10%', left: '10%', backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, top: '25%', right: '15%', backgroundColor: 'rgba(133,130,180,0.10)', transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, top: '50%', left: '5%', backgroundColor: 'rgba(133,130,180,0.09)', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: '70%', right: '10%', backgroundColor: 'rgba(133,130,180,0.10)', transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleSmall - clamp(width * 0.07, 14, 22), height: bubbleSmall - clamp(width * 0.07, 14, 22), top: '85%', left: '20%', backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }]} />
+
+      <StickyHeader
+        scrollY={scrollY}
+        firstWord="Breathing"
+        secondWord="Session"
+        onBackPress={() => router.push('./breathing-exercises')}
       />
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.push('./breathing-exercises')}>
-        <FontAwesome name="chevron-left" size={24} color="#B8A8E6" />
-      </TouchableOpacity>
-
-      <View style={styles.content}>
-        <Text style={styles.title}>{content.title}</Text>
-        <Text style={styles.description}>{content.description}</Text>
-
-        <View style={styles.imageContainer}>
-          <Image source={getBreathingImage()} style={styles.soundImage} resizeMode="cover" />
-        </View>
-
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.skipButton} onPress={handleSkipBackward}>
-            <MaterialIcons name="replay-10" size={32} color="#B8A8E6" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.playButton} onPress={isPlaying ? handlePause : handlePlay}>
-            <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={48} color="#FFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.skipButton} onPress={handleSkipForward}>
-            <MaterialIcons name="forward-10" size={32} color="#B8A8E6" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
-          </View>
-          <View style={styles.timeContainer}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-          <Text style={styles.doneButtonText}>Done</Text>
+      <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: headerBottomPadding,
+        opacity: scrollY.interpolate({ inputRange: [0, 100, 150], outputRange: [1, 0.5, 0], extrapolate: 'clamp' }),
+      }]}>
+        <TouchableOpacity
+          onPress={() => router.push('./breathing-exercises')}
+          style={[
+            styles.backBtnCircle,
+            {
+              left: pageInset + headerBackOffset,
+              top: headerTopPadding,
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+              shadowOffset: { width: 0, height: clamp(height * 0.003, 1, 3) },
+              shadowRadius: clamp(width * 0.018, 5, 7),
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
-      </View>
-    </LinearGradient>
+
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
+          <Text style={styles.headerWhite}>Breathing </Text>
+          <Text style={styles.headerPurple}>Session</Text>
+        </Text>
+      </Animated.View>
+
+      <Animated.ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{
+          paddingHorizontal: pageInset,
+          paddingTop: contentTopPadding,
+          paddingBottom: contentBottomPadding,
+        }}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
+        <View style={[
+          styles.playerCard,
+          {
+            maxWidth: contentMaxWidth,
+            borderRadius: playerCardRadius,
+            shadowOffset: { width: 0, height: playerCardShadowOffsetY },
+            shadowRadius: playerCardShadowRadius,
+          },
+        ]}>
+          {/* Hero — image for body scan, video for everything else */}
+          <View style={[styles.playerHero, { height: heroImageHeight }]}>
+            {isBodyScanContent() ? (
+              <Image
+                source={require('../../assets/images/purplebodyscan.png')}
+                style={styles.soundImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Video
+                source={require('../../assets/images/breathingexcercisevid.mp4')}
+                style={styles.soundImage}
+                shouldPlay
+                isLooping
+                isMuted
+                resizeMode={ResizeMode.COVER}
+              />
+            )}
+            <LinearGradient
+              colors={['transparent', 'rgba(24, 15, 39, 0.12)', 'rgba(24, 15, 39, 0.55)']}
+              style={styles.playerHeroOverlay}
+              pointerEvents="none"
+            />
+          </View>
+
+          <View style={[styles.playerBody, { padding: playerCardPadding }]}>
+            <Text style={[styles.title, { fontSize: titleSize, marginBottom: titleMarginBottom }]}>
+              {content.title}
+            </Text>
+            <Text style={[styles.description, { fontSize: subtitleSize, marginBottom: subtitleMarginBottom }]}>
+              {content.description || 'Focus on slow, steady breathing and stay present.'}
+            </Text>
+
+            {/* Progress */}
+            <View style={[styles.progressSection, { marginBottom: progressMarginBottom, gap: progressGap }]}>
+              <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>
+                {formatTime(position)}
+              </Text>
+              <View style={[styles.progressBar, { height: progressBarHeight, borderRadius: progressBarRadius }]}>
+                <View style={[
+                  styles.progressFill,
+                  {
+                    width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
+                    borderRadius: progressBarRadius,
+                  },
+                ]} />
+              </View>
+              <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>
+                {displayedTotalDurationMillis > 0 ? formatTime(displayedTotalDurationMillis) : '--:--'}
+              </Text>
+            </View>
+
+            {/* Controls */}
+            <View style={[styles.controls, { marginBottom: controlsMarginBottom, gap: controlGap }]}>
+              <TouchableOpacity
+                style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]}
+                onPress={handleSkipBackward}
+              >
+                <MaterialIcons name="replay-10" size={skipIconSize} color="#B8A8E6" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.playButton, { width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius }]}
+                onPress={handlePlay}
+              >
+                <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={playIconSize} color="#FFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]}
+                onPress={handleSkipForward}
+              >
+                <MaterialIcons name="forward-10" size={skipIconSize} color="#B8A8E6" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.doneButton, { paddingVertical: donePaddingV, borderRadius: doneRadius }]}
+              onPress={handleDone}
+            >
+              <Text style={[styles.doneButtonText, { fontSize: doneFontSize }]}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  bubble: {
+  container: { flex: 1, backgroundColor: '#342949' },
+  screenGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 0 },
+  bubble: { position: 'absolute', borderRadius: 999, zIndex: 1 },
+  headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
+  backBtnCircle: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(184, 168, 230, 0.15)',
-    zIndex: 0,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    backgroundColor: 'rgba(71, 63, 90, 0.8)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#B8A8E6',
-    fontSize: 16,
-    marginTop: 12,
-  },
-  errorText: {
-    color: '#E91E63',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 100,
-    zIndex: 2,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 14,
-    color: '#B8A8E6',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  imageContainer: {
-    marginBottom: 40,
-  },
-  soundImage: {
-    width: 280,
-    height: 280,
-    borderRadius: 20,
-  },
-  controls: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 30,
-    gap: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    elevation: 1,
   },
+  headerTitle: { fontWeight: '800', textAlign: 'center' },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+  scrollView: { flex: 1, zIndex: 2 },
+  playerCard: {
+    width: '100%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    elevation: 3,
+  },
+  playerHero: { width: '100%', position: 'relative' },
+  soundImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  playerHeroOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  playerBody: { width: '100%', alignItems: 'center' },
+  title: { fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
+  description: { color: 'rgba(255,255,255,0.72)', textAlign: 'center' },
+  progressSection: { width: '100%', flexDirection: 'row', alignItems: 'center' },
+  progressBar: { flex: 1, backgroundColor: '#473F5A', overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: '#B8A8E6' },
+  timeText: { color: '#FFFFFF' },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  skipButton: { backgroundColor: '#473F5A', justifyContent: 'center', alignItems: 'center' },
   playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     backgroundColor: '#E91E63',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  skipButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#473F5A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressContainer: {
-    width: '100%',
-    marginBottom: 30,
-  },
-  progressBar: {
-    width: '100%',
-    height: 6,
-    backgroundColor: '#473F5A',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#B8A8E6',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#B8A8E6',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 10,
   },
   doneButton: {
     width: '100%',
     backgroundColor: '#7C3AED',
-    paddingVertical: 16,
-    borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOpacity: 0.34,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 14,
+    elevation: 10,
   },
-  doneButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  doneButtonText: { color: '#FFF', fontWeight: 'bold' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { color: '#FFFFFF', textAlign: 'center' },
 });

@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "extra": {
-      "BACKEND_URL": "https://mindscribe-backend-production-ca1e.up.railway.app",
+       "BACKEND_URL": "http://192.168.100.118:8000",
+ 
       "router": {},
       "eas": {
         "projectId": "5097b0d1-f21e-4a52-9ce4-a7269df5634f"

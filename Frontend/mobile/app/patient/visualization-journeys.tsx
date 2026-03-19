@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import PatientService, { RelaxationContent } from '../services/patient.service';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const CATEGORY_BADGE_COLORS: Record<string, string> = {
   nature_sounds: '#4CAF50',
@@ -12,6 +13,8 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
   breathing: '#a78bfa',
   visualization: '#8B5CF6',
 };
+
+const matchesValue = (value: unknown, target: string) => String(value ?? '') === target;
 
 export default function VisualizationJourneysScreen() {
   const router = useRouter();
@@ -82,7 +85,7 @@ export default function VisualizationJourneysScreen() {
     return () => {
       animations.forEach(anim => anim.stop());
     };
-  }, []);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   const load = async () => {
     try {
@@ -91,8 +94,8 @@ export default function VisualizationJourneysScreen() {
       // Strictly include visualization journeys: category 'visualization' or guided meditations
       // and explicitly exclude breathing/body-scan items which belong in the Breathing Exercises screen
       const items = data.filter(i => {
-        const isVisualization = (i.category === 'visualization') || (i.content_type === 'guided_meditation');
-        const isBreathing = (i.category === 'breathing') || (i.content_type === 'breathing') || (i.category === 'body_scan') || (i.content_type === 'body_scan');
+        const isVisualization = matchesValue(i.category, 'visualization') || matchesValue(i.content_type, 'guided_meditation');
+        const isBreathing = matchesValue(i.category, 'breathing') || matchesValue(i.content_type, 'breathing') || matchesValue(i.category, 'body_scan') || matchesValue(i.content_type, 'body_scan');
         const titleLower = (i.title || '').toLowerCase();
         const titleIndicatesBreath = titleLower.includes('breath') || titleLower.includes('body scan') || titleLower.includes('body-scan');
         return isVisualization && !isBreathing && !titleIndicatesBreath;
@@ -106,8 +109,13 @@ export default function VisualizationJourneysScreen() {
 
   if (loading) return (
     <View style={[styles.center, { backgroundColor: '#342949' }]}>
-      <ActivityIndicator size="large" color="#B8A8E6" />
-      <Text style={{ color: '#FFFFFF', marginTop: 12 }}>Loading visualization journeys...</Text>
+      <TabLoaderCard
+        title="Loading Visualization Journeys"
+        subtitle="Preparing your next guided escape"
+        spinnerColor="#A78BFA"
+        fullScreen={false}
+        showText
+      />
     </View>
   );
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,127 +10,203 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import type { CreateJournalEntryData, JournalPrompt } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
 
-const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
+const getInitialFormData = (): CreateJournalEntryData => ({
+  title: '',
+  content: '',
+  mood_tags_list: [],
+  is_private: true,
+  is_favorite: false,
+  entry_date: new Date().toISOString().split('T')[0],
+});
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const MOOD_TAGS = [
+  'Happy', 'Grateful', 'Anxious', 'Calm', 'Excited',
+  'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed',
+];
+
+const MOOD_TAG_COLORS: Record<string, string> = {
+  Happy: '#F7B731',     Grateful: '#2ECC71', Anxious: '#F39C12',
+  Calm: '#3498DB',      Excited: '#E84393',  Sad: '#5D6DFA',
+  Hopeful: '#9B59B6',   Stressed: '#E74C3C', Peaceful: '#1ABC9C',
+  Overwhelmed: '#8E44AD',
+};
+
+// ─── Standard card system ─────────────────────────────────────────────────────
+const C = {
+  bg:           '#342949',
+  bgMid:        '#2A1F3D',
+  surface:      '#3F3752',
+  surfaceMuted: '#4A4160',
+  border:       'rgba(255,255,255,0.16)',
+  borderAccent: 'rgba(167,139,250,0.35)',
+  purple:       '#A78BFA',
+  purpleDim:    'rgba(167,139,250,0.18)',
+  orange:       '#FFB36B',
+  orangeDim:    'rgba(255,179,107,0.15)',
+  white:        '#FFFFFF',
+  text:         '#EDE8FA',
+  textMuted:    '#9D8EC7',
+  textFaint:    '#B8A8E6',
+  gold:         '#FFD54F',
+} as const;
+
+const CARD_GRAD: readonly [string, string, string] = [
+  'rgba(255,179,107,0.11)',
+  'rgba(167,139,250,0.08)',
+  'rgba(52,41,73,0.72)',
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function CreateJournal() {
-  const { themeStyle } = useTheme();
-  const [submitting, setSubmitting] = useState(false);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const [submitting,    setSubmitting]    = useState(false);
   const [loadingPrompt, setLoadingPrompt] = useState(true);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [todayPrompt, setTodayPrompt] = useState<JournalPrompt | null>(null);
-  const [promptError, setPromptError] = useState<'none' | 'no_prompts' | 'error'>('none');
+  const [todayPrompt,   setTodayPrompt]   = useState<JournalPrompt | null>(null);
+  const [promptError,   setPromptError]   = useState<'none' | 'no_prompts' | 'error'>('none');
+  const [formData,      setFormData]      = useState<CreateJournalEntryData>(getInitialFormData());
 
-  // Floating bubble animations
-  const bubble1Y = useRef(new Animated.Value(0)).current;
-  const bubble1X = useRef(new Animated.Value(0)).current;
-  const bubble2Y = useRef(new Animated.Value(0)).current;
-  const bubble2X = useRef(new Animated.Value(0)).current;
-  const bubble3Y = useRef(new Animated.Value(0)).current;
-  const bubble3X = useRef(new Animated.Value(0)).current;
-  const bubble4Y = useRef(new Animated.Value(0)).current;
-  const bubble4X = useRef(new Animated.Value(0)).current;
-  const bubble5Y = useRef(new Animated.Value(0)).current;
-  const bubble5X = useRef(new Animated.Value(0)).current;
-  
-  // Scroll animation for sticky header
-  const scrollY = useRef(new Animated.Value(0)).current;
-  
-  const initialFormData: CreateJournalEntryData = {
-    title: '',
-    content: '',
-    mood_tags_list: [],
-    is_private: true,
-    is_favorite: false,
-    entry_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-  };
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scrollY  = useRef(new Animated.Value(0)).current;
 
-  const [formData, setFormData] = useState<CreateJournalEntryData>(initialFormData);
+  // bubble refs
+  const b1y = useRef(new Animated.Value(0)).current;
+  const b1x = useRef(new Animated.Value(0)).current;
+  const b2y = useRef(new Animated.Value(0)).current;
+  const b2x = useRef(new Animated.Value(0)).current;
+  const b3y = useRef(new Animated.Value(0)).current;
+  const b3x = useRef(new Animated.Value(0)).current;
+  const b4y = useRef(new Animated.Value(0)).current;
+  const b4x = useRef(new Animated.Value(0)).current;
+  const b5y = useRef(new Animated.Value(0)).current;
+  const b5x = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    // Reset form to a clean state when the screen mounts so previous entries don't persist
-    setFormData({ ...initialFormData, entry_date: new Date().toISOString().split('T')[0] });
-    loadTodayPrompt();
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+  // ── Responsive tokens ──────────────────────────────────────────────────────
+  const pi          = clamp(width * 0.048,  16, 24);
+  const si          = clamp(width * 0.04,   14, 20);   // scroll inset
+  const hTop        = insets.top + clamp(height * 0.014, 10, 18);
+  const hBtnSz      = clamp(width * 0.098,  34, 40);
+  const hBtnR       = hBtnSz / 2;
+  const hIcon       = clamp(width * 0.047,  16, 20);
+  const hTitleSz    = clamp(width * 0.075,  26, 32);
+  const hMTop       = clamp(height * 0.022, 14, 22);
+  const hPadBot     = clamp(height * 0.02,  14, 22);
+  const hEst        = hTop + hMTop + hTitleSz + 8 + hPadBot;
 
-  useEffect(() => {
-    // Floating bubble animations
-    const createFloatingAnimation = (
-      valueY: Animated.Value,
-      valueX: Animated.Value,
-      durationY: number,
-      durationX: number,
-      delayY = 0,
-      delayX = 0
-    ) => {
-      Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.delay(delayY),
-            Animated.timing(valueY, {
-              toValue: 50,
-              duration: durationY,
-              useNativeDriver: true,
-            }),
-            Animated.timing(valueY, {
-              toValue: -50,
-              duration: durationY,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.delay(delayX),
-            Animated.timing(valueX, {
-              toValue: 30,
-              duration: durationX,
-              useNativeDriver: true,
-            }),
-            Animated.timing(valueX, {
-              toValue: -30,
-              duration: durationX,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      ).start();
-    };
+  // bubbles
+  const bLarge  = clamp(width * 0.74, 220, 320);
+  const bMedium = clamp(width * 0.56, 170, 260);
+  const bSmall  = clamp(width * 0.34, 110, 160);
 
-    createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
-    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
-    createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
-    createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
-    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
-  }, []);
+  // layout
+  const contTopPad  = hEst + clamp(height * 0.034, 22, 34);
+  const contBotPad  = clamp(height * 0.05,   30, 46);
+  const sGap        = clamp(height * 0.028,  18, 24);
+  const cPad        = clamp(width * 0.045,   14, 18);
+  const cR          = clamp(width * 0.042,   13, 16);
 
+  // typography
+  const cTitleSz    = clamp(width * 0.042,  15, 17);
+  const cSubSz      = clamp(width * 0.034,  12, 14);
+  const titleInSz   = clamp(width * 0.042,  15, 17);
+  const bodyInSz    = clamp(width * 0.039,  14, 16);
+  const bodyLH      = Math.round(bodyInSz * 1.45);
+  const bodyMinH    = clamp(height * 0.24,  160, 220);
+  const wordCntSz   = clamp(width * 0.033,  12, 13);
+  const promptTSz   = clamp(width * 0.048,  17, 20);
+  const promptBSz   = clamp(width * 0.039,  14, 16);
+  const promptBLH   = Math.round(promptBSz * 1.5);
+  const promptCPad  = clamp(width * 0.05,   16, 22);
+  const promptR     = clamp(width * 0.045,  14, 18);
+  const pillPadY    = clamp(height * 0.01,    6,  9);
+  const pillPadX    = clamp(width * 0.033,   11, 14);
+  const pillR       = clamp(width * 0.04,    14, 18);
+  const pillTxtSz   = clamp(width * 0.035,   12, 14);
+  const swLblSz     = clamp(width * 0.04,    14, 16);
+  const swSubSz     = clamp(width * 0.031,   11, 12);
+  const swW         = clamp(width * 0.13,    46, 52);
+  const swH         = clamp(height * 0.04,   26, 30);
+  const swR         = swH / 2;
+  const swThumbSz   = clamp(height * 0.034,  22, 26);
+  const iconBadgeSz = clamp(width * 0.076,   26, 32);
+  const iconBadgeR  = clamp(width * 0.038,   13, 16);
+  const iconSz      = clamp(width * 0.032,   11, 13);
+  const submitPadY  = clamp(height * 0.016,  12, 15);
+  const submitR     = clamp(width * 0.045,   14, 18);
+  const submitTxtSz = clamp(width * 0.043,   15, 18);
+  const submitIconSz= clamp(width * 0.046,   16, 19);
+
+  // ── Bubble animations — restart on every focus ────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach((v) => v.setValue(0));
+
+      const fly = (y: Animated.Value, x: Animated.Value, dY: number, dX: number) => {
+        const c = Animated.parallel([
+          Animated.loop(Animated.sequence([
+            Animated.timing(y, { toValue: -50, duration: dY, useNativeDriver: true }),
+            Animated.timing(y, { toValue:  50, duration: dY, useNativeDriver: true }),
+          ])),
+          Animated.loop(Animated.sequence([
+            Animated.timing(x, { toValue:  30, duration: dX, useNativeDriver: true }),
+            Animated.timing(x, { toValue: -30, duration: dX, useNativeDriver: true }),
+          ])),
+        ]);
+        c.start();
+        return c;
+      };
+
+      const anims = [
+        fly(b1y, b1x, 8000,  7000),
+        fly(b2y, b2x, 10000, 8000),
+        fly(b3y, b3x, 9000,  7500),
+        fly(b4y, b4x, 8500,  7200),
+        fly(b5y, b5x, 9500,  8200),
+      ];
+
+      return () => anims.forEach((a) => a.stop());
+    }, [b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y])
+  );
+
+  // ── Init on focus ─────────────────────────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      setFormData(getInitialFormData());
+      loadTodayPrompt();
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+      return () => {};
+    }, [fadeAnim])
+  );
+
+  // ── Prompt load ───────────────────────────────────────────────────────────
   const loadTodayPrompt = async () => {
+    setLoadingPrompt(true);
     try {
       const prompt = await PatientService.getTodayPrompt();
       setTodayPrompt(prompt);
       setPromptError('none');
-      // Optionally auto-fill prompt in form
-      setFormData(prev => ({ ...prev, prompt: prompt.prompt }));
+      setFormData((prev) => ({ ...prev, prompt: prompt.prompt }));
     } catch (err: any) {
-      // Handle 404 gracefully (no prompts available)
       if (err.response?.status === 404) {
-        console.log('[CreateJournal] No prompts available - enabling free journaling mode');
         setPromptError('no_prompts');
       } else {
-        // Handle other errors (network, 500, etc.)
         console.error('[CreateJournal] Error loading prompt:', err);
         setPromptError('error');
       }
@@ -139,20 +215,15 @@ export default function CreateJournal() {
     }
   };
 
-  const handlePromptSelect = (prompt: string) => {
-    setFormData(prev => ({ ...prev, prompt }));
-  };
-
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const toggleMoodTag = (tag: string) => {
-    setFormData(prev => {
-      const currentTags = prev.mood_tags_list || [];
-      const newTags = currentTags.includes(tag)
-        ? currentTags.filter(t => t !== tag)
-        : [...currentTags, tag];
-      
+    setFormData((prev) => {
+      const current = prev.mood_tags_list || [];
       return {
         ...prev,
-        mood_tags_list: newTags,
+        mood_tags_list: current.includes(tag)
+          ? current.filter((t) => t !== tag)
+          : [...current, tag],
       };
     });
   };
@@ -166,156 +237,98 @@ export default function CreateJournal() {
       Alert.alert('Required Field', 'Please write some content');
       return;
     }
-
     setSubmitting(true);
     try {
       await PatientService.createJournalEntry(formData);
-      // Notify other parts of the app to refresh
       eventBus.emit('journalUpdated');
       eventBus.emit('refreshDashboard');
       Alert.alert('Success', 'Journal entry saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.push('./journal-list'),
-        },
+        { text: 'OK', onPress: () => router.push('./journal-list') },
       ]);
     } catch (err: any) {
       console.error('[Journal] Error creating:', err);
-      
-      // Detect network error vs server error
       const isNetworkError = !err.response && err.request;
-      const isServerError = err.response?.status >= 500;
-      
+      const isServerError  = err.response?.status >= 500;
       if (isNetworkError && retryCount < 1) {
-        // Retry once for network errors
-        console.log('[Journal] Network error, retrying...');
         setSubmitting(false);
         setTimeout(() => handleSubmit(retryCount + 1), 1500);
         return;
       }
-      
-      // Build user-friendly error message
-      let errorMessage = 'Failed to save journal entry.';
-      if (isNetworkError) {
-        errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
-      } else if (isServerError) {
-        errorMessage = 'Server error occurred. Please try again later.';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      
-      // Show error but preserve user input
-      Alert.alert(
-        'Failed to Save',
-        errorMessage,
-        [
-          {
-            text: 'Try Again',
-            onPress: () => handleSubmit(0),
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
-      );
+      let msg = 'Failed to save journal entry.';
+      if (isNetworkError)              msg = 'Unable to connect. Please check your connection.';
+      else if (isServerError)          msg = 'Server error. Please try again later.';
+      else if (err.response?.data?.message) msg = err.response.data.message;
+      Alert.alert('Failed to Save', msg, [
+        { text: 'Try Again', onPress: () => handleSubmit(0) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const wordCount = formData.content.trim().split(/\s+/).filter((w) => w).length;
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.container, { backgroundColor: '#342949' }]}>
+    <View style={[s.container, { backgroundColor: C.bg }]}>
+
+      {/* Background gradient */}
       <LinearGradient
-        colors={['#342949', '#2A1F3D', '#342949']}
-        style={styles.screenGradient}
+        colors={[C.bg, C.bgMid, C.bg]}
+        style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      
-      <View style={styles.floatingBubbles} pointerEvents="none">
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: 200,
-              height: 200,
-              top: '10%',
-              left: '-10%',
-              backgroundColor: 'rgba(133, 130, 180, 0.15)',
-              transform: [
-                { translateY: bubble1Y },
-                { translateX: bubble1X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: 280,
-              height: 280,
-              top: '25%',
-              right: '-15%',
-              backgroundColor: 'rgba(133, 130, 180, 0.2)',
-              transform: [
-                { translateY: bubble2Y },
-                { translateX: bubble2X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: 180,
-              height: 180,
-              top: '50%',
-              left: '10%',
-              backgroundColor: 'rgba(133, 130, 180, 0.18)',
-              transform: [
-                { translateY: bubble3Y },
-                { translateX: bubble3X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: 220,
-              height: 220,
-              bottom: '15%',
-              right: '5%',
-              backgroundColor: 'rgba(133, 130, 180, 0.22)',
-              transform: [
-                { translateY: bubble4Y },
-                { translateX: bubble4X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: 120,
-              height: 120,
-              bottom: '30%',
-              left: '-5%',
-              backgroundColor: 'rgba(133, 130, 180, 0.25)',
-              transform: [
-                { translateY: bubble5Y },
-                { translateX: bubble5X },
-              ],
-            },
-          ]}
-        />
+
+      {/* Ambient glow blobs */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[s.glow, {
+          width: bLarge * 1.1, height: bLarge * 1.1,
+          top: -bLarge * 0.3, right: -bLarge * 0.3,
+          backgroundColor: 'rgba(167,139,250,0.06)',
+        }]} />
+        <View style={[s.glow, {
+          width: bMedium, height: bMedium,
+          bottom: '18%', left: -bMedium * 0.35,
+          backgroundColor: 'rgba(255,179,107,0.05)',
+        }]} />
       </View>
 
-      {/* Sticky Header - Appears on scroll */}
+      {/* Floating bubbles — odd=warm purple, even=cool light purple */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* 1 — odd */}
+        <Animated.View style={[s.bubble, {
+          width: bMedium, height: bMedium,
+          top: '10%', left: '-10%',
+          backgroundColor: 'rgba(167,139,250,0.15)',
+        }, { transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
+        {/* 2 — even */}
+        <Animated.View style={[s.bubble, {
+          width: bLarge, height: bLarge,
+          top: '25%', right: '-15%',
+          backgroundColor: 'rgba(184,168,230,0.18)',
+        }, { transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
+        {/* 3 — odd */}
+        <Animated.View style={[s.bubble, {
+          width: bMedium, height: bMedium,
+          top: '50%', left: '10%',
+          backgroundColor: 'rgba(167,139,250,0.13)',
+        }, { transform: [{ translateY: b3y }, { translateX: b3x }] }]} />
+        {/* 4 — even */}
+        <Animated.View style={[s.bubble, {
+          width: bLarge * 0.78, height: bLarge * 0.78,
+          bottom: '15%', right: '5%',
+          backgroundColor: 'rgba(184,168,230,0.22)',
+        }, { transform: [{ translateY: b4y }, { translateX: b4x }] }]} />
+        {/* 5 — odd */}
+        <Animated.View style={[s.bubble, {
+          width: bSmall, height: bSmall,
+          bottom: '30%', left: '-5%',
+          backgroundColor: 'rgba(167,139,250,0.19)',
+        }, { transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
+      </View>
+
+      {/* Sticky header */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="New"
@@ -323,13 +336,55 @@ export default function CreateJournal() {
         onBackPress={() => router.back()}
       />
 
+      {/* Fading large header */}
+      <Animated.View style={[s.headerContainer, {
+        paddingTop: hTop,
+        paddingHorizontal: pi,
+        paddingBottom: hPadBot,
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        }),
+      }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[s.backBtnCircle, { left: pi, top: hTop, width: hBtnSz, height: hBtnSz, borderRadius: hBtnR }]}
+        >
+          <FontAwesome name="chevron-left" size={hIcon} color={C.white} />
+        </TouchableOpacity>
+
+        {/* Centred heading + gradient underline */}
+        <View style={{ alignItems: 'center', marginTop: hMTop }}>
+          <Text style={{ fontSize: hTitleSz, fontWeight: '800', textAlign: 'center' }}>
+            <Text style={{ color: C.white }}>New </Text>
+            <Text style={{ color: C.purple }}>Journal</Text>
+          </Text>
+          <LinearGradient
+            colors={['transparent', C.purple, C.orange, 'transparent']}
+            start={[0, 0]} end={[1, 0]}
+            style={{
+              height: 2,
+              width: clamp(width * 0.3, 96, 130),
+              borderRadius: 2,
+              marginTop: clamp(height * 0.007, 5, 7),
+            }}
+          />
+        </View>
+      </Animated.View>
+
+      {/* Scrollable form */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <Animated.ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: si,
+            paddingTop: contTopPad,
+            paddingBottom: contBotPad,
+          }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
@@ -337,182 +392,350 @@ export default function CreateJournal() {
           scrollEventThrottle={16}
         >
           <Animated.View style={{ opacity: fadeAnim }}>
-            {/* Original Header */}
-            <OriginalHeader
-              scrollY={scrollY}
-              firstWord="New"
-              secondWord="Journal"
-              onBackPress={() => router.back()}
-            />
 
-            {/* Today's Prompt Section */}
+            {/* ══════════════════════════════════════════════
+                TODAY'S PROMPT
+            ══════════════════════════════════════════════ */}
             {loadingPrompt ? (
-              <View style={[styles.promptLoadingCard, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                <ActivityIndicator size="small" color="#FFB36B" />
-                <Text style={[styles.promptLoadingText, { color: '#B8A8E6' }]}>
-                  Loading today's prompt...
+              <View style={[s.card, {
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 12, padding: promptCPad, borderRadius: promptR,
+                backgroundColor: C.surface, borderColor: C.border,
+                marginBottom: sGap,
+              }]}>
+                <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                  style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
+                <ActivityIndicator size="small" color={C.purple} />
+                <Text style={{ color: C.textFaint, fontSize: cSubSz }}>
+                  Loading today's prompt…
                 </Text>
               </View>
             ) : todayPrompt ? (
-              <View style={styles.todayPromptSection}>
-                <View style={styles.promptHeader}>
-                  <Text style={[styles.promptBadge, { backgroundColor: '#E8F5E9' }]}>
-                    ✨ {todayPrompt.category_display}
-                  </Text>
-                </View>
-                <View style={[styles.todayPromptCard, { backgroundColor: '#f3f1ff' }]}>
-                  <Text style={styles.promptIcon}>💭</Text>
-                  <Text style={styles.todayPromptText}>
-                    {todayPrompt.prompt}
-                  </Text>
-                  {todayPrompt.description && (
-                    <Text style={styles.promptDescription}>
-                      {todayPrompt.description}
+              <View style={{ marginBottom: sGap }}>
+                {/* Category badge */}
+                <View style={{ marginBottom: clamp(height * 0.015, 10, 12) }}>
+                  <View style={{
+                    alignSelf: 'flex-start',
+                    backgroundColor: 'rgba(200,255,230,0.92)',
+                    paddingVertical: clamp(height * 0.008, 5, 7),
+                    paddingHorizontal: clamp(width * 0.03, 10, 12),
+                    borderRadius: pillR,
+                  }}>
+                    <Text style={{ color: '#1A5C35', fontSize: pillTxtSz, fontWeight: '700' }}>
+                      ✨ {todayPrompt.category_display}
                     </Text>
-                  )}
+                  </View>
+                </View>
+
+                {/* Prompt card */}
+                <View style={[s.card, {
+                  padding: promptCPad, borderRadius: promptR,
+                  backgroundColor: C.surface, borderColor: C.border,
+                  overflow: 'hidden',
+                }]}>
+                  <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                    style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
+                  {/* Purple accent strip */}
+                  <View style={{
+                    position: 'absolute', top: 0, left: 0, right: 0,
+                    height: 3, backgroundColor: C.purple,
+                    borderTopLeftRadius: promptR, borderTopRightRadius: promptR,
+                  }} />
+                  <View style={{ marginTop: clamp(height * 0.01, 6, 10) }}>
+                    <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>
+                      💭
+                    </Text>
+                    <Text style={{ color: C.white, fontSize: promptTSz, fontWeight: '700', lineHeight: Math.round(promptTSz * 1.45), textAlign: 'center', marginBottom: 8 }}>
+                      {todayPrompt.prompt}
+                    </Text>
+                    {todayPrompt.description && (
+                      <Text style={{ color: C.textFaint, fontSize: cSubSz, lineHeight: Math.round(cSubSz * 1.45), textAlign: 'center', fontStyle: 'italic' }}>
+                        {todayPrompt.description}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
-            ) : promptError === 'no_prompts' ? null : promptError === 'error' ? (
-              <View style={styles.todayPromptSection}>
-                <View style={[styles.fallbackCard, { backgroundColor: '#FFF3E0' }]}>    
-                  <Text style={styles.fallbackIcon}>📝</Text>
-                  <Text style={styles.fallbackText}>
-                    Unable to load today's prompt, but you can still write freely!
-                  </Text>
-                </View>
+            ) : promptError === 'error' ? (
+              <View style={[s.card, {
+                padding: promptCPad, borderRadius: promptR,
+                backgroundColor: C.surfaceMuted, borderColor: C.border,
+                marginBottom: sGap, overflow: 'hidden',
+              }]}>
+                <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                  style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
+                <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>📝</Text>
+                <Text style={{ color: C.text, fontSize: promptBSz, lineHeight: promptBLH, textAlign: 'center', fontStyle: 'italic' }}>
+                  Unable to load today's prompt, but you can still write freely!
+                </Text>
               </View>
             ) : null}
 
-            {/* Title Input */}
-            <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Title</Text>
-                <View style={[styles.inputBox, { backgroundColor: '#5B5270' }]}> 
+            {/* ══════════════════════════════════════════════
+                TITLE CARD
+            ══════════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: 0, overflow: 'hidden',
+              borderRadius: cR, backgroundColor: C.surface,
+              borderColor: C.border, marginBottom: sGap,
+            }]}>
+              <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
+              {/* Purple accent strip */}
+              <View style={{ height: 3, backgroundColor: C.purple, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
+
+              <View style={{ padding: cPad }}>
+                {/* Header row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: clamp(height * 0.018, 12, 16) }}>
+                  <LinearGradient
+                    colors={[`${C.purple}30`, `${C.purple}10`]}
+                    style={[s.iconBadge, { width: iconBadgeSz, height: iconBadgeSz, borderRadius: iconBadgeR, borderColor: `${C.purple}50` }]}
+                  >
+                    <FontAwesome name="pencil" size={iconSz} color="#C4B0FF" />
+                  </LinearGradient>
+                  <View>
+                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.5 }}>
+                      Entry Title
+                    </Text>
+                    <Text style={{ color: C.textMuted, fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 1.2, marginTop: 1 }}>
+                      REQUIRED
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Underline input */}
+                <View style={{ borderBottomWidth: 1.5, borderBottomColor: `${C.purple}70`, paddingBottom: 4 }}>
                   <TextInput
-                    style={[styles.titleInput, { backgroundColor: 'transparent', color: '#FFFFFF' }]}
+                    style={{
+                      backgroundColor: 'transparent', color: C.white,
+                      paddingVertical: clamp(height * 0.009, 6, 8),
+                      paddingHorizontal: 2,
+                      height: clamp(height * 0.056, 38, 44),
+                      fontSize: titleInSz, fontWeight: '700', letterSpacing: 0.3,
+                    }}
                     placeholder="Give your entry a title..."
-                    placeholderTextColor="#B8A8E6"
+                    placeholderTextColor="rgba(184,168,230,0.45)"
                     value={formData.title}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
+                    onChangeText={(text) => setFormData((prev) => ({ ...prev, title: text }))}
                   />
                 </View>
               </View>
             </View>
 
-            {/* Content Input - Large */}
-            <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>What's on your mind?</Text>
-                <Text style={[styles.cardSubtitle, { color: '#B8A8E6' }]}>Express your thoughts and feelings</Text>
-                <View style={[styles.inputBoxLarge, { backgroundColor: '#5B5270' }]}> 
-                  <TextInput
-                    style={[styles.contentInput, { backgroundColor: 'transparent', color: '#FFFFFF' }]}
-                    placeholder="Start writing... Express yourself freely."
-                    placeholderTextColor="#B8A8E6"
-                    value={formData.content}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
-                    multiline
-                    numberOfLines={12}
-                    textAlignVertical="top"
-                  />
+            {/* ══════════════════════════════════════════════
+                CONTENT CARD
+            ══════════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: 0, overflow: 'hidden',
+              borderRadius: cR, backgroundColor: C.surface,
+              borderColor: C.border, marginBottom: sGap,
+            }]}>
+              <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
+              {/* Orange accent strip */}
+              <View style={{ height: 3, backgroundColor: C.orange, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
+
+              <View style={{ padding: cPad }}>
+                {/* Header row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: clamp(height * 0.014, 10, 14) }}>
+                  <LinearGradient
+                    colors={[`${C.orange}30`, `${C.orange}10`]}
+                    style={[s.iconBadge, { width: iconBadgeSz, height: iconBadgeSz, borderRadius: iconBadgeR, borderColor: `${C.orange}50` }]}
+                  >
+                    <FontAwesome name="edit" size={iconSz} color={C.orange} />
+                  </LinearGradient>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>
+                      What's on your mind?
+                    </Text>
+                    <Text style={{ color: '#C9A97E', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 0.8, marginTop: 1 }}>
+                      Write freely — no rules here
+                    </Text>
+                  </View>
                 </View>
-                <Text style={[styles.wordCount, { color: '#B8A8E6' }]}> 
-                  {formData.content.trim().split(/\s+/).filter(w => w).length} words
+
+                {/* Separator */}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
+
+                {/* Text area */}
+                <TextInput
+                  style={{
+                    backgroundColor: 'transparent', color: C.white,
+                    paddingVertical: clamp(height * 0.016, 10, 14),
+                    paddingHorizontal: 2,
+                    fontSize: bodyInSz, minHeight: bodyMinH,
+                    lineHeight: bodyLH, letterSpacing: 0.2,
+                  }}
+                  placeholder="Start writing... Express yourself freely."
+                  placeholderTextColor="rgba(184,168,230,0.45)"
+                  value={formData.content}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, content: text }))}
+                  multiline
+                  numberOfLines={12}
+                  textAlignVertical="top"
+                />
+
+                {/* Word count footer */}
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  marginTop: 8, paddingTop: 8,
+                  borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+                }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange, opacity: 0.7 }} />
+                  <Text style={{ color: C.textMuted, fontSize: wordCntSz, fontStyle: 'italic' }}>
+                    {wordCount} words
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ══════════════════════════════════════════════
+                TAGS CARD
+            ══════════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: cPad, overflow: 'hidden',
+              borderRadius: cR, backgroundColor: C.surface,
+              borderColor: C.border, marginBottom: sGap,
+            }]}>
+              <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
+              {/* Accent strip — absolute */}
+              <View style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                height: 3, backgroundColor: C.purple,
+                borderTopLeftRadius: cR, borderTopRightRadius: cR,
+              }} />
+
+              <View style={{ marginTop: clamp(height * 0.008, 4, 8) }}>
+                <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '700', marginBottom: clamp(height * 0.008, 5, 7) }}>
+                  🎨 Tags{' '}
+                  <Text style={{ color: C.textMuted, fontWeight: '500' }}>(Optional)</Text>
                 </Text>
-              </View>
-            </View>
-
-            {/* Tags */}
-            <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-                <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Optional Tags</Text>
-                <Text style={[styles.cardSubtitle, { color: '#B8A8E6' }]}>Select tags that describe your current state</Text>
-                <View style={styles.moodTagsContainerTop}> 
-                  {MOOD_TAGS.map((tag) => (
-                    <TouchableOpacity
-                      key={tag}
-                      style={[
-                        styles.moodTagPill,
-                        formData.mood_tags_list?.includes(tag) && styles.moodTagSelected,
-                      ]}
-                      onPress={() => toggleMoodTag(tag)}
-                    >
-                      <Text
-                        style={[
-                          styles.moodTagText,
-                          formData.mood_tags_list?.includes(tag) && styles.moodTagTextSelected,
-                        ]}
+                <Text style={{ color: C.textFaint, fontSize: cSubSz, marginBottom: clamp(height * 0.015, 10, 12) }}>
+                  Select tags that describe your current state
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: clamp(width * 0.025, 8, 10) }}>
+                  {MOOD_TAGS.map((tag) => {
+                    const isSelected = formData.mood_tags_list?.includes(tag);
+                    const tagColor   = MOOD_TAG_COLORS[tag] || C.textFaint;
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        onPress={() => toggleMoodTag(tag)}
+                        style={{
+                          paddingVertical: pillPadY, paddingHorizontal: pillPadX,
+                          borderRadius: pillR, borderWidth: 1,
+                          borderColor: tagColor,
+                          backgroundColor: isSelected ? tagColor : `${tagColor}24`,
+                        }}
                       >
-                        {tag}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text style={{ color: C.white, fontSize: pillTxtSz, fontWeight: '600' }}>
+                          {tag}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             </View>
 
-            {/* Privacy & Favorite */}
-            <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)' }]}> 
-                <TouchableOpacity
-                  style={styles.switchRow}
-                  onPress={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-                >
-                  <View style={styles.switchLeft}>
-                    <Text style={styles.switchEmoji}>⭐</Text>
-                    <Text style={[styles.switchLabel, { color: '#FFFFFF' }]}>Mark as Favorite</Text>
-                  </View>
-                  <View style={[
-                    styles.switch,
-                    { backgroundColor: formData.is_favorite ? '#4caf50' : '#ccc' },
-                  ]}>
-                    <View style={[
-                      styles.switchThumb,
-                      { transform: [{ translateX: formData.is_favorite ? 22 : 2 }] },
-                    ]} />
-                  </View>
-                </TouchableOpacity>
+            {/* ══════════════════════════════════════════════
+                FAVOURITE TOGGLE CARD
+            ══════════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: cPad, overflow: 'hidden',
+              borderRadius: cR, backgroundColor: C.surface,
+              borderColor: C.border, marginBottom: sGap,
+            }]}>
+              <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
+              <View style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                height: 3, backgroundColor: C.orange,
+                borderTopLeftRadius: cR, borderTopRightRadius: cR,
+              }} />
 
-                <TouchableOpacity
-                  style={styles.switchRow}
-                  onPress={() => setFormData(prev => ({ ...prev, is_private: !prev.is_private }))}
-                >
-                  <View style={styles.switchLeft}>
-                    <Text style={styles.switchEmoji}>🔒</Text>
-                    <View>
-                      <Text style={[styles.switchLabel, { color: '#FFFFFF' }]}>Keep Private</Text>
-                      <Text style={[styles.privacySubtext, { color: '#B8A8E6' }]}> 
-                        {formData.is_private ? 'Only you can see' : 'Therapist can view'}
-                      </Text>
-                    </View>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: clamp(height * 0.016, 10, 14),
+                  marginTop: clamp(height * 0.008, 4, 8),
+                }}
+                onPress={() => setFormData((prev) => ({ ...prev, is_favorite: !prev.is_favorite }))}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width: clamp(width * 0.086, 30, 36), height: clamp(width * 0.086, 30, 36),
+                    borderRadius: clamp(width * 0.043, 15, 18),
+                    backgroundColor: 'rgba(255,196,92,0.18)',
+                    borderWidth: 1, borderColor: 'rgba(255,196,92,0.45)',
+                    alignItems: 'center', justifyContent: 'center',
+                    marginRight: clamp(width * 0.028, 10, 13),
+                  }}>
+                    <Text style={{ fontSize: clamp(width * 0.048, 16, 20) }}>⭐</Text>
                   </View>
-                  <View style={[
-                    styles.switch,
-                    { backgroundColor: formData.is_private ? '#4caf50' : '#ccc' },
-                  ]}>
-                    <View style={[
-                      styles.switchThumb,
-                      { transform: [{ translateX: formData.is_private ? 22 : 2 }] },
-                    ]} />
+                  <View>
+                    <Text style={{ color: C.white, fontSize: swLblSz, fontWeight: '700' }}>
+                      Mark as Favourite
+                    </Text>
+                    <Text style={{ color: '#CEC2EE', fontSize: swSubSz, marginTop: 2 }}>
+                      Pin this journal for quick access
+                    </Text>
                   </View>
-                </TouchableOpacity>
-              </View>
+                </View>
+
+                {/* Toggle */}
+                <View style={{
+                  width: swW, height: swH, borderRadius: swR, padding: 2,
+                  borderWidth: 1,
+                  borderColor: formData.is_favorite ? '#FFD27A' : 'rgba(255,255,255,0.24)',
+                  backgroundColor: formData.is_favorite ? '#F5A623' : '#8E87A8',
+                }}>
+                  <View style={{
+                    width: swThumbSz, height: swThumbSz,
+                    borderRadius: swThumbSz / 2, backgroundColor: C.white,
+                    transform: [{ translateX: formData.is_favorite ? clamp(width * 0.055, 20, 24) : 2 }],
+                    shadowColor: '#000', shadowOpacity: 0.2,
+                    shadowOffset: { width: 0, height: 2 }, shadowRadius: 2, elevation: 2,
+                  }} />
+                </View>
+              </TouchableOpacity>
             </View>
 
-            {/* Submit Button */}
-            <TouchableOpacity 
-              onPress={() => handleSubmit(0)} 
-              disabled={submitting} 
+            {/* ══════════════════════════════════════════════
+                SAVE BUTTON
+            ══════════════════════════════════════════════ */}
+            <TouchableOpacity
+              onPress={() => handleSubmit(0)}
+              disabled={submitting}
               activeOpacity={0.9}
-              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+              style={[{
+                borderRadius: submitR, overflow: 'hidden',
+                marginTop: clamp(height * 0.02, 12, 18),
+                opacity: submitting ? 0.6 : 1,
+              }]}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <FontAwesome name={submitting ? 'spinner' : 'save'} size={18} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.submitButtonText}>
-                  {submitting ? '✨ Saving...' : 'Save Journal Entry'}
-                </Text>
-              </View>
+              <LinearGradient
+                colors={['#8B5CF6', '#A78BFA']}
+                start={[0, 0]} end={[1, 1]}
+                style={{
+                  width: '100%',
+                  minHeight: clamp(height * 0.064, 48, 56),
+                  borderRadius: submitR,
+                  alignItems: 'center', justifyContent: 'center',
+                  paddingVertical: submitPadY,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: clamp(width * 0.024, 8, 10) }}>
+                  <FontAwesome name={submitting ? 'spinner' : 'save'} size={submitIconSz} color={C.white} />
+                  <Text style={{ color: C.white, fontSize: submitTxtSz, fontWeight: '700' }}>
+                    {submitting ? '✨ Saving...' : 'Save Journal Entry'}
+                  </Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
+
           </Animated.View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
@@ -520,455 +743,33 @@ export default function CreateJournal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  screenGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  floatingBubbles: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-  },
-  bubble: {
-    position: 'absolute',
-    borderRadius: 1000,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-    paddingTop: 30,
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#524f85',
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontStyle: 'italic',
-  },
+// ─── StyleSheet ───────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  glow:      { position: 'absolute', borderRadius: 9999 },
+  bubble:    { position: 'absolute', borderRadius: 9999 },
+
   headerContainer: {
-    paddingTop: 48,
-    paddingHorizontal: 0,
-    paddingBottom: 18,
-    backgroundColor: '#F3F4F6',
-    marginBottom: 18,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    marginHorizontal: -20,
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900,
   },
   backBtnCircle: {
     position: 'absolute',
-    left: 18,
-    top: 52,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000', shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1,
   },
-  headerInner: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  headerBlue: { color: '#524f85' },
-  headerOrange: { color: '#FF9F6B' },
-  headerWhite: { color: '#FFFFFF' },
-  headerPurple: { color: '#B8A8E6' },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  todayPromptSection: {
-    marginBottom: 24,
-  },
-  promptHeader: {
-    marginBottom: 12,
-  },
-  promptBadge: {
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#2e7d32',
-  },
-  todayPromptCard: {
-    padding: 20,
-    borderRadius: 16,
-    elevation: 3,
-    shadowColor: '#524f85',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    borderWidth: 2,
-    borderColor: '#524f85',
-  },
-  promptIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  todayPromptText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#524f85',
-    lineHeight: 26,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  promptDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  promptLoadingCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  promptLoadingText: {
-    fontSize: 15,
-  },
-  fallbackCard: {
-    padding: 20,
-    borderRadius: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  fallbackIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  fallbackText: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  promptsScroll: {
-    marginBottom: 8,
-  },
-  promptCard: {
-    padding: 16,
-    borderRadius: 16,
-    marginRight: 12,
-    width: 250,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  promptCardSelected: {
-    borderColor: '#524f85',
-    elevation: 4,
-  },
-  promptText: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  titleInput: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    height: 44,
-    borderRadius: 12,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  contentInput: {
-    padding: 12,
-    borderRadius: 12,
-    fontSize: 15,
-    minHeight: 180,
-    textAlignVertical: 'top',
-    lineHeight: 22,
-  },
-  wordCount: {
-    marginTop: 8,
-    fontSize: 13,
-    textAlign: 'right',
-    fontStyle: 'italic',
-  },
-  typeScroll: {
-    marginBottom: 8,
-  },
-  typeCard: {
-    padding: 12,
-    borderRadius: 12,
-    marginRight: 10,
-    alignItems: 'center',
-    minWidth: 90,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  typeCardSelected: {
-    borderColor: '#524f85',
-    backgroundColor: '#f3f1ff',
-    elevation: 4,
-  },
-  typeEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  typeText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  moodSliderContainer: {
-    marginBottom: 20,
-  },
-  moodSliderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  moodLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  moodValueBadge: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  moodValueText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1976D2',
-  },
-  sliderTrack: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 5,
-    marginBottom: 8,
-  },
-  sliderDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E0E0E0',
-    borderWidth: 2,
-    borderColor: '#BDBDBD',
-  },
-  sliderDotActive: {
-    backgroundColor: '#1976D2',
-    borderColor: '#1565C0',
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  sliderLabelText: {
-    fontSize: 12,
-  },
-  moodTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  moodTagsContainerTop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 10,
-  },
-  moodTagPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: '#5B5270',
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  moodTag: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  moodTagSelected: {
-    backgroundColor: '#FFB36B',
-    borderColor: '#FFB36B',
-    elevation: 2,
-  },
-  moodTagText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#B8A8E6',
-  },
-  moodTagTextSelected: {
-    color: '#FFFFFF',
-  },
+
   card: {
-    padding: 16,
-    borderRadius: 14,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
+    elevation: 7,
+    shadowColor: '#120A24',
+    shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginBottom: 12,
-  },
-  inputBox: {
-    padding: 10,
-    borderRadius: 12,
-  },
-  inputBoxLarge: {
-    padding: 14,
-    borderRadius: 12,
-    minHeight: 180,
-    justifyContent: 'flex-start',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingTop: 20,
-  },
-  switchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  switchEmoji: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  privacySubtext: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  tapToChange: {
-    fontSize: 13,
-    fontStyle: 'italic',
-  },
-  switch: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    padding: 2,
-  },
-  switchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 2,
-  },
-  submitButton: {
-    padding: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    backgroundColor: '#A78BFA',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+  iconBadge: {
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
 });

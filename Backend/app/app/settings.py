@@ -31,14 +31,12 @@ def env_list(key: str, default: list[str] | None = None) -> list[str]:
         return [item.strip() for item in value.split(",") if item.strip()]
     return list(default or [])
 
+# Load environment variables from .env file (if it exists)
+# Make sure your .env file is in the same directory as manage.py
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-BACKEND_DIR = BASE_DIR.parent
-
-# Load environment variables from Backend/.env (preferred),
-# then fall back to Backend/app/.env for backward compatibility.
-load_dotenv(BACKEND_DIR / ".env")
-load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -55,9 +53,10 @@ DEBUG = env_bool("DJANGO_DEBUG", True)
 # ALLOWED_HOSTS for production. Add your domain and Elastic Beanstalk URL here.
 # For development, if DEBUG is True, ['*'] is often used, but it's safer to specify.
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if os.environ.get("DJANGO_ALLOWED_HOSTS") else []
-DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost", ".railway.app", "healthcheck.railway.app"]
-ENV_ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", [])
-ALLOWED_HOSTS = list(dict.fromkeys(DEFAULT_ALLOWED_HOSTS + ENV_ALLOWED_HOSTS))
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    ["localhost", "127.0.0.1", ".localhost", ".railway.app","192.168.100.118"],
+)
 
 
 # Application definition

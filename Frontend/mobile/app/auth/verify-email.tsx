@@ -1,4 +1,3 @@
-// app/components/auth/verify-email.tsx
 import {
   View,
   Text,
@@ -14,45 +13,99 @@ import {
   Image,
   useWindowDimensions,
 } from 'react-native';
-import { useState } from 'react';
-import { router } from 'expo-router';
+import { useRef, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
-import { validateTokenField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
 export default function VerifyEmailScreen() {
-  const [token, setToken] = useState('');
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [digits, setDigits]           = useState(['', '', '', '', '', '']);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const inputRefs = useRef<Array<TextInput | null>>([null, null, null, null, null, null]);
+
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const headingSize = Math.max(30, Math.min(width * 0.09, 38));
-  const subtitleSize = Math.max(14, Math.min(width * 0.042, 16));
-  const inputFontSize = Math.max(14, Math.min(width * 0.039, 15));
-  const labelFontSize = Math.max(15, Math.min(width * 0.043, 16));
-  const linkFontSize = Math.max(13, Math.min(width * 0.038, 14));
-  const imageWidth = Math.min(width * 1.08, 420);
-  const imageHeight = Math.min(height * 0.42, 360);
-  const fieldWidth = Math.min(width * 0.84, 320);
-  const buttonWidth = Math.min(width * 0.8, 340);
-  const buttonVerticalPadding = Math.max(11, Math.min(height * 0.016, 14));
-  const buttonTextSize = Math.max(18, Math.min(width * 0.05, 21));
-  const bottomSafeGap = Math.max(insets.bottom + 42, 54);
-  const circleOneSize = Math.min(width * 0.3, 120);
-  const circleTwoSize = Math.min(width * 0.35, 140);
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 8 : 0;
-  const { verifyEmail, isLoading, error, clearError } = useAuth();
 
-  const handleVerifyEmail = async () => {
-    const tokenValidation = validateTokenField(token);
-    if (!tokenValidation.isValid) {
-      setTokenError(tokenValidation.message || 'Invalid token');
-      return;
+  // ── Responsive tokens ─────────────────────────────────────────────────────
+  const topPad           = insets.top + clamp(height * 0.01, 4, 10);
+  const bottomPad        = clamp(insets.bottom + height * 0.06, 40, 60);
+  const hPad             = clamp(width * 0.06, 20, 28);
+
+  const headingSize      = clamp(width * 0.082, 26, 36);
+  const headingLineH     = Math.round(headingSize * 1.1);
+  const headingMB        = clamp(height * 0.01, 2, 5);
+
+  const imageW           = Math.min(width * 1.08, 420);
+  const imageH           = Math.min(height * 0.42, 360);
+  const imageMT          = clamp(height * 0.002, 1, 3);
+  const imageMB          = clamp(height * 0.016, 10, 14);
+
+  const subtitleSize     = clamp(width * 0.038, 13, 15);
+  const subtitleMB       = clamp(height * 0.022, 14, 20);
+
+  const boxGap           = clamp(width * 0.022, 7, 11);
+  const boxSize          = clamp((width - hPad * 2 - boxGap * 5) / 6, 36, 48);
+  const boxFontSize      = clamp(boxSize * 0.46, 16, 22);
+  const boxRadius        = clamp(boxSize * 0.22, 8, 12);
+  const otpMT            = clamp(height * 0.012, 6, 10);
+  const otpMB            = clamp(height * 0.028, 16, 24);
+
+  const btnW             = clamp(width * 0.82, 260, 360);
+  const btnPadY          = clamp(height * 0.016, 12, 16);
+  const btnTextSize      = clamp(width * 0.047, 16, 20);
+  const btnRadius        = clamp(width * 0.04, 12, 16);
+  const btnMT            = clamp(height * 0.022, 14, 20);
+  const linkMT           = clamp(height * 0.018, 12, 16);
+  const linkSize         = clamp(width * 0.035, 12, 14);
+  const arrowSize        = clamp(width * 0.042, 14, 17);
+
+  const circleOneSize    = clamp(width * 0.28, 90, 120);
+  const circleTwoSize    = clamp(width * 0.33, 110, 140);
+  const kvOffset         = Platform.OS === 'ios' ? insets.top + 8 : 0;
+
+  const { verifyEmail, isLoading, error, clearError } = useAuth();
+  const code = digits.join('');
+
+  const handleDigitChange = (text: string, index: number) => {
+    if (submitError) setSubmitError(null);
+    if (error) clearError();
+
+    if (text.length === 6 && index === 0) {
+      const pasted = text.replace(/\D/g, '').slice(0, 6);
+      if (pasted.length === 6) {
+        setDigits(pasted.split(''));
+        inputRefs.current[5]?.focus();
+        return;
+      }
     }
 
+    const digit = text.replace(/\D/g, '').slice(-1);
+    const newDigits = [...digits];
+    newDigits[index] = digit;
+    setDigits(newDigits);
+    if (digit && index < 5) inputRefs.current[index + 1]?.focus();
+  };
+
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !digits[index] && index > 0) {
+      const newDigits = [...digits];
+      newDigits[index - 1] = '';
+      setDigits(newDigits);
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    if (code.length !== 6) {
+      setSubmitError('Please enter the complete 6-digit code');
+      return;
+    }
     try {
-      await verifyEmail({ token: token.trim() });
+      await verifyEmail({ code });
       router.push('./email-verified');
     } catch {
       Alert.alert(
@@ -66,101 +119,127 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  const handleTokenChange = (text: string) => {
-    setToken(text);
-    if (tokenError) setTokenError(null);
-    if (error) clearError();
-  };
+  const displayError = submitError || error?.message;
 
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset}
+        keyboardVerticalOffset={kvOffset}
         style={styles.flex}
       >
-        <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}> 
-          <View style={[styles.circle1, { width: circleOneSize, height: circleOneSize, borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42 }]} />
-          <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
+        {/* Decorative circles */}
+        <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}>
+          <View style={[styles.circle1, {
+            width: circleOneSize, height: circleOneSize,
+            borderRadius: circleOneSize / 2,
+            marginTop: circleOneSize * 0.42,
+          }]} />
+          <View style={[styles.circle2, {
+            width: circleTwoSize, height: circleTwoSize,
+            borderRadius: circleTwoSize / 2,
+            top: circleTwoSize * 0.29, right: circleTwoSize * 0.29,
+          }]} />
         </View>
+
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.container,
-            {
-              paddingHorizontal: Math.max(20, Math.min(width * 0.06, 28)),
-              paddingTop: insets.top + 42,
-              paddingBottom: bottomSafeGap,
-            },
-          ]}
+          contentContainerStyle={[styles.container, {
+            paddingHorizontal: hPad,
+            paddingTop: topPad,
+            paddingBottom: bottomPad,
+          }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           bounces={false}
           overScrollMode="never"
         >
-          <Text style={[styles.title, { fontSize: headingSize, lineHeight: Math.round(headingSize * 1.08) }]}>
+          {/* Heading */}
+          <Text style={[styles.title, { fontSize: headingSize, lineHeight: headingLineH, marginBottom: headingMB }]}>
             <Text style={styles.titleWhite}>Verify Your </Text>
             <Text style={styles.titlePurple}>Email</Text>
           </Text>
 
+          {/* Image */}
           <Image
-            source={require('../../assets/images/myemail.png.png')}
-            style={[styles.image, { width: imageWidth, height: imageHeight }]}
+            source={require('../../assets/images/verifyemail2.png')}
+            style={[styles.image, { width: imageW, height: imageH, marginTop: imageMT, marginBottom: imageMB }]}
             resizeMode="contain"
           />
 
-          <Text style={[styles.subtitle, { fontSize: subtitleSize }]}> 
-            Enter the verification token sent to your email. This helps us ensure your identity.
+          {/* Subtitle */}
+          <Text style={[styles.subtitle, { fontSize: subtitleSize, marginBottom: subtitleMB }]}>
+            Enter the 6-digit code sent to your email address.
           </Text>
 
-          {(error || tokenError) && (
+          {/* Error */}
+          {displayError && (
             <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{tokenError || error?.message}</Text>
+              <Text style={styles.errorText}>{displayError}</Text>
             </View>
           )}
 
-          <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>Verification Token</Text>
-          <View style={[styles.inputWrapper, { maxWidth: fieldWidth }, tokenError && styles.inputWrapperError]}>
-            <MaterialIcons name="vpn-key" size={22} color="#8D8BA7" style={styles.icon} />
-            <TextInput
-              placeholder="Verification Token"
-              placeholderTextColor="#8D8BA7"
-              onChangeText={handleTokenChange}
-              value={token}
-              style={[styles.input, { fontSize: inputFontSize }]}
-              autoCapitalize="none"
-              editable={!isLoading}
-            />
+          {/* OTP boxes */}
+          <View style={[styles.otpRow, { gap: boxGap, marginTop: otpMT, marginBottom: otpMB }]}>
+            {digits.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => { inputRefs.current[index] = ref; }}
+                style={[styles.digitBox, {
+                  width: boxSize,
+                  height: boxSize + clamp(height * 0.005, 2, 6),
+                  fontSize: boxFontSize,
+                  borderRadius: boxRadius,
+                  borderColor: digit
+                    ? '#A78BFA'
+                    : displayError
+                    ? '#f44336'
+                    : 'rgba(255,255,255,0.25)',
+                  borderWidth: digit ? 2 : 1,
+                }]}
+                value={digit}
+                onChangeText={(text) => handleDigitChange(text, index)}
+                onKeyPress={(e) => handleKeyPress(e, index)}
+                keyboardType="number-pad"
+                maxLength={index === 0 ? 6 : 1}
+                selectTextOnFocus
+                editable={!isLoading}
+                caretHidden
+              />
+            ))}
           </View>
-<TouchableOpacity 
-  style={[
-    styles.verifyButton,
-    { width: buttonWidth, paddingVertical: buttonVerticalPadding },
-    isLoading && styles.verifyButtonDisabled
-  ]} 
-  onPress={handleVerifyEmail}
-  disabled={isLoading}
->
-  {isLoading ? (
-    <ActivityIndicator color="#fff" size="small" />
-  ) : (
-    <Text style={[styles.verifyButtonText, { fontSize: buttonTextSize }]}>Verify Email</Text>
-  )}
-</TouchableOpacity>
 
+          {/* Verify button */}
+          <TouchableOpacity
+            style={[styles.verifyButton, {
+              width: btnW,
+              paddingVertical: btnPadY,
+              borderRadius: btnRadius,
+              marginTop: btnMT,
+            }, isLoading && styles.verifyButtonDisabled]}
+            onPress={handleVerifyEmail}
+            disabled={isLoading}
+          >
+            {isLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={[styles.verifyButtonText, { fontSize: btnTextSize }]}>Verify Email</Text>
+            }
+          </TouchableOpacity>
 
+          {/* Back to login — pill style (only change from original) */}
           <TouchableOpacity
             onPress={() => router.push('./login')}
             disabled={isLoading}
-            style={styles.linkButton}
+            style={[styles.backLink, { marginTop: linkMT }]}
+            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.linkText,
-                { fontSize: linkFontSize },
-                isLoading && styles.linkTextDisabled,
-              ]}
-            >
+            <MaterialIcons
+              name="arrow-back"
+              size={arrowSize}
+              color={isLoading ? '#9e9e9e' : '#A78BFA'}
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.backLinkText, { fontSize: linkSize }, isLoading && styles.linkTextDisabled]}>
               Back to Login
             </Text>
           </TouchableOpacity>
@@ -171,134 +250,50 @@ export default function VerifyEmailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#342949',
+  safe:             { flex: 1, backgroundColor: '#342949' },
+  flex:             { flex: 1 },
+  scrollView:       { backgroundColor: '#342949' },
+  container:        { alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
+  circleContainer:  { position: 'absolute', zIndex: 1 },
+  circle1:          { backgroundColor: 'rgba(133,130,180,0.2)', opacity: 0.8, position: 'absolute', top: 0, right: 0 },
+  circle2:          { backgroundColor: 'rgba(133,130,180,0.25)', opacity: 0.6, position: 'absolute' },
+  title:            { fontWeight: '700', textAlign: 'center' },
+  titleWhite:       { color: '#FFFFFF' },
+  titlePurple:      { color: '#B8A8E6' },
+  image:            {},
+  subtitle:         { textAlign: 'center', paddingHorizontal: 5, color: '#8D8BA7' },
+  errorContainer:   {
+    backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
+    borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 14, width: '100%',
   },
-  flex: {
-    flex: 1,
-  },
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexGrow: 1,
-  },
-  scrollView: {
-    backgroundColor: '#342949',
-  },
-  circleContainer: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  circle1: {
-    backgroundColor: 'rgba(133, 130, 180, 0.2)',
-    opacity: 0.8,
-    position: 'absolute',
-    top: 0,
-    right: 0,
-  },
-  circle2: {
-    backgroundColor: 'rgba(133, 130, 180, 0.25)',
-    opacity: 0.6,
-    position: 'absolute',
-  },
-  title: {
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  titleWhite: {
+  errorText:        { color: '#c62828', fontSize: 14, textAlign: 'center' },
+  otpRow:           { flexDirection: 'row', justifyContent: 'center' },
+  digitBox:         {
+    backgroundColor: 'rgba(255,255,255,0.05)',
     color: '#FFFFFF',
-  },
-  titlePurple: {
-    color: '#B8A8E6',
-  },
-  image: {
-    marginBottom: 8,
-    marginTop: -2,
-  },
-  subtitle: {
     textAlign: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 5,
-    color: '#8D8BA7',
+    fontWeight: '700',
   },
-  errorContainer: {
-    backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f44336',
-    marginBottom: 16,
-    width: '100%',
+  verifyButton:     {
+    backgroundColor: '#A78BFA', alignItems: 'center', justifyContent: 'center',
+    minHeight: 48,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14, elevation: 4,
   },
-  errorText: {
-    color: '#c62828',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  inputWrapper: {
+  verifyButtonDisabled: { backgroundColor: '#9e9e9e' },
+  verifyButtonText:     { color: '#fff', fontWeight: '600' },
+  // ── Only change: pill-style back link ────────────────────────────────────
+  backLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
-    borderRadius: 9,
-    marginBottom: 16,
-    paddingHorizontal: 9,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    height: 44,
-    width: '100%',
-  },
-  inputWrapperError: {
-    borderColor: '#f44336',
-    borderWidth: 2,
-  },
-  label: {
-    color: '#FFFFFF',
-    marginBottom: 5,
-    marginTop: 10,
-    fontWeight: '500',
-    textAlign: 'left',
-    alignSelf: 'center',
-  },
-  icon: {
-    marginRight: 7,
-  },
-  input: {
-    flex: 1,
-    color: '#FFFFFF',
-  },
-  verifyButton: {
-    backgroundColor: '#A78BFA',
-    borderRadius: 10,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
-    minHeight: 48,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 4,
+    backgroundColor: 'rgba(167,139,250,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.28)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
-  verifyButtonDisabled: {
-    backgroundColor: '#9e9e9e',
-  },
-  verifyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  linkButton: {
-    marginTop: 14,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#D7CFF0',
-    textDecorationLine: 'underline',
-    fontWeight: '500',
-    letterSpacing: 0.2,
-  },
-  linkTextDisabled: {
-    color: '#9e9e9e',
-  },
+  backLinkText:     { color: '#A78BFA', fontWeight: '700', letterSpacing: 0.2 },
+  linkTextDisabled: { color: '#9e9e9e' },
 });

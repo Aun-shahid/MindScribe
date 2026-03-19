@@ -20,10 +20,11 @@ export default function StickyHeader({
   scrollY,
   firstWord,
   secondWord,
-  onBackPress
+  onBackPress,
 }: StickyHeaderProps) {
   const router = useRouter();
 
+  // Use custom handler if provided, otherwise go back in stack
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
@@ -44,7 +45,6 @@ export default function StickyHeader({
     extrapolate: 'clamp',
   });
 
-  // Track if header should be interactive
   const [isHeaderVisible, setIsHeaderVisible] = React.useState(false);
 
   React.useEffect(() => {
@@ -56,7 +56,7 @@ export default function StickyHeader({
 
   return (
     <Animated.View
-      pointerEvents={isHeaderVisible ? "box-none" : "none"}
+      pointerEvents={isHeaderVisible ? 'box-none' : 'none'}
       style={[
         styles.stickyHeader,
         {
@@ -119,10 +119,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  headerWhite: {
-    color: '#FFFFFF',
-  },
-  headerPurple: {
-    color: '#B8A8E6',
-  },
+  headerWhite:  { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
 });

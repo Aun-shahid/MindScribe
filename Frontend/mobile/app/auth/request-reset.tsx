@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -19,44 +18,66 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
-// import { validateEmailField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
 export default function RequestResetScreen() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]           = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
+
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const headingSize = Math.max(30, Math.min(width * 0.09, 38));
-  const subtitleSize = Math.max(14, Math.min(width * 0.042, 16));
-  const inputFontSize = Math.max(14, Math.min(width * 0.039, 15));
-  const labelFontSize = Math.max(15, Math.min(width * 0.043, 16));
-  const linkFontSize = Math.max(13, Math.min(width * 0.038, 14));
-  const imageWidth = Math.min(width * 0.88, 300);
-  const imageHeight = Math.min(height * 0.28, 240);
-  const circleOneSize = Math.min(width * 0.3, 120);
-  const circleTwoSize = Math.min(width * 0.35, 140);
-  const fieldWidth = Math.min(width * 0.84, 320);
-  const buttonWidth = Math.min(width * 0.8, 340);
-  const buttonVerticalPadding = Math.max(11, Math.min(height * 0.016, 14));
-  const buttonTextSize = Math.max(18, Math.min(width * 0.05, 21));
-  const bottomSafeGap = Math.max(insets.bottom + 42, 54);
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 8 : 0;
-  const { requestPasswordReset, isLoading, error, clearError } = useAuth();
-  const handleResetRequest = async () => {
-    // Validate email
-    // const emailValidation = validateEmailField(email);
-    // if (!emailValidation.isValid) {
-    //   setEmailError(emailValidation.message || 'Invalid email');
-    //   return;
-    // }
 
-    // Simple validation - just check if email is not empty
+  // ── Responsive tokens (all clamp — zero fixed px) ─────────────────────────
+  const topPad        = insets.top + clamp(height * 0.002, 1, 3);    // heading moved up further
+  const bottomPad     = clamp(insets.bottom + height * 0.06, 40, 58);
+  const hPad          = clamp(width * 0.06, 20, 28);
+  const kvOffset      = Platform.OS === 'ios' ? insets.top + 8 : 0;
+
+  const titleSize     = clamp(width * 0.088, 28, 38);
+  const titleLineH    = Math.round(titleSize * 1.08);
+  const titleMB       = clamp(height * 0.018, 10, 18);
+
+  const imageW        = clamp(width * 0.88, 240, 320);
+  const imageH        = clamp(height * 0.28, 170, 240);
+  const imageMT       = clamp(height * 0.004, 2, 5);
+  const imageMB       = clamp(height * 0.016, 9, 14);
+
+  const subtitleSize  = clamp(width * 0.038, 13, 16);
+  const subtitleMB    = clamp(height * 0.022, 14, 22);
+
+  const labelSize     = clamp(width * 0.038, 13, 16);
+  const labelMB       = clamp(height * 0.007, 4, 7);
+  const labelMT       = clamp(height * 0.012, 7, 12);
+  const fieldW        = clamp(width * 0.84, 260, 340);
+  const inputH        = clamp(height * 0.062, 42, 52);
+  const inputPadX     = clamp(width * 0.028, 9, 13);
+  const inputFontSize = clamp(width * 0.038, 13, 15);
+  const iconSize      = clamp(width * 0.05, 17, 22);
+  const inputRadius   = clamp(width * 0.028, 8, 12);
+  const inputMB       = clamp(height * 0.016, 10, 18);
+
+  const btnW          = clamp(width * 0.8, 240, 360);
+  const btnPadY       = clamp(height * 0.016, 11, 15);
+  const btnTextSize   = clamp(width * 0.048, 16, 21);
+  const btnRadius     = clamp(width * 0.036, 10, 14);
+  const btnMT         = clamp(height * 0.022, 14, 22);
+
+  const linkMT        = clamp(height * 0.022, 14, 20);
+  const linkSize      = clamp(width * 0.036, 12, 14);
+  const arrowSize     = clamp(width * 0.042, 14, 17);
+
+  const circleOneSize = clamp(width * 0.3, 90, 120);
+  const circleTwoSize = clamp(width * 0.35, 110, 140);
+
+  const { requestPasswordReset, isLoading, error, clearError } = useAuth();
+
+  const handleResetRequest = async () => {
     if (!email.trim()) {
       setEmailError('Please enter your email address');
       return;
     }
-
     try {
       await requestPasswordReset({ email: email.trim() });
       Alert.alert(
@@ -71,65 +92,78 @@ export default function RequestResetScreen() {
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
-    if (emailError) {
-      setEmailError(null);
-    }
-    if (error) {
-      clearError();
-    }
+    if (emailError) setEmailError(null);
+    if (error) clearError();
   };
 
   return (
     <SafeAreaView style={styles.wrapper}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardVerticalOffset}
+        keyboardVerticalOffset={kvOffset}
         style={{ flex: 1 }}
       >
-        <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}> 
-          <View style={[styles.circle1, { width: circleOneSize, height: circleOneSize, borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42 }]} />
-          <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
+        {/* Decorative circles */}
+        <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}>
+          <View style={[styles.circle1, {
+            width: circleOneSize, height: circleOneSize,
+            borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42,
+          }]} />
+          <View style={[styles.circle2, {
+            width: circleTwoSize, height: circleTwoSize,
+            borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29,
+          }]} />
         </View>
+
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.container,
-            {
-              paddingTop: insets.top + 14,
-              paddingHorizontal: Math.max(20, Math.min(width * 0.06, 28)),
-              paddingBottom: bottomSafeGap,
-            },
-          ]}
+          contentContainerStyle={[styles.container, {
+            paddingTop: topPad,
+            paddingHorizontal: hPad,
+            paddingBottom: bottomPad,
+          }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           bounces={false}
           overScrollMode="never"
         >
-          <Text style={[styles.title, { fontSize: headingSize, lineHeight: Math.round(headingSize * 1.08) }]}>
-            <Text style={styles.titlePrimary}>Forgot </Text>
-            <Text style={styles.titleAccent}>Password</Text>
+          {/* Two-colour heading */}
+          <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleLineH, marginBottom: titleMB }]}>
+            <Text style={styles.titleWhite}>Forgot </Text>
+            <Text style={styles.titlePurple}>Password</Text>
           </Text>
 
+          {/* Image */}
           <Image
-            style={[styles.img, { width: imageWidth, height: imageHeight }]}
-            source={require('../../assets/images/Forgot.png')}
+            source={require('../../assets/images/forgotpass.png')}
+            style={{ width: imageW, height: imageH, marginTop: imageMT, marginBottom: imageMB }}
             resizeMode="contain"
           />
-          
-         <Text style={[styles.subtitle, { fontSize: subtitleSize }]}>Enter your email address and we will send you a link to reset your password.</Text>
 
+          {/* Subtitle */}
+          <Text style={[styles.subtitle, { fontSize: subtitleSize, marginBottom: subtitleMB }]}>
+            Enter your email address and we'll send you a link to reset your password.
+          </Text>
 
+          {/* Error */}
           {(error || emailError) && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{emailError || error?.message}</Text>
             </View>
           )}
 
-          <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>Email</Text>
-          <View style={[styles.inputWrapper, { maxWidth: fieldWidth }, emailError && styles.inputWrapperError]}>
-            <MaterialIcons name="email" size={20} color="#8D8BA7" style={styles.icon} />
+          {/* Email label + input */}
+          <Text style={[styles.label, { fontSize: labelSize, width: fieldW, marginBottom: labelMB, marginTop: labelMT }]}>
+            Email address
+          </Text>
+          <View style={[styles.inputWrapper, {
+            maxWidth: fieldW, height: inputH,
+            borderRadius: inputRadius, paddingHorizontal: inputPadX,
+            marginBottom: inputMB,
+          }, emailError && styles.inputWrapperError]}>
+            <MaterialIcons name="email" size={iconSize} color="#8D8BA7" style={{ marginRight: clamp(width * 0.02, 6, 9) }} />
             <TextInput
-              placeholder="Email"
+              placeholder="your@email.com"
               placeholderTextColor="#8D8BA7"
               style={[styles.input, { fontSize: inputFontSize }]}
               onChangeText={handleEmailChange}
@@ -140,28 +174,35 @@ export default function RequestResetScreen() {
             />
           </View>
 
-         <TouchableOpacity 
-  style={[
-    styles.resetButton,
-    { width: buttonWidth, paddingVertical: buttonVerticalPadding },
-    isLoading && styles.resetButtonDisabled
-  ]} 
-  onPress={handleResetRequest}
-  disabled={isLoading}
->
-  {isLoading ? (
-    <ActivityIndicator  size="small" />
-  ) : (
-    <Text style={[styles.resetButtonText, { fontSize: buttonTextSize }]}>Send Reset Email</Text>
-  )}
-</TouchableOpacity>
-
-
-          <TouchableOpacity 
-            onPress={() => router.push('./login')}
+          {/* Send button */}
+          <TouchableOpacity
+            style={[styles.resetButton, {
+              width: btnW, paddingVertical: btnPadY,
+              borderRadius: btnRadius, marginTop: btnMT,
+            }, isLoading && styles.resetButtonDisabled]}
+            onPress={handleResetRequest}
             disabled={isLoading}
           >
-            <Text style={[styles.linkText, { fontSize: linkFontSize }, isLoading && styles.linkTextDisabled]}>
+            {isLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={[styles.resetButtonText, { fontSize: btnTextSize }]}>Send Reset Email</Text>
+            }
+          </TouchableOpacity>
+
+          {/* Professional back-to-login link */}
+          <TouchableOpacity
+            onPress={() => router.push('./login')}
+            disabled={isLoading}
+            style={[styles.backLink, { marginTop: linkMT }]}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={arrowSize}
+              color={isLoading ? '#9e9e9e' : '#A78BFA'}
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.backLinkText, { fontSize: linkSize }, isLoading && styles.linkTextDisabled]}>
               Back to Login
             </Text>
           </TouchableOpacity>
@@ -172,134 +213,60 @@ export default function RequestResetScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#342949',
-  },
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexGrow: 1,
-  },
-  scrollView: {
-    backgroundColor: '#342949',
-  },
-  circleContainer: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  circle1: {
-    backgroundColor: 'rgba(133, 130, 180, 0.2)',
-    opacity: 0.8,
-    position: 'absolute',
-    top: 0,
-    right: 0,
-  },
-  circle2: {
-    backgroundColor: 'rgba(133, 130, 180, 0.25)',
-    opacity: 0.6,
-    position: 'absolute',
-  },
-  illustration: {
-    width: 250,
-    height: 180,
-    marginBottom: 20,
-  },
-  img: {
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  title: {
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  titlePrimary: {
-    color: '#FFFFFF',
-  },
-  titleAccent: {
-    color: '#B8A8E6',
-  },
-  subtitle: {
-    color: '#8D8BA7',
-    textAlign: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 10,
-  },
+  wrapper:      { flex: 1, backgroundColor: '#342949' },
+  scrollView:   { backgroundColor: '#342949' },
+  container:    { justifyContent: 'flex-start', alignItems: 'center', flexGrow: 1 },
+
+  circleContainer: { position: 'absolute', zIndex: 1 },
+  circle1: { backgroundColor: 'rgba(133,130,180,0.2)', opacity: 0.8, position: 'absolute', top: 0, right: 0 },
+  circle2: { backgroundColor: 'rgba(133,130,180,0.25)', opacity: 0.6, position: 'absolute' },
+
+  title:       { fontWeight: '700', textAlign: 'center' },
+  titleWhite:  { color: '#FFFFFF' },
+  titlePurple: { color: '#B8A8E6' },
+
+  subtitle: { color: '#8D8BA7', textAlign: 'center', paddingHorizontal: 10 },
+
   errorContainer: {
-    backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f44336',
-    marginBottom: 16,
-    width: '100%',
+    backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
+    borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 14, width: '100%',
   },
-  errorText: {
-    color: '#c62828',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  errorText: { color: '#c62828', fontSize: 14, textAlign: 'center' },
+
+  label: { color: '#FFFFFF', fontWeight: '600', alignSelf: 'center' },
   inputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)', width: '100%',
+  },
+  inputWrapperError: { borderColor: '#f44336', borderWidth: 2 },
+  input: { flex: 1, color: '#FFFFFF' },
+
+  resetButton: {
+    backgroundColor: '#A78BFA', alignItems: 'center', justifyContent: 'center',
+    minHeight: 48,
+    shadowColor: '#000', shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 }, shadowRadius: 14, elevation: 4,
+  },
+  resetButtonDisabled: { backgroundColor: '#9e9e9e' },
+  resetButtonText: { color: '#fff', fontWeight: '700' },
+
+  // Professional back link — icon + text, purple tinted, pill container
+  backLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
-    borderRadius: 9,
-    marginBottom: 16,
-    paddingHorizontal: 9,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    width: '100%',
-    height: 44,
-  },
-  inputWrapperError: {
-    borderColor: '#f44336',
-    borderWidth: 2,
-  },
-  label: {
-    color: '#FFFFFF',
-    marginBottom: 5,
-    marginTop: 10,
-    fontWeight: '500',
-    textAlign: 'left',
-    alignSelf: 'center',
-  },
-  icon: {
-    marginRight: 7,
-  },
-  input: {
-    flex: 1,
-    color: '#FFFFFF',
-  },
-  resetButton: {
-    backgroundColor: '#A78BFA',
-    borderRadius: 10,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
-    minHeight: 48,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 4,
+    backgroundColor: 'rgba(167,139,250,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.28)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
-  resetButtonDisabled: {
-    backgroundColor: '#9e9e9e',
-  },
-  resetButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  linkText: {
-    marginTop: 14,
-    color: '#D7CFF0',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    fontWeight: '500',
+  backLinkText: {
+    color: '#A78BFA',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
-  linkTextDisabled: {
-    color: '#9e9e9e',
-  },
+  linkTextDisabled: { color: '#9e9e9e' },
 });

@@ -1,177 +1,13 @@
-// import { useEffect } from 'react';
-// import {
-//   View,
-//   Text,
-//   ScrollView,
-//   StyleSheet,
-//   SafeAreaView,
-//   ActivityIndicator,
-//   TouchableOpacity,
-// } from 'react-native';
-// import { useAuthContext } from '../contexts/AuthContext';
-// import { useTheme } from '../contexts/ThemeContext';
 
-// export default function PatientProfile() {
-//   const { 
-//     profile, 
-//     profileLoading, 
-//     error, 
-//     fetchProfile, 
-//     logout 
-//   } = useAuthContext();
-
-//   const { theme, themeStyle, toggleTheme } = useTheme();
-
-//   // Debug profile verification fields
-//   useEffect(() => {
-//     if (profile) {
-//       console.log('🔍 PATIENT PROFILE VERIFICATION DEBUG:');
-//       console.log('  - profile.is_verified:', profile.is_verified);
-//       console.log('  - profile.email_verified:', (profile as any).email_verified);
-//       console.log('  - profile.verified:', (profile as any).verified);
-//       console.log('  - Complete profile object:', JSON.stringify(profile, null, 2));
-//     }
-//   }, [profile]);
-
-//   useEffect(() => {
-//     fetchProfile();
-//   }, [fetchProfile]);
-
-//   const handleLogout = async () => {
-//     try {
-//       await logout();
-//     } catch (e: any) {
-//       console.log('Logout error:', e?.message);
-//     }
-//   };
-
-//   if (profileLoading) {
-//     return (
-//       <View style={[styles.loadingContainer, { backgroundColor: themeStyle.background }] }>
-//         <ActivityIndicator size="large" color={themeStyle.text} />
-//         <Text style={[styles.loadingText, { color: themeStyle.label }]}>Fetching your profile...</Text>
-//       </View>
-//     );
-//   }
-
-//   return (
-//     <SafeAreaView style={[styles.wrapper, { backgroundColor: themeStyle.background }] }>
-//       <TouchableOpacity
-//         style={{ alignSelf: 'flex-end', margin: 16, padding: 8, backgroundColor: themeStyle.button, borderRadius: 8 }}
-//         onPress={toggleTheme}
-//       >
-//         <Text style={{ color: themeStyle.buttonText, fontWeight: '600' }}>
-//           Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
-//         </Text>
-//       </TouchableOpacity>
-//       <ScrollView contentContainerStyle={styles.container}>
-//         <Text style={[styles.title, { color: themeStyle.title }]}>👤 Your Profile</Text>
-//         {profile ? (
-//           <>
-//             <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }] }>
-//               <Text style={[styles.label, { color: themeStyle.label }]}>ID:</Text>
-//               <Text style={[styles.value, { color: themeStyle.text }]}>{profile.id}</Text>
-//             </View>
-//             <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }] }>
-//               <Text style={[styles.label, { color: themeStyle.label }]}>Name:</Text>
-//               <Text style={[styles.value, { color: themeStyle.text }]}>{profile.first_name} {profile.last_name}</Text>
-//             </View>
-//             <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }] }>
-//               <Text style={[styles.label, { color: themeStyle.label }]}>Email:</Text>
-//               <Text style={[styles.value, { color: themeStyle.text }]}>{profile.email}</Text>
-//             </View>
-//             <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }] }>
-//               <Text style={[styles.label, { color: themeStyle.label }]}>User Type:</Text>
-//               <Text style={[styles.value, { color: themeStyle.text }]}>{profile.user_type}</Text>
-//             </View>
-//             <View style={[styles.infoBox, { borderBottomColor: themeStyle.border }] }>
-//               <Text style={[styles.label, { color: themeStyle.label }]}>Verified:</Text>
-//               <Text style={[styles.value, { color: themeStyle.text }]}>
-//                 {(profile as any).email_verified || profile.is_verified ? 'Yes' : 'No'}
-//               </Text>
-//             </View>
-//             <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeStyle.logoutButton }]} onPress={handleLogout}>
-//               <Text style={[styles.logoutText, { color: themeStyle.logoutText }]}>Logout</Text>
-//             </TouchableOpacity>
-//           </>
-//         ) : (
-//           <Text style={[styles.errorText, { color: themeStyle.error }]}>⚠️ Failed to load profile. Please try again.</Text>
-//         )}
-//       </ScrollView>
-//     </SafeAreaView>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   wrapper: {
-//     flex: 1,
-//     // backgroundColor set dynamically
-//   },
-//   container: {
-//     padding: 24,
-//     justifyContent: 'center',
-//   },
-//   title: {
-//     fontSize: 28,
-//     fontWeight: '700',
-//     // color set dynamically
-//     textAlign: 'center',
-//     marginBottom: 20,
-//   },
-//   infoBox: {
-//     marginBottom: 16,
-//     // borderBottomColor set dynamically
-//     borderBottomWidth: 1,
-//     paddingBottom: 8,
-//   },
-//   label: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//     // color set dynamically
-//   },
-//   value: {
-//     fontSize: 16,
-//     // color set dynamically
-//   },
-//   logoutButton: {
-//     // backgroundColor set dynamically
-//     paddingVertical: 14,
-//     borderRadius: 10,
-//     alignItems: 'center',
-//     marginTop: 30,
-//     elevation: 2,
-//   },
-//   logoutText: {
-//     color: '#fff',
-//     fontSize: 16,
-//     fontWeight: '600',
-//   },
-//   errorText: {
-//     // color set dynamically
-//     textAlign: 'center',
-//     fontSize: 16,
-//     marginTop: 20,
-//   },
-//   loadingContainer: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   loadingText: {
-//     marginTop: 10,
-//     fontSize: 16,
-//     // color set dynamically
-//   },
-// });
 import { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   Animated,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -179,15 +15,19 @@ import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 export default function PatientProfile() {
   const { profile, profileLoading, error, fetchProfile, logout } = useAuthContext();
   const { theme, themeStyle, toggleTheme } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  // Scroll + header animation
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
   const bubble1X = useRef(new Animated.Value(0)).current;
   const bubble2Y = useRef(new Animated.Value(0)).current;
@@ -199,12 +39,45 @@ export default function PatientProfile() {
   const bubble5Y = useRef(new Animated.Value(0)).current;
   const bubble5X = useRef(new Animated.Value(0)).current;
 
-  // Fetch profile on mount
+  const pageInset = clamp(width * 0.03, 12, 18);
+  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding = clamp(height * 0.02, 14, 22);
+  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.022, 14, 22);
+  const headerFadeDistance = clamp(height * 0.022, 14, 20);
+  const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
+  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.014, 8, 12);
+  const contentBottomPadding = clamp(insets.bottom + height * 0.03, 28, 44);
+
+  const bubbleLarge = clamp(width * 0.34, 100, 140);
+  const bubbleMedium = clamp(width * 0.29, 90, 120);
+  const bubbleSmall = clamp(width * 0.26, 82, 108);
+
+  const cardRadius = clamp(width * 0.042, 14, 18);
+  const cardPadding = clamp(width * 0.05, 16, 22);
+  const cardSpacing = clamp(height * 0.02, 14, 20);
+  const profileNameSize = clamp(width * 0.06, 20, 24);
+  const profileEmailSize = clamp(width * 0.036, 13, 15);
+  const labelSize = clamp(width * 0.036, 13, 15);
+  const valueSize = clamp(width * 0.036, 13, 15);
+  const statusSize = clamp(width * 0.031, 11, 13);
+  const statusPadX = clamp(width * 0.03, 10, 14);
+  const statusPadY = clamp(height * 0.008, 5, 8);
+  const buttonPadY = clamp(height * 0.014, 10, 14);
+  const buttonRadius = clamp(width * 0.03, 10, 14);
+  const buttonTextSize = clamp(width * 0.036, 13, 15);
+  const sectionHeaderSize = clamp(width * 0.047, 16, 20);
+  const menuIconSizeBox = clamp(width * 0.125, 42, 50);
+  const menuIconRadius = clamp(width * 0.03, 10, 14);
+  const menuTitleSize = clamp(width * 0.041, 14, 17);
+  const menuSubtitleSize = clamp(width * 0.031, 11, 13);
+  const logoutTextSize = clamp(width * 0.041, 15, 17);
+  const avatarIconSize = clamp(width * 0.16, 50, 66);
+
   useEffect(() => {
     fetchProfile();
   }, []);
 
-  // Bubble animation effect
   useEffect(() => {
     const createFloatingAnimation = (
       animatedValueY: Animated.Value,
@@ -276,7 +149,7 @@ export default function PatientProfile() {
   if (profileLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: '#342949' }]}>
-        <ActivityIndicator size="large" color="#A78BFA" />
+        <TabLoaderCard spinnerColor="#A78BFA" />
       </View>
     );
   }
@@ -295,12 +168,9 @@ export default function PatientProfile() {
             {
               top: '10%',
               left: '-10%',
-              width: 120,
-              height: 120,
-              transform: [
-                { translateY: bubble1Y },
-                { translateX: bubble1X },
-              ],
+              width: bubbleLarge,
+              height: bubbleLarge,
+              transform: [{ translateY: bubble1Y }, { translateX: bubble1X }],
             },
           ]}
         />
@@ -310,12 +180,9 @@ export default function PatientProfile() {
             {
               top: '30%',
               right: '-5%',
-              width: 100,
-              height: 100,
-              transform: [
-                { translateY: bubble2Y },
-                { translateX: bubble2X },
-              ],
+              width: bubbleMedium,
+              height: bubbleMedium,
+              transform: [{ translateY: bubble2Y }, { translateX: bubble2X }],
             },
           ]}
         />
@@ -325,12 +192,9 @@ export default function PatientProfile() {
             {
               top: '50%',
               left: '-8%',
-              width: 90,
-              height: 90,
-              transform: [
-                { translateY: bubble3Y },
-                { translateX: bubble3X },
-              ],
+              width: bubbleSmall,
+              height: bubbleSmall,
+              transform: [{ translateY: bubble3Y }, { translateX: bubble3X }],
             },
           ]}
         />
@@ -340,12 +204,9 @@ export default function PatientProfile() {
             {
               top: '70%',
               right: '-7%',
-              width: 110,
-              height: 110,
-              transform: [
-                { translateY: bubble4Y },
-                { translateX: bubble4X },
-              ],
+              width: bubbleMedium,
+              height: bubbleMedium,
+              transform: [{ translateY: bubble4Y }, { translateX: bubble4X }],
             },
           ]}
         />
@@ -355,18 +216,14 @@ export default function PatientProfile() {
             {
               bottom: '5%',
               left: '5%',
-              width: 95,
-              height: 95,
-              transform: [
-                { translateY: bubble5Y },
-                { translateX: bubble5X },
-              ],
+              width: bubbleSmall,
+              height: bubbleSmall,
+              transform: [{ translateY: bubble5Y }, { translateX: bubble5X }],
             },
           ]}
         />
       </LinearGradient>
 
-      {/* Sticky header - slides in when scrolled */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="Your"
@@ -374,22 +231,35 @@ export default function PatientProfile() {
         onBackPress={() => router.back()}
       />
 
-      {/* Animated fading header */}
       <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: headerBottomPadding,
         opacity: scrollY.interpolate({
-          inputRange: [0, 100, 150],
-          outputRange: [1, 0.5, 0],
+          inputRange: [0, headerFadeDistance * 0.45, headerFadeDistance],
+          outputRange: [1, 0, 0],
           extrapolate: 'clamp',
-        })
+        }),
+        transform: [{
+          translateY: scrollY.interpolate({
+            inputRange: [0, headerFadeDistance],
+            outputRange: [0, -10],
+            extrapolate: 'clamp',
+          }),
+        }],
       }]}>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
           <Text style={styles.headerWhite}>Your </Text>
           <Text style={styles.headerPurple}>Profile</Text>
         </Text>
       </Animated.View>
 
       <Animated.ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, {
+          paddingHorizontal: pageInset,
+          paddingTop: contentTopPadding,
+          paddingBottom: contentBottomPadding,
+        }]}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -400,67 +270,72 @@ export default function PatientProfile() {
         {profile ? (
           <>
             {/* Profile Card */}
-            <View style={styles.card}>
+            <View style={[styles.card, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardSpacing }]}>
               <View style={styles.profileHeader}>
                 <View style={styles.avatarContainer}>
-                  <FontAwesome name="user-circle" size={60} color="#B8A8E6" />
+                  <FontAwesome name="user-circle" size={avatarIconSize} color="#B8A8E6" />
                 </View>
-                <Text style={styles.profileName}>
+                <Text style={[styles.profileName, { fontSize: profileNameSize }]}>
                   {profile.first_name} {profile.last_name}
                 </Text>
-                <Text style={styles.profileEmail}>{profile.email}</Text>
+                <Text style={[styles.profileEmail, { fontSize: profileEmailSize }]}>{profile.email}</Text>
               </View>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>User Type</Text>
-                <Text style={styles.infoValue}>{profile.user_type}</Text>
+                <Text style={[styles.infoLabel, { fontSize: labelSize }]}>User Type</Text>
+                <Text style={[styles.infoValue, { fontSize: valueSize }]}>{profile.user_type}</Text>
               </View>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Account Status</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>
+                <Text style={[styles.infoLabel, { fontSize: labelSize }]}>Account Status</Text>
+                <View style={[styles.statusBadge, { paddingHorizontal: statusPadX, paddingVertical: statusPadY, borderRadius: buttonRadius }]}>
+                  <Text style={[styles.statusText, { fontSize: statusSize }]}>
                     {(profile as any).email_verified || profile.is_verified ? '✓ Verified' : 'Not Verified'}
                   </Text>
                 </View>
               </View>
 
-              {/* Edit Profile Button */}
-              <TouchableOpacity style={styles.editProfileButton} onPress={() => router.push('./profile-edit' as any)}>
+              {/* ── FIXED: added missing closing } on style prop ── */}
+              <TouchableOpacity
+                style={[styles.editProfileButton, { paddingVertical: buttonPadY, paddingHorizontal: clamp(width * 0.04, 14, 18), borderRadius: buttonRadius, marginTop: clamp(height * 0.014, 10, 14) }]}
+                onPress={() => router.push('./profile-edit' as any)}
+              >
                 <FontAwesome name="pencil" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.editProfileText}>Edit Profile</Text>
+                <Text style={[styles.editProfileText, { fontSize: buttonTextSize }]}>Edit Profile</Text>
               </TouchableOpacity>
             </View>
 
             {/* Preferences Section */}
-            <Text style={styles.sectionHeader}>Preferences</Text>
-            
+            <Text style={[styles.sectionHeader, { fontSize: sectionHeaderSize, marginTop: clamp(height * 0.024, 18, 26), marginBottom: clamp(height * 0.014, 10, 14) }]}>
+              Preferences
+            </Text>
+
             <TouchableOpacity
-              style={styles.menuCard}
+              style={[styles.menuCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: clamp(height * 0.014, 10, 14) }]}
               onPress={() => router.push('./notification-settings' as any)}
             >
               <View style={styles.menuIconContainer}>
                 <LinearGradient
                   colors={['#FF6B9D', '#C44569']}
-                  style={styles.iconGradient}
+                  style={[styles.iconGradient, { width: menuIconSizeBox, height: menuIconSizeBox, borderRadius: menuIconRadius }]}
                 >
                   <FontAwesome name="bell" size={20} color="#FFFFFF" />
                 </LinearGradient>
               </View>
               <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>Notification Settings</Text>
-                <Text style={styles.menuSubtitle}>Manage your reminders</Text>
+                <Text style={[styles.menuTitle, { fontSize: menuTitleSize }]}>Notification Settings</Text>
+                <Text style={[styles.menuSubtitle, { fontSize: menuSubtitleSize }]}>Manage your reminders</Text>
               </View>
               <FontAwesome name="chevron-right" size={16} color="#8D8BA7" />
             </TouchableOpacity>
 
             {/* Logout Button */}
             <TouchableOpacity
-              style={styles.logoutButton}
+              style={[styles.logoutButton, { paddingVertical: clamp(height * 0.018, 12, 16), borderRadius: cardRadius, marginTop: clamp(height * 0.024, 18, 26) }]}
               onPress={handleLogout}
             >
               <FontAwesome name="sign-out" size={16} color="#FF6B9D" style={{ marginRight: 8 }} />
-              <Text style={styles.logoutText}>Log Out</Text>
+              <Text style={[styles.logoutText, { fontSize: logoutTextSize }]}>Log Out</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -491,31 +366,21 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
   },
   headerContainer: {
-    paddingTop: 90,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    marginBottom: 8,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 900,
   },
   headerTitle: {
-    fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
   },
-  headerWhite: {
-    color: '#FFFFFF',
-  },
-  headerPurple: {
-    color: '#B8A8E6',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 30,
-  },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+  scrollContent: {},
   card: {
     backgroundColor: '#473F5A',
-    padding: 20,
-    borderRadius: 14,
-    marginBottom: 16,
     borderTopWidth: 6,
     borderTopColor: '#A78BFA',
   },
@@ -527,13 +392,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   profileName: {
-    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     marginBottom: 4,
   },
   profileEmail: {
-    fontSize: 14,
     color: '#B8A8E6',
   },
   infoRow: {
@@ -545,12 +408,10 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   infoLabel: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#B8A8E6',
   },
   infoValue: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -563,40 +424,28 @@ const styles = StyleSheet.create({
     borderColor: '#A78BFA',
   },
   statusText: {
-    fontSize: 12,
     fontWeight: '700',
     color: '#A78BFA',
   },
   editProfileButton: {
     backgroundColor: '#A78BFA',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginTop: 12,
   },
   editProfileText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '700',
   },
   sectionHeader: {
-    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 24,
-    marginBottom: 12,
     paddingHorizontal: 4,
   },
   menuCard: {
     backgroundColor: '#473F5A',
-    borderRadius: 14,
-    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -604,9 +453,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   iconGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -614,29 +460,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: {
-    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 2,
   },
   menuSubtitle: {
-    fontSize: 12,
     color: '#8D8BA7',
   },
   logoutButton: {
     backgroundColor: 'rgba(255, 107, 157, 0.15)',
-    paddingVertical: 14,
-    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginTop: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 157, 0.3)',
   },
   logoutText: {
     color: '#FF6B9D',
-    fontSize: 16,
     fontWeight: '800',
   },
   errorText: {

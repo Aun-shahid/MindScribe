@@ -23,6 +23,8 @@ import { useAuth } from '../hooks/useAuth';
 import { validateEmailField, validatePasswordField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,21 +34,26 @@ export default function LoginScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const headingSize = Math.max(30, Math.min(width * 0.09, 38));
-  const subtitleSize = Math.max(14, Math.min(width * 0.042, 16));
-  const inputFontSize = Math.max(14, Math.min(width * 0.039, 15));
-  const imageWidth = Math.min(width * 0.94, 360);
-  const imageHeight = Math.min(height * 0.33, 280);
-  const circleOneSize = Math.min(width * 0.3, 120);
-  const circleTwoSize = Math.min(width * 0.35, 140);
-  const buttonWidth = Math.min(width * 0.8, 340);
-  const buttonVerticalPadding = Math.max(11, Math.min(height * 0.016, 14));
-  const buttonTextSize = Math.max(18, Math.min(width * 0.05, 21));
-  const fieldWidth = Math.min(width * 0.84, 320);
-  const linkFontSize = Math.max(13, Math.min(width * 0.038, 14));
-  const bottomSafeGap = Math.max(insets.bottom + 42, 54);
-  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 8 : 0;
-  
+  const headingSize             = Math.max(30, Math.min(width * 0.09, 38));
+  const subtitleSize            = Math.max(14, Math.min(width * 0.042, 16));
+  const inputFontSize           = Math.max(14, Math.min(width * 0.039, 15));
+  const imageWidth              = Math.min(width * 0.94, 360);
+  const imageHeight             = Math.min(height * 0.33, 280);
+  const circleOneSize           = Math.min(width * 0.3, 120);
+  const circleTwoSize           = Math.min(width * 0.35, 140);
+  const buttonWidth             = Math.min(width * 0.8, 340);
+  const buttonVerticalPadding   = Math.max(11, Math.min(height * 0.016, 14));
+  const buttonTextSize          = Math.max(18, Math.min(width * 0.05, 21));
+  const fieldWidth              = Math.min(width * 0.84, 320);
+  const linkFontSize            = Math.max(13, Math.min(width * 0.038, 14));
+  const bottomSafeGap           = Math.max(insets.bottom + 42, 54);
+  const keyboardVerticalOffset  = Platform.OS === 'ios' ? insets.top + 8 : 0;
+
+  // pill link tokens
+  const linkIconSize = clamp(width * 0.042, 14, 17);
+  const linkPillPadX = clamp(width * 0.05, 16, 22);
+  const linkMT       = clamp(height * 0.028, 18, 28);
+
   const { login, isLoading, error, clearError } = useAuth();
 
   useEffect(() => {
@@ -60,15 +67,13 @@ export default function LoginScreen() {
   }, []);
 
   const handleLogin = async () => {
-    // Validate inputs
-    const emailValidation = validateEmailField(email);
+    const emailValidation    = validateEmailField(email);
     const passwordValidation = validatePasswordField(password);
-    
+
     if (!emailValidation.isValid) {
       setEmailError(emailValidation.message || 'Invalid email');
       return;
     }
-    
     if (!passwordValidation.isValid) {
       setPasswordError(passwordValidation.message || 'Invalid password');
       return;
@@ -76,45 +81,25 @@ export default function LoginScreen() {
 
     try {
       await login({ email: email.trim(), password });
-      
-      // The useAuth hook handles navigation based on user type
-      // But we need to check if the user type matches the selected role
-      
     } catch (err: any) {
-      // Check if the error is about wrong user type
       if (selectedRole && err.user && err.user.user_type !== selectedRole) {
-        Alert.alert(
-          'Wrong User Type', 
-          `This account is registered as a ${err.user.user_type}.`
-        );
+        Alert.alert('Wrong User Type', `This account is registered as a ${err.user.user_type}.`);
         return;
       }
-      
-      Alert.alert(
-        'Login Failed', 
-        error?.message || AUTH_MESSAGES.LOGIN_FAILED
-      );
+      Alert.alert('Login Failed', error?.message || AUTH_MESSAGES.LOGIN_FAILED);
     }
   };
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
-    if (emailError) {
-      setEmailError(null);
-    }
-    if (error) {
-      clearError();
-    }
+    if (emailError) setEmailError(null);
+    if (error) clearError();
   };
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
-    if (passwordError) {
-      setPasswordError(null);
-    }
-    if (error) {
-      clearError();
-    }
+    if (passwordError) setPasswordError(null);
+    if (error) clearError();
   };
 
   return (
@@ -124,7 +109,7 @@ export default function LoginScreen() {
       style={styles.wrapper}
     >
       <View>
-        <Pressable 
+        <Pressable
           style={[styles.backButton, { top: insets.top + 10, left: Math.max(12, width * 0.04) }]}
           onPress={() => !isLoading && router.push('./welcome')}
           disabled={isLoading}
@@ -132,11 +117,11 @@ export default function LoginScreen() {
           <AntDesign name="left" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
-      
-  <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}> 
-  <View style={[styles.circle1, { width: circleOneSize, height: circleOneSize, borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42 }]} />
-  <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
-</View>
+
+      <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}>
+        <View style={[styles.circle1, { width: circleOneSize, height: circleOneSize, borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42 }]} />
+        <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -157,7 +142,6 @@ export default function LoginScreen() {
         <Image
           style={[styles.img, { width: imageWidth, height: imageHeight }]}
           source={require('../../assets/images/login2.png')}
-         
           resizeMode="contain"
         />
 
@@ -186,9 +170,7 @@ export default function LoginScreen() {
             editable={!isLoading}
           />
         </View>
-        {emailError && (
-          <Text style={styles.fieldErrorText}>{emailError}</Text>
-        )}
+        {emailError && <Text style={styles.fieldErrorText}>{emailError}</Text>}
 
         <View style={[styles.inputWrapper, { maxWidth: fieldWidth }, passwordError && styles.inputWrapperError]}>
           <FontAwesome name="lock" size={20} color="#8D8BA7" style={styles.icon} />
@@ -202,47 +184,58 @@ export default function LoginScreen() {
             editable={!isLoading}
           />
         </View>
-        {passwordError && (
-          <Text style={styles.fieldErrorText}>{passwordError}</Text>
-        )}
+        {passwordError && <Text style={styles.fieldErrorText}>{passwordError}</Text>}
 
-       <TouchableOpacity 
-  style={[
-    styles.loginButton,
-          { width: buttonWidth, paddingVertical: buttonVerticalPadding },
-    isLoading && styles.loginButtonDisabled
-  ]} 
-  onPress={handleLogin}
-  disabled={isLoading}
->
-  {isLoading ? (
-    <ActivityIndicator color="#FFFFFF" size="small" />
-  ) : (
-    <Text style={[styles.loginButtonText, { fontSize: buttonTextSize }]}>
-      Login
-    </Text>
-  )}
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.loginButton, { width: buttonWidth, paddingVertical: buttonVerticalPadding }, isLoading && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          {isLoading
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <Text style={[styles.loginButtonText, { fontSize: buttonTextSize }]}>Login</Text>
+          }
+        </TouchableOpacity>
 
+        {/* ── Pill-style links ── */}
+        <View style={[styles.links, { marginTop: linkMT }]}>
 
-        <View style={styles.links}>
-          <TouchableOpacity 
+          {/* Register */}
+          <TouchableOpacity
             onPress={() => !isLoading && router.push('./register')}
             disabled={isLoading}
+            style={[styles.pillLink, { paddingHorizontal: linkPillPadX }, isLoading && { opacity: 0.5 }]}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.linkText, { fontSize: linkFontSize }, isLoading && styles.linkTextDisabled]}>
-              Don&apos;t have an account? Register
+            <MaterialIcons
+              name="person-add"
+              size={linkIconSize}
+              color="#A78BFA"
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.pillLinkText, { fontSize: linkFontSize }]}>
+              Don't have an account? Register
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          {/* Forgot password */}
+          <TouchableOpacity
             onPress={() => !isLoading && router.push('./request-reset')}
             disabled={isLoading}
+            style={[styles.pillLink, styles.pillLinkSecondary, { paddingHorizontal: linkPillPadX }, isLoading && { opacity: 0.5 }]}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.linkText, styles.linkTextSecondary, { fontSize: linkFontSize }, isLoading && styles.linkTextDisabled]}>
+            <MaterialIcons
+              name="lock-reset"
+              size={linkIconSize}
+              color="#BFB4E2"
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.pillLinkText, styles.pillLinkTextSecondary, { fontSize: linkFontSize }]}>
               Forgot Password?
             </Text>
           </TouchableOpacity>
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -250,148 +243,66 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#342949',
-  },
-  backButton: {
-    position: 'absolute',
-    zIndex: 10,
-    padding: 10,
-  },
-  circleContainer: {
-    position: 'absolute',
-    top: -60,
-    right: -60,
-    zIndex: 1,
-  },
+  wrapper:      { flex: 1, backgroundColor: '#342949' },
+  backButton:   { position: 'absolute', zIndex: 10, padding: 10 },
+  circleContainer: { position: 'absolute', top: -60, right: -60, zIndex: 1 },
   circle1: {
-    width: 120,
-    height: 120,
-    borderRadius: 100,
-    backgroundColor: 'rgba(133, 130, 180, 0.2)',
-    opacity: 0.8,
-    position: 'absolute',
-    top: 0,
-    marginTop: 50,
-    right: 0,
+    width: 120, height: 120, borderRadius: 100,
+    backgroundColor: 'rgba(133,130,180,0.2)', opacity: 0.8,
+    position: 'absolute', top: 0, marginTop: 50, right: 0,
   },
   circle2: {
-    width: 140,
-    height: 140,
-    borderRadius: 100,
-    backgroundColor: 'rgba(133, 130, 180, 0.25)',
-    opacity: 0.6,
-    position: 'absolute',
-    top: 40,
-    right: 40,
+    width: 140, height: 140, borderRadius: 100,
+    backgroundColor: 'rgba(133,130,180,0.25)', opacity: 0.6,
+    position: 'absolute', top: 40, right: 40,
   },
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    backgroundColor: '#342949',
-  },
-  img: {
-    marginTop: -24,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  title: {
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  titlePrimary: {
-    color: '#FFFFFF',
-  },
-  titleAccent: {
-    color: '#B8A8E6',
-  },
-  subtitle: {
-    color: '#8D8BA7',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
+  container:    { justifyContent: 'center', alignItems: 'center' },
+  scrollView:   { backgroundColor: '#342949' },
+  img:          { marginTop: -24, alignSelf: 'center', marginBottom: 4 },
+  title:        { fontWeight: '700', textAlign: 'center', marginBottom: 10 },
+  titlePrimary: { color: '#FFFFFF' },
+  titleAccent:  { color: '#B8A8E6' },
+  subtitle:     { color: '#8D8BA7', textAlign: 'center', marginBottom: 30 },
   errorContainer: {
-    backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f44336',
-    marginBottom: 16,
+    backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
+    borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 16,
   },
-  errorText: {
-    color: '#c62828',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  errorText:      { color: '#c62828', fontSize: 14, textAlign: 'center' },
   inputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderRadius: 9,
+    marginBottom: 16, paddingHorizontal: 9,
+    backgroundColor: 'rgba(255,255,255,0.05)', width: '100%',
+  },
+  inputWrapperError: { borderColor: '#f44336', borderWidth: 2 },
+  input:          { flex: 1, height: 44, color: '#FFFFFF' },
+  icon:           { marginRight: 7 },
+  fieldErrorText: { color: '#f44336', fontSize: 12, marginTop: -15, marginBottom: 10, marginLeft: 4 },
+  loginButton: {
+    backgroundColor: '#A78BFA', borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', marginTop: 22, minHeight: 48,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14, elevation: 4,
+  },
+  loginButtonDisabled: { backgroundColor: '#9e9e9e' },
+  loginButtonText:     { color: '#fff', fontWeight: '600' },
+  links: { alignItems: 'center', gap: 10 },
+
+  // ── Pill links ────────────────────────────────────────────────────────────
+  pillLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
-    borderRadius: 9,
-    marginBottom: 16,
-    paddingHorizontal: 9,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    width: '100%',
-  },
-  inputWrapperError: {
-    borderColor: '#f44336',
-    borderWidth: 2,
-  },
-  input: {
-    flex: 1,
-    height: 44,
-    color: '#FFFFFF',
-  },
-  icon: {
-    marginRight: 7,
-  },
-  fieldErrorText: {
-    color: '#f44336',
-    fontSize: 12,
-    marginTop: -15,
-    marginBottom: 10,
-    marginLeft: 4,
-  },
-  loginButton: {
-    backgroundColor: '#A78BFA',
-    borderRadius: 10,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
-    minHeight: 48,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 4,
+    backgroundColor: 'rgba(167,139,250,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.28)',
+    borderRadius: 999,
+    paddingVertical: 10,
   },
-  loginButtonDisabled: {
-    backgroundColor: '#9e9e9e',
+  pillLinkSecondary: {
+    backgroundColor: 'rgba(191,180,226,0.08)',
+    borderColor: 'rgba(191,180,226,0.22)',
   },
-  loginButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  links: {
-    marginTop: 24,
-    alignItems: 'center',
-    gap: 10,
-  },
-  linkText: {
-    color: '#D7CFF0',
-    fontWeight: '500',
-    letterSpacing: 0.2,
-    textDecorationLine: 'underline',
-  },
-  linkTextSecondary: {
-    color: '#BFB4E2',
-  },
-  linkTextDisabled: {
-    color: '#9e9e9e',
-  },
+  pillLinkText:          { color: '#A78BFA', fontWeight: '700', letterSpacing: 0.2 },
+  pillLinkTextSecondary: { color: '#BFB4E2' },
 });

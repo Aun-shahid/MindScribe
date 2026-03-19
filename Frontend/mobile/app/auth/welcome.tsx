@@ -43,7 +43,7 @@ export default function Welcome() {
       </View>
 
       <Image
-        source={require('../../assets/images/land14.png')}
+        source={require('../../assets/images/final_welcome.png')}
         style={[styles.bgImage, { height: imageHeight }]}
         resizeMode="contain"
       />

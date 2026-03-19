@@ -4,48 +4,19 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  Modal,
+  useWindowDimensions,
   Animated,
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
-import PatientService, { RelaxationContent, RelaxationFilters } from '../services/patient.service';
+import PatientService, { RelaxationContent } from '../services/patient.service';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2;
-
-const CATEGORY_ICONS: Record<string, string> = {
-  rain: '🌧️',
-  ocean: '🌊',
-  forest: '🌲',
-  birds: '🐦',
-  fire: '🔥',
-  thunder: '⚡',
-  wind: '💨',
-  river: '🏞️',
-  meditation: '🧘',
-  breathing: '💆',
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  rain: '#93c5fd',
-  ocean: '#67e8f9',
-  forest: '#86efac',
-  birds: '#fde047',
-  fire: '#fca5a5',
-  thunder: '#c4b5fd',
-  wind: '#d1d5db',
-  river: '#7dd3fc',
-  meditation: '#c084fc',
-  breathing: '#a78bfa',
-};
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 // Image mapping for sounds
 const SOUND_IMAGES: Record<string, any> = {
@@ -100,7 +71,9 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
 };
 
 export default function RelaxationSoundsScreen() {
-  const { themeStyle } = useTheme();
+  const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [content, setContent] = useState<RelaxationContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +92,37 @@ export default function RelaxationSoundsScreen() {
 
   // Scroll animation for sticky header
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const pageInset = clamp(width * 0.03, 12, 18);
+  const headerBackOffset = clamp(width * 0.018, 6, 8);
+  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding = clamp(height * 0.02, 14, 22);
+  const headerButtonSize = clamp(width * 0.098, 34, 40);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.047, 16, 20);
+  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.022, 14, 22);
+  const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
+
+  const bubbleLarge = clamp(width * 0.38, 110, 160);
+  const bubbleMedium = clamp(width * 0.32, 95, 130);
+  const bubbleSmall = clamp(width * 0.28, 85, 115);
+
+  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.018, 12, 20);
+  const contentBottomPadding = clamp((insets.bottom || 0) + height * 0.03, 28, 44);
+  const contentHPad = clamp(width * 0.04, 14, 22);
+
+  const cardRadius = clamp(width * 0.053, 16, 22);
+  const cardImageWidth = clamp(width * 0.27, 85, 110);
+  const cardMinHeight = clamp(height * 0.09, 64, 86);
+  const cardTitleSize = clamp(width * 0.04, 13, 16);
+  const cardDescSize = clamp(width * 0.032, 11, 13);
+  const badgePaddingX = clamp(width * 0.022, 7, 10);
+  const badgePaddingY = clamp(height * 0.005, 3, 5);
+  const badgeRadius = clamp(width * 0.028, 9, 11);
+  const playBtnSize = clamp(width * 0.094, 32, 42);
+  const playBtnRadius = playBtnSize / 2;
+  const playIconSize = clamp(width * 0.047, 15, 21);
 
   useEffect(() => {
     loadContent();
@@ -170,7 +174,7 @@ export default function RelaxationSoundsScreen() {
     return () => {
       animations.forEach(anim => anim.stop());
     };
-  }, []);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y]);
 
   
 
@@ -189,28 +193,7 @@ export default function RelaxationSoundsScreen() {
     }
   };
 
-  
 
-  const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const formatDurationFromSeconds = (seconds?: number | null) => {
-    if (seconds === null || typeof seconds === 'undefined') return '';
-    const totalSeconds = Math.floor(seconds);
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  
-
-  
-
-  
 
   const ContentCard = ({ item }: { item: RelaxationContent }) => {
     const bgColor = CARD_BG_COLORS[item.title] || '#473F5A';
@@ -223,28 +206,28 @@ export default function RelaxationSoundsScreen() {
         activeOpacity={0.8}
         style={styles.cardWrapper}
       >
-        <View style={[styles.card, { backgroundColor: bgColor }]}>
+        <View style={[styles.card, { backgroundColor: bgColor, borderRadius: cardRadius, minHeight: cardMinHeight }]}>
           {imageSource && (
             <Image
               source={imageSource}
-              style={styles.cardImage}
+              style={[styles.cardImage, { width: cardImageWidth, borderTopLeftRadius: cardRadius, borderBottomLeftRadius: cardRadius }]}
               resizeMode="cover"
             />
           )}
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
+          <View style={[styles.cardContent, { paddingLeft: clamp(width * 0.04, 12, 18), paddingRight: clamp(width * 0.03, 10, 14) }]}>
+            <Text style={[styles.cardTitle, { fontSize: cardTitleSize }]} numberOfLines={1}>
               {item.title}
             </Text>
-            <Text style={styles.cardDescription} numberOfLines={1}>
+            <Text style={[styles.cardDescription, { fontSize: cardDescSize }]} numberOfLines={1}>
               {item.description}
             </Text>
-            <View style={[styles.categoryBadge, { backgroundColor: categoryBadgeColor }]}>
+            <View style={[styles.categoryBadge, { backgroundColor: categoryBadgeColor, paddingHorizontal: badgePaddingX, paddingVertical: badgePaddingY, borderRadius: badgeRadius }]}>
               <Text style={styles.categoryText}>{item.category}</Text>
             </View>
           </View>
           <View style={styles.arrowContainer}>
-            <View style={styles.playButton}>
-              <MaterialIcons name="arrow-forward-ios" size={24} color="#FFFFFF" />
+            <View style={[styles.playButton, { width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius }]}>
+              <MaterialIcons name="arrow-forward-ios" size={playIconSize} color="#FFFFFF" />
             </View>
           </View>
         </View>
@@ -258,7 +241,7 @@ export default function RelaxationSoundsScreen() {
         fullScreen
         title="Loading relaxation sounds..."
         subtitle="Preparing calming content for you"
-        spinnerColor="#B8A8E6"
+        spinnerColor="#A78BFA"
       />
     );
   }
@@ -291,8 +274,6 @@ export default function RelaxationSoundsScreen() {
     );
   }
 
-  const router = useRouter();
-
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -304,27 +285,27 @@ export default function RelaxationSoundsScreen() {
       {/* Animated Bubbles */}
       <Animated.View style={[
         styles.bubble, 
-        { width: 200, height: 200, top: 50, right: -50, backgroundColor: 'rgba(133, 130, 180, 0.25)' },
+        { width: bubbleLarge, height: bubbleLarge, top: '10%', right: '-10%', backgroundColor: 'rgba(133, 130, 180, 0.25)' },
         { transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }
       ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
-        { width: 280, height: 280, top: -100, left: -80, backgroundColor: 'rgba(133, 130, 180, 0.2)' },
+        { width: bubbleLarge + 20, height: bubbleLarge + 20, top: '-5%', left: '-12%', backgroundColor: 'rgba(133, 130, 180, 0.2)' },
         { transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }
       ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
-        { width: 150, height: 150, bottom: 200, left: -30, backgroundColor: 'rgba(133, 130, 180, 0.22)' },
+        { width: bubbleSmall, height: bubbleSmall, bottom: '25%', left: '-8%', backgroundColor: 'rgba(133, 130, 180, 0.22)' },
         { transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }
       ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
-        { width: 180, height: 180, bottom: 100, right: -60, backgroundColor: 'rgba(133, 130, 180, 0.18)' },
+        { width: bubbleMedium, height: bubbleMedium, bottom: '12%', right: '-10%', backgroundColor: 'rgba(133, 130, 180, 0.18)' },
         { transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }
       ]} pointerEvents="none" />
       <Animated.View style={[
         styles.bubble, 
-        { width: 120, height: 120, top: '40%', right: 20, backgroundColor: 'rgba(133, 130, 180, 0.15)' },
+        { width: bubbleSmall - 10, height: bubbleSmall - 10, top: '40%', right: '5%', backgroundColor: 'rgba(133, 130, 180, 0.15)' },
         { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }
       ]} pointerEvents="none" />
 
@@ -336,9 +317,44 @@ export default function RelaxationSoundsScreen() {
         onBackPress={() => router.push('./take-a-break')}
       />
 
+      {/* Goals-style fading header */}
+      <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: headerBottomPadding,
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        }),
+      }]}>
+        <TouchableOpacity
+          onPress={() => router.push('./take-a-break')}
+          style={[
+            styles.backBtnCircle,
+            {
+              left: pageInset + headerBackOffset,
+              top: headerTopPadding,
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(255,255,255,0.14)',
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
+          <Text style={styles.headerWhite}>Relaxation </Text>
+          <Text style={styles.headerPurple}>Sounds</Text>
+        </Text>
+      </Animated.View>
+
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }]}
         style={styles.scroll}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -346,25 +362,18 @@ export default function RelaxationSoundsScreen() {
         )}
         scrollEventThrottle={16}
       >
-        {/* Original Header */}
-        <OriginalHeader
-          scrollY={scrollY}
-          firstWord="Relaxation"
-          secondWord="Sounds"
-          onBackPress={() => router.push('./take-a-break')}
-        />
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { fontSize: clamp(width * 0.038, 13, 16), paddingHorizontal: contentHPad }]}>
           Nature sounds and ambient audio for relaxation
         </Text>
 
         {/* Content List */}
-        <View style={styles.contentList}>
+        <View style={[styles.contentList, { paddingHorizontal: contentHPad }]}>
           {content
               .filter((item) => {
                 const t = (item.title || '').toLowerCase();
-                const isBreathing = item.category === 'breathing' || item.content_type === 'breathing' || t.includes('breath') || t.includes('breathing');
-                const isBodyScan = item.category === 'body_scan' || item.content_type === 'body_scan' || t.includes('body scan') || t.includes('body-scan');
-                const isVisualization = item.category === 'visualization' || item.content_type === 'guided_meditation' || t.includes('visualization') || t.includes('guided meditation') || t.includes('guided-meditation');
+                const isBreathing = (item.category as string) === 'breathing' || (item.content_type as string) === 'breathing' || t.includes('breath') || t.includes('breathing');
+                const isBodyScan = (item.category as string) === 'body_scan' || (item.content_type as string) === 'body_scan' || t.includes('body scan') || t.includes('body-scan');
+                const isVisualization = (item.category as string) === 'visualization' || (item.content_type as string) === 'guided_meditation' || t.includes('visualization') || t.includes('guided meditation') || t.includes('guided-meditation');
 
                 // Relaxing Sounds page: exclude breathing, body-scan, and visualization items
                 return !isBreathing && !isBodyScan && !isVisualization;
@@ -413,43 +422,36 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-    zIndex: 2,
-    alignItems: 'center',
-  },
-  backButton: {
+  headerContainer: {
     position: 'absolute',
-    left: 20,
-    top: 60,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 900,
+  },
+  backBtnCircle: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  headerWhite: {
-    color: '#FFFFFF',
-  },
-  headerPurple: {
-    color: '#B8A8E6',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#FFFFFF',
+  headerTitle: {
+    fontWeight: '800',
     textAlign: 'center',
   },
+  headerWhite: { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+  subtitle: {
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   contentList: {
-    paddingHorizontal: 20,
     paddingTop: 20,
     gap: 12,
     zIndex: 3,
@@ -481,7 +483,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 16,
     paddingRight: 12,
-    paddingVertical: 12,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   cardTitle: {

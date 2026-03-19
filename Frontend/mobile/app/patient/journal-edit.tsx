@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,140 +9,136 @@ import {
   Platform,
   Animated,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '../contexts/ThemeContext';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService from '../services/patient.service';
 import type { CreateJournalEntryData, JournalEntry } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
 
-const MOOD_TAGS = ['Happy', 'Grateful', 'Anxious', 'Calm', 'Excited', 'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed'];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+const MOOD_TAGS = [
+  'Happy', 'Grateful', 'Anxious', 'Calm', 'Excited',
+  'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed',
+];
+
+const MOOD_TAG_COLORS: Record<string, string> = {
+  Happy: '#F7B731',     Grateful: '#2ECC71', Anxious: '#F39C12',
+  Calm: '#3498DB',      Excited: '#E84393',  Sad: '#5D6DFA',
+  Hopeful: '#9B59B6',   Stressed: '#E74C3C', Peaceful: '#1ABC9C',
+  Overwhelmed: '#8E44AD',
+};
+
+// card gradient — matches CreateJournal
+const CARD_GRAD: readonly [string, string, string] = [
+  'rgba(255,179,107,0.11)',
+  'rgba(167,139,250,0.08)',
+  'rgba(52,41,73,0.72)',
+];
+const CARD_BG     = '#3F3752';
+const CARD_BORDER = 'rgba(255,255,255,0.16)';
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function JournalEdit() {
-  const { themeStyle } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [loading, setLoading] = useState(true);
+
+  const [loading,    setLoading]    = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [originalEntry, setOriginalEntry] = useState<JournalEntry | null>(null);
+  const scrollY  = useRef(new Animated.Value(0)).current;
 
-  // Bubble animations
-  const bubble1Y = useRef(new Animated.Value(0)).current;
-  const bubble1X = useRef(new Animated.Value(0)).current;
-  const bubble2Y = useRef(new Animated.Value(0)).current;
-  const bubble2X = useRef(new Animated.Value(0)).current;
-  const bubble3Y = useRef(new Animated.Value(0)).current;
-  const bubble3X = useRef(new Animated.Value(0)).current;
-  const bubble4Y = useRef(new Animated.Value(0)).current;
-  const bubble4X = useRef(new Animated.Value(0)).current;
-  const bubble5Y = useRef(new Animated.Value(0)).current;
-  const bubble5X = useRef(new Animated.Value(0)).current;
-  
-  // Scroll animation for sticky header
-  const scrollY = useRef(new Animated.Value(0)).current;
-  
+  // bubble animated values
+  const b1y = useRef(new Animated.Value(0)).current;
+  const b1x = useRef(new Animated.Value(0)).current;
+  const b2y = useRef(new Animated.Value(0)).current;
+  const b2x = useRef(new Animated.Value(0)).current;
+  const b3y = useRef(new Animated.Value(0)).current;
+  const b3x = useRef(new Animated.Value(0)).current;
+  const b4y = useRef(new Animated.Value(0)).current;
+  const b4x = useRef(new Animated.Value(0)).current;
+  const b5y = useRef(new Animated.Value(0)).current;
+  const b5x = useRef(new Animated.Value(0)).current;
+
+  // ── Responsive tokens ──────────────────────────────────────────────────────
+  const pi           = clamp(width * 0.048,  16, 24);   // page inset
+  const si           = clamp(width * 0.04,   14, 20);   // section inset (scroll)
+  const hTop         = insets.top + clamp(height * 0.014, 10, 18);
+  const hBtnSz       = clamp(width * 0.098,  34, 40);
+  const hBtnR        = hBtnSz / 2;
+  const hIcon        = clamp(width * 0.047,  16, 20);
+  const hTitleSz     = clamp(width * 0.075,  26, 32);
+  const hMTop        = clamp(height * 0.022, 14, 22);
+  const hPadBot      = clamp(height * 0.02,  14, 22);
+  const hEst         = hTop + hMTop + hTitleSz + 8 + hPadBot;
+
+  // bubble sizes
+  const bLarge  = clamp(width * 0.74, 220, 320);
+  const bMedium = clamp(width * 0.56, 170, 260);
+  const bSmall  = clamp(width * 0.34, 110, 160);
+
+  // card / layout
+  const cR        = clamp(width * 0.042,  13, 16);   // card radius
+  const cPad      = clamp(width * 0.045,  14, 18);   // card padding
+  const sGap      = clamp(height * 0.028, 18, 24);   // section gap
+  const cBot      = clamp(height * 0.05,  30, 46);   // bottom pad
+
+  // typography
+  const cardTitleSz  = clamp(width * 0.042, 15, 17);
+  const cardSubSz    = clamp(width * 0.034, 12, 14);
+  const titleInSz    = clamp(width * 0.042, 15, 17);
+  const bodyInSz     = clamp(width * 0.039, 14, 16);
+  const bodyLH       = Math.round(bodyInSz * 1.45);
+  const bodyMinH     = clamp(height * 0.24, 160, 220);
+  const pillPadY     = clamp(height * 0.01,   6,  9);
+  const pillPadX     = clamp(width * 0.033,  11, 14);
+  const pillR        = clamp(width * 0.04,   14, 18);
+  const pillTxtSz    = clamp(width * 0.035,  12, 14);
+  const switchLblSz  = clamp(width * 0.04,   14, 16);
+  const switchSubSz  = clamp(width * 0.031,  11, 12);
+  const switchW      = clamp(width * 0.13,   46, 52);
+  const switchH      = clamp(height * 0.04,  26, 30);
+  const switchR      = switchH / 2;
+  const switchThumbSz= clamp(height * 0.034, 22, 26);
+  const iconBadgeSz  = clamp(width * 0.076,  26, 32);
+  const iconBadgeR   = clamp(width * 0.038,  13, 16);
+  const iconSz       = clamp(width * 0.032,  11, 13);
+  const submitPadY   = clamp(height * 0.016, 12, 15);
+  const submitR      = clamp(width * 0.045,  14, 18);
+  const submitTxtSz  = clamp(width * 0.043,  15, 18);
+  const submitIconSz = clamp(width * 0.046,  16, 19);
+  const wordCntSz    = clamp(width * 0.033,  12, 13);
+
+  // ── Form state ─────────────────────────────────────────────────────────────
   const [formData, setFormData] = useState<CreateJournalEntryData>({
-    title: '',
-    content: '',
-    mood_tags_list: [],
-    is_private: true,
-    is_favorite: false,
+    title: '', content: '', mood_tags_list: [],
+    is_private: true, is_favorite: false,
     entry_date: new Date().toISOString().split('T')[0],
   });
 
-  useEffect(() => {
-    if (id) {
-      loadEntry();
-    }
-  }, [id]);
-
-  // Bubble animation effect
-  /* eslint-disable react-hooks/exhaustive-deps */
-  useEffect(() => {
-    const createFloatingAnimation = (
-      animatedValueY: Animated.Value,
-      animatedValueX: Animated.Value,
-      durationY: number,
-      durationX: number,
-      delayY: number = 0,
-      delayX: number = 0
-    ) => {
-      const animateY = () => {
-        Animated.sequence([
-          Animated.delay(delayY),
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(animatedValueY, {
-                toValue: 50,
-                duration: durationY / 2,
-                useNativeDriver: true,
-              }),
-              Animated.timing(animatedValueY, {
-                toValue: -50,
-                duration: durationY / 2,
-                useNativeDriver: true,
-              }),
-            ])
-          ),
-        ]).start();
-      };
-
-      const animateX = () => {
-        Animated.sequence([
-          Animated.delay(delayX),
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(animatedValueX, {
-                toValue: 50,
-                duration: durationX / 2,
-                useNativeDriver: true,
-              }),
-              Animated.timing(animatedValueX, {
-                toValue: -50,
-                duration: durationX / 2,
-                useNativeDriver: true,
-              }),
-            ])
-          ),
-        ]).start();
-      };
-
-      animateY();
-      animateX();
-    };
-
-    createFloatingAnimation(bubble1Y, bubble1X, 8000, 10000, 0, 500);
-    createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 500, 1000);
-    createFloatingAnimation(bubble3Y, bubble3X, 7500, 9500, 1000, 0);
-    createFloatingAnimation(bubble4Y, bubble4X, 8500, 9000, 1500, 800);
-    createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 2000, 1500);
-  }, []);
-  /* eslint-enable react-hooks/exhaustive-deps */
-
-  const loadEntry = async () => {
+  // ── Load entry ────────────────────────────────────────────────────────────
+  const loadEntry = useCallback(async () => {
+    if (!id) return;
     try {
-      const entry = await PatientService.getJournalEntry(id);
-      setOriginalEntry(entry);
-      
-      // Populate form with existing data
+      const entry: JournalEntry = await PatientService.getJournalEntry(id);
       setFormData({
-        prompt: entry.tags || undefined,
-        title: entry.title || '',
-        content: entry.content || '',
-        mood_tags_list: entry.tags_list || [],
-        is_private: entry.privacy_level === 'private',
-        is_favorite: entry.is_favorite,
-        entry_date: new Date(entry.created_at).toISOString().split('T')[0],
+        prompt:        entry.tags || undefined,
+        title:         entry.title         || '',
+        content:       entry.content       || '',
+        mood_tags_list:entry.tags_list      || [],
+        is_private:    entry.privacy_level === 'private',
+        is_favorite:   entry.is_favorite,
+        entry_date:    new Date(entry.created_at).toISOString().split('T')[0],
       });
-
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     } catch (err: any) {
       console.error('[JournalEdit] Error loading:', err);
       Alert.alert('Error', 'Failed to load journal entry');
@@ -150,18 +146,61 @@ export default function JournalEdit() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fadeAnim, id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fadeAnim.setValue(0);
+      loadEntry();
+      return () => {};
+    }, [fadeAnim, loadEntry])
+  );
+
+  // ── Bubble animations — restart on every focus ────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach((v) => v.setValue(0));
+
+      const fly = (
+        y: Animated.Value, x: Animated.Value,
+        dY: number, dX: number
+      ) => {
+        const c = Animated.parallel([
+          Animated.loop(Animated.sequence([
+            Animated.timing(y, { toValue: -50, duration: dY, useNativeDriver: true }),
+            Animated.timing(y, { toValue:  50, duration: dY, useNativeDriver: true }),
+          ])),
+          Animated.loop(Animated.sequence([
+            Animated.timing(x, { toValue:  30, duration: dX, useNativeDriver: true }),
+            Animated.timing(x, { toValue: -30, duration: dX, useNativeDriver: true }),
+          ])),
+        ]);
+        c.start();
+        return c;
+      };
+
+      const anims = [
+        fly(b1y, b1x, 8000, 7000),
+        fly(b2y, b2x, 10000, 8000),
+        fly(b3y, b3x, 9000, 7500),
+        fly(b4y, b4x, 8500, 7200),
+        fly(b5y, b5x, 9500, 8200),
+      ];
+
+      return () => anims.forEach((a) => a.stop());
+    }, [b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y])
+  );
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const toggleMoodTag = (tag: string) => {
-    setFormData(prev => {
-      const currentTags = prev.mood_tags_list || [];
-      const newTags = currentTags.includes(tag)
-        ? currentTags.filter(t => t !== tag)
-        : [...currentTags, tag];
-      
+    setFormData((prev) => {
+      const current = prev.mood_tags_list || [];
       return {
         ...prev,
-        mood_tags_list: newTags,
+        mood_tags_list: current.includes(tag)
+          ? current.filter((t) => t !== tag)
+          : [...current, tag],
       };
     });
   };
@@ -175,15 +214,11 @@ export default function JournalEdit() {
       Alert.alert('Required Field', 'Please write some content');
       return;
     }
-
     setSubmitting(true);
     try {
       await PatientService.updateJournalEntry(id, formData);
       Alert.alert('Success', 'Journal entry updated successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
+        { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {
       console.error('[JournalEdit] Error updating:', err);
@@ -193,103 +228,80 @@ export default function JournalEdit() {
     }
   };
 
+  // ── Guard ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <TabLoaderCard
         fullScreen
         title="Loading journal entry..."
         subtitle="Preparing your editor"
-        spinnerColor="#FFB36B"
+        spinnerColor="#A78BFA"
       />
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#342949', '#2a1f3d', '#342949']}
-        style={styles.screenGradient}
-        pointerEvents="none"
-      >
-        {/* Floating Bubbles */}
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              top: '10%',
-              left: '-10%',
-              width: 120,
-              height: 120,
-              transform: [
-                { translateY: bubble1Y },
-                { translateX: bubble1X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              top: '30%',
-              right: '-5%',
-              width: 100,
-              height: 100,
-              transform: [
-                { translateY: bubble2Y },
-                { translateX: bubble2X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              top: '50%',
-              left: '-8%',
-              width: 90,
-              height: 90,
-              transform: [
-                { translateY: bubble3Y },
-                { translateX: bubble3X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              top: '70%',
-              right: '-7%',
-              width: 110,
-              height: 110,
-              transform: [
-                { translateY: bubble4Y },
-                { translateX: bubble4X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              bottom: '5%',
-              left: '5%',
-              width: 95,
-              height: 95,
-              transform: [
-                { translateY: bubble5Y },
-                { translateX: bubble5X },
-              ],
-            },
-          ]}
-        />
-      </LinearGradient>
+  const wordCount = formData.content?.trim().split(/\s+/).filter((w) => w).length ?? 0;
 
-      {/* Sticky Header - Appears on scroll */}
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <View style={s.container}>
+
+      {/* ── Background gradient ── */}
+      <LinearGradient
+        colors={['#342949', '#2A1F3D', '#342949']}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* ── Ambient glow blobs ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[s.glow, {
+          width: bLarge * 1.1, height: bLarge * 1.1,
+          top: -bLarge * 0.3, right: -bLarge * 0.3,
+          backgroundColor: 'rgba(167,139,250,0.06)',
+        }]} />
+        <View style={[s.glow, {
+          width: bMedium, height: bMedium,
+          bottom: '18%', left: -bMedium * 0.35,
+          backgroundColor: 'rgba(255,179,107,0.05)',
+        }]} />
+      </View>
+
+      {/* ── Floating bubbles — odd=warm purple, even=cool light purple ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* 1 — odd: warm purple */}
+        <Animated.View style={[s.bubble, {
+          width: bMedium, height: bMedium,
+          top: '10%', left: '-10%',
+          backgroundColor: 'rgba(167,139,250,0.15)',
+        }, { transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
+        {/* 2 — even: cool light purple/blue */}
+        <Animated.View style={[s.bubble, {
+          width: bLarge, height: bLarge,
+          top: '25%', right: '-15%',
+          backgroundColor: 'rgba(184,168,230,0.18)',
+        }, { transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
+        {/* 3 — odd */}
+        <Animated.View style={[s.bubble, {
+          width: bMedium, height: bMedium,
+          top: '50%', left: '10%',
+          backgroundColor: 'rgba(167,139,250,0.13)',
+        }, { transform: [{ translateY: b3y }, { translateX: b3x }] }]} />
+        {/* 4 — even */}
+        <Animated.View style={[s.bubble, {
+          width: bLarge * 0.78, height: bLarge * 0.78,
+          bottom: '15%', right: '5%',
+          backgroundColor: 'rgba(184,168,230,0.22)',
+        }, { transform: [{ translateY: b4y }, { translateX: b4x }] }]} />
+        {/* 5 — odd */}
+        <Animated.View style={[s.bubble, {
+          width: bSmall, height: bSmall,
+          bottom: '30%', left: '-5%',
+          backgroundColor: 'rgba(167,139,250,0.19)',
+        }, { transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
+      </View>
+
+      {/* ── Sticky header ── */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="Edit"
@@ -297,13 +309,58 @@ export default function JournalEdit() {
         onBackPress={() => router.back()}
       />
 
+      {/* ── Fading large header ── */}
+      <Animated.View style={[s.headerContainer, {
+        paddingTop: hTop,
+        paddingHorizontal: pi,
+        paddingBottom: hPadBot,
+        opacity: scrollY.interpolate({
+          inputRange: [0, 100, 150],
+          outputRange: [1, 0.5, 0],
+          extrapolate: 'clamp',
+        }),
+      }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[s.backBtnCircle, {
+            left: pi, top: hTop,
+            width: hBtnSz, height: hBtnSz, borderRadius: hBtnR,
+          }]}
+        >
+          <FontAwesome name="chevron-left" size={hIcon} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Heading + gradient underline */}
+        <View style={{ alignItems: 'center', marginTop: hMTop }}>
+          <Text style={{ fontSize: hTitleSz, fontWeight: '800', textAlign: 'center' }}>
+            <Text style={{ color: '#FFFFFF' }}>Edit </Text>
+            <Text style={{ color: '#B8A8E6' }}>Journal</Text>
+          </Text>
+          <LinearGradient
+            colors={['transparent', '#A78BFA', '#FFB36B', 'transparent']}
+            start={[0, 0]} end={[1, 0]}
+            style={{
+              height: 2,
+              width: clamp(width * 0.3, 96, 130),
+              borderRadius: 2,
+              marginTop: clamp(height * 0.007, 5, 7),
+            }}
+          />
+        </View>
+      </Animated.View>
+
+      {/* ── Scrollable form ── */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <Animated.ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: si,
+            paddingTop: hEst + clamp(height * 0.034, 22, 34),
+            paddingBottom: cBot,
+          }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
@@ -311,151 +368,417 @@ export default function JournalEdit() {
           scrollEventThrottle={16}
         >
           <Animated.View style={{ opacity: fadeAnim }}>
-            {/* Original Header */}
-            <OriginalHeader
-              scrollY={scrollY}
-              firstWord="Edit"
-              secondWord="Journal"
-              onBackPress={() => router.back()}
-            />
 
-            {/* Title Input */}
-            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-              <Text style={styles.cardTitle}>
-                Title *
-              </Text>
-              <TextInput
-                style={styles.cardTextInput}
-                placeholder="Give your entry a title..."
-                placeholderTextColor="#B8A8E6"
-                value={formData.title}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
+            {/* ══════════════════════════════════════════
+                TITLE CARD
+            ══════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: 0, overflow: 'hidden',
+              borderRadius: cR,
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              marginBottom: sGap,
+            }]}>
+              {/* Gradient overlay */}
+              <LinearGradient
+                colors={CARD_GRAD}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]}
+                pointerEvents="none"
               />
-            </View>
+              {/* Accent strip */}
+              <View style={{ height: 3, backgroundColor: '#A78BFA', borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
 
-            {/* Content Input - Large */}
-            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-              <Text style={styles.cardTitle}>
-                What's on your mind? *
-              </Text>
-              <TextInput
-                style={[styles.cardTextInput, { minHeight: 250 }]}
-                placeholder="Start writing... Express yourself freely."
-                placeholderTextColor="#B8A8E6"
-                value={formData.content}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, content: text }))}
-                multiline
-                numberOfLines={12}
-                textAlignVertical="top"
-              />
-              <Text style={styles.wordCount}>
-                {formData.content?.trim().split(/\s+/).filter(w => w).length || 0} words
-              </Text>
-            </View>
-
-            {/* Tags */}
-            <View style={[styles.card, { backgroundColor: '#473F5A' }]}>
-              <Text style={styles.cardTitle}>
-                🎨 Tags (Optional)
-              </Text>
-              <Text style={[styles.subtitle, { textAlign: 'left', marginBottom: 12 }]}>
-                Select tags that describe your current state
-              </Text>
-              <View style={styles.moodTagsContainer}>
-                {MOOD_TAGS.map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[
-                      styles.moodTag,
-                      formData.mood_tags_list?.includes(tag) && styles.moodTagSelected,
-                    ]}
-                    onPress={() => toggleMoodTag(tag)}
+              <View style={{ padding: cPad }}>
+                {/* Header row */}
+                <View style={[s.cardHeaderRow, { marginBottom: clamp(height * 0.018, 12, 16) }]}>
+                  <LinearGradient
+                    colors={['rgba(167,139,250,0.30)', 'rgba(167,139,250,0.10)']}
+                    style={[s.iconBadge, {
+                      width: iconBadgeSz, height: iconBadgeSz, borderRadius: iconBadgeR,
+                      borderColor: 'rgba(167,139,250,0.45)',
+                    }]}
                   >
-                    <Text
-                      style={[
-                        styles.moodTagText,
-                        formData.mood_tags_list?.includes(tag) && styles.moodTagTextSelected,
-                      ]}
-                    >
-                      {tag}
+                    <FontAwesome name="pencil" size={iconSz} color="#C4B0FF" />
+                  </LinearGradient>
+                  <View>
+                    <Text style={{ color: '#FFFFFF', fontSize: cardTitleSz, fontWeight: '800', letterSpacing: 0.5 }}>
+                      Entry Title
                     </Text>
-                  </TouchableOpacity>
-                ))}
+                    <Text style={{ color: '#9D8EC7', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 1.2, marginTop: 1 }}>
+                      REQUIRED
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Underline-style input */}
+                <View style={{
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: 'rgba(167,139,250,0.45)',
+                  paddingBottom: 4,
+                }}>
+                  <TextInput
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#FFFFFF',
+                      paddingVertical: clamp(height * 0.009, 6, 8),
+                      paddingHorizontal: 2,
+                      height: clamp(height * 0.056, 38, 44),
+                      fontSize: titleInSz,
+                      fontWeight: '700',
+                      letterSpacing: 0.3,
+                    }}
+                    placeholder="Give your entry a title..."
+                    placeholderTextColor="rgba(184,168,230,0.45)"
+                    value={formData.title}
+                    onChangeText={(text) => setFormData((prev) => ({ ...prev, title: text }))}
+                  />
+                </View>
               </View>
             </View>
 
-            {/* Privacy & Favorite */}
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.switchRow}
-                onPress={() => setFormData(prev => ({ ...prev, is_favorite: !prev.is_favorite }))}
-              >
-                <View style={styles.switchLeft}>
-                  <Text style={styles.switchEmoji}>⭐</Text>
-                  <Text style={styles.switchLabel}>
-                    Mark as Favorite
+            {/* ══════════════════════════════════════════
+                CONTENT CARD
+            ══════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: 0, overflow: 'hidden',
+              borderRadius: cR,
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              marginBottom: sGap,
+            }]}>
+              <LinearGradient
+                colors={CARD_GRAD}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]}
+                pointerEvents="none"
+              />
+              {/* Orange accent strip */}
+              <View style={{ height: 3, backgroundColor: '#FFB36B', borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
+
+              <View style={{ padding: cPad }}>
+                {/* Header row */}
+                <View style={[s.cardHeaderRow, { marginBottom: clamp(height * 0.014, 10, 14) }]}>
+                  <LinearGradient
+                    colors={['rgba(255,179,107,0.25)', 'rgba(255,179,107,0.08)']}
+                    style={[s.iconBadge, {
+                      width: iconBadgeSz, height: iconBadgeSz, borderRadius: iconBadgeR,
+                      borderColor: 'rgba(255,179,107,0.40)',
+                    }]}
+                  >
+                    <FontAwesome name="edit" size={iconSz} color="#FFB36B" />
+                  </LinearGradient>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: cardTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>
+                      What's on your mind?
+                    </Text>
+                    <Text style={{ color: '#C9A97E', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 0.8, marginTop: 1 }}>
+                      Write freely — no rules here
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Thin separator */}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
+
+                {/* Text area */}
+                <TextInput
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: '#FFFFFF',
+                    paddingVertical: clamp(height * 0.016, 10, 14),
+                    paddingHorizontal: 2,
+                    fontSize: bodyInSz,
+                    minHeight: bodyMinH,
+                    lineHeight: bodyLH,
+                    letterSpacing: 0.2,
+                  }}
+                  placeholder="Start writing... Express yourself freely."
+                  placeholderTextColor="rgba(184,168,230,0.45)"
+                  value={formData.content}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, content: text }))}
+                  multiline
+                  numberOfLines={12}
+                  textAlignVertical="top"
+                />
+
+                {/* Word count footer */}
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  marginTop: 8, paddingTop: 8,
+                  borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+                }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFB36B', opacity: 0.7 }} />
+                  <Text style={{ color: '#9D8EC7', fontSize: wordCntSz, fontStyle: 'italic' }}>
+                    {wordCount} words
                   </Text>
                 </View>
-                <View style={[
-                  styles.switch,
-                  { backgroundColor: formData.is_favorite ? '#4caf50' : '#ccc' },
-                ]}>
-                  <View style={[
-                    styles.switchThumb,
-                    { transform: [{ translateX: formData.is_favorite ? 22 : 2 }] },
-                  ]} />
+              </View>
+            </View>
+
+            {/* ══════════════════════════════════════════
+                TAGS CARD
+            ══════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: cPad, overflow: 'hidden',
+              borderRadius: cR,
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              marginBottom: sGap,
+            }]}>
+              <LinearGradient
+                colors={CARD_GRAD}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]}
+                pointerEvents="none"
+              />
+              {/* Accent strip — absolute at top */}
+              <View style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                height: 3, backgroundColor: '#A78BFA',
+                borderTopLeftRadius: cR, borderTopRightRadius: cR,
+              }} />
+
+              <View style={{ marginTop: clamp(height * 0.008, 4, 8) }}>
+                <Text style={{ color: '#FFFFFF', fontSize: cardTitleSz, fontWeight: '700', marginBottom: clamp(height * 0.008, 5, 7) }}>
+                  🎨 Tags
+                  <Text style={{ color: '#9D8EC7', fontWeight: '500' }}> (Optional)</Text>
+                </Text>
+                <Text style={{ color: '#B8A8E6', fontSize: cardSubSz, marginBottom: clamp(height * 0.015, 10, 12) }}>
+                  Select tags that describe your current state
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: clamp(width * 0.025, 8, 10) }}>
+                  {MOOD_TAGS.map((tag) => {
+                    const isSelected  = formData.mood_tags_list?.includes(tag);
+                    const tagColor    = MOOD_TAG_COLORS[tag] || '#B8A8E6';
+                    const tagLightBg  = `${tagColor}24`;
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        onPress={() => toggleMoodTag(tag)}
+                        style={{
+                          paddingVertical:   pillPadY,
+                          paddingHorizontal: pillPadX,
+                          borderRadius:      pillR,
+                          borderWidth:       1,
+                          borderColor:       tagColor,
+                          backgroundColor:   isSelected ? tagColor : tagLightBg,
+                        }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: pillTxtSz, fontWeight: '600' }}>
+                          {tag}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ══════════════════════════════════════════
+                FAVOURITE TOGGLE CARD
+            ══════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: cPad, overflow: 'hidden',
+              borderRadius: cR,
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              marginBottom: sGap,
+            }]}>
+              <LinearGradient
+                colors={CARD_GRAD}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]}
+                pointerEvents="none"
+              />
+              <View style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                height: 3, backgroundColor: '#FFB36B',
+                borderTopLeftRadius: cR, borderTopRightRadius: cR,
+              }} />
 
               <TouchableOpacity
-                style={styles.switchRow}
-                onPress={() => setFormData(prev => ({ ...prev, is_private: !prev.is_private }))}
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: clamp(height * 0.016, 10, 14),
+                  marginTop: clamp(height * 0.008, 4, 8),
+                }}
+                onPress={() => setFormData((prev) => ({ ...prev, is_favorite: !prev.is_favorite }))}
               >
-                <View style={styles.switchLeft}>
-                  <Text style={styles.switchEmoji}>🔒</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width:  clamp(width * 0.086, 30, 36),
+                    height: clamp(width * 0.086, 30, 36),
+                    borderRadius: clamp(width * 0.043, 15, 18),
+                    backgroundColor: 'rgba(255,196,92,0.18)',
+                    borderWidth: 1, borderColor: 'rgba(255,196,92,0.45)',
+                    alignItems: 'center', justifyContent: 'center',
+                    marginRight: clamp(width * 0.028, 10, 13),
+                  }}>
+                    <Text style={{ fontSize: clamp(width * 0.048, 16, 20) }}>⭐</Text>
+                  </View>
                   <View>
-                    <Text style={styles.switchLabel}>
+                    <Text style={{ color: '#FFFFFF', fontSize: switchLblSz, fontWeight: '700' }}>
+                      Mark as Favourite
+                    </Text>
+                    <Text style={{ color: '#CEC2EE', fontSize: switchSubSz, marginTop: 2 }}>
+                      Pin this journal for quick access
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Toggle switch */}
+                <View style={{
+                  width: switchW, height: switchH, borderRadius: switchR, padding: 2,
+                  borderWidth: 1,
+                  borderColor: formData.is_favorite ? '#FFD27A' : 'rgba(255,255,255,0.24)',
+                  backgroundColor: formData.is_favorite ? '#F5A623' : '#8E87A8',
+                }}>
+                  <View style={{
+                    width: switchThumbSz, height: switchThumbSz,
+                    borderRadius: switchThumbSz / 2,
+                    backgroundColor: '#FFFFFF',
+                    transform: [{
+                      translateX: formData.is_favorite
+                        ? clamp(width * 0.055, 20, 24)
+                        : 2,
+                    }],
+                    shadowColor: '#000', shadowOpacity: 0.2,
+                    shadowOffset: { width: 0, height: 2 }, shadowRadius: 2, elevation: 2,
+                  }} />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* ══════════════════════════════════════════
+                PRIVACY TOGGLE CARD
+            ══════════════════════════════════════════ */}
+            <View style={[s.card, {
+              padding: cPad, overflow: 'hidden',
+              borderRadius: cR,
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              marginBottom: sGap,
+            }]}>
+              <LinearGradient
+                colors={CARD_GRAD}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]}
+                pointerEvents="none"
+              />
+              <View style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                height: 3, backgroundColor: '#A78BFA',
+                borderTopLeftRadius: cR, borderTopRightRadius: cR,
+              }} />
+
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: clamp(height * 0.016, 10, 14),
+                  marginTop: clamp(height * 0.008, 4, 8),
+                }}
+                onPress={() => setFormData((prev) => ({ ...prev, is_private: !prev.is_private }))}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width:  clamp(width * 0.086, 30, 36),
+                    height: clamp(width * 0.086, 30, 36),
+                    borderRadius: clamp(width * 0.043, 15, 18),
+                    backgroundColor: 'rgba(167,139,250,0.18)',
+                    borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)',
+                    alignItems: 'center', justifyContent: 'center',
+                    marginRight: clamp(width * 0.028, 10, 13),
+                  }}>
+                    <Text style={{ fontSize: clamp(width * 0.048, 16, 20) }}>🔒</Text>
+                  </View>
+                  <View>
+                    <Text style={{ color: '#FFFFFF', fontSize: switchLblSz, fontWeight: '700' }}>
                       Keep Private
                     </Text>
-                    <Text style={styles.privacySubtext}>
+                    <Text style={{ color: '#CEC2EE', fontSize: switchSubSz, marginTop: 2 }}>
                       {formData.is_private ? 'Only you can see' : 'Therapist can view'}
                     </Text>
                   </View>
                 </View>
-                <View style={[
-                  styles.switch,
-                  { backgroundColor: formData.is_private ? '#4caf50' : '#ccc' },
-                ]}>
-                  <View style={[
-                    styles.switchThumb,
-                    { transform: [{ translateX: formData.is_private ? 22 : 2 }] },
-                  ]} />
+
+                {/* Toggle switch */}
+                <View style={{
+                  width: switchW, height: switchH, borderRadius: switchR, padding: 2,
+                  borderWidth: 1,
+                  borderColor: formData.is_private ? 'rgba(167,139,250,0.6)' : 'rgba(255,255,255,0.24)',
+                  backgroundColor: formData.is_private ? '#7C5CE0' : '#8E87A8',
+                }}>
+                  <View style={{
+                    width: switchThumbSz, height: switchThumbSz,
+                    borderRadius: switchThumbSz / 2,
+                    backgroundColor: '#FFFFFF',
+                    transform: [{
+                      translateX: formData.is_private
+                        ? clamp(width * 0.055, 20, 24)
+                        : 2,
+                    }],
+                    shadowColor: '#000', shadowOpacity: 0.2,
+                    shadowOffset: { width: 0, height: 2 }, shadowRadius: 2, elevation: 2,
+                  }} />
                 </View>
               </TouchableOpacity>
             </View>
 
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={submitting}
+            {/* ══════════════════════════════════════════
+                SAVE BUTTON
+            ══════════════════════════════════════════ */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={submitting}
+              activeOpacity={0.9}
+              style={[{
+                borderRadius: submitR, overflow: 'hidden',
+                marginTop: clamp(height * 0.02, 12, 18),
+                marginBottom: clamp(height * 0.01, 6, 10),
+                opacity: submitting ? 0.6 : 1,
+              }]}
+            >
+              <LinearGradient
+                colors={['#8B5CF6', '#A78BFA']}
+                start={[0, 0]} end={[1, 1]}
+                style={{
+                  width: '100%',
+                  minHeight: clamp(height * 0.064, 48, 56),
+                  borderRadius: submitR,
+                  alignItems: 'center', justifyContent: 'center',
+                  paddingVertical: submitPadY,
+                }}
               >
-                <Text style={styles.submitButtonText}>
-                  {submitting ? '✨ Saving...' : '💾 Save Changes'}
-                </Text>
-              </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: clamp(width * 0.024, 8, 10) }}>
+                  <FontAwesome name="save" size={submitIconSz} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontSize: submitTxtSz, fontWeight: '700' }}>
+                    {submitting ? '✨ Saving...' : 'Save Changes'}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => router.back()}
-                disabled={submitting}
-              >
-                <Text style={styles.cancelButtonText}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Cancel — ghost button */}
+            <TouchableOpacity
+              onPress={() => router.back()}
+              disabled={submitting}
+              activeOpacity={0.8}
+              style={{
+                alignItems: 'center', justifyContent: 'center',
+                paddingVertical: clamp(height * 0.016, 10, 14),
+                borderRadius: submitR,
+                borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+                marginTop: clamp(height * 0.012, 8, 12),
+              }}
+            >
+              <Text style={{ color: '#CEC2EE', fontSize: clamp(width * 0.04, 14, 16), fontWeight: '600' }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+
           </Animated.View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
@@ -463,217 +786,37 @@ export default function JournalEdit() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#342949',
+// ─── StyleSheet ───────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#342949' },
+  glow:      { position: 'absolute', borderRadius: 9999 },
+  bubble:    { position: 'absolute', borderRadius: 9999 },
+
+  headerContainer: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900,
   },
-  screenGradient: {
+  backBtnCircle: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000', shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1,
   },
-  bubble: {
-    position: 'absolute',
-    backgroundColor: 'rgba(133, 130, 180, 0.15)',
-    borderRadius: 1000,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 32,
-    paddingTop: 30,
-  },
-  headerTitleContainer: {
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  titleWhite: {
-    color: '#FFFFFF',
-  },
-  titlePurple: {
-    color: '#B8A8E6',
-  },
-  subtitle: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    color: '#B8A8E6',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: '#FFFFFF',
-  },
+
   card: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
+    elevation: 7,
+    shadowColor: '#120A24',
+    shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-    color: '#FFFFFF',
+
+  cardHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
-  cardTextInput: {
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
-    backgroundColor: '#5B5270',
-    color: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    minHeight: 50,
-  },
-  wordCount: {
-    marginTop: 8,
-    fontSize: 13,
-    textAlign: 'right',
-    fontStyle: 'italic',
-    color: '#B8A8E6',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#FFFFFF',
-  },
-  wordCount: {
-    marginTop: 8,
-    fontSize: 13,
-    textAlign: 'right',
-    fontStyle: 'italic',
-    color: '#B8A8E6',
-  },
-  moodTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  moodTag: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#5B5270',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  moodTagSelected: {
-    backgroundColor: '#FFB36B',
-    borderColor: '#FFB36B',
-  },
-  moodTagText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  moodTagTextSelected: {
-    color: '#FFFFFF',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  switchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  switchEmoji: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  privacySubtext: {
-    fontSize: 12,
-    marginTop: 2,
-    color: '#B8A8E6',
-  },
-  switch: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    padding: 2,
-  },
-  switchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 2,
-  },
-  actionButtons: {
-    gap: 12,
-    marginTop: 8,
-  },
-  submitButton: {
-    backgroundColor: '#A78BFA',
-    padding: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  cancelButton: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  iconBadge: {
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
 });
