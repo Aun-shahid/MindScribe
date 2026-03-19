@@ -1,5 +1,5 @@
 """
-Transcription Service - Audio transcription using OpenAI Whisper API.
+Transcription Service - Audio transcription using OpenAI transcription models (gpt-4o-transcribe).
 Handles audio processing and transcription for therapy sessions.
 """
 import asyncio
@@ -63,10 +63,10 @@ async def transcribe_audio_chunk(
             tmp_path = tmp_file.name
         
         try:
-            # Transcribe using Whisper
+            # Transcribe using OpenAI "gpt-4o-transcribe"
             with open(tmp_path, "rb") as audio_file:
                 transcript = await client.audio.transcriptions.create(
-                    model="whisper-1",
+                    model="gpt-4o-transcribe",
                     file=audio_file,
                     language=language,
                     response_format="text"
@@ -164,7 +164,7 @@ async def transcribe_full_audio(
         
         with open(audio_path, "rb") as audio_file:
             transcript = await client.audio.transcriptions.create(
-                model="whisper-1",
+                model="gpt-4o-transcribe",
                 file=audio_file,
                 language=language,
                 response_format="verbose_json",
