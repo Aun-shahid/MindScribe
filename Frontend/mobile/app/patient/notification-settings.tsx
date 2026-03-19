@@ -230,9 +230,18 @@ export default function NotificationSettings() {
       return token;
     } catch (error: any) {
       const errorMsg = error?.message || JSON.stringify(error);
+      const normalized = String(errorMsg || '').toLowerCase();
       console.error('[NotifySettings] registerForPush error:', errorMsg);
+
       if (!silent) {
-        Alert.alert('Push setup failed', `Error: ${errorMsg}`);
+        if (normalized.includes('default firebaseapp is not initialized')) {
+          Alert.alert(
+            'Push setup requires new build',
+            'This installed APK was built without Firebase push configuration. OTA updates cannot add this native setup. Install a newly built preview/production app after configuring FCM credentials.'
+          );
+        } else {
+          Alert.alert('Push setup failed', `Error: ${errorMsg}`);
+        }
       }
       return null;
     }
