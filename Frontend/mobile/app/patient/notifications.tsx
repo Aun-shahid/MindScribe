@@ -14,6 +14,7 @@ import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
 import { BASE_URL } from '../config';
+import { normalizeNotificationActionUrl } from '../utils/notificationNavigation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));

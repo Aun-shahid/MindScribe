@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
-from ..models import NotificationPreference, Notification
+from ..models import NotificationPreference, Notification, PatientGoal
 from therapy_sessions.models import Session
 from .notification_center import create_notification
 
@@ -9,6 +9,7 @@ from .notification_center import create_notification
 DEFAULT_DAILY_REMINDER_WINDOW_MINUTES = 5
 DEFAULT_SESSION_REMINDER_WINDOW_MINUTES = 10
 DEFAULT_THERAPIST_SESSION_LOOKAHEAD_HOURS = 48
+DEFAULT_GOAL_REMINDER_LOOKAHEAD_DAYS = 3
 ACTIVE_SESSION_STATUSES = ('UPCOMING', 'RESCHEDULED', 'scheduled')
 
 
@@ -51,6 +52,19 @@ def _therapist_session_lookahead_hours():
     except (TypeError, ValueError):
         hours = DEFAULT_THERAPIST_SESSION_LOOKAHEAD_HOURS
     return max(1, hours)
+
+
+def _goal_reminder_lookahead_days():
+    raw_value = getattr(
+        settings,
+        'GOAL_REMINDER_LOOKAHEAD_DAYS',
+        DEFAULT_GOAL_REMINDER_LOOKAHEAD_DAYS,
+    )
+    try:
+        days = int(raw_value)
+    except (TypeError, ValueError):
+        days = DEFAULT_GOAL_REMINDER_LOOKAHEAD_DAYS
+    return min(30, max(1, days))
 
 
 def send_session_reminder_notifications():
@@ -252,6 +266,74 @@ def send_session_cancelled_notification(session, cancelled_by='therapist'):
         },
     )
     return notification_result['notification']
+
+
+def send_goal_reminder_notifications():
+    """
+    Send in-app reminders for goals that are due soon.
+
+    A reminder is created at most once per goal per day.
+    """
+    now = timezone.now()
+    today = timezone.localtime(now).date()
+    lookahead_days = _goal_reminder_lookahead_days()
+    due_by = today + timedelta(days=lookahead_days)
+    sent_count = 0
+
+    preferences = NotificationPreference.objects.filter(
+        goal_reminders_enabled=True
+    ).select_related('patient')
+
+    for pref in preferences:
+        due_goals = PatientGoal.objects.filter(
+            patient=pref.patient,
+            target_date__isnull=False,
+            target_date__gte=today,
+            target_date__lte=due_by,
+        ).exclude(status='completed').order_by('target_date')
+
+        for goal in due_goals:
+            reminder_today = Notification.objects.filter(
+                patient=pref.patient,
+                notification_type='goal_reminder',
+                goal_id=str(goal.id),
+                sent_at__date=today,
+            ).exists()
+
+            if reminder_today:
+                continue
+
+            days_until_due = (goal.target_date - today).days
+            if days_until_due == 0:
+                title = 'Goal Due Today'
+                message = f'Your goal "{goal.title}" is due today. Take a moment to make progress.'
+            elif days_until_due == 1:
+                title = 'Goal Due Tomorrow'
+                message = f'Your goal "{goal.title}" is due tomorrow. A short check-in now can help.'
+            else:
+                title = 'Goal Check-in'
+                message = (
+                    f'Your goal "{goal.title}" is due in {days_until_due} days. '
+                    'Keep your momentum going.'
+                )
+
+            create_notification(
+                recipient=pref.patient,
+                notification_type='goal_reminder',
+                title=title,
+                message=message,
+                goal_id=str(goal.id),
+                action_url=f'/goals/{goal.id}',
+                source_event='goal.reminder',
+                metadata={
+                    'goal_id': str(goal.id),
+                    'days_until_due': days_until_due,
+                    'target_date': goal.target_date.isoformat(),
+                },
+            )
+            sent_count += 1
+
+    return sent_count
 
 
 def send_mood_reminder_notifications():

@@ -144,20 +144,6 @@ def create_notification(
     notification_level="info",
     related_entity_id=None,
 ):
-    if notification_type == 'therapist_message':
-        return {
-            "notification": None,
-            "payload": None,
-            "websocket_delivered": False,
-            "websocket_error": "therapist_message_disabled",
-            "push": {
-                "attempted": False,
-                "reason": "therapist_message_disabled",
-                "success_count": 0,
-                "failure_count": 0,
-            },
-        }
-
     persisted_notification = None
 
     if persist:

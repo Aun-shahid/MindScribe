@@ -5,6 +5,7 @@ Account linking service for connecting therapist-created patient profiles with u
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 from typing import Optional, Tuple
 import logging
 
@@ -38,11 +39,12 @@ class AccountLinkingService:
         try:
             # Look for patient profiles created by therapists (not linked to accounts yet)
             # that have matching phone numbers
-            patient_profile = PatientProfile.objects.select_related('user', 'therapist').get(
+            patient_profile = PatientProfile.objects.select_related('user', 'therapist').filter(
+                Q(user__email__isnull=True) | Q(user__email='')
+            ).get(
                 user__phone_number=phone_number,
                 created_by_therapist__isnull=False,  # Created by a therapist
                 is_linked_account=False,  # Not yet linked to an account
-                user__email__isnull=True  # No email means no login credentials
             )
             return patient_profile
         except PatientProfile.DoesNotExist:
@@ -54,7 +56,8 @@ class AccountLinkingService:
                 user__phone_number=phone_number,
                 created_by_therapist__isnull=False,
                 is_linked_account=False,
-                user__email__isnull=True
+            ).filter(
+                Q(user__email__isnull=True) | Q(user__email='')
             ).order_by('-user__created_at').first()
     
     @staticmethod
@@ -243,5 +246,6 @@ class AccountLinkingService:
             user__phone_number=phone_number,
             created_by_therapist__isnull=False,
             is_linked_account=False,
-            user__email__isnull=True
+        ).filter(
+            Q(user__email__isnull=True) | Q(user__email='')
         ).order_by('-user__created_at'))

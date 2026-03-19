@@ -9,6 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from django.conf import settings
 
 from .notification_service import (
+    send_goal_reminder_notifications,
     send_journal_reminder_notifications,
     send_mood_reminder_notifications,
     send_session_reminder_notifications,
@@ -58,6 +59,7 @@ def _should_start_scheduler() -> bool:
 def run_reminder_scheduler_tick():
     session_count = 0
     therapist_session_count = 0
+    goal_count = 0
     mood_count = 0
     journal_count = 0
 
@@ -72,6 +74,11 @@ def run_reminder_scheduler_tick():
         logger.exception("Therapist session reminder tick failed")
 
     try:
+        goal_count = send_goal_reminder_notifications()
+    except Exception:
+        logger.exception("Goal reminder tick failed")
+
+    try:
         mood_count = send_mood_reminder_notifications()
     except Exception:
         logger.exception("Mood reminder tick failed")
@@ -82,9 +89,10 @@ def run_reminder_scheduler_tick():
         logger.exception("Journal reminder tick failed")
 
     logger.debug(
-        "Reminder tick complete (session=%s therapist_session=%s mood=%s journal=%s)",
+        "Reminder tick complete (session=%s therapist_session=%s goal=%s mood=%s journal=%s)",
         session_count,
         therapist_session_count,
+        goal_count,
         mood_count,
         journal_count,
     )
