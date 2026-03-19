@@ -55,7 +55,7 @@ DEBUG = env_bool("DJANGO_DEBUG", True)
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if os.environ.get("DJANGO_ALLOWED_HOSTS") else []
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
-    ["localhost", "127.0.0.1", ".localhost", ".railway.app","192.168.100.118"],
+    ["localhost", "127.0.0.1", ".localhost", ".railway.app"],
 )
 
 
