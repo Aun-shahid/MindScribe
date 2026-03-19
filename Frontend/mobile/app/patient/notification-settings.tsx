@@ -221,16 +221,8 @@ export default function NotificationSettings() {
         return null;
       }
 
-      const projectId =
-        (Constants.expoConfig as any)?.extra?.eas?.projectId ||
-        (Constants as any)?.easConfig?.projectId;
-
-      if (!projectId) {
-        if (!silent) {
-          Alert.alert('Push setup missing', 'Expo project ID is missing. Configure EAS project ID to enable push notifications.');
-        }
-        return null;
-      }
+      // Use the projectId from app.json (stored in EAS)
+      const projectId = '5097b0d1-f21e-4a52-9ce4-a7269df5634f';
 
       const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
       const token = tokenResponse?.data ?? null;
