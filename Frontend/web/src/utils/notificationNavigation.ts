@@ -29,8 +29,7 @@ export const normalizeNotificationActionUrl = (actionUrl: string) => {
   const params = new URLSearchParams(search);
 
   if (section === 'mood') {
-    // PatientDetail already renders the mood chart section, so route there directly.
-    return buildPathWithParams(`/patients/${patientId}`, params);
+    return buildPathWithParams(`/patients/${patientId}/mood`, params);
   }
 
   if (section === 'journal') {

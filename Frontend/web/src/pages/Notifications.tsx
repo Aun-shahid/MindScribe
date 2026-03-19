@@ -15,6 +15,7 @@ import {
   getNotificationActionLabel,
   normalizeNotificationActionUrl,
 } from '../utils/notificationNavigation';
+import { emitNotificationEvent } from '../utils/events';
 import type {
   TherapistNotification,
   TherapistNotificationSummary,
@@ -160,6 +161,7 @@ const Notifications = () => {
       const updated = await notificationService.markTherapistNotificationRead(id);
       setNotifications((prev) => prev.map((n) => (n.id === id ? updated : n)));
       loadSummary();
+      emitNotificationEvent('notifications-updated', { reason: 'mark-read', id });
     } catch {
       // no-op
     }
@@ -173,6 +175,7 @@ const Notifications = () => {
         prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
       );
       loadSummary();
+      emitNotificationEvent('notifications-updated', { reason: 'mark-all-read' });
     } catch {
       // no-op
     } finally {
@@ -186,6 +189,7 @@ const Notifications = () => {
       await notificationService.deleteTherapistNotification(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       loadSummary();
+      emitNotificationEvent('notifications-updated', { reason: 'delete', id });
     } catch {
       // no-op
     } finally {

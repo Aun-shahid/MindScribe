@@ -2,8 +2,16 @@
 Test script for Session Summary feature
 Run this after creating test users and a session
 """
-import requests
 import json
+
+
+def _get_requests_module():
+    """Import requests lazily so this script doesn't break Django test discovery."""
+    try:
+        import requests  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("Install 'requests' to run test_session_summary.py") from exc
+    return requests
 
 # Configuration
 BASE_URL = "http://localhost:8000/api/therapy-sessions"
@@ -29,6 +37,7 @@ def test_therapist_write_summary():
         "next_session_goals": "Review progress and introduce cognitive restructuring techniques"
     }
     
+    requests = _get_requests_module()
     response = requests.patch(url, headers=headers, json=payload)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
@@ -46,6 +55,7 @@ def test_patient_view_summary():
         "Content-Type": "application/json"
     }
     
+    requests = _get_requests_module()
     response = requests.get(url, headers=headers)
     print(f"Status Code: {response.status_code}")
     
@@ -84,6 +94,7 @@ def test_patient_cannot_write_summary():
         "session_summary": "This should not work!"
     }
     
+    requests = _get_requests_module()
     response = requests.patch(url, headers=headers, json=payload)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")
@@ -108,6 +119,7 @@ def test_summary_for_scheduled_session():
         "session_summary": "This should fail!"
     }
     
+    requests = _get_requests_module()
     response = requests.patch(url, headers=headers, json=payload)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {json.dumps(response.json(), indent=2)}")

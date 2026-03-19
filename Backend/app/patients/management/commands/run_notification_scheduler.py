@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from patients.services.notification_service import (
+    send_goal_reminder_notifications,
     send_journal_reminder_notifications,
     send_mood_reminder_notifications,
     send_session_reminder_notifications,
@@ -12,7 +13,7 @@ from patients.services.notification_service import (
 
 
 class Command(BaseCommand):
-    help = "Run notification reminder scheduler loop (session/mood/journal)."
+    help = "Run notification reminder scheduler loop (session/goal/mood/journal)."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -29,6 +30,7 @@ class Command(BaseCommand):
     def _run_tick(self):
         session_count = send_session_reminder_notifications()
         therapist_session_count = send_therapist_upcoming_session_notifications()
+        goal_count = send_goal_reminder_notifications()
         mood_count = send_mood_reminder_notifications()
         journal_count = send_journal_reminder_notifications()
 
@@ -36,7 +38,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"[{timestamp}] Tick complete | session={session_count} "
-                f"therapist_session={therapist_session_count} mood={mood_count} "
+                f"therapist_session={therapist_session_count} goal={goal_count} mood={mood_count} "
                 f"journal={journal_count}"
             )
         )

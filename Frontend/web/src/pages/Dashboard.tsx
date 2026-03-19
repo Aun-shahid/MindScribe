@@ -471,12 +471,7 @@ const Dashboard = () => {
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Notification Overview</h2>
-              <Link
-                to={notificationsPage}
-                className="text-sm font-medium text-purple-700 hover:text-purple-800"
-              >
-                Open notifications
-              </Link>
+              
             </div>
 
             {notificationChartData.length > 0 ? (

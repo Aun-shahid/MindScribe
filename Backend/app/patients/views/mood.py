@@ -147,7 +147,7 @@ def create_mood_trend_alerts_for_therapists(patient):
     for therapist in therapists:
         already_sent_today = Notification.objects.filter(
             patient=therapist,
-            notification_type='therapist_message',
+            notification_type='general',
             action_url=action_url,
             sent_at__date=today,
         ).exists()
@@ -156,7 +156,7 @@ def create_mood_trend_alerts_for_therapists(patient):
 
         create_notification(
             recipient=therapist,
-            notification_type='therapist_message',
+            notification_type='general',
             title=f'Mood trend alert: {patient.full_name}',
             message=(
                 f'{patient.full_name} has a downward mood trend '
@@ -195,7 +195,7 @@ def create_three_bad_mood_alerts_for_therapists(patient):
     for therapist in therapists:
         already_sent_today = Notification.objects.filter(
             patient=therapist,
-            notification_type='therapist_message',
+            notification_type='general',
             action_url=action_url,
             sent_at__date=today,
         ).exists()
@@ -204,7 +204,7 @@ def create_three_bad_mood_alerts_for_therapists(patient):
 
         create_notification(
             recipient=therapist,
-            notification_type='therapist_message',
+            notification_type='general',
             title=f'Urgent mood alert: {patient.full_name}',
             message=(
                 f'{patient.full_name} logged 3 consecutive low mood days '

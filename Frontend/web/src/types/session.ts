@@ -316,6 +316,8 @@ export interface SessionFormData {
   is_online: boolean;
   patient_goals?: string;
   fee_charged?: number;
+  consent_recording?: boolean;
+  consent_ai_analysis?: boolean;
 }
 
 export interface SessionFilter {

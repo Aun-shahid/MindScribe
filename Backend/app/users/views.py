@@ -387,7 +387,7 @@ class ConnectToTherapistView(APIView):
             try:
                 create_notification(
                     recipient=therapist_profile.user,
-                    notification_type='therapist_message',
+                    notification_type='general',
                     title='New Connection Request',
                     message=f'{request.user.full_name} requested to connect with you.',
                     action_url='/users/connection-requests',
@@ -685,7 +685,7 @@ class ConnectionRequestActionView(APIView):
         try:
             create_notification(
                 recipient=patient_user,
-                notification_type='therapist_message',
+                notification_type='general',
                 title='Connection Request Accepted',
                 message=f'Dr. {therapist_profile.user.full_name} accepted your connection request.',
                 action_url='/users/therapists',
@@ -716,7 +716,7 @@ class ConnectionRequestActionView(APIView):
         try:
             create_notification(
                 recipient=connection_request.patient_user,
-                notification_type='therapist_message',
+                notification_type='general',
                 title='Connection Request Rejected',
                 message='Your connection request was declined by the therapist.',
                 action_url='/users/therapists',
@@ -768,7 +768,7 @@ class ConnectionRequestActionView(APIView):
         try:
             create_notification(
                 recipient=requesting_user,
-                notification_type='therapist_message',
+                notification_type='general',
                 title='Connection Request Merged',
                 message=f'Your request was merged with existing patient records by Dr. {therapist_profile.user.full_name}.',
                 action_url='/users/therapists',

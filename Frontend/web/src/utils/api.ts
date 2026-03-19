@@ -15,8 +15,16 @@ const isAuthEndpoint = (url?: string): boolean => {
   return AUTH_ENDPOINT_PREFIXES.some((prefix) => url.includes(prefix));
 };
 
+const getApiBaseUrl = (): string => {
+  const trimmed = backendUrl.replace(/\/$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+const apiBaseUrl = getApiBaseUrl();
+
 const api = axios.create({
   baseURL: `${backendUrl}/api`,
+  //baseURL:'https://mindscribe-backend-production-ca1e.up.railway.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -65,7 +73,7 @@ api.interceptors.response.use(
 
         console.log('[API] Refreshing access token...');
         const response = await axios.post(
-          `${backendUrl}/api/authenticator/token/refresh/`,
+          `${apiBaseUrl}/authenticator/token/refresh/`,
           { refresh: refreshToken }
         );
 

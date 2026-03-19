@@ -40,7 +40,7 @@ const Patients = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-61">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -86,7 +86,7 @@ const Patients = () => {
       </div>
 
       {/* Search bar */}
-      <div className="max-w-3xl mx-auto mt-8">
+      <div className="w-[92%] md:w-[80%] lg:w-[74%] mx-auto mt-8">
         <div className="relative">
           <input
             type="text"
@@ -134,7 +134,7 @@ const Patients = () => {
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-3xl mx-auto mt-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-[92%] md:w-[80%] lg:w-[74%] mx-auto mt-6">
           <p>Error loading patients: {error.message}</p>
           <button 
             onClick={clearError}
@@ -146,7 +146,7 @@ const Patients = () => {
       )}
 
       {/* Patient cards */}
-      <div className="max-w-3xl mx-auto mt-6 space-y-6 pb-8">
+      <div className="w-[92%] md:w-[80%] lg:w-[74%] mx-auto mt-6 space-y-6 pb-8">
         {filteredPatients.length > 0 ? (
           filteredPatients.map((patient) => {
             // Calculate age from date_of_birth

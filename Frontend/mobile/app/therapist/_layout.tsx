@@ -2,10 +2,7 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { FontAwesome } from '@expo/vector-icons';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 export default function Layout() {
   return (
@@ -23,6 +20,9 @@ export default function Layout() {
           if (route.name === 'tools') {
             return <Feather name="tool" size={size} color={color} />;
           }
+          if (route.name === 'notifications') {
+            return <FontAwesome name="bell" size={size} color={color} />;
+          }
            if (route.name === 'profile') {
             return <FontAwesome name="user" size={size} color={color} />;
           }
@@ -35,6 +35,7 @@ export default function Layout() {
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       <Tabs.Screen name="patients" options={{ title: 'Patients' }} />
+      <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
       <Tabs.Screen name="tools" options={{ title: 'Tools' }} />
     
 

@@ -460,6 +460,61 @@ class TherapistService {
   }
 
   /**
+   * Therapist notifications
+   */
+  async getTherapistNotifications(params?: { is_read?: boolean; category?: 'session' | 'mood' | 'other' }): Promise<any[]> {
+    try {
+      const query: Record<string, string> = {};
+      if (typeof params?.is_read === 'boolean') {
+        query.is_read = params.is_read ? 'true' : 'false';
+      }
+      if (params?.category) {
+        query.category = params.category;
+      }
+
+      const response = await api.get('/patients/therapist/notifications/', { params: query });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTherapistUnreadNotificationCount(): Promise<number> {
+    try {
+      const response = await api.get<{ unread_count: number }>('/patients/therapist/notifications/unread-count/');
+      return Number(response.data?.unread_count || 0);
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async markTherapistNotificationRead(notificationId: string): Promise<any> {
+    try {
+      const response = await api.post(`/patients/therapist/notifications/${notificationId}/read/`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async markAllTherapistNotificationsRead(): Promise<number> {
+    try {
+      const response = await api.post<{ marked_count: number }>('/patients/therapist/notifications/mark-all-read/');
+      return Number(response.data?.marked_count || 0);
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteTherapistNotification(notificationId: string): Promise<void> {
+    try {
+      await api.delete(`/patients/therapist/notifications/${notificationId}/`);
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
    * Handle API errors and transform them into TherapistError
    */
   private handleError(error: any): TherapistError {

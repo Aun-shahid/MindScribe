@@ -7,8 +7,11 @@ from django.utils import timezone
 from therapy_sessions.models import Session
 from users.models import PatientProfile, TherapistProfile
 
-from .models import Notification
-from .services.notification_service import send_therapist_upcoming_session_notifications
+from .models import Notification, NotificationPreference, PatientGoal
+from .services.notification_service import (
+    send_goal_reminder_notifications,
+    send_therapist_upcoming_session_notifications,
+)
 
 User = get_user_model()
 
@@ -69,3 +72,70 @@ class TherapistUpcomingSessionNotificationTests(TestCase):
         self.assertEqual(reminder.title, 'Upcoming Session Approaching')
         self.assertIn('Review prior notes and prepare', reminder.message)
         self.assertIn(self.patient_user.full_name, reminder.message)
+
+
+class GoalReminderNotificationTests(TestCase):
+    def setUp(self):
+        self.patient_user = User.objects.create_user(
+            username='goal-reminder-patient',
+            email='goal-reminder-patient@example.com',
+            password='testpass123',
+            user_type='patient',
+            first_name='Noor',
+            last_name='Khan',
+        )
+
+    def test_goal_reminder_sent_once_per_goal_per_day(self):
+        NotificationPreference.objects.create(
+            patient=self.patient_user,
+            goal_reminders_enabled=True,
+        )
+        goal = PatientGoal.objects.create(
+            patient=self.patient_user,
+            title='Practice grounding exercise',
+            description='Complete grounding exercise before evening.',
+            status='in_progress',
+            target_date=timezone.localdate() + timedelta(days=2),
+            progress_percentage=25,
+        )
+
+        first_run_count = send_goal_reminder_notifications()
+        second_run_count = send_goal_reminder_notifications()
+
+        self.assertEqual(first_run_count, 1)
+        self.assertEqual(second_run_count, 0)
+
+        notifications = Notification.objects.filter(
+            patient=self.patient_user,
+            notification_type='goal_reminder',
+            goal_id=goal.id,
+        )
+        self.assertEqual(notifications.count(), 1)
+
+        reminder = notifications.first()
+        self.assertEqual(reminder.title, 'Goal Check-in')
+        self.assertIn('Practice grounding exercise', reminder.message)
+
+    def test_goal_reminder_not_sent_when_preference_disabled(self):
+        NotificationPreference.objects.create(
+            patient=self.patient_user,
+            goal_reminders_enabled=False,
+        )
+        PatientGoal.objects.create(
+            patient=self.patient_user,
+            title='Daily reflection',
+            description='Write one short reflection.',
+            status='in_progress',
+            target_date=timezone.localdate() + timedelta(days=1),
+            progress_percentage=50,
+        )
+
+        sent_count = send_goal_reminder_notifications()
+
+        self.assertEqual(sent_count, 0)
+        self.assertFalse(
+            Notification.objects.filter(
+                patient=self.patient_user,
+                notification_type='goal_reminder',
+            ).exists()
+        )

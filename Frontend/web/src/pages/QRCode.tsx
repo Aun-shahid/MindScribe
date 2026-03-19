@@ -114,16 +114,17 @@ const QRCode = () => {
         <h2 className="text-lg font-medium text-gray-900 mb-4">Your Therapist PIN</h2>
         {therapistInfo && (
           <div className="space-y-4">
-            <div className="text-4xl font-bold text-blue-600 bg-blue-50 py-8 px-4 rounded-lg">
+            <div className="text-4xl font-bold text-[#431657] bg-blue-50 py-8 px-4 rounded-lg">
               {(therapistInfo as any).therapist_pin}
             </div>
             <TherapistQRCode value={(therapistInfo as any).therapist_pin?.toString() || ''} />
-            <p className="text-gray-600">
+            <p className="text-gray-600 ">
               Share this PIN or QR code with your patients so they can connect to you through the MindScribe mobile app.
             </p>
             <button
               onClick={handleShare}
               className="btn-primary"
+              style={{ backgroundColor: '#431657', color: '#fff' }}
             >
               Share PIN
             </button>
