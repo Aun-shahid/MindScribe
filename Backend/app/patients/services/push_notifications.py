@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = os.environ.get('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send')
 EXPO_ACCESS_TOKEN = os.environ.get('EXPO_ACCESS_TOKEN', '').strip()
+EXPO_ANDROID_CHANNEL_ID = os.environ.get('EXPO_ANDROID_CHANNEL_ID', 'default').strip() or 'default'
 
 
 PREFERENCE_FIELD_BY_TYPE = {
@@ -57,6 +58,8 @@ def _send_single_expo_push(token, title, message, data=None):
         'title': title,
         'body': message,
         'sound': 'default',
+        'priority': 'high',
+        'channelId': EXPO_ANDROID_CHANNEL_ID,
         'data': data or {},
     }
 

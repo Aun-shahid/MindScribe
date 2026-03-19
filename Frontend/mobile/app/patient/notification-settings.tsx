@@ -206,6 +206,15 @@ export default function NotificationSettings() {
     }
 
     try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF6B9D',
+        });
+      }
+
       const current = await Notifications.getPermissionsAsync();
       let granted = current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
 
