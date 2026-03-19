@@ -3,6 +3,8 @@
 
 export type AppEvent = 'patient-created' | 'patient-updated' | 'patient-deleted' | 'session-created' | 'session-updated';
 
+export type NotificationEvent = 'notifications-updated';
+
 export const emitAppEvent = (eventName: AppEvent, data?: any) => {
   const event = new CustomEvent(`therapease:${eventName}`, {
     detail: data,
@@ -18,6 +20,28 @@ export const listenToAppEvent = (eventName: AppEvent, callback: (data?: any) => 
   window.addEventListener(`therapease:${eventName}`, handler as EventListener);
   
   // Return cleanup function
+  return () => {
+    window.removeEventListener(`therapease:${eventName}`, handler as EventListener);
+  };
+};
+
+export const emitNotificationEvent = (eventName: NotificationEvent, data?: any) => {
+  const event = new CustomEvent(`therapease:${eventName}`, {
+    detail: data,
+  });
+  window.dispatchEvent(event);
+};
+
+export const listenToNotificationEvent = (
+  eventName: NotificationEvent,
+  callback: (data?: any) => void
+) => {
+  const handler = (event: CustomEvent) => {
+    callback(event.detail);
+  };
+
+  window.addEventListener(`therapease:${eventName}`, handler as EventListener);
+
   return () => {
     window.removeEventListener(`therapease:${eventName}`, handler as EventListener);
   };

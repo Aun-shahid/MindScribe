@@ -21,6 +21,22 @@ import type {
 import type { TherapistError } from '../types/therapist';
 
 class SessionsService {
+  private decodeJwtUserId(token: string): string | null {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+
+      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, '=');
+      const payloadJson = atob(padded);
+      const payload = JSON.parse(payloadJson) as { user_id?: string; sub?: string };
+
+      return payload.user_id || payload.sub || null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Start a therapy session.
    * 1) Mark Django session as IN_PROGRESS
@@ -36,22 +52,50 @@ class SessionsService {
         throw new Error('No access token found');
       }
 
+      let backendSession: SessionDetail;
+      let effectiveAiServiceUrl = aiServiceUrl;
+      let backendAiServiceToken: string | null = null;
+
       // 1) Start session in Django backend to keep canonical session status in sync.
-      const backendResponse = await api.post<any>(`/therapy_sessions/sessions/${sessionId}/start/`);
+      // Treat "already IN_PROGRESS" as an idempotent success to avoid noisy retries.
+      try {
+        const backendResponse = await api.post<any>(`/therapy_sessions/sessions/${sessionId}/start/`);
+        console.log('[SessionsService] ✅ Backend session started:', backendResponse.data);
 
-      console.log('[SessionsService] ✅ Backend session started:', backendResponse.data);
+        backendSession = (backendResponse.data?.session || backendResponse.data) as SessionDetail;
+        effectiveAiServiceUrl = backendResponse.data?.ai_service_url || aiServiceUrl;
+        backendAiServiceToken = backendResponse.data?.ai_service_token || null;
+      } catch (backendStartError) {
+        if (!this.isAlreadyInProgressStartError(backendStartError)) {
+          throw backendStartError;
+        }
 
-      // Prefer backend-provided AI URL when available so frontend env mismatches do not break startup.
-      const effectiveAiServiceUrl = backendResponse.data?.ai_service_url || aiServiceUrl;
+        console.warn('[SessionsService] Session already IN_PROGRESS. Skipping duplicate start call.');
+        const currentSession = await this.getSessionDetail(sessionId);
+        backendSession = currentSession;
+
+        return {
+          detail: 'Session already in progress',
+          session: backendSession,
+          status: 'in_progress',
+          ai_service_url: effectiveAiServiceUrl,
+          message: 'Session already in progress',
+        };
+      }
 
       try {
         // 2) Start AI Service session for live transcription pipeline.
+        const authToken = backendAiServiceToken || accessToken;
+        if (!backendAiServiceToken) {
+          console.warn('[SessionsService] No ai_service_token from backend, falling back to access token for AI start.');
+        }
+
         const response = await axios.post<any>(
           `${effectiveAiServiceUrl}/api/v1/session/start`,
           { session_id: sessionId },
           {
             headers: {
-              Authorization: `Bearer ${accessToken}`,
+              Authorization: `Bearer ${authToken}`,
               'Content-Type': 'application/json',
             },
             withCredentials: true,
@@ -64,7 +108,7 @@ class SessionsService {
         // AI Service returns: { session_id, status, websocket_token, message }.
         return {
           detail: response.data.message || 'Session started successfully',
-          session: backendResponse.data.session,
+          session: backendSession,
           session_id: response.data.session_id,
           status: response.data.status,
           websocket_token: response.data.websocket_token,
@@ -78,7 +122,7 @@ class SessionsService {
         // Keep session usable even if AI service is offline.
         return {
           detail: 'Session started. AI transcription service is currently unavailable.',
-          session: backendResponse.data.session,
+          session: backendSession,
           status: 'in_progress',
           ai_service_url: effectiveAiServiceUrl,
           ai_service_info: 'AI transcription unavailable. Verify AI service is running and reachable.',
@@ -86,7 +130,7 @@ class SessionsService {
         };
       }
     } catch (error) {
-      console.error('[SessionsService] ❌ Failed to start AI session:', error);
+      console.error('[SessionsService] ❌ Failed to start session lifecycle:', error);
       throw this.handleError(error);
     }
   }
@@ -250,7 +294,12 @@ class SessionsService {
    */
   async createSession(sessionData: SessionFormData): Promise<SessionType> {
     try {
-      const response = await api.post<SessionType>('/therapy_sessions/schedule/', sessionData);
+      const dataWithConsent = {
+        ...sessionData,
+        consent_recording: true,
+        consent_ai_analysis: true,
+      };
+      const response = await api.post<SessionType>('/therapy_sessions/schedule/', dataWithConsent);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -486,8 +535,15 @@ class SessionsService {
     const protocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
     const host = backendUrl.replace(/^https?:\/\//, '');
     const wsUrl = `${protocol}://${host}/ws/therapy-session/${roomId}/?token=${token}`;
+    const tokenUserId = this.decodeJwtUserId(token);
 
     console.log('[SessionWS] Connecting to:', wsUrl);
+    console.log('[SessionWS] Debug connect context:', {
+      roomId,
+      backendUrl,
+      tokenUserId,
+      tokenPreview: `${token.slice(0, 16)}...`,
+    });
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
@@ -705,6 +761,21 @@ class SessionsService {
   /**
    * Error handler
    */
+  private isAlreadyInProgressStartError(error: unknown): boolean {
+    if (!axios.isAxiosError(error) || error.response?.status !== 400) {
+      return false;
+    }
+
+    const detail =
+      (error.response?.data as { detail?: string; message?: string } | undefined)?.detail ||
+      (error.response?.data as { detail?: string; message?: string } | undefined)?.message ||
+      '';
+
+    const normalizedDetail = detail.toLowerCase();
+    return normalizedDetail.includes('current status: in_progress') ||
+      (normalizedDetail.includes('cannot be started') && normalizedDetail.includes('in_progress'));
+  }
+
   private handleError(error: unknown): TherapistError {
     if (axios.isAxiosError(error) && error.code === 'ERR_NETWORK') {
       const targetUrl = error.config?.url || 'AI service endpoint';

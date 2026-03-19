@@ -25,7 +25,7 @@ const Layout = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
       {/* Enhanced Professional Navbar with Purple Theme */}
       <nav className="bg-gradient-to-r from-purple-900 via-purple-900 to-purple-900 shadow-xl border-b border-purple-500/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-[96%] lg:w-[94%] mx-auto px-[1%]">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               {/* Logo Section */}
@@ -115,7 +115,7 @@ const Layout = () => {
       </nav>
 
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="w-[96%] lg:w-[94%] mx-auto py-6 px-[1%]">
           <Outlet />
         </div>
       </main>

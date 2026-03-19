@@ -23,6 +23,7 @@ import NewSession from './pages/NewSession';
 import NewPatient from './pages/NewPatient';
 import SessionCalendar from './pages/SessionCalendar';
 import Notifications from './pages/Notifications';
+import PatientMoodAlert from './pages/PatientMoodAlert';
 import './App.css';
 
 const RedirectWithQuery = ({ to }: { to: string }) => {
@@ -60,6 +61,7 @@ function App() {
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />
+                <Route path="/patients/:patientId/mood" element={<PatientMoodAlert />} />
                 <Route path="/patients/:patientId/sessions" element={<PatientSessions />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />

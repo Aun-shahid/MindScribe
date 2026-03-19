@@ -23,8 +23,12 @@ export interface TherapistNotification {
   read_at: string | null;
   sent_at: string;
   time_ago: string;             // e.g. "3 hours ago"
-  push_sent: boolean;
-  push_sent_at: string | null;
+  delivery_status?: string;
+  delivery_attempts?: number;
+  last_delivery_attempt_at?: string | null;
+  next_retry_at?: string | null;
+  delivered_at?: string | null;
+  delivery_error?: string | null;
 }
 
 // Backend unread-count response

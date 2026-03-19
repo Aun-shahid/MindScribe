@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useLiveSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
+import sessionsService from '../services/sessions.service';
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,17 +27,19 @@ const ActiveSession: React.FC = () => {
   const [sessionStartTime] = useState(new Date());
   const [sessionStarted, setSessionStarted] = useState(false);
   const [aiServiceToken, setAiServiceToken] = useState<string | null>(null);
-  const [websocketRoomId, setWebsocketRoomId] = useState<string | null>(null);
+  // const [websocketRoomId, setWebsocketRoomId] = useState<string | null>(null);
+  
   const location = useLocation();
   const initialSession = (location.state as { session?: SessionDetail })?.session;
-
+  
   // Use session hooks
-  const { session, loading, error } = useSessionDetail(id!);
+  // const { session, loading, error } = useSessionDetail(id!);
+  const { session, loading, error, fetchSession } = useSessionDetail(id!);
   const { startSession, loading: startingSession, error: startError } = useStartSession();
   const { analysis } = useSessionAnalysis(sessionStarted ? id! : '');
   // Note: transcription from analysis endpoint is loaded after session completes
   // We use AI Service WebSocket for live transcription instead
-
+  const websocketRoomId = session?.websocket_room_id ?? null;
   // Django WebSocket connection for session control (start/stop/pause)
   const {
     connected: wsConnected,
@@ -197,89 +200,81 @@ const ActiveSession: React.FC = () => {
 
   // Check if session is already completed and redirect to detail page
   useEffect(() => {
-    if (session && session.status === 'COMPLETED') {
-      console.log('⚠️ Session is already completed, redirecting to detail page');
-      alert('This session has already been completed. You will be redirected to the session details page.');
-      navigate(`/sessions/${id}`);
-    }
-  }, [session, id, navigate]);
+  if (session && session.status === 'COMPLETED' && !startingSession) {
+    console.log('⚠️ Session is already completed, redirecting to detail page');
+    alert('This session has already been completed. You will be redirected to the session details page.');
+    navigate(`/sessions/${id}`);
+  }
+}, [session, id, navigate, startingSession]);
 
   // Start session or initialize from passed state
   const isInitializing = useRef(false);
 
   useEffect(() => {
-    const initializeSession = async () => {
-      // Prevent multiple initialization
-      if (!id || sessionStarted || startingSession || isInitializing.current) return;
+  const initializeSession = async () => {
+    if (!id || sessionStarted || startingSession || isInitializing.current) return;
 
-      isInitializing.current = true;
+    const currentSession = session || initialSession;
+    if (!currentSession) return;
 
-      try {
-        // Use either the fetched session or the passed initial session
-        const currentSession = session || initialSession;
-        if (!currentSession) {
-          return;
-        }
+    isInitializing.current = true;
 
-        // If already in progress, initialize local state and connect via dedicated effects.
-        if (currentSession.status === 'IN_PROGRESS') {
-          console.log('ℹ️ Session already in progress, initializing socket state...');
-          setSessionStarted(true);
-          setWebsocketRoomId(currentSession.websocket_room_id || null);
+    try {
+      if (currentSession.status === 'COMPLETED') return;
 
-          const storedToken = localStorage.getItem('ai_service_token');
-          if (storedToken) {
-            setAiServiceToken(storedToken);
-          } else {
-            console.warn('⚠️ No AI token in localStorage; AI transcription will stay disconnected until token is available.');
-          }
-          return;
-        }
-
-        // If upcoming/scheduled, start it now
-        if (currentSession.status === 'UPCOMING' || currentSession.status === 'SCHEDULED' || currentSession.status === 'REQUESTED') {
-          console.log('🚀 Starting upcoming session:', id);
-          const result = await startSession(id);
-
-          if (result) {
-            console.log('✅ Session started successfully');
-            setSessionStarted(true);
-
-            // Save room/token and let dedicated effects perform actual connects.
-            if (result.session.websocket_room_id) {
-              setWebsocketRoomId(result.session.websocket_room_id);
-            }
-
-            if (result.ai_service_token) {
-              console.log('🔌 AI Service token received and stored for WebSocket connect.');
-              setAiServiceToken(result.ai_service_token);
-            }
-          } else if (startError) {
-            console.error('❌ Failed to start session:', startError);
-            const errorMsg = startError.message || '';
-            if (!errorMsg.includes('IN_PROGRESS') && !errorMsg.includes('COMPLETED')) {
-              alert(`Failed to start session: ${errorMsg || 'Unknown error'}`);
-              navigate('/sessions');
-            } else {
-              setSessionStarted(true);
-            }
-          }
-        }
-      } finally {
-        isInitializing.current = false;
+      if (currentSession.status === 'IN_PROGRESS') {
+        console.log('ℹ️ Session already in progress, reconnecting...');
+        setSessionStarted(true);
+        const storedToken = localStorage.getItem('ai_service_token');
+        if (storedToken) setAiServiceToken(storedToken);
+        return;
       }
-    };
 
-    initializeSession();
-  }, [id, initialSession, session, startSession, sessionStarted, startingSession, startError, navigate]);
+      if (['UPCOMING', 'RESCHEDULED', 'REQUESTED'].includes(currentSession.status)) {
+        // Always re-fetch latest status before calling /start/
+        const latest = await sessionsService.getSessionDetail(id);
 
+        if (latest.status === 'IN_PROGRESS') {
+          console.warn('ℹ️ Session already IN_PROGRESS server-side, skipping /start/');
+          setSessionStarted(true);
+          const storedToken = localStorage.getItem('ai_service_token');
+          if (storedToken) setAiServiceToken(storedToken);
+          return;
+        }
+
+        if (!['UPCOMING', 'RESCHEDULED', 'REQUESTED'].includes(latest.status)) {
+          alert(`Session cannot be started. Status is: ${latest.status}`);
+          navigate('/sessions');
+          return;
+        }
+
+        const result = await startSession(id);
+        console.log('🎯 startSession result:', JSON.stringify(result, null, 2));
+        if (result) {
+          setSessionStarted(true);
+          if (result.ai_service_token) setAiServiceToken(result.ai_service_token);
+          // Re-fetch so session.websocket_room_id is up to date
+          await fetchSession();
+        } else {
+          alert(`Failed to start session: ${startError?.message}`);
+          navigate('/sessions');
+        }
+      }
+    } finally {
+      isInitializing.current = false;
+    }
+  };
+
+  initializeSession();
+}, [id, session]); 
   // Connect Django session-control WebSocket when room ID becomes available.
   useEffect(() => {
     if (sessionStarted && websocketRoomId && !wsConnected) {
-      console.log('🔌 Session control room ready, connecting Django WebSocket...');
+      console.log('🔌 Connecting Django WS with roomId:', websocketRoomId);
+      console.log('🔌 session.websocket_room_id:', session?.websocket_room_id);
       connectWebSocket();
     }
-  }, [sessionStarted, websocketRoomId, wsConnected, connectWebSocket]);
+  }, [sessionStarted, websocketRoomId, wsConnected, connectWebSocket, session]);
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
@@ -293,16 +288,10 @@ const ActiveSession: React.FC = () => {
   useEffect(() => {
     return () => {
       stopAudioCapture();
-      if (wsConnected) {
-        console.log('🔌 Disconnecting Django WebSocket on unmount');
-        disconnectWebSocket();
-      }
-      if (aiConnected) {
-        console.log('🔌 Disconnecting AI Service WebSocket on unmount');
-        disconnectAIService();
-      }
+      disconnectWebSocket();
+      disconnectAIService();
     };
-  }, [wsConnected, aiConnected, disconnectWebSocket, disconnectAIService, stopAudioCapture]);
+  }, [disconnectWebSocket, disconnectAIService, stopAudioCapture]);
 
   // Timer effect
   useEffect(() => {
@@ -320,10 +309,7 @@ const ActiveSession: React.FC = () => {
   }, [isRecording, sessionStartTime]);
 
   const handleStartRecording = useCallback(async () => {
-    if (!aiConnected) {
-      alert('AI transcription service is not connected yet. Please wait and try again.');
-      return;
-    }
+    
 
     setIsRecording(true);
     // Send control message to Django WebSocket
@@ -339,7 +325,7 @@ const ActiveSession: React.FC = () => {
       setIsRecording(false);
       alert('Unable to access microphone. Please allow microphone access and try again.');
     }
-  }, [aiConnected, wsConnected, sendControl, startAudioCapture]);
+  }, [ wsConnected, sendControl, startAudioCapture]);
 
   const handleStopRecording = useCallback(async () => {
     setIsRecording(false);

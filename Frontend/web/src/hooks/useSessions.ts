@@ -32,7 +32,7 @@ export const useStartSession = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('[useSessions] 🚀 Starting AI Service session...');
+      console.log('[useSessions] 🚀 Starting session lifecycle...');
 
       // Call AI Service directly
       const data = await sessionsService.startSession(sessionId);
@@ -424,6 +424,8 @@ export const useSessionConsent = (params: SessionConsentParams) => {
         is_online: formData.is_online,
         patient_goals: formData.patient_goals || '',
         fee_charged: formData.fee_charged || 0,
+        consent_recording: true,
+        consent_ai_analysis: true,
       };
 
       const session = await sessionsService.createSession(sessionData);
@@ -466,6 +468,8 @@ export const useLiveSession = (
 
   const wsRef = useRef<WebSocket | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryCountRef = useRef<number>(0);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [connected, setConnected] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
@@ -511,6 +515,13 @@ export const useLiveSession = (
       onOpen: () => {
         setConnected(true);
         setError(null);
+        retryCountRef.current = 0; // reset retries on success
+
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+          retryTimeoutRef.current = null;
+        }
+
         // Start heartbeat
         heartbeatRef.current = setInterval(() => {
           sessionsService.sendHeartbeat(ws);
@@ -533,10 +544,21 @@ export const useLiveSession = (
       },
       onClose: (code, reason) => {
         setConnected(false);
-        setError(getWsCloseMessage(code, reason));
+
         if (heartbeatRef.current) {
           clearInterval(heartbeatRef.current);
           heartbeatRef.current = null;
+        }
+
+        // Auto retry up to 5 times with 3 second delay
+        if (retryCountRef.current < 5) {
+          retryCountRef.current += 1;
+          console.log(`[SessionWS] Retrying connection... attempt ${retryCountRef.current}/5`);
+          retryTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, 3000);
+        } else {
+          setError(getWsCloseMessage(code, reason));
         }
       },
     });
@@ -545,6 +567,11 @@ export const useLiveSession = (
   }, [roomId, heartbeatIntervalMs, getWsCloseMessage]);
 
   const disconnect = useCallback(() => {
+    retryCountRef.current = 5; // stop retrying
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;

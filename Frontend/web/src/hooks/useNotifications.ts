@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { backendUrl } from '../config';
 import notificationService from '../services/notification.service';
+import { listenToNotificationEvent } from '../utils/events';
 import type {
   TherapistNotification,
   WSNotificationPayload,
@@ -8,6 +9,100 @@ import type {
 } from '../types/notification';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+
+const THERAPIST_NOTIFICATION_TYPES = new Set([
+  'session_reminder',
+  'session_summary',
+  'session_approved',
+  'session_cancelled',
+  'therapist_message',
+  'general',
+]);
+
+const THERAPIST_SOURCE_EVENT_PREFIXES = [
+  'mood.',
+  'session.',
+  'connection.request.',
+];
+
+const getCategoryFromNotification = (
+  notificationType: string,
+  actionUrl: string,
+  title: string,
+  message: string,
+  sourceEvent: string
+): TherapistNotification['category'] => {
+  const type = (notificationType || '').toLowerCase();
+  const action = (actionUrl || '').toLowerCase();
+  const text = `${title || ''} ${message || ''}`.toLowerCase();
+  const event = (sourceEvent || '').toLowerCase();
+
+  if (
+    type === 'mood_reminder' ||
+    action.includes('/mood') ||
+    event.startsWith('mood.') ||
+    text.includes('mood')
+  ) {
+    return 'mood';
+  }
+
+  if (
+    type.startsWith('session_') ||
+    action.includes('/sessions') ||
+    event.startsWith('session.') ||
+    text.includes('session')
+  ) {
+    return 'session';
+  }
+
+  return 'other';
+};
+
+const normalizeWsDbRecord = (
+  payload: WSNotificationPayload,
+  existingRecord: Record<string, unknown>
+): TherapistNotification => {
+  const notificationBlock = payload.notification;
+  const metadata = notificationBlock?.metadata as Record<string, unknown> | undefined;
+
+  const title = String(existingRecord.title ?? notificationBlock?.title ?? 'Notification');
+  const message = String(existingRecord.message ?? notificationBlock?.message ?? '');
+  const actionUrl =
+    (existingRecord.action_url as string | null | undefined) ?? notificationBlock?.action_url ?? null;
+  const sourceEvent = notificationBlock?.source_event ?? '';
+  const sentAt =
+    (existingRecord.sent_at as string | undefined) ??
+    payload.created_at ??
+    payload.createdAt ??
+    new Date().toISOString();
+  const notificationType = String(
+    existingRecord.notification_type ?? notificationBlock?.notification_type ?? 'general'
+  );
+
+  return {
+    id: String(existingRecord.id ?? notificationBlock?.id ?? `ws-${Date.now()}`),
+    patient: String(existingRecord.patient ?? payload.recipientId ?? ''),
+    patient_name: String(existingRecord.patient_name ?? metadata?.patient_name ?? payload.recipient?.name ?? 'Patient'),
+    category: getCategoryFromNotification(notificationType, actionUrl ?? '', title, message, sourceEvent),
+    notification_type: notificationType as TherapistNotification['notification_type'],
+    title,
+    message,
+    session_id: (existingRecord.session_id as string | null | undefined) ?? notificationBlock?.session_id ?? null,
+    goal_id: (existingRecord.goal_id as string | null | undefined) ?? notificationBlock?.goal_id ?? null,
+    action_url: actionUrl,
+    is_read: Boolean(existingRecord.is_read ?? false),
+    read_at: (existingRecord.read_at as string | null | undefined) ?? null,
+    sent_at: sentAt,
+    time_ago: String(existingRecord.time_ago ?? 'Just now'),
+    delivery_status: (existingRecord.delivery_status as string | undefined) ?? undefined,
+    delivery_attempts: (existingRecord.delivery_attempts as number | undefined) ?? undefined,
+    last_delivery_attempt_at:
+      (existingRecord.last_delivery_attempt_at as string | null | undefined) ?? undefined,
+    next_retry_at: (existingRecord.next_retry_at as string | null | undefined) ?? undefined,
+    delivered_at: (existingRecord.delivered_at as string | null | undefined) ?? undefined,
+    delivery_error: (existingRecord.delivery_error as string | null | undefined) ?? undefined,
+  };
+};
 
 export const useNotifications = () => {
   const [connected, setConnected] = useState(false);
@@ -65,16 +160,17 @@ export const useNotifications = () => {
   const deleteNotification = useCallback(async (id: string) => {
     try {
       await notificationService.deleteTherapistNotification(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      setUnreadCount((prev) => {
-        const wasUnread = notifications.find((n) => n.id === id && !n.is_read);
-        return wasUnread ? Math.max(0, prev - 1) : prev;
+      setNotifications((prev) => {
+        const wasUnread = prev.some((n) => n.id === id && !n.is_read);
+        if (wasUnread) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return prev.filter((n) => n.id !== id);
       });
     } catch {
       // no-op
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications]);
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -125,27 +221,23 @@ export const useNotifications = () => {
         if (payload.event === 'notification.created' && payload.notification) {
           const notif = payload.notification;
 
-          // Guard: only process notifications explicitly addressed to therapists.
-          // Accept if the db_record has notification_type='therapist_message',
-          // OR if the source_event is a known therapist mood alert event.
-          // This prevents any patient-type notification that somehow reaches this
-          // WebSocket channel from being displayed in the therapist UI.
-          const THERAPIST_NOTIFICATION_TYPE = 'therapist_message';
-          const THERAPIST_SOURCE_EVENTS = ['mood.streak.bad3', 'mood.trend.downward'];
+          const dbRecord = (notif.db_record as Record<string, unknown> | undefined) ?? undefined;
+          const rawType = (dbRecord?.notification_type ?? notif.notification_type ?? '').toString().toLowerCase();
+          const sourceEvent = (notif.source_event ?? '').toLowerCase();
+          const isTherapistRecipient = payload.recipient?.user_type === 'therapist';
+          const isKnownTherapistType = THERAPIST_NOTIFICATION_TYPES.has(rawType);
+          const isKnownTherapistSource = THERAPIST_SOURCE_EVENT_PREFIXES.some((prefix) =>
+            sourceEvent.startsWith(prefix)
+          );
 
-          const isTherapistNotificationType =
-            notif.db_record?.notification_type === THERAPIST_NOTIFICATION_TYPE;
-          const isTherapistSourceEvent = THERAPIST_SOURCE_EVENTS.includes(notif.source_event);
-
-          if (!isTherapistNotificationType && !isTherapistSourceEvent) {
-            // Not a therapist notification — discard silently
+          if (!isTherapistRecipient && !isKnownTherapistType && !isKnownTherapistSource) {
             return;
           }
 
-          // Prepend the new notification into the local list if it has a db_record
-          if (notif.db_record) {
-            setNotifications((prev) => [notif.db_record!, ...prev]);
-            if (!notif.db_record.is_read) {
+          if (dbRecord) {
+            const normalized = normalizeWsDbRecord(payload, dbRecord);
+            setNotifications((prev) => [normalized, ...prev]);
+            if (!normalized.is_read) {
               setUnreadCount((prev) => prev + 1);
             }
           }
@@ -217,6 +309,17 @@ export const useNotifications = () => {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const unlisten = listenToNotificationEvent('notifications-updated', () => {
+      fetchUnreadCount();
+      fetchNotifications();
+    });
+
+    return () => {
+      unlisten();
+    };
+  }, [fetchNotifications, fetchUnreadCount]);
 
   return {
     // State
