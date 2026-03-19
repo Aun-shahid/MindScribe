@@ -8,6 +8,9 @@ import type {
   SessionEmotionalAnalysis,
   StartSessionResponse,
   EndSessionResponse,
+  SOAPGenerateResponse,
+  SOAPNote,
+  AILiveTranscriptionSegment,
   SessionInsight,
   SessionSummaryUpdate,
   SessionType,
@@ -168,6 +171,59 @@ class SessionsService {
         { save_transcript: true },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Fetch generated SOAP note for a session.
+   */
+  async getSessionSOAP(sessionId: string): Promise<SOAPNote> {
+    try {
+      const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Generate SOAP note for a session.
+   */
+  async generateSessionSOAP(
+    sessionId: string,
+    payload: { include_emotions?: boolean; additional_context?: string } = {}
+  ): Promise<SOAPGenerateResponse> {
+    try {
+      const response = await aiApi.post<SOAPGenerateResponse>(
+        `/soap/${sessionId}/generate`,
+        {
+          include_emotions: payload.include_emotions ?? true,
+          additional_context: payload.additional_context ?? '',
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update therapist-edited SOAP sections.
+   */
+  async updateSessionSOAP(
+    sessionId: string,
+    payload: {
+      subjective?: string;
+      objective?: string;
+      assessment?: string;
+      plan?: string;
+    }
+  ): Promise<SOAPNote> {
+    try {
+      const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload);
+      return response.data;
     } catch (error) {
       throw this.handleError(error);
     }
@@ -643,16 +699,7 @@ class SessionsService {
     sessionId: string,
     aiServiceToken: string,
     handlers: {
-      onTranscription?: (segment: {
-        id: string;
-        speaker: string;
-        text?: string;
-        text_urdu?: string;
-        text_english?: string;
-        start_time: number;
-        end_time: number;
-        emotion?: string;
-      }) => void;
+      onTranscription?: (segment: AILiveTranscriptionSegment) => void;
       onError?: (error: { message: string }) => void;
       onClose?: () => void;
       onOpen?: () => void;

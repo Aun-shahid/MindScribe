@@ -21,7 +21,7 @@ const EndSession: React.FC = () => {
   const { session } = useSessionDetail(id!);
   const { endSession, loading, error: endSessionError } = useEndSession();
 
-  const handleCompleteSession = async () => {
+  const handleCompleteSession = async (navigateToSOAP = false) => {
     if (!id) {
       alert('No session ID found');
       return;
@@ -67,8 +67,12 @@ const EndSession: React.FC = () => {
         console.log('   Result:', response);
         console.log('   AI Analysis:', response.ai_analysis);
 
-        // Navigate to the session detail view to see the completed data
-        navigate(`/sessions/${id}`);
+        // Navigate either to SOAP notes (to review generated notes) or session details.
+        if (navigateToSOAP) {
+          navigate(`/sessions/${id}/soap`);
+        } else {
+          navigate(`/sessions/${id}`);
+        }
       } else if (endSessionError) {
         console.error('❌ [EndSession] Failed to complete session');
         console.error('   Error:', endSessionError);
@@ -307,7 +311,21 @@ const EndSession: React.FC = () => {
             </button>
 
             <button
-              onClick={handleCompleteSession}
+              onClick={() => handleCompleteSession(true)}
+              className="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !canEndSession}
+              title={!canEndSession ? 'Session must be started before it can be completed' : ''}
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+              ) : (
+                <FileText size={20} className="mr-2" />
+              )}
+              {loading ? 'Saving...' : 'Complete & Open SOAP'}
+            </button>
+
+            <button
+              onClick={() => handleCompleteSession(false)}
               className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || !canEndSession}
               title={!canEndSession ? 'Session must be started before it can be completed' : ''}

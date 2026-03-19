@@ -6,6 +6,7 @@ import sessionsService from '../services/sessions.service';
 import type {
   SessionTranscription,
   SessionEmotionalAnalysis,
+  AILiveTranscriptionSegment,
   StartSessionResponse,
   EndSessionResponse,
   SessionType,
@@ -99,7 +100,8 @@ export const useEndSession = () => {
           try {
             await sessionsService.stopAISession(sessionId, aiToken);
             console.log('[useSessions] AI Service session stopped successfully');
-            localStorage.removeItem('ai_service_token');
+            // Keep token for post-session SOAP operations on this session.
+            // Removing it here causes 401 on /soap endpoints.
           } catch (stopErr) {
             console.warn('[useSessions] Failed to stop AI Service session (non-critical):', stopErr);
           }
@@ -640,18 +642,7 @@ export const useAIServiceWebSocket = (
   const chunkIndexRef = useRef<number>(0);
 
   const [connected, setConnected] = useState(false);
-  const [transcriptionSegments, setTranscriptionSegments] = useState<
-    Array<{
-      id: string;
-      speaker: string;
-      text?: string;
-      text_urdu?: string;
-      text_english?: string;
-      start_time: number;
-      end_time: number;
-      emotion?: string;
-    }>
-  >([]);
+  const [transcriptionSegments, setTranscriptionSegments] = useState<AILiveTranscriptionSegment[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const connect = useCallback(() => {

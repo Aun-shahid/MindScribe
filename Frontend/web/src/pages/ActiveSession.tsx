@@ -17,6 +17,21 @@ import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useLiveSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 
+const EMOTION_UI_CONFIG: Record<
+  string,
+  { label: string; emoji: string; colorClass: string }
+> = {
+  joy: { label: 'Joy', emoji: '😊', colorClass: 'bg-emerald-500' },
+  sadness: { label: 'Sadness', emoji: '😢', colorClass: 'bg-blue-500' },
+  anger: { label: 'Anger', emoji: '😠', colorClass: 'bg-red-500' },
+  neutral: { label: 'Neutral', emoji: '😐', colorClass: 'bg-gray-500' },
+  disgust: { label: 'Disgust', emoji: '🤢', colorClass: 'bg-lime-600' },
+  fear: { label: 'Fear', emoji: '😨', colorClass: 'bg-amber-500' },
+  surprise: { label: 'Surprise', emoji: '😮', colorClass: 'bg-fuchsia-500' },
+};
+
+const EMOTION_ORDER = ['joy', 'sadness', 'anger', 'neutral', 'disgust', 'fear', 'surprise'];
+
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -69,13 +84,45 @@ const ActiveSession: React.FC = () => {
     { autoConnect: false }
   );
 
+  const toDisplaySpeaker = useCallback((speaker: string) => {
+    if (!speaker) return 'Speaker';
+    if (speaker.startsWith('SPEAKER_')) {
+      const suffix = speaker.replace('SPEAKER_', '');
+      const index = Number.parseInt(suffix, 10);
+      if (!Number.isNaN(index)) {
+        return `Speaker ${index + 1}`;
+      }
+    }
+    return speaker;
+  }, []);
+
+  const getEmotionKey = useCallback((emotion: unknown): string => {
+    if (!emotion) return '';
+    if (typeof emotion === 'string') return emotion.toLowerCase();
+    if (
+      typeof emotion === 'object' &&
+      emotion !== null &&
+      'final_emotion' in emotion &&
+      typeof (emotion as { final_emotion?: string }).final_emotion === 'string'
+    ) {
+      return (emotion as { final_emotion: string }).final_emotion.toLowerCase();
+    }
+    return '';
+  }, []);
+
+  const toEmotionLabel = useCallback((emotion: unknown): string => {
+    const key = getEmotionKey(emotion);
+    if (!key) return '';
+    return EMOTION_UI_CONFIG[key]?.label || `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+  }, [getEmotionKey]);
+
   // Use live transcription from AI Service WebSocket if available
   const transcript = aiTranscriptionSegments.length > 0
     ? aiTranscriptionSegments.map((seg) => ({
-      speaker: seg.speaker,
-      text: seg.text || seg.text_urdu || seg.text_english || '',
+      speaker: toDisplaySpeaker(seg.speaker),
+      text: seg.text_english || seg.text || seg.text_urdu || '',
       time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
-      emotion: seg.emotion,
+      emotion: toEmotionLabel(seg.emotion),
     }))
     : [];
 
@@ -84,7 +131,7 @@ const ActiveSession: React.FC = () => {
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const pendingSamplesRef = useRef<number[]>([]);
-  const chunkSamplesRef = useRef<number>(32000); // 2s @ 16kHz
+  const chunkSamplesRef = useRef<number>(160000); // 2s @ 16kHz
 
   const encodeInt16ToBase64 = (samples: Int16Array): string => {
     const bytes = new Uint8Array(samples.buffer);
@@ -190,21 +237,45 @@ const ActiveSession: React.FC = () => {
     processorNode.connect(audioContext.destination);
   }, [sendAudioChunk]);
 
-  // Helper to safely get the emotion string
-  const getEmotionString = (emotion: any) => {
-    if (!emotion) return '';
-    if (typeof emotion === 'string') return emotion.toLowerCase();
-    if (typeof emotion === 'object' && emotion.final_emotion) return String(emotion.final_emotion).toLowerCase();
-    return '';
-  };
+  // Build emotion percentages strictly from backend emotion keys.
+  // Prefer live WS segment emotions; fallback to analysis mood_distribution.
+  const emotionDistribution = (() => {
+    const liveCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = 0;
+      return acc;
+    }, {});
 
-  // Use analysis data if available
-  // For now, emotion data is mock until we aggregate from transcription segments
-  const emotionData = analysis?.mood_distribution || {
-    calm: transcript.filter(t => getEmotionString(t.emotion).includes('calm') || getEmotionString(t.emotion).includes('neutral') || getEmotionString(t.emotion).includes('joy')).length * 10,
-    anxious: transcript.filter(t => getEmotionString(t.emotion).includes('anxious') || getEmotionString(t.emotion).includes('fear')).length * 10,
-    angry: transcript.filter(t => getEmotionString(t.emotion).includes('angry') || getEmotionString(t.emotion).includes('anger')).length * 10,
-  };
+    aiTranscriptionSegments.forEach((seg) => {
+      const key = getEmotionKey(seg.emotion);
+      if (key in liveCounts) {
+        liveCounts[key] += 1;
+      }
+    });
+
+    const liveTotal = Object.values(liveCounts).reduce((sum, n) => sum + n, 0);
+    if (liveTotal > 0) {
+      return EMOTION_ORDER.map((key) => ({
+        key,
+        percentage: Math.min(100, Math.max(0, Math.round((liveCounts[key] / liveTotal) * 100))),
+      }));
+    }
+
+    const fallback = analysis?.mood_distribution || {};
+    const fallbackCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = Number(fallback[key] || 0);
+      return acc;
+    }, {});
+
+    const fallbackTotal = Object.values(fallbackCounts).reduce((sum, n) => sum + n, 0);
+    if (fallbackTotal <= 0) {
+      return EMOTION_ORDER.map((key) => ({ key, percentage: 0 }));
+    }
+
+    return EMOTION_ORDER.map((key) => ({
+      key,
+      percentage: Math.min(100, Math.max(0, Math.round((fallbackCounts[key] / fallbackTotal) * 100))),
+    }));
+  })();
 
   // Check if session is already completed and redirect to detail page
   useEffect(() => {
@@ -544,41 +615,24 @@ const ActiveSession: React.FC = () => {
               <p className="text-gray-600 text-sm mb-6">Analyzing emotional trends during session</p>
 
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😌</span>
-                  <span className="font-medium text-gray-900 w-16">Calm</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-green-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.calm}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.calm}%</span>
-                </div>
+                {emotionDistribution.map(({ key, percentage }) => {
+                  const config = EMOTION_UI_CONFIG[key];
+                  if (!config) return null;
 
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😰</span>
-                  <span className="font-medium text-gray-900 w-16">Anxious</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-orange-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.anxious}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.anxious}%</span>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😠</span>
-                  <span className="font-medium text-gray-900 w-16">Angry</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-red-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.angry}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.angry}%</span>
-                </div>
+                  return (
+                    <div key={key} className="flex items-center space-x-4">
+                      <span className="text-2xl">{config.emoji}</span>
+                      <span className="font-medium text-gray-900 w-20">{config.label}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`${config.colorClass} h-3 rounded-full transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-purple-600 font-bold w-12">{percentage}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -623,6 +677,11 @@ const ActiveSession: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-sm leading-relaxed">{item.text}</p>
+                      {item.emotion && (
+                        <p className={`text-xs mt-2 ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'}`}>
+                          Emotion: {item.emotion}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

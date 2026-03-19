@@ -13,6 +13,11 @@ import Sessions from './pages/Sessions';
 import SessionDetail from './pages/SessionDetail';
 import SessionDetailView from './pages/SessionDetailView';
 import ActiveSession from './pages/ActiveSession';
+import SessionSOAP from './pages/SessionSOAP';
+import Tools from './pages/Tools';
+import ToolsSOAPList from './pages/ToolsSOAPList';
+import ToolsEmotionalProfileList from './pages/ToolsEmotionalProfileList';
+import SessionEmotionalProfile from './pages/SessionEmotionalProfile';
 import EndSession from './pages/EndSession';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
@@ -57,7 +62,12 @@ function App() {
                 <Route path="/sessions/:id" element={<SessionDetail />} />
                 <Route path="/sessions/:id/view" element={<SessionDetailView />} />
                 <Route path="/sessions/:id/active" element={<ActiveSession />} />
+                <Route path="/sessions/:id/soap" element={<SessionSOAP />} />
                 <Route path="/sessions/:id/end" element={<EndSession />} />
+                <Route path="/tools" element={<Tools />} />
+                <Route path="/tools/soap" element={<ToolsSOAPList />} />
+                <Route path="/tools/emotional-profile" element={<ToolsEmotionalProfileList />} />
+                <Route path="/tools/emotional-profile/:id" element={<SessionEmotionalProfile />} />
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/new" element={<NewPatient />} />
                 <Route path="/patients/:patientId" element={<PatientDetail />} />

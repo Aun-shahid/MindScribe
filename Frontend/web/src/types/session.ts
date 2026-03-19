@@ -11,6 +11,42 @@ export interface SessionTranscriptionSegment {
   emotion?: string;
 }
 
+export type AIEmotionLabel =
+  | 'joy'
+  | 'sadness'
+  | 'anger'
+  | 'neutral'
+  | 'disgust'
+  | 'fear'
+  | 'surprise'
+  | 'unknown';
+
+export interface AIEmotionResult {
+  primary_emotion: AIEmotionLabel;
+  confidence: number;
+  all_scores: Record<string, number>;
+}
+
+export interface AICombinedEmotionResult {
+  audio_emotion: AIEmotionResult;
+  text_emotion: AIEmotionResult;
+  final_emotion: AIEmotionLabel;
+  final_confidence: number;
+  agreement: boolean;
+}
+
+export interface AILiveTranscriptionSegment {
+  id: string;
+  speaker: string;
+  start_time: number;
+  end_time: number;
+  duration?: number;
+  text?: string;
+  text_urdu?: string;
+  text_english?: string;
+  emotion?: AICombinedEmotionResult;
+}
+
 export interface SessionTranscription {
   session_id: string;
   segments: SessionTranscriptionSegment[];
@@ -40,12 +76,21 @@ export interface SessionEmotionalAnalysis {
 }
 
 export interface SOAPNote {
+  session_id?: string;
   subjective: { content: string };
   objective: { content: string };
   assessment: { content: string };
   plan: { content: string };
+  emotional_summary?: string | null;
+  model_version?: string;
   key_themes?: string[];
   generated_at?: string;
+}
+
+export interface SOAPGenerateResponse {
+  soap_note: SOAPNote;
+  processing_time_ms: number;
+  message: string;
 }
 
 export interface AIAnalysisStatus {

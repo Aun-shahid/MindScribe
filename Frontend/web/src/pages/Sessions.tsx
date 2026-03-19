@@ -437,6 +437,23 @@ const Sessions = () => {
                     <span className={`px-4 py-1.5 text-xs font-bold rounded-full shadow-sm ${getStatusColor(session.status)}`}>
                       {session.status}
                     </span>
+                    {String(session.status).toUpperCase() === 'COMPLETED' ? (
+                      <Link
+                        to={`/sessions/${session.id}/soap`}
+                        className="bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-4 py-2.5 rounded-lg font-semibold transition-all shadow-sm hover:shadow-md flex items-center space-x-2"
+                      >
+                        <span>SOAP Notes</span>
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        title="SOAP notes are available after the session is completed."
+                        className="bg-gray-100 border border-gray-200 text-gray-400 px-4 py-2.5 rounded-lg font-semibold cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <span>SOAP Notes</span>
+                      </button>
+                    )}
                     <Link
                       to={`/sessions/${session.id}`}
                       className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
