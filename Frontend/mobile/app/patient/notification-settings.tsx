@@ -5,10 +5,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+
+const PUSH_TOKEN_STORAGE_KEY = 'mindscribe_push_token';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -70,29 +73,47 @@ export default function NotificationSettings() {
   useEffect(() => {
     const bootstrapPushState = async () => {
       try {
+        const cachedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (cachedToken) {
+          setRegisteredPushToken(cachedToken);
+          setPushEnabled(true);
+        }
+
         const token = await registerForPush({
           silent: true,
           requestPermissions: false,
         });
 
         if (!token) {
-          setPushEnabled(false);
-          setRegisteredPushToken(null);
+          if (!cachedToken) {
+            setPushEnabled(false);
+            setRegisteredPushToken(null);
+          }
           return;
         }
 
-        await PatientService.registerDevicePushToken({
-          push_token: token,
-          platform: getDevicePlatform(),
-          device_id: token,
-        });
+        try {
+          await PatientService.registerDevicePushToken({
+            push_token: token,
+            platform: getDevicePlatform(),
+            device_id: token,
+          });
+        } catch (error) {
+          // Keep the toggle enabled if we already have a token; re-sync can happen next app launch.
+          console.warn('[NotifySettings] bootstrap token sync failed', error);
+        }
 
         setRegisteredPushToken(token);
+        await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
         setPushEnabled(true);
       } catch (error) {
         console.warn('[NotifySettings] bootstrap push registration skipped', error);
-        setPushEnabled(false);
-        setRegisteredPushToken(null);
+
+        const cachedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (!cachedToken) {
+          setPushEnabled(false);
+          setRegisteredPushToken(null);
+        }
       }
     };
 
@@ -400,12 +421,14 @@ export default function NotificationSettings() {
                       device_id: token,
                     });
                     setRegisteredPushToken(token);
+                    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
                     setPushEnabled(true);
                     Alert.alert('Enabled', 'Push notifications are enabled for this device.');
                     return;
                   }
                   setPushEnabled(false);
                   setRegisteredPushToken(null);
+                  await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
                   return;
                 }
 
@@ -418,6 +441,7 @@ export default function NotificationSettings() {
                 }
                 setPushEnabled(false);
                 setRegisteredPushToken(null);
+                await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
               }}
               trackColor={{ false: '#5B5270', true: '#FF6B9D' }}
               thumbColor="#FFFFFF"
