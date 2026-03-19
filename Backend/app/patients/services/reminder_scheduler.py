@@ -23,11 +23,11 @@ _scheduler_lock = threading.Lock()
 
 
 def _scheduler_interval_seconds() -> int:
-    raw_value = os.environ.get("IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS", "30")
+    raw_value = os.environ.get("IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS", "10")
     try:
         interval = int(raw_value)
     except (TypeError, ValueError):
-        interval = 30
+        interval = 10
     return min(60, max(10, interval))
 
 
