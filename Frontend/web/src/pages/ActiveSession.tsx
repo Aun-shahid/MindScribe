@@ -187,12 +187,20 @@ const ActiveSession: React.FC = () => {
     processorNode.connect(audioContext.destination);
   }, [sendAudioChunk]);
 
+  // Helper to safely get the emotion string
+  const getEmotionString = (emotion: any) => {
+    if (!emotion) return '';
+    if (typeof emotion === 'string') return emotion.toLowerCase();
+    if (typeof emotion === 'object' && emotion.final_emotion) return String(emotion.final_emotion).toLowerCase();
+    return '';
+  };
+
   // Use analysis data if available
   // For now, emotion data is mock until we aggregate from transcription segments
   const emotionData = analysis?.mood_distribution || {
-    calm: transcript.filter(t => t.emotion?.toLowerCase().includes('calm')).length * 10,
-    anxious: transcript.filter(t => t.emotion?.toLowerCase().includes('anxious')).length * 10,
-    angry: transcript.filter(t => t.emotion?.toLowerCase().includes('angry')).length * 10,
+    calm: transcript.filter(t => getEmotionString(t.emotion).includes('calm') || getEmotionString(t.emotion).includes('neutral') || getEmotionString(t.emotion).includes('joy')).length * 10,
+    anxious: transcript.filter(t => getEmotionString(t.emotion).includes('anxious') || getEmotionString(t.emotion).includes('fear')).length * 10,
+    angry: transcript.filter(t => getEmotionString(t.emotion).includes('angry') || getEmotionString(t.emotion).includes('anger')).length * 10,
   };
 
   // Check if session is already completed and redirect to detail page
