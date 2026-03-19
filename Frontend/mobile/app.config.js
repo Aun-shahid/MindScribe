@@ -84,7 +84,6 @@ module.exports = ({ config }) => {
       ...(config.extra || {}),
       BACKEND_URL:
         process.env.BACKEND_URL ||
-        (expoConfig.extra && expoConfig.extra.BACKEND_URL) ||
         productionBackendUrl,
     },
   };
