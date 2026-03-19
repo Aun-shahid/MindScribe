@@ -226,11 +226,13 @@ export default function NotificationSettings() {
 
       const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
       const token = tokenResponse?.data ?? null;
+      console.log('[NotifySettings] Got push token:', token);
       return token;
-    } catch (error) {
-      console.error('[NotifySettings] registerForPush error', error);
+    } catch (error: any) {
+      const errorMsg = error?.message || JSON.stringify(error);
+      console.error('[NotifySettings] registerForPush error:', errorMsg);
       if (!silent) {
-        Alert.alert('Push setup failed', 'Unable to register this device for push notifications.');
+        Alert.alert('Push setup failed', `Error: ${errorMsg}`);
       }
       return null;
     }
