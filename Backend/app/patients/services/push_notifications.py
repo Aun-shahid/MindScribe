@@ -52,6 +52,23 @@ def _deactivate_token_if_invalid(token_obj, ticket):
         token_obj.save(update_fields=['is_active', 'updated_at'])
 
 
+def _send_expo_request(payload, use_auth=True):
+    request = Request(
+        EXPO_PUSH_URL,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            'Content-Type': 'application/json',
+            **({'Authorization': f'Bearer {EXPO_ACCESS_TOKEN}'} if (use_auth and EXPO_ACCESS_TOKEN) else {}),
+        },
+        method='POST',
+    )
+
+    with urlopen(request, timeout=8) as response:
+        raw = response.read().decode('utf-8')
+        parsed = json.loads(raw) if raw else {}
+        return parsed
+
+
 def _send_single_expo_push(token, title, message, data=None):
     payload = {
         'to': token,
@@ -63,20 +80,18 @@ def _send_single_expo_push(token, title, message, data=None):
         'data': data or {},
     }
 
-    request = Request(
-        EXPO_PUSH_URL,
-        data=json.dumps(payload).encode('utf-8'),
-        headers={
-            'Content-Type': 'application/json',
-            **({'Authorization': f'Bearer {EXPO_ACCESS_TOKEN}'} if EXPO_ACCESS_TOKEN else {}),
-        },
-        method='POST',
-    )
-
-    with urlopen(request, timeout=8) as response:
-        raw = response.read().decode('utf-8')
-        parsed = json.loads(raw) if raw else {}
-        return parsed
+    try:
+        return _send_expo_request(payload, use_auth=True)
+    except HTTPError as exc:
+        # Some projects do not enforce access-token auth; retry once without auth
+        # when a stale/wrong EXPO_ACCESS_TOKEN causes 401/403.
+        if EXPO_ACCESS_TOKEN and exc.code in (401, 403):
+            logger.warning(
+                'Expo push auth failed (%s). Retrying once without Authorization header.',
+                exc.code,
+            )
+            return _send_expo_request(payload, use_auth=False)
+        raise
 
 
 def send_push_for_notification(*, recipient, notification_type, title, message, metadata=None):
