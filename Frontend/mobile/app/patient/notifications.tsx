@@ -14,11 +14,9 @@ import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
 import { BASE_URL } from '../config';
-import { normalizeNotificationActionUrl } from '../utils/notificationNavigation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
-
 const CARD_GRAD: readonly [string, string, string] = [
   'rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)',
 ];
@@ -641,7 +639,7 @@ export default function NotificationsScreen() {
                 All caught up
               </Text>
               <Text style={{ color: '#6B6482', fontSize: clamp(width * 0.035, 12, 14), textAlign: 'center' }}>
-                No notifications yet.{'\n'}We'll let you know when something happens.
+                No notifications yet.{'\n'}We&apos;ll let you know when something happens.
               </Text>
             </View>
           ) : (
