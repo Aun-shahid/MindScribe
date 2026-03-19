@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 const PUSH_TOKEN_STORAGE_KEY = 'mindscribe_push_token';
+const PUSH_ENABLED_STORAGE_KEY = 'mindscribe_push_enabled';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -73,10 +74,14 @@ export default function NotificationSettings() {
   useEffect(() => {
     const bootstrapPushState = async () => {
       try {
+        const cachedEnabledRaw = await AsyncStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
+        const cachedEnabled = cachedEnabledRaw === 'true';
         const cachedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (cachedEnabled) {
+          setPushEnabled(true);
+        }
         if (cachedToken) {
           setRegisteredPushToken(cachedToken);
-          setPushEnabled(true);
         }
 
         const token = await registerForPush({
@@ -85,8 +90,10 @@ export default function NotificationSettings() {
         });
 
         if (!token) {
-          if (!cachedToken) {
+          if (!cachedEnabled) {
             setPushEnabled(false);
+          }
+          if (!cachedToken) {
             setRegisteredPushToken(null);
           }
           return;
@@ -105,13 +112,22 @@ export default function NotificationSettings() {
 
         setRegisteredPushToken(token);
         await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+        await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
         setPushEnabled(true);
       } catch (error) {
         console.warn('[NotifySettings] bootstrap push registration skipped', error);
 
+        const cachedEnabledRaw = await AsyncStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
+        const cachedEnabled = cachedEnabledRaw === 'true';
         const cachedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (cachedEnabled) {
+          setPushEnabled(true);
+        }
+        if (cachedToken) {
+          setRegisteredPushToken(cachedToken);
+        }
+
         if (!cachedToken) {
-          setPushEnabled(false);
           setRegisteredPushToken(null);
         }
       }
@@ -422,6 +438,7 @@ export default function NotificationSettings() {
                     });
                     setRegisteredPushToken(token);
                     await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+                    await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
                     setPushEnabled(true);
                     Alert.alert('Enabled', 'Push notifications are enabled for this device.');
                     return;
@@ -429,6 +446,7 @@ export default function NotificationSettings() {
                   setPushEnabled(false);
                   setRegisteredPushToken(null);
                   await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
+                  await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
                   return;
                 }
 
@@ -442,6 +460,7 @@ export default function NotificationSettings() {
                 setPushEnabled(false);
                 setRegisteredPushToken(null);
                 await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
+                await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
               }}
               trackColor={{ false: '#5B5270', true: '#FF6B9D' }}
               thumbColor="#FFFFFF"
