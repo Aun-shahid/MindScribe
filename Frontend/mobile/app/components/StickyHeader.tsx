@@ -2,12 +2,13 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Animated,
+  StyleSheet,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface StickyHeaderProps {
   scrollY: Animated.Value;
@@ -23,8 +24,8 @@ export default function StickyHeader({
   onBackPress,
 }: StickyHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  // Use custom handler if provided, otherwise go back in stack
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
@@ -33,50 +34,50 @@ export default function StickyHeader({
     }
   };
 
-  const stickyHeaderOpacity = scrollY.interpolate({
+  const opacity = scrollY.interpolate({
     inputRange: [0, 100, 150],
     outputRange: [0, 0, 1],
     extrapolate: 'clamp',
   });
 
-  const stickyHeaderTranslateY = scrollY.interpolate({
+  const translateY = scrollY.interpolate({
     inputRange: [0, 100, 150],
     outputRange: [-50, -50, 0],
     extrapolate: 'clamp',
   });
 
-  const [isHeaderVisible, setIsHeaderVisible] = React.useState(false);
-
+  const [visible, setVisible] = React.useState(false);
   React.useEffect(() => {
-    const listenerId = scrollY.addListener(({ value }) => {
-      setIsHeaderVisible(value >= 150);
-    });
-    return () => scrollY.removeListener(listenerId);
+    const id = scrollY.addListener(({ value }) => setVisible(value >= 150));
+    return () => scrollY.removeListener(id);
   }, [scrollY]);
+
+  const btnSize = 36;
 
   return (
     <Animated.View
-      pointerEvents={isHeaderVisible ? 'box-none' : 'none'}
-      style={[
-        styles.stickyHeader,
-        {
-          opacity: stickyHeaderOpacity,
-          transform: [{ translateY: stickyHeaderTranslateY }],
-        },
-      ]}
+      pointerEvents={visible ? 'box-none' : 'none'}
+      style={[styles.wrapper, { opacity, transform: [{ translateY }] }]}
     >
-      <View style={styles.stickyHeaderCard} pointerEvents="auto">
+      {/* Flex row — no absolute positioning, always reliable */}
+      <View
+        style={[styles.row, { paddingTop: insets.top + 10, paddingBottom: 14 }]}
+        pointerEvents="auto"
+      >
+        {/* Back button — left slot */}
         <TouchableOpacity
           onPress={handleBackPress}
-          style={styles.stickyBackButton}
           activeOpacity={0.7}
-          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          style={[styles.btn, { width: btnSize, height: btnSize, borderRadius: btnSize / 2 }]}
         >
-          <FontAwesome name="chevron-left" size={16} color="#FFFFFF" />
+          <FontAwesome name="chevron-left" size={15} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.stickyHeaderText}>
-          <Text style={styles.headerWhite}>{firstWord} </Text>
-          <Text style={styles.headerPurple}>{secondWord}</Text>
+
+        {/* Title — centred, offset by btn width on right so it's visually balanced */}
+        <Text style={[styles.title, { marginRight: btnSize }]} numberOfLines={1}>
+          <Text style={styles.white}>{firstWord} </Text>
+          <Text style={styles.purple}>{secondWord}</Text>
         </Text>
       </View>
     </Animated.View>
@@ -84,41 +85,33 @@ export default function StickyHeader({
 }
 
 const styles = StyleSheet.create({
-  stickyHeader: {
+  wrapper: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     zIndex: 1000,
+    backgroundColor: 'rgba(52,41,73,0.92)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  stickyHeaderCard: {
-    backgroundColor: 'rgba(52, 41, 73, 0.85)',
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 16,
   },
-  stickyBackButton: {
-    position: 'absolute',
-    left: 20,
-    top: 56,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  btn: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
+    flexShrink: 0,
   },
-  stickyHeaderText: {
-    fontSize: 20,
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
     fontWeight: '700',
   },
-  headerWhite:  { color: '#FFFFFF' },
-  headerPurple: { color: '#B8A8E6' },
+  white:  { color: '#FFFFFF' },
+  purple: { color: '#B8A8E6' },
 });
