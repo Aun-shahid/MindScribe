@@ -1,255 +1,356 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  AppState, View, Text, StyleSheet, TouchableOpacity,
-  Alert, Animated, StatusBar, Modal, ScrollView,
-  useWindowDimensions,
+  View, Text, StyleSheet, Switch, ActivityIndicator,
+  TouchableOpacity, Alert, Platform, Animated,
+  Modal, useWindowDimensions, StatusBar,
 } from 'react-native';
+import PatientService from '../services/patient.service';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import PatientService from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
-import TabLoaderCard from '../components/TabLoaderCard';
-import { BASE_URL } from '../config';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true, shouldShowList: true,
+    shouldPlaySound: true, shouldSetBadge: false,
+  }),
+});
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 const CARD_GRAD: readonly [string, string, string] = [
   'rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)',
 ];
+const CARD_BG     = '#3F3752';
+const CARD_BORDER = 'rgba(255,255,255,0.16)';
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1)  return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7)  return `${d}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+// ─── Time parser ──────────────────────────────────────────────────────────────
+function parseTimeValue(value: string | null | undefined, fh: number, fm: number): Date {
+  const d = new Date();
+  if (typeof value !== 'string' || !value.trim()) { d.setHours(fh, fm, 0, 0); return d; }
+  const m = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) { d.setHours(fh, fm, 0, 0); return d; }
+  const h = Number(m[1]), mn = Number(m[2]);
+  if (isNaN(h) || isNaN(mn) || h > 23 || mn > 59) { d.setHours(fh, fm, 0, 0); return d; }
+  d.setHours(h, mn, 0, 0); return d;
 }
 
-function formatFull(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long',
-    day: 'numeric', hour: '2-digit', minute: '2-digit',
+// ─── Build payload ────────────────────────────────────────────────────────────
+// Only fields that exist in the backend NotificationPreference model.
+// - goal_reminder_time: does NOT exist — goals fire based on PatientGoal.target_date proximity
+// - therapist_messages_enabled: removed — disabled in backend
+function buildPayload(prefs: any) {
+  return {
+    session_reminders_enabled:  !!prefs?.session_reminders_enabled,
+    session_reminder_time:       prefs?.session_reminder_time ?? 24,
+    session_summary_enabled:    !!prefs?.session_summary_enabled,
+    session_approved_enabled:   !!prefs?.session_approved_enabled,
+    session_cancelled_enabled:  !!prefs?.session_cancelled_enabled,
+    goal_reminders_enabled:     !!prefs?.goal_reminders_enabled,
+    mood_reminder_enabled:      !!prefs?.mood_reminder_enabled,
+    mood_reminder_time:          prefs?.mood_reminder_time,
+    journal_reminder_enabled:   !!prefs?.journal_reminder_enabled,
+    journal_reminder_time:       prefs?.journal_reminder_time,
+  };
+}
+
+// ─── Push helpers ─────────────────────────────────────────────────────────────
+function getDevicePlatform(): 'ios' | 'android' | 'unknown' {
+  if (Platform.OS === 'ios') return 'ios';
+  if (Platform.OS === 'android') return 'android';
+  return 'unknown';
+}
+
+// ─── Local device reminder helpers (mood + journal only) ─────────────────────
+// Goal reminders are entirely server-driven (fires when goal.target_date within 3 days).
+// Session reminders are entirely server-driven (fires based on session.scheduled_date).
+// Only mood and journal are also scheduled locally for offline/fallback support.
+async function ensurePermissions(): Promise<boolean> {
+  const c = await Notifications.getPermissionsAsync();
+  if (c.granted || c.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) return true;
+  const r = await Notifications.requestPermissionsAsync();
+  return r.granted || r.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+}
+
+async function cancelReminder(t: 'mood_reminder' | 'journal_reminder') {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    all.filter(i => (i.content.data as any)?.reminderType === t)
+      .map(i => Notifications.cancelScheduledNotificationAsync(i.identifier))
+  );
+}
+
+async function scheduleReminder(
+  type: 'mood_reminder' | 'journal_reminder',
+  enabled: boolean, hour: number, minute: number, title: string, body: string,
+) {
+  await cancelReminder(type);
+  if (!enabled) return;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('reminders', {
+      name: 'Reminders', importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default', vibrationPattern: [0, 250, 200, 250],
+    });
+  }
+  await Notifications.scheduleNotificationAsync({
+    content: { title, body, sound: true, data: { reminderType: type } },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour, minute,
+      channelId: Platform.OS === 'android' ? 'reminders' : undefined,
+    },
   });
 }
 
-const TYPE_CONFIG: Record<string, { icon: string; color: string; dim: string }> = {
-  session_reminder:  { icon: 'calendar',    color: '#A78BFA', dim: 'rgba(167,139,250,0.15)' },
-  session_summary:   { icon: 'file-text-o', color: '#A78BFA', dim: 'rgba(167,139,250,0.15)' },
-  session_approved:  { icon: 'check-circle',color: '#4CAF50', dim: 'rgba(76,175,80,0.15)'   },
-  session_cancelled: { icon: 'times-circle',color: '#EF4444', dim: 'rgba(239,68,68,0.15)'   },
-  mood_reminder:     { icon: 'smile-o',     color: '#FFD93D', dim: 'rgba(255,217,61,0.15)'  },
-  journal_reminder:  { icon: 'book',        color: '#5DADE2', dim: 'rgba(93,173,226,0.15)'  },
-  goal_reminder:     { icon: 'flag',        color: '#FFB36B', dim: 'rgba(255,179,107,0.15)' },
-  therapist_message: { icon: 'comment',     color: '#FF6B9D', dim: 'rgba(255,107,157,0.15)' },
-};
-const DEFAULT_TYPE = { icon: 'bell', color: '#B8A8E6', dim: 'rgba(184,168,230,0.15)' };
-function getTypeConfig(t?: string) { return (t && TYPE_CONFIG[t]) || DEFAULT_TYPE; }
+async function syncReminders(prefs: any): Promise<{ ok: boolean }> {
+  const hasPerm = await ensurePermissions();
+  console.log('[Reminders] permissions granted:', hasPerm);
+  if (!hasPerm) return { ok: false };
 
-// ─── Detail Bottom Sheet ──────────────────────────────────────────────────────
-// Mark-as-read button removed — opening the sheet already marks it read automatically.
-function DetailSheet({ item, onClose, onDelete }: {
-  item: any | null;
-  onClose: () => void;
-  onDelete: (id: string) => void;
+  // Explicit coercion — handles backend returning 1/0/"true"/"false"/null
+  const moodOn    = prefs?.mood_reminder_enabled    === true || prefs?.mood_reminder_enabled    === 1 || prefs?.mood_reminder_enabled    === 'true';
+  const journalOn = prefs?.journal_reminder_enabled === true || prefs?.journal_reminder_enabled === 1 || prefs?.journal_reminder_enabled === 'true';
+
+  const md = parseTimeValue(prefs?.mood_reminder_time,    20, 0);
+  const jd = parseTimeValue(prefs?.journal_reminder_time, 21, 0);
+
+  console.log('[Reminders] mood:', moodOn, `${md.getHours()}:${String(md.getMinutes()).padStart(2,'0')}`);
+  console.log('[Reminders] journal:', journalOn, `${jd.getHours()}:${String(jd.getMinutes()).padStart(2,'0')}`);
+
+  await scheduleReminder('mood_reminder',    moodOn,    md.getHours(), md.getMinutes(),
+    'Mood Check-in Reminder', 'How are you feeling? Take a moment to log your mood.');
+  await scheduleReminder('journal_reminder', journalOn, jd.getHours(), jd.getMinutes(),
+    'Journal Reminder', 'Take a few minutes to write your journal entry for today.');
+
+  return { ok: true };
+}
+
+// ─── Session Hours Modal ──────────────────────────────────────────────────────
+const HOUR_OPTIONS = [
+  { value: 1,  label: '1 hour',  icon: 'clock-fast',        desc: 'Last minute' },
+  { value: 2,  label: '2 hours', icon: 'clock-outline',     desc: 'Short notice' },
+  { value: 6,  label: '6 hours', icon: 'clock-time-six',    desc: 'Same day' },
+  { value: 12, label: '12 hrs',  icon: 'clock-time-twelve', desc: 'Half day' },
+  { value: 24, label: '1 day',   icon: 'calendar-today',    desc: 'Day before' },
+  { value: 48, label: '2 days',  icon: 'calendar-clock',    desc: 'Two days' },
+];
+
+function SessionModal({ visible, current, onSelect, onClose, width }: {
+  visible: boolean; current: number; onSelect: (v: number) => void;
+  onClose: () => void; width: number;
 }) {
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const slideY = useRef(new Animated.Value(height)).current;
-  const fadeOv = useRef(new Animated.Value(0)).current;
+  const spinAnim   = useRef(new Animated.Value(0)).current;
+  const scaleAnims = useRef(HOUR_OPTIONS.map(() => new Animated.Value(1))).current;
 
   useEffect(() => {
-    if (item) {
-      Animated.parallel([
-        Animated.spring(slideY, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-        Animated.timing(fadeOv,  { toValue: 1, duration: 220, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(slideY, { toValue: height, duration: 260, useNativeDriver: true }),
-        Animated.timing(fadeOv,  { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [item]);
+    if (visible) {
+      Animated.loop(Animated.timing(spinAnim, { toValue: 1, duration: 10000, useNativeDriver: true })).start();
+    } else { spinAnim.setValue(0); }
+  }, [visible, spinAnim]);
 
-  if (!item) return null;
+  const spin  = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const cardW = clamp(width * 0.37, 120, 155);
 
-  const cfg    = getTypeConfig(item.notification_type);
-  const sheetH = clamp(height * 0.52, 340, 490);
-  const cPad   = clamp(width * 0.055, 18, 26);
+  const handlePick = (val: number, i: number) => {
+    Animated.sequence([
+      Animated.timing(scaleAnims[i], { toValue: 0.88, duration: 90,  useNativeDriver: true }),
+      Animated.timing(scaleAnims[i], { toValue: 1,    duration: 160, useNativeDriver: true }),
+    ]).start(() => { onSelect(val); onClose(); });
+  };
 
   return (
-    <Modal transparent visible={!!item} animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,6,20,0.72)', opacity: fadeOv }]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-      </Animated.View>
-
-      <Animated.View style={[ds.sheet, {
-        height: sheetH,
-        paddingBottom: insets.bottom + 12,
-        transform: [{ translateY: slideY }],
-      }]}>
-        <LinearGradient colors={['#2C2248', '#241C3E', '#1E1630']}
-          style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-
-        <View style={[ds.topBar, { backgroundColor: cfg.color }]} />
-        <View style={ds.handle} />
-
-        <ScrollView contentContainerStyle={{ padding: cPad, paddingTop: 8 }} showsVerticalScrollIndicator={false}>
-          {/* Icon + type + time */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-            <View style={[ds.iconCircle, { backgroundColor: cfg.dim, borderColor: `${cfg.color}40` }]}>
-              <FontAwesome name={cfg.icon as any} size={clamp(width * 0.055, 18, 24)} color={cfg.color} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[ds.typeLabel, { color: cfg.color }]}>
-                {(item.notification_type || 'notification').replace(/_/g, ' ').toUpperCase()}
-              </Text>
-              <Text style={ds.timeText}>{formatFull(item.sent_at)}</Text>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={ms.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[ms.sheet, { width: clamp(width * 0.88, 300, 380) }]}>
+          <LinearGradient colors={['#2A1F3D', '#1E1630', '#2A1F3D']} style={StyleSheet.absoluteFill} />
+          <View style={ms.clockWrap}>
+            <Animated.View style={[ms.spinRing, { transform: [{ rotate: spin }] }]}>
+              <LinearGradient colors={['#A78BFA', '#FFB36B', '#A78BFA']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={ms.spinGradient} />
+            </Animated.View>
+            <View style={ms.clockInner}>
+              <MaterialCommunityIcons name="clock-outline" size={26} color="#A78BFA" />
             </View>
           </View>
-
-          <Text style={ds.title}>{item.title}</Text>
-          <View style={ds.divider} />
-          <Text style={ds.body}>{item.message || 'No additional details.'}</Text>
-        </ScrollView>
-
-        {/* Only delete button — mark-as-read is automatic on open */}
-        <View style={[ds.actions, { paddingHorizontal: cPad }]}>
-          <TouchableOpacity
-            style={ds.deleteBtn}
-            onPress={() => {
-              onClose();
-              setTimeout(() => {
-                Alert.alert('Delete', 'Remove this notification?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => onDelete(item.id) },
-                ]);
-              }, 300);
-            }}
-            activeOpacity={0.8}
-          >
-            <FontAwesome name="trash-o" size={13} color="#EF4444" style={{ marginRight: 7 }} />
-            <Text style={ds.deleteBtnText}>Delete notification</Text>
+          <Text style={ms.title}>Remind Me Before</Text>
+          <Text style={ms.subtitle}>How early should we notify you?</Text>
+          <View style={ms.grid}>
+            {HOUR_OPTIONS.map((opt, i) => {
+              const active = current === opt.value;
+              return (
+                <Animated.View key={opt.value} style={{ transform: [{ scale: scaleAnims[i] }] }}>
+                  <TouchableOpacity
+                    style={[ms.optCard, { width: cardW }, active && ms.optCardActive]}
+                    onPress={() => handlePick(opt.value, i)} activeOpacity={0.8}
+                  >
+                    {active && (
+                      <LinearGradient colors={['rgba(167,139,250,0.28)', 'rgba(255,179,107,0.16)']}
+                        style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+                    )}
+                    <MaterialCommunityIcons name={opt.icon as any} size={22}
+                      color={active ? '#A78BFA' : '#6B6482'} style={{ marginBottom: 5 }} />
+                    <Text style={[ms.optLabel, active && ms.optLabelActive]}>{opt.label}</Text>
+                    <Text style={ms.optDesc}>{opt.desc}</Text>
+                    {active && (
+                      <View style={ms.checkBadge}>
+                        <FontAwesome name="check" size={8} color="#FFF" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
+          <TouchableOpacity style={ms.cancelBtn} onPress={onClose}>
+            <Text style={ms.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
     </Modal>
   );
 }
 
-const ds = StyleSheet.create({
-  sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    overflow: 'hidden', borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.2)', borderBottomWidth: 0,
-  },
-  topBar:       { height: 3, width: '100%' },
-  handle:       { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  iconCircle:   { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  typeLabel:    { fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
-  timeText:     { color: '#6B6482', fontSize: 11, marginTop: 2 },
-  title:        { color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginBottom: 12, lineHeight: 25 },
-  divider:      { height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginBottom: 10 },
-  body:         { color: '#B8A8E6', fontSize: 14, lineHeight: 22 },
-  actions:      { paddingTop: 4 },
-  deleteBtn:    {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    borderWidth: 1.5, borderColor: 'rgba(239,68,68,0.3)',
-    borderRadius: 12, paddingVertical: 13,
-  },
-  deleteBtnText:{ color: '#EF4444', fontWeight: '700', fontSize: 14 },
+const ms = StyleSheet.create({
+  overlay:       { flex: 1, backgroundColor: 'rgba(10,6,20,0.84)', justifyContent: 'center', alignItems: 'center' },
+  sheet:         { borderRadius: 24, overflow: 'hidden', padding: 22, borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)' },
+  clockWrap:     { alignSelf: 'center', width: 64, height: 64, marginBottom: 14, alignItems: 'center', justifyContent: 'center' },
+  spinRing:      { position: 'absolute', width: 64, height: 64, borderRadius: 32 },
+  spinGradient:  { width: 64, height: 64, borderRadius: 32 },
+  clockInner:    { width: 52, height: 52, borderRadius: 26, backgroundColor: '#1E1630', alignItems: 'center', justifyContent: 'center' },
+  title:         { color: '#FFFFFF', fontSize: 17, fontWeight: '800', textAlign: 'center', marginBottom: 3 },
+  subtitle:      { color: '#7B6FA0', fontSize: 12, textAlign: 'center', marginBottom: 18 },
+  grid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 9, justifyContent: 'center' },
+  optCard:       { borderRadius: 14, padding: 13, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 2 },
+  optCardActive: { borderColor: '#A78BFA' },
+  optLabel:      { color: '#CEC2EE', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  optLabelActive:{ color: '#FFFFFF' },
+  optDesc:       { color: '#6B6482', fontSize: 10, marginTop: 2, textAlign: 'center' },
+  checkBadge:    { position: 'absolute', top: 7, right: 7, width: 15, height: 15, borderRadius: 8, backgroundColor: '#A78BFA', alignItems: 'center', justifyContent: 'center' },
+  cancelBtn:     { marginTop: 18, alignSelf: 'center', paddingVertical: 9, paddingHorizontal: 30, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.07)' },
+  cancelText:    { color: '#9D8EC7', fontWeight: '700', fontSize: 13 },
 });
 
-// ─── Notification Card ────────────────────────────────────────────────────────
-function NotifCard({ item, onPress, width }: { item: any; onPress: () => void; width: number }) {
-  const cfg    = getTypeConfig(item.notification_type);
-  const cPad   = clamp(width * 0.042, 13, 17);
-  const iconSz = clamp(width * 0.046, 15, 19);
+// ─── Toggle Row ───────────────────────────────────────────────────────────────
+function ToggleRow({ label, hint, value, onChange, accent = '#A78BFA', isLast = false }: {
+  label: string; hint?: string; value: boolean;
+  onChange: (v: boolean) => void; accent?: string; isLast?: boolean;
+}) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const handle = (v: boolean) => {
+    Animated.sequence([
+      Animated.timing(pulse, { toValue: 0.96, duration: 70,  useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1,    duration: 110, useNativeDriver: true }),
+    ]).start();
+    onChange(v);
+  };
+  return (
+    <Animated.View style={[tr.row, isLast && { borderBottomWidth: 0 }, { transform: [{ scale: pulse }] }]}>
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Text style={tr.label}>{label}</Text>
+        {!!hint && <Text style={tr.hint}>{hint}</Text>}
+      </View>
+      <Switch value={value} onValueChange={handle}
+        trackColor={{ false: '#3A3256', true: accent }}
+        thumbColor={value ? '#FFFFFF' : '#6B6482'}
+        ios_backgroundColor="#3A3256"
+      />
+    </Animated.View>
+  );
+}
+const tr = StyleSheet.create({
+  row:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  label: { color: '#CEC2EE', fontSize: 14, fontWeight: '600' },
+  hint:  { color: '#6B6482', fontSize: 11, marginTop: 3, lineHeight: 15 },
+});
 
+// ─── Glass Card ───────────────────────────────────────────────────────────────
+function GlassCard({ children, accent = '#A78BFA' }: { children: React.ReactNode; accent?: string }) {
+  return (
+    <View style={[gc.card, { borderTopColor: accent }]}>
+      <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} pointerEvents="none" />
+      {children}
+    </View>
+  );
+}
+const gc = StyleSheet.create({
+  card: {
+    backgroundColor: CARD_BG, borderRadius: 16, marginBottom: 16,
+    padding: 18, borderTopWidth: 3, overflow: 'hidden',
+    borderWidth: 1, borderColor: CARD_BORDER,
+    shadowColor: '#120A24', shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 8 }, shadowRadius: 18, elevation: 7,
+  },
+});
+
+// ─── Card Header ─────────────────────────────────────────────────────────────
+function CardHeader({ emoji, title, subtitle }: { emoji: string; title: string; subtitle?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+      <View style={ch.iconBg}>
+        <Text style={{ fontSize: 20 }}>{emoji}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={ch.title}>{title}</Text>
+        {!!subtitle && <Text style={ch.sub}>{subtitle}</Text>}
+      </View>
+    </View>
+  );
+}
+const ch = StyleSheet.create({
+  iconBg: { width: 46, height: 46, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  title:  { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  sub:    { color: '#7B6FA0', fontSize: 11, marginTop: 2 },
+});
+
+// ─── Time Row ─────────────────────────────────────────────────────────────────
+function TimeRow({ label, time, accent, disabled, onPress }: {
+  label: string; time: string; accent: string; disabled?: boolean; onPress: () => void;
+}) {
   return (
     <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.82}
-      style={[nc.card, !item.is_read && nc.unread, { padding: cPad }]}
+      style={[tmr.row, disabled && { opacity: 0.4 }]}
+      onPress={disabled ? undefined : onPress} activeOpacity={0.7}
     >
-      {!item.is_read && <View style={[nc.accentBar, { backgroundColor: cfg.color }]} />}
-
-      <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius: 14 }]} pointerEvents="none" />
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.033, 10, 14) }}>
-        <View style={[nc.iconBadge, {
-          backgroundColor: item.is_read ? 'rgba(184,168,230,0.10)' : cfg.dim,
-          borderColor:     item.is_read ? 'rgba(184,168,230,0.15)' : `${cfg.color}40`,
-          width: clamp(width * 0.1, 34, 42), height: clamp(width * 0.1, 34, 42),
-          borderRadius: clamp(width * 0.032, 10, 13),
-        }]}>
-          <FontAwesome name={cfg.icon as any} size={iconSz} color={item.is_read ? '#7B6FA0' : cfg.color} />
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-            <Text style={[nc.title, { fontSize: clamp(width * 0.037, 13, 15) },
-              !item.is_read && { color: '#FFFFFF', fontWeight: '700' }]} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={[nc.time, { fontSize: clamp(width * 0.028, 9, 11) }]}>
-              {timeAgo(item.sent_at)}
-            </Text>
-          </View>
-          <Text style={[nc.preview, { fontSize: clamp(width * 0.032, 11, 13) }]} numberOfLines={1}>
-            {item.message}
-          </Text>
-        </View>
-
-        {!item.is_read && <View style={[nc.dot, { backgroundColor: cfg.color }]} />}
+      <Text style={tmr.label}>{label}</Text>
+      <View style={[tmr.pill, { borderColor: `${accent}55` }]}>
+        <FontAwesome name="clock-o" size={12} color={accent} style={{ marginRight: 5 }} />
+        <Text style={[tmr.val, { color: accent }]}>{time}</Text>
+        <FontAwesome name="chevron-right" size={9} color="#6B6482" style={{ marginLeft: 5 }} />
       </View>
     </TouchableOpacity>
   );
 }
-
-const nc = StyleSheet.create({
-  card: {
-    backgroundColor: '#3F3752', borderRadius: 14, marginBottom: 8,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
-    overflow: 'hidden', shadowColor: '#120A24', shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4,
-  },
-  unread:    { backgroundColor: '#3D3356', borderColor: 'rgba(167,139,250,0.22)', borderLeftWidth: 3, borderLeftColor: 'transparent' },
-  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
-  iconBadge: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  title:     { color: '#CEC2EE', fontWeight: '600', flex: 1, marginRight: 8 },
-  time:      { color: '#6B6482', fontWeight: '500' },
-  preview:   { color: '#7B6FA0' },
-  dot:       { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
+const tmr = StyleSheet.create({
+  row:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, marginTop: 2 },
+  label:{ color: '#CEC2EE', fontSize: 14, fontWeight: '600' },
+  pill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  val:  { fontSize: 13, fontWeight: '800' },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-export default function NotificationsScreen() {
+// ─── Info note (for goal card) ────────────────────────────────────────────────
+function InfoNote({ text }: { text: string }) {
+  return (
+    <View style={{ flexDirection:'row', alignItems:'flex-start', gap:8, paddingTop:10, borderTopWidth:1, borderTopColor:'rgba(255,255,255,0.06)', marginTop:4 }}>
+      <FontAwesome name="info-circle" size={12} color="#6B6482" style={{ marginTop:1 }} />
+      <Text style={{ color:'#6B6482', fontSize:11, flex:1, lineHeight:16 }}>{text}</Text>
+    </View>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+export default function NotificationSettings() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [unreadCount,   setUnreadCount]   = useState(0);
-  const [selected,      setSelected]      = useState<any | null>(null);
-
-  const scrollY             = useRef(new Animated.Value(0)).current;
-  const isInitialLoad       = useRef(true);   // ← only show spinner on first load
-  const websocketRef        = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pingIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const shouldReconnectRef  = useRef(true);
 
   // ── Responsive tokens ──────────────────────────────────────────────────────
   const pi         = clamp(width * 0.05,   16, 22);
@@ -261,304 +362,468 @@ export default function NotificationsScreen() {
   const hMTop      = clamp(height * 0.024, 18, 24);
   const hBotPad    = clamp(height * 0.004,  2,  6);
   const hBotMargin = clamp(height * 0.018, 10, 16);
-  // Row1=hBtnSz, gap=hMTop, Row2=hTitleSz*1.3, bottom=hBotPad — all relative
-  const hEst       = hTop + hBtnSz + hMTop * 0.1 + hTitleSz * 1.3 + hBotPad;
-  const contTopPad = hEst + clamp(height * 0.016, 10, 16);
+  const hEst       = hTop + hMTop + 4 + hTitleSz * 1.25 + hBotPad + hBotMargin + 8;
+  const contTopPad = hEst + clamp(height * 0.018, 12, 18);
   const contBotPad = clamp(insets.bottom + height * 0.02, 24, 38);
+  const subtitleSz = clamp(width * 0.034,  12, 14);
+  const subtitleMB = clamp(height * 0.022, 14, 22);
 
-  // ── Load — only shows spinner on very first load ──────────────────────────
-  const load = useCallback(async () => {
+  const bLarge  = clamp(width * 0.74, 220, 310);
+  const bMedium = clamp(width * 0.52, 170, 230);
+  const bSmall  = clamp(width * 0.32,  96, 132);
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [prefs,             setPrefs]             = useState<any>(null);
+  const [loading,           setLoading]           = useState(true);
+  const [saving,            setSaving]            = useState(false);
+  const [showMoodPicker,    setShowMoodPicker]    = useState(false);
+  const [showJournalPicker, setShowJournalPicker] = useState(false);
+  const [showSessionModal,  setShowSessionModal]  = useState(false);
+  const [pushEnabled,         setPushEnabled]         = useState(false);
+  const [registeredPushToken, setRegisteredPushToken] = useState<string | null>(null);
+
+  const scrollY   = useRef(new Animated.Value(0)).current;
+  const saveScale = useRef(new Animated.Value(1)).current;
+
+  const b1y = useRef(new Animated.Value(0)).current; const b1x = useRef(new Animated.Value(0)).current;
+  const b2y = useRef(new Animated.Value(0)).current; const b2x = useRef(new Animated.Value(0)).current;
+  const b3y = useRef(new Animated.Value(0)).current; const b3x = useRef(new Animated.Value(0)).current;
+  const b4y = useRef(new Animated.Value(0)).current; const b4x = useRef(new Animated.Value(0)).current;
+  const b5y = useRef(new Animated.Value(0)).current; const b5x = useRef(new Animated.Value(0)).current;
+
+  // ── EAS push token registration ───────────────────────────────────────────
+  const registerForPush = useCallback(async (
+    options: { silent?: boolean; requestPermissions?: boolean } = {}
+  ): Promise<string | null> => {
+    const { silent = false, requestPermissions = true } = options;
+    const isExpoGo = Constants.appOwnership === 'expo';
+    if (!Device.isDevice || isExpoGo) {
+      if (!silent) Alert.alert('Push not available in Expo Go', 'Use a development build or production app to test push notifications.');
+      return null;
+    }
     try {
-      if (isInitialLoad.current) setLoading(true);
-      const data = await PatientService.getNotifications({});
-      const list = Array.isArray(data) ? data : (data as any)?.results ?? [];
-      setNotifications(list);
-      setUnreadCount(list.filter((n: any) => !n.is_read).length);
-    } catch (err: any) {
-      console.error('[Notifications] load error', err);
-      if (isInitialLoad.current) Alert.alert('Error', 'Failed to load notifications');
-    } finally {
-      setLoading(false);
-      isInitialLoad.current = false;
+      const current = await Notifications.getPermissionsAsync();
+      let granted = current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      if (!granted && requestPermissions) {
+        const requested = await Notifications.requestPermissionsAsync();
+        granted = requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      }
+      if (!granted) {
+        if (!silent) Alert.alert('Permission Required', 'Enable notifications in device settings to receive push alerts.');
+        return null;
+      }
+      const projectId =
+        (Constants.expoConfig as any)?.extra?.eas?.projectId ||
+        (Constants as any)?.easConfig?.projectId;
+      if (!projectId) {
+        if (!silent) Alert.alert('Push setup missing', 'Expo project ID is missing. Configure EAS project ID to enable push notifications.');
+        return null;
+      }
+      const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+      return tokenResponse?.data ?? null;
+    } catch (error) {
+      console.error('[NotifySettings] registerForPush error', error);
+      if (!silent) Alert.alert('Push setup failed', 'Unable to register this device for push notifications.');
+      return null;
     }
   }, []);
 
-  // ── WebSocket ─────────────────────────────────────────────────────────────
-  const normalizeNotification = (payload: any) => {
-    const incoming = payload?.notification || {};
-    const dbRecord = incoming?.db_record || {};
-    const notificationId = incoming?.id || dbRecord?.id;
-    if (!notificationId) return null;
-    return {
-      id:                notificationId,
-      notification_type: incoming?.notification_type || dbRecord?.notification_type || 'general',
-      title:             incoming?.title   || dbRecord?.title   || 'Notification',
-      message:           incoming?.message || dbRecord?.message || '',
-      action_url:        incoming?.action_url || dbRecord?.action_url || null,
-      is_read:           Boolean(dbRecord?.is_read ?? incoming?.read ?? false),
-      sent_at:           dbRecord?.sent_at || dbRecord?.createdAt || incoming?.createdAt || new Date().toISOString(),
-    };
-  };
-
-  const clearRealtimeTimers = () => {
-    if (reconnectTimeoutRef.current) { clearTimeout(reconnectTimeoutRef.current);  reconnectTimeoutRef.current = null; }
-    if (pingIntervalRef.current)     { clearInterval(pingIntervalRef.current);      pingIntervalRef.current = null; }
-  };
-
+  // ── Load prefs on mount ────────────────────────────────────────────────────
   useEffect(() => {
-    load();
-    shouldReconnectRef.current = true;
-
-    const connectWS = async (): Promise<void> => {
+    (async () => {
       try {
-        const token = await AsyncStorage.getItem('access_token');
-        if (!token) return;
-        const wsBaseUrl = BASE_URL
-          .replace(/^http:\/\//i, 'ws://')
-          .replace(/^https:\/\//i, 'wss://')
-          .replace(/\/$/, '');
-        const ws = new WebSocket(`${wsBaseUrl}/ws/notifications/?token=${encodeURIComponent(token)}`);
-        websocketRef.current = ws;
-
-        ws.onopen = () => {
-          reconnectAttemptsRef.current = 0;
-          clearRealtimeTimers();
-          pingIntervalRef.current = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }));
-          }, 25000);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload?.event === 'notification.created') {
-              const n = normalizeNotification(payload);
-              if (!n) return;
-              if (n.id && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ event: 'notification.delivered', notification_id: n.id }));
-              }
-              setNotifications(prev => [n, ...prev.filter(i => i.id !== n.id)]);
-              setUnreadCount(c => c + 1);
-            }
-          } catch (error) {
-            console.warn('[Notifications] ws parse error', error);
-          }
-        };
-
-        ws.onerror  = (e) => console.warn('[Notifications] ws error', e);
-        ws.onclose  = () => {
-          clearRealtimeTimers();
-          websocketRef.current = null;
-          if (!shouldReconnectRef.current) return;
-          reconnectAttemptsRef.current += 1;
-          const backoffMs = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          reconnectTimeoutRef.current = setTimeout(connectWS, backoffMs);
-        };
-      } catch (error) {
-        console.warn('[Notifications] ws init error', error);
+        setLoading(true);
+        const data = await PatientService.getNotificationPreferences();
+        setPrefs(data);
+      } catch {
+        Alert.alert('Error', 'Failed to load notification preferences');
+      } finally {
+        setLoading(false);
       }
-    };
+    })();
+  }, []);
 
-    connectWS();
-    return () => {
-      shouldReconnectRef.current = false;
-      clearRealtimeTimers();
-      if (websocketRef.current) { websocketRef.current.close(); websocketRef.current = null; }
-    };
-  }, [load]);
+  // ── Bootstrap push token silently on mount ────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await registerForPush({ silent: true, requestPermissions: false });
+        if (!token) { setPushEnabled(false); setRegisteredPushToken(null); return; }
+        await PatientService.registerDevicePushToken({
+          push_token: token, platform: getDevicePlatform(), device_id: token,
+        });
+        setRegisteredPushToken(token);
+        setPushEnabled(true);
+      } catch (error) {
+        console.warn('[NotifySettings] bootstrap push registration skipped', error);
+        setPushEnabled(false); setRegisteredPushToken(null);
+      }
+    })();
+  }, [registerForPush]);
 
-  // ── Poll every 30s + refresh on focus / foreground ────────────────────────
+  // ── Bubbles ───────────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      load();
-      const intervalId  = setInterval(load, 30000);
-      const appStateSub = AppState.addEventListener('change', s => { if (s === 'active') load(); });
-      return () => { clearInterval(intervalId); appStateSub.remove(); };
-    }, [load])
+      [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach(v => v.setValue(0));
+      const fly = (y: Animated.Value, x: Animated.Value, dY: number, dX: number) => {
+        const c = Animated.parallel([
+          Animated.loop(Animated.sequence([
+            Animated.timing(y, { toValue: -50, duration: dY, useNativeDriver: true }),
+            Animated.timing(y, { toValue:  50, duration: dY, useNativeDriver: true }),
+          ])),
+          Animated.loop(Animated.sequence([
+            Animated.timing(x, { toValue:  30, duration: dX, useNativeDriver: true }),
+            Animated.timing(x, { toValue: -30, duration: dX, useNativeDriver: true }),
+          ])),
+        ]);
+        c.start(); return c;
+      };
+      const anims = [
+        fly(b1y, b1x, 8000, 7000), fly(b2y, b2x, 10000, 8000),
+        fly(b3y, b3x, 9000, 7500), fly(b4y, b4x, 8500, 7200),
+        fly(b5y, b5x, 9500, 8200),
+      ];
+      return () => anims.forEach(a => a.stop());
+    }, [])
   );
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-  const handleMarkRead = async (id: string) => {
+  // ── Save ──────────────────────────────────────────────────────────────────
+  const save = async () => {
+    Animated.sequence([
+      Animated.timing(saveScale, { toValue: 0.94, duration: 80,  useNativeDriver: true }),
+      Animated.timing(saveScale, { toValue: 1,    duration: 160, useNativeDriver: true }),
+    ]).start();
     try {
-      await PatientService.markNotificationRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(c => Math.max(0, c - 1));
-    } catch { /* ignore */ }
-  };
-
-  const handleMarkAll = async () => {
-    try {
-      await PatientService.markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      setSaving(true);
+      await PatientService.updateNotificationPreferences(buildPayload(prefs));
+      const result = await syncReminders(prefs);
+      if (!result.ok) {
+        Alert.alert('Saved with warning', 'Preferences saved, but device notification permissions are disabled. Enable them in phone Settings.');
+        return;
+      }
+      Alert.alert('Saved', 'Notification preferences updated.');
     } catch {
-      Alert.alert('Error', 'Failed to mark all as read');
+      Alert.alert('Error', 'Failed to save preferences');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await PatientService.deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    } catch {
-      Alert.alert('Error', 'Failed to delete notification');
-    }
-  };
+  // ── Loading screen ────────────────────────────────────────────────────────
+  if (loading || !prefs) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#342949', justifyContent: 'center', alignItems: 'center' }}>
+        <LinearGradient colors={['#342949', '#2A1F3D', '#342949']} style={StyleSheet.absoluteFill} />
+        <ActivityIndicator size="large" color="#A78BFA" />
+        <Text style={{ color: '#7B6FA0', marginTop: 12, fontSize: 13 }}>Loading preferences…</Text>
+      </View>
+    );
+  }
 
-  // Opening a card marks it read automatically — no button needed in sheet
-  const handleCardPress = (item: any) => {
-    setSelected(item);
-    if (!item.is_read) handleMarkRead(item.id);
-  };
+  const currentHoursLabel = HOUR_OPTIONS.find(o => o.value === prefs.session_reminder_time)?.label ?? `${prefs.session_reminder_time}h`;
 
-  // ── Group by date ─────────────────────────────────────────────────────────
-  const grouped: { label: string; items: any[] }[] = [];
-  const today     = new Date(); today.setHours(0,0,0,0);
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  notifications.forEach(n => {
-    const d = new Date(n.sent_at); d.setHours(0,0,0,0);
-    const label = d.getTime() === today.getTime()     ? 'Today'
-                : d.getTime() === yesterday.getTime() ? 'Yesterday'
-                : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-    const grp = grouped.find(g => g.label === label);
-    if (grp) grp.items.push(n); else grouped.push({ label, items: [n] });
-  });
-
-  const labelSz = clamp(width * 0.029, 10, 12);
-
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: '#342949' }}>
       <StatusBar barStyle="light-content" backgroundColor="#342949" />
 
-      <LinearGradient colors={['#342949', '#2A1F3D', '#342949']}
-        style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <LinearGradient colors={['#342949', '#2A1F3D', '#342949']} style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none" />
 
-      {/* Sticky header — uses new flex-row StickyHeader, always reliable */}
-      <StickyHeader
-        scrollY={scrollY}
-        firstWord=""
-        secondWord="Notifications"
-        onBackPress={() => router.back()}
-      />
+      {/* Ambient glow blobs */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={{ position:'absolute', borderRadius:9999, width:bLarge*1.1, height:bLarge*1.1, top:-bLarge*0.3, right:-bLarge*0.3, backgroundColor:'rgba(167,139,250,0.06)' }} />
+        <View style={{ position:'absolute', borderRadius:9999, width:bMedium, height:bMedium, bottom:'18%', left:-bMedium*0.35, backgroundColor:'rgba(255,179,107,0.05)' }} />
+      </View>
 
-      {/* Fading large header — two rows: buttons row + title row below */}
+      {/* Floating bubbles */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Animated.View style={{ position:'absolute', borderRadius:9999, width:bMedium, height:bMedium, top:clamp(height*0.06,34,62), right:-clamp(width*0.12,36,56), backgroundColor:'rgba(167,139,250,0.25)', transform:[{translateY:b1y},{translateX:b1x}] }} />
+        <Animated.View style={{ position:'absolute', borderRadius:9999, width:bLarge, height:bLarge, top:-clamp(height*0.12,80,120), left:-clamp(width*0.18,56,88), backgroundColor:'rgba(184,168,230,0.20)', transform:[{translateY:b2y},{translateX:b2x}] }} />
+        <Animated.View style={{ position:'absolute', borderRadius:9999, width:clamp(width*0.4,120,170), height:clamp(width*0.4,120,170), bottom:clamp(height*0.24,160,230), left:-clamp(width*0.08,20,36), backgroundColor:'rgba(167,139,250,0.22)', transform:[{translateY:b3y},{translateX:b3x}] }} />
+        <Animated.View style={{ position:'absolute', borderRadius:9999, width:clamp(width*0.48,150,200), height:clamp(width*0.48,150,200), bottom:clamp(height*0.12,80,120), right:-clamp(width*0.14,42,70), backgroundColor:'rgba(184,168,230,0.18)', transform:[{translateY:b4y},{translateX:b4x}] }} />
+        <Animated.View style={{ position:'absolute', borderRadius:9999, width:bSmall, height:bSmall, top:'40%', right:clamp(width*0.05,14,24), backgroundColor:'rgba(167,139,250,0.15)', transform:[{translateY:b5y},{translateX:b5x}] }} />
+      </View>
+
+      <StickyHeader scrollY={scrollY} firstWord="Notification" secondWord="Settings" onBackPress={() => router.push('/patient/profile')} />
+
+      {/* Fading large header */}
       <Animated.View style={{
-        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900,
-        paddingTop: hTop,
-        opacity: scrollY.interpolate({ inputRange: [0, 100, 150], outputRange: [1, 0.5, 0], extrapolate: 'clamp' }),
+        position:'absolute', top:0, left:0, right:0, zIndex:900,
+        paddingTop:hTop, paddingHorizontal:pi, paddingBottom:hBotPad,
+        opacity: scrollY.interpolate({ inputRange:[0,100,150], outputRange:[1,0.5,0], extrapolate:'clamp' }),
       }}>
-        {/* Row 1 — back button (left) + mark all read (right), same line */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: pi }}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={{
-              width: hBtnSz, height: hBtnSz, borderRadius: hBtnR,
-              alignItems: 'center', justifyContent: 'center',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
-            }}
-          >
-            <FontAwesome name="chevron-left" size={hIconSz} color="#FFFFFF" />
-          </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push('/patient/profile')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{
+            position:'absolute', left:pi, top:hTop+clamp(height*0.003,2,5)-6,
+            width:hBtnSz, height:hBtnSz, borderRadius:hBtnR,
+            alignItems:'center', justifyContent:'center',
+            backgroundColor:'rgba(255,255,255,0.08)', borderWidth:1, borderColor:'rgba(255,255,255,0.14)',
+            zIndex:1000,
+          }}
+        >
+          <FontAwesome name="chevron-left" size={hIconSz} color="#FFFFFF" />
+        </TouchableOpacity>
 
-          <TouchableOpacity
-              onPress={unreadCount > 0 ? handleMarkAll : undefined}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={unreadCount > 0 ? 0.7 : 1}
-              style={{
-                height: hBtnSz, paddingHorizontal: clamp(width * 0.03, 10, 14),
-                borderRadius: hBtnR, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: unreadCount > 0 ? 'rgba(167,139,250,0.14)' : 'rgba(100,90,130,0.10)',
-                borderWidth: 1,
-                borderColor: unreadCount > 0 ? 'rgba(167,139,250,0.28)' : 'rgba(100,90,130,0.18)',
-              }}
-            >
-              <Text style={{
-                color: unreadCount > 0 ? '#A78BFA' : 'rgba(167,139,250,0.35)',
-                fontSize: clamp(width * 0.028, 10, 12), fontWeight: '700',
-              }}>
-                Mark all read
-              </Text>
-            </TouchableOpacity>
-        </View>
-
-        {/* Row 2 — title + badge, clearly below the buttons row */}
-        <View style={{ alignItems: 'center', marginTop: hMTop * 0.1, paddingBottom: hBotPad }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: hTitleSz, fontWeight: '800', color: '#B8A8E6' }}>
-              Notifications
-            </Text>
-            {unreadCount > 0 && (
-              <View style={{
-                backgroundColor: '#A78BFA', borderRadius: 10,
-                minWidth: 20, height: 20, paddingHorizontal: 5,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>
-                  {unreadCount > 99 ? '99+' : String(unreadCount)}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
+        <Text style={{ fontSize:hTitleSz, fontWeight:'800', textAlign:'center', marginTop:hMTop+18 }}>
+          <Text style={{ color:'#FFFFFF' }}>Notification </Text>
+          <Text style={{ color:'#B8A8E6' }}>Settings</Text>
+        </Text>
       </Animated.View>
 
-      {/* Content */}
-      {loading ? (
-        <View style={{ flex: 1, paddingTop: contTopPad }}>
-          <TabLoaderCard title="Loading notifications..." subtitle="Checking for your latest updates" spinnerColor="#B8A8E6" />
-        </View>
-      ) : (
-        <Animated.ScrollView
-          contentContainerStyle={{ paddingHorizontal: pi, paddingTop: contTopPad, paddingBottom: contBotPad }}
-          showsVerticalScrollIndicator={false}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-          scrollEventThrottle={16}
-        >
-          {notifications.length === 0 ? (
-            <View style={{ alignItems: 'center', marginTop: clamp(height * 0.12, 60, 100) }}>
-              <View style={{
-                width: clamp(width * 0.2, 64, 80), height: clamp(width * 0.2, 64, 80),
-                borderRadius: clamp(width * 0.1, 32, 40),
-                backgroundColor: 'rgba(184,168,230,0.10)',
-                borderWidth: 1, borderColor: 'rgba(184,168,230,0.18)',
-                alignItems: 'center', justifyContent: 'center',
-                marginBottom: clamp(height * 0.022, 14, 20),
-              }}>
-                <FontAwesome name="bell-slash" size={clamp(width * 0.1, 32, 40)} color="#4A4160" />
-              </View>
-              <Text style={{ color: '#FFFFFF', fontSize: clamp(width * 0.048, 16, 20), fontWeight: '700', marginBottom: 8 }}>
-                All caught up
-              </Text>
-              <Text style={{ color: '#6B6482', fontSize: clamp(width * 0.035, 12, 14), textAlign: 'center' }}>
-                No notifications yet.{'\n'}We'll let you know when something happens.
-              </Text>
-            </View>
-          ) : (
-            grouped.map(group => (
-              <View key={group.label} style={{ marginBottom: clamp(height * 0.018, 12, 18) }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: clamp(height * 0.012, 8, 12), gap: 8 }}>
-                  <View style={{ width: 3, height: clamp(height * 0.018, 12, 15), backgroundColor: 'rgba(167,139,250,0.4)', borderRadius: 2 }} />
-                  <Text style={{ color: '#7B6FA0', fontSize: labelSz, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                    {group.label}
-                  </Text>
-                </View>
-                {group.items.map(item => (
-                  <NotifCard key={item.id} item={item} width={width} onPress={() => handleCardPress(item)} />
-                ))}
-              </View>
-            ))
-          )}
-        </Animated.ScrollView>
-      )}
+      <Animated.ScrollView
+        contentContainerStyle={{ paddingHorizontal:pi, paddingTop:contTopPad, paddingBottom:contBotPad }}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent:{ contentOffset:{ y:scrollY } } }], { useNativeDriver:true })}
+        scrollEventThrottle={16}
+      >
+        <Text style={{ color:'#7B6FA0', fontSize:subtitleSz, textAlign:'center', marginBottom:subtitleMB }}>
+          Customise when and how you receive reminders
+        </Text>
 
-      <DetailSheet
-        item={selected}
-        onClose={() => setSelected(null)}
-        onDelete={handleDelete}
+        {/* ── Push Notifications card ── */}
+        <GlassCard accent="#FF6B9D">
+          <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
+            <View style={{ flexDirection:'row', alignItems:'center', flex:1 }}>
+              <View style={[ch.iconBg, { backgroundColor:'rgba(255,107,157,0.12)', borderColor:'rgba(255,107,157,0.3)' }]}>
+                <FontAwesome name="bell" size={20} color="#FF6B9D" />
+              </View>
+              <View style={{ flex:1 }}>
+                <Text style={ch.title}>Push Notifications</Text>
+                <Text style={ch.sub}>{pushEnabled ? 'Enabled on this device' : 'Disabled'}</Text>
+              </View>
+            </View>
+            <Switch
+              value={pushEnabled}
+              onValueChange={async (v: boolean) => {
+                if (v) {
+                  const token = await registerForPush();
+                  if (token) {
+                    await PatientService.registerDevicePushToken({
+                      push_token: token, platform: getDevicePlatform(), device_id: token,
+                    });
+                    setRegisteredPushToken(token);
+                    setPushEnabled(true);
+                    Alert.alert('Enabled', 'Push notifications are enabled for this device.');
+                    return;
+                  }
+                  setPushEnabled(false); setRegisteredPushToken(null); return;
+                }
+                try {
+                  await PatientService.unregisterDevicePushToken(
+                    registeredPushToken ? { push_token: registeredPushToken } : undefined
+                  );
+                } catch (err) {
+                  console.warn('[NotifySettings] unregister push token failed', err);
+                }
+                setPushEnabled(false); setRegisteredPushToken(null);
+              }}
+              trackColor={{ false:'#3A3256', true:'#FF6B9D' }}
+              thumbColor={pushEnabled ? '#FFFFFF' : '#6B6482'}
+              ios_backgroundColor="#3A3256"
+            />
+          </View>
+        </GlassCard>
+
+        {/* ── Mood Check-in ── */}
+        <GlassCard accent="#FFD93D">
+          <CardHeader emoji="😊" title="Mood Check-in" subtitle="Daily emotional wellness prompt" />
+          <ToggleRow
+            label="Daily Reminder"
+            hint="Get nudged to log how you're feeling each day"
+            value={!!prefs.mood_reminder_enabled}
+            onChange={v => setPrefs({ ...prefs, mood_reminder_enabled: v })}
+            accent="#FFD93D"
+          />
+          <TimeRow
+            label="Reminder Time"
+            time={prefs.mood_reminder_time || '20:00'}
+            accent="#FFD93D"
+            disabled={!prefs.mood_reminder_enabled}
+            onPress={() => setShowMoodPicker(true)}
+          />
+        </GlassCard>
+
+        {showMoodPicker && (
+          <View style={pk.card}>
+            <DateTimePicker
+              value={parseTimeValue(prefs?.mood_reminder_time, 20, 0)}
+              mode="time" is24Hour
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minuteInterval={1}
+              onChange={(e, date) => {
+                if (Platform.OS === 'android') { setShowMoodPicker(false); if (e.type === 'dismissed') return; }
+                if (date) setPrefs({ ...prefs, mood_reminder_time: `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}` });
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity style={pk.done} onPress={() => setShowMoodPicker(false)}>
+                <Text style={pk.doneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* ── Journal Reminder ── */}
+        <GlassCard accent="#5DADE2">
+          <CardHeader emoji="📓" title="Journal Reminder" subtitle="Daily reflection prompt" />
+          <ToggleRow
+            label="Daily Reminder"
+            hint="A gentle nudge to write your daily journal entry"
+            value={!!prefs.journal_reminder_enabled}
+            onChange={v => setPrefs({ ...prefs, journal_reminder_enabled: v })}
+            accent="#5DADE2"
+          />
+          <TimeRow
+            label="Reminder Time"
+            time={prefs.journal_reminder_time || '21:00'}
+            accent="#5DADE2"
+            disabled={!prefs.journal_reminder_enabled}
+            onPress={() => setShowJournalPicker(true)}
+          />
+        </GlassCard>
+
+        {showJournalPicker && (
+          <View style={pk.card}>
+            <DateTimePicker
+              value={parseTimeValue(prefs?.journal_reminder_time, 21, 0)}
+              mode="time" is24Hour
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minuteInterval={1}
+              onChange={(e, date) => {
+                if (Platform.OS === 'android') { setShowJournalPicker(false); if (e.type === 'dismissed') return; }
+                if (date) setPrefs({ ...prefs, journal_reminder_time: `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}` });
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity style={pk.done} onPress={() => setShowJournalPicker(false)}>
+                <Text style={pk.doneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* ── Session Reminders ── */}
+        <GlassCard accent="#A78BFA">
+          <CardHeader emoji="🗓️" title="Session Reminders" subtitle="Therapy appointment alerts" />
+
+          <ToggleRow
+            label="Session Reminders"
+            hint="Get notified before your upcoming therapy sessions"
+            value={!!prefs.session_reminders_enabled}
+            onChange={v => setPrefs({ ...prefs, session_reminders_enabled: v })}
+            accent="#A78BFA"
+          />
+
+          {/* Hours-before picker */}
+          <TouchableOpacity
+            style={[st.triggerRow, !prefs.session_reminders_enabled && { opacity: 0.38 }]}
+            onPress={() => prefs.session_reminders_enabled && setShowSessionModal(true)}
+            activeOpacity={0.75}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={st.triggerLabel}>Remind me before</Text>
+              <Text style={st.triggerHint}>Tap to change notification timing</Text>
+            </View>
+            <View style={st.triggerPill}>
+              <MaterialCommunityIcons name="clock-outline" size={13} color="#A78BFA" style={{ marginRight: 5 }} />
+              <Text style={st.triggerVal}>{currentHoursLabel}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color="#7B6FA0" style={{ marginLeft: 4 }} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Session event sub-toggles */}
+          <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10 }}>
+            <Text style={{ color:'#7B6FA0', fontSize:10, fontWeight:'700', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
+              Session Events
+            </Text>
+            <ToggleRow
+              label="Session Rescheduled"
+              hint="When a session is rescheduled or moved to a new time"
+              value={!!prefs.session_approved_enabled}
+              onChange={v => setPrefs({ ...prefs, session_approved_enabled: v })}
+              accent="#A78BFA"
+            />
+            <ToggleRow
+              label="Session Cancelled"
+              hint="When a session is cancelled"
+              value={!!prefs.session_cancelled_enabled}
+              onChange={v => setPrefs({ ...prefs, session_cancelled_enabled: v })}
+              accent="#A78BFA"
+            />
+            <ToggleRow
+              label="Session Summary"
+              hint="When your therapist shares session notes"
+              value={!!prefs.session_summary_enabled}
+              onChange={v => setPrefs({ ...prefs, session_summary_enabled: v })}
+              accent="#A78BFA"
+              isLast
+            />
+          </View>
+        </GlassCard>
+
+        {/* ── Goal Reminders ── */}
+        {/* No time picker — backend fires goal reminders automatically based on
+            PatientGoal.target_date. User only controls on/off. */}
+        <GlassCard accent="#FFB36B">
+          <CardHeader emoji="🎯" title="Goal Reminders" subtitle="Therapy goal check-ins" />
+          <ToggleRow
+            label="Goal Reminders"
+            hint="Get notified when a therapy goal is due soon"
+            value={!!prefs.goal_reminders_enabled}
+            onChange={v => setPrefs({ ...prefs, goal_reminders_enabled: v })}
+            accent="#FFB36B"
+            isLast
+          />
+          <InfoNote text="Reminders are sent automatically when a goal is due within 3 days — once per goal per day." />
+        </GlassCard>
+
+        {/* Save button */}
+        <Animated.View style={{ transform:[{ scale:saveScale }], marginTop:4, marginBottom:8 }}>
+          <TouchableOpacity onPress={save} disabled={saving} activeOpacity={0.85}>
+            <LinearGradient
+              colors={saving ? ['#4A4160','#4A4160'] : ['#A78BFA','#7C5CBF']}
+              start={{ x:0, y:0 }} end={{ x:1, y:0 }}
+              style={sv.btn}
+            >
+              {saving
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <>
+                    <FontAwesome name="check-circle" size={16} color="#FFFFFF" style={{ marginRight:9 }} />
+                    <Text style={sv.text}>Save Preferences</Text>
+                  </>
+              }
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.ScrollView>
+
+      <SessionModal
+        visible={showSessionModal}
+        current={prefs.session_reminder_time ?? 24}
+        onSelect={v => setPrefs({ ...prefs, session_reminder_time: v })}
+        onClose={() => setShowSessionModal(false)}
+        width={width}
       />
     </View>
   );
 }
+
+const st = StyleSheet.create({
+  triggerRow:   { flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingVertical:13, borderBottomWidth:1, borderBottomColor:'rgba(255,255,255,0.05)' },
+  triggerLabel: { color:'#CEC2EE', fontSize:14, fontWeight:'600' },
+  triggerHint:  { color:'#6B6482', fontSize:11, marginTop:3 },
+  triggerPill:  { flexDirection:'row', alignItems:'center', backgroundColor:'rgba(167,139,250,0.12)', paddingHorizontal:13, paddingVertical:8, borderRadius:12, borderWidth:1, borderColor:'rgba(167,139,250,0.3)' },
+  triggerVal:   { color:'#A78BFA', fontSize:13, fontWeight:'800' },
+});
+
+const pk = StyleSheet.create({
+  card:     { backgroundColor:CARD_BG, borderRadius:16, borderWidth:1, borderColor:'rgba(255,255,255,0.08)', marginTop:8, marginBottom:14, overflow:'hidden' },
+  done:     { alignSelf:'flex-end', margin:12, paddingHorizontal:18, paddingVertical:8, borderRadius:12, backgroundColor:'#A78BFA' },
+  doneText: { color:'#FFFFFF', fontWeight:'800', fontSize:13 },
+});
+
+const sv = StyleSheet.create({
+  btn:  { paddingVertical:15, borderRadius:16, alignItems:'center', justifyContent:'center', flexDirection:'row', shadowColor:'#A78BFA', shadowOpacity:0.3, shadowOffset:{ width:0, height:5 }, shadowRadius:12, elevation:5 },
+  text: { color:'#FFFFFF', fontSize:15, fontWeight:'800', letterSpacing:0.2 },
+});

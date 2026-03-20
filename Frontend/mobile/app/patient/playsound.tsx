@@ -37,16 +37,16 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
 };
 
 const ACTUAL_SOUND_DURATIONS_SECONDS: Record<string, number> = {
-  'Wind Chimes':   20,
-  'White Noise':  300,
-  'Thunderstorm':  60,
-  'Stream Water': 106,
+  'Wind Chimes':    20,
+  'White Noise':   300,
+  'Thunderstorm':   60,
+  'Stream Water':  106,
   'Snow Footsteps': 18,
-  'Ocean Waves':  132,
-  'Gentle Rain':  108,
-  'Forest Birds':  30,
-  'Cozy Fireplace': 297,
-  'Coffee Shop':  169,
+  'Ocean Waves':   132,
+  'Gentle Rain':   108,
+  'Forest Birds':   30,
+  'Cozy Fireplace':297,
+  'Coffee Shop':   169,
 };
 
 export default function PlaySoundScreen() {
@@ -55,21 +55,22 @@ export default function PlaySoundScreen() {
   const { width, height } = useWindowDimensions();
   const insets  = useSafeAreaInsets();
 
-  const [content,       setContent]       = useState<RelaxationContent | null>(null);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
-  const [isPlaying,     setIsPlaying]     = useState(false);
-  const [position,      setPosition]      = useState(0);
-  const [duration,      setDuration]      = useState(0);
-  const [timedMinutes,  setTimedMinutes]  = useState<number | null>(null);
+  const [content,      setContent]      = useState<RelaxationContent | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [isPlaying,    setIsPlaying]    = useState(false);
+  const [position,     setPosition]     = useState(0);
+  const [duration,     setDuration]     = useState(0);
+  const [timedMinutes, setTimedMinutes] = useState<number | null>(null);
 
-  const loopRotateAnim    = useRef(new Animated.Value(0)).current;
-  const listenedMsRef     = useRef<number>(0);
-  const lastPositionRef   = useRef<number>(0);
-  const isRestartingRef   = useRef<boolean>(false);
-  const soundRef          = useRef<Audio.Sound | null>(null);
-  const timedMinutesRef   = useRef<number | null>(null);
-  const contentRef        = useRef<RelaxationContent | null>(null);
+  const loopRotateAnim  = useRef(new Animated.Value(0)).current;
+  const listenedMsRef   = useRef<number>(0);
+  const lastPositionRef = useRef<number>(0);
+  const isRestartingRef = useRef<boolean>(false);
+  const soundRef        = useRef<Audio.Sound | null>(null);
+  const timedMinutesRef = useRef<number | null>(null);
+  const contentRef      = useRef<RelaxationContent | null>(null);
+  const isLeavingRef    = useRef<boolean>(false);
 
   const b1y = useRef(new Animated.Value(0)).current; const b1x = useRef(new Animated.Value(0)).current;
   const b2y = useRef(new Animated.Value(0)).current; const b2x = useRef(new Animated.Value(0)).current;
@@ -77,7 +78,6 @@ export default function PlaySoundScreen() {
   const b4y = useRef(new Animated.Value(0)).current; const b4x = useRef(new Animated.Value(0)).current;
   const b5y = useRef(new Animated.Value(0)).current; const b5x = useRef(new Animated.Value(0)).current;
 
-  // ── Responsive tokens ─────────────────────────────────────────────────────
   const backBtnTop              = insets.top + clamp(height * 0.012, 8, 14);
   const backBtnLeft             = clamp(width * 0.04, 14, 22);
   const backBtnSize             = clamp(width * 0.098, 34, 42);
@@ -135,21 +135,37 @@ export default function PlaySoundScreen() {
   useEffect(() => { timedMinutesRef.current = timedMinutes; }, [timedMinutes]);
   useEffect(() => { contentRef.current = content; }, [content]);
 
-  // ── Audio cleanup ─────────────────────────────────────────────────────────
-  const cleanupAudio = useCallback(async () => {
+  // ── Kill audio synchronously — no await, so navigation is never delayed ──
+  const killAudioNow = useCallback(() => {
+    isLeavingRef.current    = true;
+    isRestartingRef.current = true;
     const s = soundRef.current;
-    if (!s) return;
-    try {
-      const status = await s.getStatusAsync();
-      if (status.isLoaded) {
-        try { await s.stopAsync(); } catch {}
-        await s.unloadAsync();
-      }
-    } catch (e) { console.warn('[PlaySound] cleanup error:', e); }
-    finally {
-      soundRef.current = null;
-      setIsPlaying(false); setPosition(0); setDuration(0);
-      listenedMsRef.current = 0; lastPositionRef.current = 0; isRestartingRef.current = false;
+    soundRef.current = null; // null FIRST — no callback can reuse it
+    if (s) {
+      s.stopAsync().catch(() => {}).finally(() => s.unloadAsync().catch(() => {}));
+    }
+    listenedMsRef.current   = 0;
+    lastPositionRef.current = 0;
+    timedMinutesRef.current = null;
+  }, []);
+
+  // ── Full async reset — for timed loop end only, not navigation ────────────
+  const fullReset = useCallback(async () => {
+    isRestartingRef.current = true;
+    const s = soundRef.current;
+    soundRef.current = null;
+    if (s) {
+      try {
+        const st = await s.getStatusAsync();
+        if (st.isLoaded) { try { await s.stopAsync(); } catch {} await s.unloadAsync(); }
+      } catch {}
+    }
+    isRestartingRef.current = false;
+    listenedMsRef.current   = 0;
+    lastPositionRef.current = 0;
+    timedMinutesRef.current = null;
+    if (!isLeavingRef.current) {
+      setIsPlaying(false); setPosition(0); setDuration(0); setTimedMinutes(null);
     }
   }, []);
 
@@ -159,100 +175,101 @@ export default function PlaySoundScreen() {
       const data = await PatientService.getRelaxationContentDetail(String(id));
       setContent(data);
     } catch (err: any) {
-      console.error('Failed to load content:', err);
       setError(err?.response?.data?.detail || 'Failed to load content');
     } finally { setLoading(false); }
   }, [id]);
 
   const setupAudio = async () => {
     try {
-      const mode: any = { allowsRecordingIOS:false, playsInSilentModeIOS:true, staysActiveInBackground:true, shouldDuckAndroid:false, playThroughEarpieceAndroid:false };
-      if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX !== 'undefined') mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX;
-      if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX !== 'undefined') mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX;
+      const mode: any = {
+        allowsRecordingIOS:false, playsInSilentModeIOS:true,
+        staysActiveInBackground:false, shouldDuckAndroid:false, playThroughEarpieceAndroid:false,
+      };
+      if (typeof (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX !== 'undefined')
+        mode.interruptionModeIOS = (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX;
+      if (typeof (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX !== 'undefined')
+        mode.interruptionModeAndroid = (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX;
       await Audio.setAudioModeAsync(mode);
     } catch {}
   };
 
   useEffect(() => {
     if (!id) return;
+    isLeavingRef.current = false;
     loadContent();
     setupAudio();
-
     const fly = (y: Animated.Value, x: Animated.Value, dY: number, dX: number, delay: number) =>
       Animated.loop(Animated.parallel([
-        Animated.sequence([Animated.delay(delay), Animated.timing(y, { toValue:-30, duration:dY, useNativeDriver:true }), Animated.timing(y, { toValue:0, duration:dY, useNativeDriver:true })]),
-        Animated.sequence([Animated.delay(delay),  Animated.timing(x, { toValue:20,  duration:dX, useNativeDriver:true }), Animated.timing(x, { toValue:-20, duration:dX, useNativeDriver:true })]),
+        Animated.sequence([Animated.delay(delay), Animated.timing(y,{toValue:-30,duration:dY,useNativeDriver:true}), Animated.timing(y,{toValue:0,duration:dY,useNativeDriver:true})]),
+        Animated.sequence([Animated.delay(delay),  Animated.timing(x,{toValue:20, duration:dX,useNativeDriver:true}), Animated.timing(x,{toValue:-20,duration:dX,useNativeDriver:true})]),
       ]));
-
-    const anims = [
-      fly(b1y, b1x, 8000, 7000,    0),
-      fly(b2y, b2x, 10000, 9000, 500),
-      fly(b3y, b3x, 7000, 8000, 1000),
-      fly(b4y, b4x, 9000, 7500, 1500),
-      fly(b5y, b5x, 8500, 8500, 2000),
-    ];
+    const anims = [fly(b1y,b1x,8000,7000,0),fly(b2y,b2x,10000,9000,500),fly(b3y,b3x,7000,8000,1000),fly(b4y,b4x,9000,7500,1500),fly(b5y,b5x,8500,8500,2000)];
     anims.forEach(a => a.start());
-    return () => { cleanupAudio(); anims.forEach(a => a.stop()); };
-  }, [id, b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y, cleanupAudio, loadContent]);
+    return () => { fullReset(); anims.forEach(a => a.stop()); };
+  }, [id, b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y, fullReset, loadContent]);
 
+  // ── useFocusEffect ────────────────────────────────────────────────────────
+  // ENTRY: reset ALL visual state so returning always shows a clean slate
+  // EXIT:  kill audio immediately, no await
   useFocusEffect(
     useCallback(() => {
-      return () => { cleanupAudio(); setTimedMinutes(null); timedMinutesRef.current = null; };
-    }, [cleanupAudio])
+      // Reset every piece of state that should be at default when screen opens
+      isLeavingRef.current    = false;
+      isRestartingRef.current = false;
+      setPosition(0);
+      setDuration(0);
+      setIsPlaying(false);
+      setTimedMinutes(null);
+      timedMinutesRef.current = null;
+      listenedMsRef.current   = 0;
+      lastPositionRef.current = 0;
+
+      return () => { killAudioNow(); };
+    }, [killAudioNow])
   );
 
   const onPlaybackStatusUpdate = useCallback((status: any) => {
+    if (isLeavingRef.current) return;
     if (!status.isLoaded) return;
-    setPosition(status.positionMillis); setDuration(status.durationMillis || 0); setIsPlaying(status.isPlaying);
-
+    setPosition(status.positionMillis);
+    setDuration(status.durationMillis || 0);
+    setIsPlaying(status.isPlaying);
     if (status.isPlaying) {
-      const delta = Math.max(0, (status.positionMillis || 0) - (lastPositionRef.current || 0));
+      const delta = Math.max(0, (status.positionMillis||0) - (lastPositionRef.current||0));
       listenedMsRef.current += delta;
       lastPositionRef.current = status.positionMillis || 0;
     }
-
     const tm = timedMinutesRef.current;
-    if (tm) {
-      const targetMs = tm * 60 * 1000;
-      if (listenedMsRef.current >= targetMs) {
-        (async () => {
-          try { const s = soundRef.current; if (s) { const st = await s.getStatusAsync(); if (st.isLoaded) { await s.stopAsync(); await s.setPositionAsync(0); } await s.unloadAsync(); } } catch {}
-          soundRef.current = null; setIsPlaying(false); setPosition(0); setDuration(0);
-          listenedMsRef.current = 0; lastPositionRef.current = 0; setTimedMinutes(null); timedMinutesRef.current = null;
-        })();
-        return;
-      }
-    }
-
-    if (status.didJustFinish) {
-      if (tm) {
-        const targetMs = tm * 60 * 1000;
-        if (listenedMsRef.current < targetMs) {
-          (async () => {
+    if (tm && listenedMsRef.current >= tm * 60 * 1000) { fullReset(); return; }
+    if (status.didJustFinish && tm && listenedMsRef.current < tm * 60 * 1000) {
+      (async () => {
+        try {
+          if (isRestartingRef.current || isLeavingRef.current) return;
+          isRestartingRef.current = true;
+          const s = soundRef.current;
+          if (s) {
             try {
-              if (isRestartingRef.current) return;
-              isRestartingRef.current = true;
-              const s = soundRef.current;
-              if (s) {
-                try { const st = await s.getStatusAsync(); if (st?.isLoaded) { await s.setPositionAsync(0); await s.playAsync(); isRestartingRef.current = false; return; } } catch {}
-              }
-              const uri = contentRef.current?.audio_url as string;
-              const created = await Audio.Sound.createAsync({ uri }, { shouldPlay:false, volume:1.0 }, onPlaybackStatusUpdate);
-              await new Promise(r => setTimeout(r, 100));
-              const ns = await created.sound.getStatusAsync();
-              if (!ns.isLoaded) throw new Error('Failed to load recreated audio');
-              await created.sound.setIsLoopingAsync(false);
-              soundRef.current = created.sound;
-              await created.sound.playAsync();
-              isRestartingRef.current = false;
-            } catch (e) { console.error('[PlaySound] restart failed:', e); isRestartingRef.current = false; setIsPlaying(false); }
-          })();
-          return;
-        }
-      }
-      setIsPlaying(false);
+              const st = await s.getStatusAsync();
+              if (st?.isLoaded && !isLeavingRef.current) { await s.setPositionAsync(0); await s.playAsync(); isRestartingRef.current = false; return; }
+            } catch {}
+          }
+          if (!soundRef.current || isLeavingRef.current) { isRestartingRef.current = false; return; }
+          const uri = contentRef.current?.audio_url as string;
+          const created = await Audio.Sound.createAsync({uri},{shouldPlay:false,volume:1.0},onPlaybackStatusUpdate);
+          await new Promise(r => setTimeout(r, 100));
+          if (isLeavingRef.current) { created.sound.unloadAsync().catch(()=>{}); isRestartingRef.current = false; return; }
+          const ns = await created.sound.getStatusAsync();
+          if (!ns.isLoaded) throw new Error('reload failed');
+          await created.sound.setIsLoopingAsync(false);
+          soundRef.current = created.sound;
+          await created.sound.playAsync();
+          isRestartingRef.current = false;
+        } catch { isRestartingRef.current = false; if (!isLeavingRef.current) setIsPlaying(false); }
+      })();
+      return;
     }
-  }, []);
+    if (status.didJustFinish) setIsPlaying(false);
+  }, [fullReset]);
 
   const handlePlay = async () => {
     if (!content) return;
@@ -268,17 +285,16 @@ export default function PlaySoundScreen() {
         try { await s.unloadAsync(); } catch {}
         soundRef.current = null;
       }
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: content.audio_url }, { shouldPlay:false, volume:1.0 }, onPlaybackStatusUpdate);
+      const {sound:ns} = await Audio.Sound.createAsync({uri:content.audio_url},{shouldPlay:false,volume:1.0},onPlaybackStatusUpdate);
       await new Promise(r => setTimeout(r, 100));
-      const status = await newSound.getStatusAsync();
-      if (!status?.isLoaded) { try { await newSound.unloadAsync(); } catch {} throw new Error('Failed to load audio'); }
+      const st = await ns.getStatusAsync();
+      if (!st?.isLoaded) { try { await ns.unloadAsync(); } catch {} throw new Error('Failed to load audio'); }
       listenedMsRef.current = 0; lastPositionRef.current = 0;
-      await newSound.setIsLoopingAsync(false);
-      soundRef.current = newSound;
-      await newSound.playAsync();
+      await ns.setIsLoopingAsync(false);
+      soundRef.current = ns;
+      await ns.playAsync();
       setIsPlaying(true);
     } catch (e: any) {
-      console.error('Audio play error', e);
       Alert.alert('Playback error', e?.message || 'Unable to play audio.');
       soundRef.current = null; setIsPlaying(false);
     }
@@ -286,117 +302,115 @@ export default function PlaySoundScreen() {
 
   const handleLoopCycle = async () => {
     loopRotateAnim.setValue(0);
-    Animated.timing(loopRotateAnim, { toValue:1, duration:380, useNativeDriver:true }).start(() => loopRotateAnim.setValue(0));
-    const next = timedMinutes === null ? 5 : timedMinutes === 5 ? 10 : timedMinutes === 10 ? 20 : null;
+    Animated.timing(loopRotateAnim,{toValue:1,duration:380,useNativeDriver:true}).start(()=>loopRotateAnim.setValue(0));
+    const next = timedMinutes===null?5:timedMinutes===5?10:timedMinutes===10?20:null;
     setTimedMinutes(next); timedMinutesRef.current = next;
     listenedMsRef.current = 0; lastPositionRef.current = 0;
-    if (next !== null && !isPlaying && !soundRef.current) await handlePlay();
+    if (next!==null && !isPlaying && !soundRef.current) await handlePlay();
   };
 
   const formatTime = (millis: number) => {
-    const s = Math.floor(millis / 1000);
-    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2,'0')}`;
+    const s = Math.floor(millis/1000);
+    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
   };
 
-  const handleDone = async () => {
+  const handleBack = useCallback(() => {
+    killAudioNow();
+    requestAnimationFrame(() => router.push('./relaxation-sounds'));
+  }, [killAudioNow, router]);
+
+  const handleDone = useCallback(() => {
     if (!content) return;
-    const listenedMs      = Math.max(0, listenedMsRef.current || 0);
-    const durationListened= Math.floor(listenedMs / 1000) || Math.floor((position || 0) / 1000) || 0;
-    await cleanupAudio();
-    setTimedMinutes(null); timedMinutesRef.current = null;
-    router.push({ pathname:'./relaxation-sessions', params:{ contentId:content.id, contentTitle:content.title, contentCategory:content.category_display||content.category, durationListened:durationListened.toString() } });
-  };
+    const listenedMs       = Math.max(0, listenedMsRef.current||0);
+    const durationListened = Math.floor(listenedMs/1000) || Math.floor((position||0)/1000) || 0;
+    const params = { contentId:content.id, contentTitle:content.title, contentCategory:content.category_display||content.category, durationListened:durationListened.toString() };
+    killAudioNow();
+    requestAnimationFrame(() => router.push({pathname:'./relaxation-sessions',params}));
+  }, [content, position, killAudioNow, router]);
 
   if (loading) return <TabLoaderCard fullScreen title="Loading sound session..." subtitle="Preparing your relaxation audio" spinnerColor="#A78BFA" />;
-
   if (error || !content) return (
-    <View style={[styles.center, { backgroundColor:'#342949' }]}>
-      <Text style={{ color:'#FFFFFF' }}>{error || 'Content not found'}</Text>
-      <TouchableOpacity style={[styles.doneBtn, { backgroundColor:'#B8A8E6', paddingVertical:12, borderRadius:12, marginTop:16 }]} onPress={() => router.push('./relaxation-sounds')}>
-        <Text style={{ color:'#FFFFFF' }}>Go back</Text>
+    <View style={[styles.center,{backgroundColor:'#342949'}]}>
+      <Text style={{color:'#FFFFFF'}}>{error||'Content not found'}</Text>
+      <TouchableOpacity style={[styles.doneBtn,{backgroundColor:'#B8A8E6',paddingVertical:12,borderRadius:12,marginTop:16}]} onPress={()=>router.push('./relaxation-sounds')}>
+        <Text style={{color:'#FFFFFF'}}>Go back</Text>
       </TouchableOpacity>
     </View>
   );
 
-  const imageSource            = SOUND_IMAGES[content.title];
-  const categoryColor          = CATEGORY_BADGE_COLORS[content.category] || '#666';
-  const mappedBaseSeconds      = ACTUAL_SOUND_DURATIONS_SECONDS[content.title] || 0;
-  const fallbackBaseSeconds    = content.duration_seconds || Math.floor((duration || 0) / 1000) || 0;
-  const baseDurationSeconds    = mappedBaseSeconds > 0 ? mappedBaseSeconds : fallbackBaseSeconds;
-  const displayedTotalDurationMillis = (baseDurationSeconds + ((timedMinutes || 0) * 60)) * 1000;
+  const imageSource                  = SOUND_IMAGES[content.title];
+  const categoryColor                = CATEGORY_BADGE_COLORS[content.category] || '#666';
+  const mappedBaseSeconds            = ACTUAL_SOUND_DURATIONS_SECONDS[content.title] || 0;
+  const fallbackBaseSeconds          = content.duration_seconds || Math.floor((duration||0)/1000) || 0;
+  const baseDurationSeconds          = mappedBaseSeconds > 0 ? mappedBaseSeconds : fallbackBaseSeconds;
+  const displayedTotalDurationMillis = (baseDurationSeconds + ((timedMinutes||0)*60)) * 1000;
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#342949', '#342949', '#342949']} style={styles.screenGradient} />
+      <LinearGradient colors={['#342949','#342949','#342949']} style={styles.screenGradient} />
 
-      {/* Bubbles — zIndex 0, behind card and content */}
-      <Animated.View style={[styles.bubble, { width:bubbleLarge,    height:bubbleLarge,    top:'8%',  right:'-12%', backgroundColor:'rgba(133,130,180,0.25)', transform:[{translateY:b1y},{translateX:b1x}] }]} />
-      <Animated.View style={[styles.bubble, { width:bubbleLarge+20, height:bubbleLarge+20, top:'-6%', left:'-14%',  backgroundColor:'rgba(133,130,180,0.20)', transform:[{translateY:b2y},{translateX:b2x}] }]} />
-      <Animated.View style={[styles.bubble, { width:bubbleSmall,    height:bubbleSmall,    bottom:'22%',left:'-8%', backgroundColor:'rgba(133,130,180,0.22)', transform:[{translateY:b3y},{translateX:b3x}] }]} />
-      <Animated.View style={[styles.bubble, { width:bubbleMedium,   height:bubbleMedium,   bottom:'10%',right:'-10%',backgroundColor:'rgba(133,130,180,0.18)', transform:[{translateY:b4y},{translateX:b4x}] }]} />
-      <Animated.View style={[styles.bubble, { width:bubbleSmall-20, height:bubbleSmall-20, top:'40%', right:'5%',   backgroundColor:'rgba(133,130,180,0.15)', transform:[{translateY:b5y},{translateX:b5x}] }]} />
+      <Animated.View style={[styles.bubble,{width:bubbleLarge,    height:bubbleLarge,    top:'8%',    right:'-12%',backgroundColor:'rgba(133,130,180,0.25)',transform:[{translateY:b1y},{translateX:b1x}]}]} />
+      <Animated.View style={[styles.bubble,{width:bubbleLarge+20, height:bubbleLarge+20, top:'-6%',   left:'-14%', backgroundColor:'rgba(133,130,180,0.20)',transform:[{translateY:b2y},{translateX:b2x}]}]} />
+      <Animated.View style={[styles.bubble,{width:bubbleSmall,    height:bubbleSmall,    bottom:'22%',left:'-8%',  backgroundColor:'rgba(133,130,180,0.22)',transform:[{translateY:b3y},{translateX:b3x}]}]} />
+      <Animated.View style={[styles.bubble,{width:bubbleMedium,   height:bubbleMedium,   bottom:'10%',right:'-10%',backgroundColor:'rgba(133,130,180,0.18)',transform:[{translateY:b4y},{translateX:b4x}]}]} />
+      <Animated.View style={[styles.bubble,{width:bubbleSmall-20, height:bubbleSmall-20, top:'40%',   right:'5%',  backgroundColor:'rgba(133,130,180,0.15)',transform:[{translateY:b5y},{translateX:b5x}]}]} />
 
-      {/* Back button — hitSlop so full circle always tappable */}
-      <TouchableOpacity
-        onPress={() => router.push('./relaxation-sounds')}
-        hitSlop={{ top:12, bottom:12, left:12, right:12 }}
-        style={[styles.backButton, { top:backBtnTop, left:backBtnLeft, width:backBtnSize, height:backBtnSize, borderRadius:backBtnRadius }]}
-      >
+      <TouchableOpacity onPress={handleBack} hitSlop={{top:12,bottom:12,left:12,right:12}}
+        style={[styles.backButton,{top:backBtnTop,left:backBtnLeft,width:backBtnSize,height:backBtnSize,borderRadius:backBtnRadius}]}>
         <FontAwesome name="chevron-left" size={backIconSize} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Content — zIndex 2, above bubbles */}
-      <View style={[styles.content, { paddingTop:contentPaddingTop, paddingHorizontal:contentHPad }]}>
-        <View style={[styles.playerCard, { maxWidth:contentMaxWidth, borderRadius:playerCardRadius, shadowOffset:{width:0,height:playerCardShadowOffsetY}, shadowRadius:playerCardShadowRadius }]}>
-          <View style={[styles.playerHero, { height:heroImageHeight }]}>
-            {imageSource ? (
-              <Image source={imageSource} style={styles.soundImage} />
-            ) : (
-              <View style={[styles.soundImage, styles.soundImageFallback]}>
+      <View style={[styles.content,{paddingTop:contentPaddingTop,paddingHorizontal:contentHPad}]}>
+        <View style={[styles.playerCard,{maxWidth:contentMaxWidth,borderRadius:playerCardRadius,shadowOffset:{width:0,height:playerCardShadowOffsetY},shadowRadius:playerCardShadowRadius}]}>
+          <View style={[styles.playerHero,{height:heroImageHeight}]}>
+            {imageSource ? <Image source={imageSource} style={styles.soundImage} /> : (
+              <View style={[styles.soundImage,styles.soundImageFallback]}>
                 <FontAwesome name="music" size={clamp(width*0.15,48,72)} color="#B8A8E6" />
               </View>
             )}
             <LinearGradient colors={['transparent','rgba(24,15,39,0.12)','rgba(24,15,39,0.55)']} style={styles.playerHeroOverlay} pointerEvents="none" />
           </View>
 
-          <View style={[styles.playerCardBody, { padding:playerCardPadding }]}>
-            <Text style={[styles.title, { fontSize:titleSize, marginBottom:titleMarginBottom }]}>{content.title}</Text>
-            <View style={[styles.categoryBadge, { backgroundColor:categoryColor, paddingHorizontal:badgePaddingH, paddingVertical:badgePaddingV, marginBottom:badgeMarginBottom }]}>
-              <Text style={[styles.categoryText, { fontSize:categoryTextSize }]}>{content.category_display || content.category}</Text>
+          <View style={[styles.playerCardBody,{padding:playerCardPadding}]}>
+            <Text style={[styles.title,{fontSize:titleSize,marginBottom:titleMarginBottom}]}>{content.title}</Text>
+            <View style={[styles.categoryBadge,{backgroundColor:categoryColor,paddingHorizontal:badgePaddingH,paddingVertical:badgePaddingV,marginBottom:badgeMarginBottom}]}>
+              <Text style={[styles.categoryText,{fontSize:categoryTextSize}]}>{content.category_display||content.category}</Text>
             </View>
 
-            {/* Progress */}
-            <View style={[styles.progressSection, { marginBottom:progressMarginBottom, gap:progressGap }]}>
-              <Text style={[styles.timeText, { fontSize:timeTextSize, minWidth:timeTextMinWidth }]}>{formatTime(position)}</Text>
-              <View style={[styles.progressBar, { height:progressBarHeight, borderRadius:progressBarRadius }]}>
-                <View style={[styles.progressFill, { width:`${duration>0?(position/duration)*100:0}%`, borderRadius:progressBarRadius }]} />
+            <View style={[styles.progressSection,{marginBottom:progressMarginBottom,gap:progressGap}]}>
+              <Text style={[styles.timeText,{fontSize:timeTextSize,minWidth:timeTextMinWidth}]}>{formatTime(position)}</Text>
+              <View style={[styles.progressBar,{height:progressBarHeight,borderRadius:progressBarRadius}]}>
+                <View style={[styles.progressFill,{width:`${duration>0?(position/duration)*100:0}%`,borderRadius:progressBarRadius}]} />
               </View>
-              <Text style={[styles.timeText, { fontSize:timeTextSize, minWidth:timeTextMinWidth }]}>{displayedTotalDurationMillis>0?formatTime(displayedTotalDurationMillis):'--:--'}</Text>
+              <Text style={[styles.timeText,{fontSize:timeTextSize,minWidth:timeTextMinWidth}]}>
+                {displayedTotalDurationMillis>0?formatTime(displayedTotalDurationMillis):'--:--'}
+              </Text>
             </View>
 
-            {/* Controls */}
-            <View style={[styles.controls, { gap:controlGap, marginBottom:controlsMarginBottom }]}>
-              <TouchableOpacity onPress={handlePlay} style={[styles.playButton, { width:playBtnSize, height:playBtnSize, borderRadius:playBtnRadius, marginLeft:clamp(width*0.14,38,58) }]}>
+            <View style={[styles.controls,{gap:controlGap,marginBottom:controlsMarginBottom}]}>
+              <TouchableOpacity onPress={handlePlay}
+                style={[styles.playButton,{width:playBtnSize,height:playBtnSize,borderRadius:playBtnRadius,marginLeft:clamp(width*0.14,38,58)}]}>
                 <MaterialIcons name={isPlaying?'pause':'play-arrow'} size={playIconSize} color="#FFFFFF" />
               </TouchableOpacity>
+
               <TouchableOpacity onPress={handleLoopCycle} style={styles.loopIconBtn} activeOpacity={0.75}>
-                <Animated.View style={{ transform:[{rotate:loopRotate}] }}>
+                <Animated.View style={{transform:[{rotate:loopRotate}]}}>
                   <MaterialIcons name="loop" size={loopIconSize} color={timedMinutes!==null?'#E91E63':'rgba(255,255,255,0.4)'} />
                 </Animated.View>
-                {timedMinutes !== null ? (
-                  <View style={[styles.loopBadge, { top:loopBadgeTop, right:loopBadgeRight, borderRadius:loopBadgeRadius, paddingHorizontal:loopBadgePadX, paddingVertical:loopBadgePadY, minWidth:timedMinutes>=10?loopBadgeMinWidthWide:loopBadgeMinWidthCompact }]}>
-                    <Text style={[styles.loopBadgeText, { fontSize:loopBadgeTextSize }]}>{timedMinutes}m</Text>
+                {timedMinutes!==null ? (
+                  <View style={[styles.loopBadge,{top:loopBadgeTop,right:loopBadgeRight,borderRadius:loopBadgeRadius,paddingHorizontal:loopBadgePadX,paddingVertical:loopBadgePadY,minWidth:timedMinutes>=10?loopBadgeMinWidthWide:loopBadgeMinWidthCompact}]}>
+                    <Text style={[styles.loopBadgeText,{fontSize:loopBadgeTextSize}]}>{timedMinutes}m</Text>
                   </View>
                 ) : (
-                  <View style={[styles.loopCrossBadge, { top:loopCrossTop, right:loopCrossRight, width:loopCrossSize, height:loopCrossSize, borderRadius:loopCrossRadius }]}>
+                  <View style={[styles.loopCrossBadge,{top:loopCrossTop,right:loopCrossRight,width:loopCrossSize,height:loopCrossSize,borderRadius:loopCrossRadius}]}>
                     <MaterialIcons name="close" size={loopCrossIconSize} color="rgba(255,255,255,0.72)" />
                   </View>
                 )}
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={[styles.doneBtn, { paddingVertical:donePaddingV, borderRadius:doneRadius, marginTop:doneMarginTop }]} onPress={handleDone}>
-              <Text style={[styles.doneBtnText, { fontSize:doneFontSize }]}>Done</Text>
+            <TouchableOpacity style={[styles.doneBtn,{paddingVertical:donePaddingV,borderRadius:doneRadius,marginTop:doneMarginTop}]} onPress={handleDone}>
+              <Text style={[styles.doneBtnText,{fontSize:doneFontSize}]}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -406,48 +420,31 @@ export default function PlaySoundScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:     { flex:1, backgroundColor:'#342949' },
-  screenGradient:{ position:'absolute', left:0, right:0, top:0, bottom:0, zIndex:0 },
-
-  // FIX 1: zIndex 0 — bubbles stay BEHIND content and card on native APK builds
-  bubble: { position:'absolute', borderRadius:1000, zIndex:0 },
-
-  backButton: {
-    position:'absolute',
-    backgroundColor:'rgba(255,255,255,0.08)',
-    borderWidth:1, borderColor:'rgba(255,255,255,0.14)',
-    alignItems:'center', justifyContent:'center',
-    zIndex:10,
-  },
-  content:       { flex:1, alignItems:'center', zIndex:2, width:'100%' },
-
-  // FIX 2: solid background — rgba(255,255,255,0.08) was transparent, bubbles bled through
-  playerCard: {
-    width:'100%',
-    backgroundColor:'#2E2448',
-    borderWidth:1, borderColor:'rgba(255,255,255,0.14)',
-    overflow:'hidden', shadowColor:'#000', shadowOpacity:0.08, elevation:3,
-  },
-
-  center:            { flex:1, justifyContent:'center', alignItems:'center', padding:20 },
-  playerHero:        { width:'100%', position:'relative' },
-  soundImage:        { width:'100%', height:'100%' },
-  soundImageFallback:{ backgroundColor:'#473F5A', justifyContent:'center', alignItems:'center' },
-  playerHeroOverlay: { position:'absolute', left:0, right:0, top:0, bottom:0 },
-  playerCardBody:    { width:'100%' },
-  title:             { fontWeight:'bold', color:'#FFFFFF', textAlign:'center' },
-  categoryBadge:     { alignSelf:'center', borderRadius:14 },
-  categoryText:      { color:'#FFFFFF', fontWeight:'600' },
-  progressSection:   { width:'100%', flexDirection:'row', alignItems:'center' },
-  progressBar:       { flex:1, backgroundColor:'#473F5A', overflow:'hidden' },
-  progressFill:      { height:'100%', backgroundColor:'#E91E63' },
-  timeText:          { color:'#FFFFFF' },
-  controls:          { flexDirection:'row', alignItems:'center', justifyContent:'center' },
-  playButton:        { backgroundColor:'#E91E63', justifyContent:'center', alignItems:'center' },
-  loopIconBtn:       { justifyContent:'center', alignItems:'center', position:'relative' },
-  loopBadge:         { position:'absolute', backgroundColor:'#E91E63', alignItems:'center' },
-  loopBadgeText:     { color:'#FFFFFF', fontWeight:'700' },
-  loopCrossBadge:    { position:'absolute', backgroundColor:'rgba(80,70,100,0.9)', alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:'rgba(255,255,255,0.2)' },
-  doneBtn:           { width:'100%', backgroundColor:'#7C3AED', alignItems:'center' },
-  doneBtnText:       { color:'#FFFFFF', fontWeight:'bold' },
+  container:          {flex:1,backgroundColor:'#342949'},
+  screenGradient:     {position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:0},
+  bubble:             {position:'absolute',borderRadius:1000,zIndex:0},
+  backButton:         {position:'absolute',backgroundColor:'rgba(255,255,255,0.08)',borderWidth:1,borderColor:'rgba(255,255,255,0.14)',alignItems:'center',justifyContent:'center',zIndex:10},
+  content:            {flex:1,alignItems:'center',zIndex:2,width:'100%'},
+  playerCard:         {width:'100%',backgroundColor:'#2E2448',borderWidth:1,borderColor:'rgba(255,255,255,0.14)',overflow:'hidden',shadowColor:'#000',shadowOpacity:0.08,elevation:3},
+  center:             {flex:1,justifyContent:'center',alignItems:'center',padding:20},
+  playerHero:         {width:'100%',position:'relative'},
+  soundImage:         {width:'100%',height:'100%'},
+  soundImageFallback: {backgroundColor:'#473F5A',justifyContent:'center',alignItems:'center'},
+  playerHeroOverlay:  {position:'absolute',left:0,right:0,top:0,bottom:0},
+  playerCardBody:     {width:'100%'},
+  title:              {fontWeight:'bold',color:'#FFFFFF',textAlign:'center'},
+  categoryBadge:      {alignSelf:'center',borderRadius:14},
+  categoryText:       {color:'#FFFFFF',fontWeight:'600'},
+  progressSection:    {width:'100%',flexDirection:'row',alignItems:'center'},
+  progressBar:        {flex:1,backgroundColor:'#473F5A',overflow:'hidden'},
+  progressFill:       {height:'100%',backgroundColor:'#E91E63'},
+  timeText:           {color:'#FFFFFF'},
+  controls:           {flexDirection:'row',alignItems:'center',justifyContent:'center'},
+  playButton:         {backgroundColor:'#E91E63',justifyContent:'center',alignItems:'center'},
+  loopIconBtn:        {justifyContent:'center',alignItems:'center',position:'relative'},
+  loopBadge:          {position:'absolute',backgroundColor:'#E91E63',alignItems:'center'},
+  loopBadgeText:      {color:'#FFFFFF',fontWeight:'700'},
+  loopCrossBadge:     {position:'absolute',backgroundColor:'rgba(80,70,100,0.9)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.2)'},
+  doneBtn:            {width:'100%',backgroundColor:'#7C3AED',alignItems:'center'},
+  doneBtnText:        {color:'#FFFFFF',fontWeight:'bold'},
 });

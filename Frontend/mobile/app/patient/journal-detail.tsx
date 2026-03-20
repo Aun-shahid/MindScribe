@@ -162,15 +162,6 @@ export default function JournalDetail() {
     }, [b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y])
   );
 
-  const getPrivacyLabel = (p: string) => {
-    switch (p) {
-      case 'private':   return { icon: 'lock',      label: 'Private (Only Me)' };
-      case 'therapist': return { icon: 'user-md',   label: 'Shared with Therapist' };
-      case 'anonymous': return { icon: 'globe',     label: 'Anonymous Sharing' };
-      default:          return { icon: 'pen-fancy', label: 'Not Set' };
-    }
-  };
-
   const handleDelete = () => {
     Alert.alert(
       'Delete Journal Entry',
@@ -198,7 +189,6 @@ export default function JournalDetail() {
     );
   };
 
-  // ── back handler — always goes to journal-list ────────────────────────────
   const handleBack = () => router.push('./journal-list');
 
   if (loading) {
@@ -223,7 +213,6 @@ export default function JournalDetail() {
     );
   }
 
-  const privacy = getPrivacyLabel(entry.privacy_level);
   const dateStr = new Date(entry.created_at).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
@@ -278,7 +267,6 @@ export default function JournalDetail() {
         <Animated.View style={[s.bubble, { width: bSmall, height: bSmall, top: '40%', right: clamp(width * 0.05, 14, 24), backgroundColor: 'rgba(167,139,250,0.08)', transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
       </View>
 
-      {/* Sticky header — back to journal-list */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="View"
@@ -286,7 +274,6 @@ export default function JournalDetail() {
         onBackPress={handleBack}
       />
 
-      {/* Fading large header — back to journal-list */}
       <Animated.View style={[s.headerContainer, {
         paddingTop: hTop,
         paddingHorizontal: pi,
@@ -312,7 +299,6 @@ export default function JournalDetail() {
         </View>
       </Animated.View>
 
-      {/* Main scrollable content */}
       <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <Animated.ScrollView
           contentContainerStyle={{
@@ -422,7 +408,7 @@ export default function JournalDetail() {
             </View>
           )}
 
-          {/* ═══ DETAILS CARD ═══ */}
+          {/* ═══ DETAILS CARD — word count only ═══ */}
           <View style={{ paddingHorizontal: pi, marginBottom: cGap }}>
             <View style={[s.card, { borderRadius: cR, backgroundColor: '#3F3752' }]}>
               <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -431,21 +417,10 @@ export default function JournalDetail() {
               <View style={{ padding: cPad }}>
                 <SectionHead icon="info-circle" label="Details" accent={C.purple} />
                 <Divider color={C.purple} />
-                <View style={{ flexDirection: 'row', gap: clamp(width * 0.03, 10, 14) }}>
-                  <View style={{ flex: 1.1, backgroundColor: C.purpleDim, borderRadius: clamp(width * 0.045, 14, 20), borderWidth: 1, borderColor: C.borderAccent, padding: clamp(width * 0.045, 14, 20), alignItems: 'center', justifyContent: 'center', minHeight: clamp(height * 0.12, 80, 104) }}>
-                    <Text style={{ color: C.purple, fontSize: metaValSz, fontWeight: '900', letterSpacing: -1 }}>{entry.word_count}</Text>
-                    <Text style={{ color: C.textMuted, fontSize: labelSz, fontWeight: '700', letterSpacing: 1.6, marginTop: 4 }}>WORDS</Text>
-                    <View style={{ marginTop: clamp(height * 0.01, 6, 9), width: clamp(width * 0.07, 24, 30), height: 3, backgroundColor: C.purple, borderRadius: 2, opacity: 0.45 }} />
-                  </View>
-                  <View style={{ flex: 1.9 }}>
-                    <Text style={{ color: C.textFaint, fontSize: labelSz, fontWeight: '700', letterSpacing: 1.6, marginBottom: clamp(height * 0.009, 6, 9) }}>PRIVACY</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceMuted, borderRadius: clamp(width * 0.04, 12, 18), borderWidth: 1, borderColor: C.border, paddingVertical: clamp(height * 0.014, 9, 13), paddingHorizontal: clamp(width * 0.038, 12, 16), gap: clamp(width * 0.028, 9, 13) }}>
-                      <View style={{ width: clamp(width * 0.07, 24, 30), height: clamp(width * 0.07, 24, 30), borderRadius: clamp(width * 0.035, 12, 15), backgroundColor: C.purpleDim, borderWidth: 1, borderColor: C.borderAccent, alignItems: 'center', justifyContent: 'center' }}>
-                        <FontAwesome5 name={privacy.icon as any} size={clamp(width * 0.03, 10, 12)} color={C.purple} />
-                      </View>
-                      <Text style={{ color: C.text, fontSize: clamp(width * 0.034, 12, 14), fontWeight: '600', flex: 1 }}>{privacy.label}</Text>
-                    </View>
-                  </View>
+                <View style={{ backgroundColor: C.purpleDim, borderRadius: clamp(width * 0.045, 14, 20), borderWidth: 1, borderColor: C.borderAccent, padding: clamp(width * 0.045, 14, 20), alignItems: 'center', justifyContent: 'center', minHeight: clamp(height * 0.12, 80, 104) }}>
+                  <Text style={{ color: C.purple, fontSize: metaValSz, fontWeight: '900', letterSpacing: -1 }}>{entry.word_count}</Text>
+                  <Text style={{ color: C.textMuted, fontSize: labelSz, fontWeight: '700', letterSpacing: 1.6, marginTop: 4 }}>WORDS</Text>
+                  <View style={{ marginTop: clamp(height * 0.01, 6, 9), width: clamp(width * 0.07, 24, 30), height: 3, backgroundColor: C.purple, borderRadius: 2, opacity: 0.45 }} />
                 </View>
               </View>
             </View>

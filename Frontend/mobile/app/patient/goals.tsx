@@ -12,7 +12,6 @@ import TabLoaderCard from '../components/TabLoaderCard';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
-// ── Same gradient recipe as Dashboard ────────────────────────────────────────
 const CARD_GRADIENT_COLORS = ['rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)'] as const;
 const CARD_BG     = '#3F3752';
 const CARD_BORDER = 'rgba(255,255,255,0.16)';
@@ -41,7 +40,6 @@ const GoalsScreen: React.FC = () => {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // ── Read where we came from, persist in ref so tab-cache doesn't lose it ──
   const params = useLocalSearchParams<{ from?: string }>();
   const fromRaw = params.from;
   const fromParam = Array.isArray(fromRaw) ? fromRaw[0] : fromRaw;
@@ -60,7 +58,6 @@ const GoalsScreen: React.FC = () => {
   const [activeTab,       setActiveTab]       = useState<'active' | 'completed'>('active');
   const [expandedGoalIds, setExpandedGoalIds] = useState<string[]>([]);
 
-  // ── Bubble refs ───────────────────────────────────────────────────────────
   const b1y = useRef(new Animated.Value(0)).current; const b1x = useRef(new Animated.Value(0)).current;
   const b2y = useRef(new Animated.Value(0)).current; const b2x = useRef(new Animated.Value(0)).current;
   const b3y = useRef(new Animated.Value(0)).current; const b3x = useRef(new Animated.Value(0)).current;
@@ -68,7 +65,6 @@ const GoalsScreen: React.FC = () => {
   const b5y = useRef(new Animated.Value(0)).current; const b5x = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // ── Responsive tokens ─────────────────────────────────────────────────────
   const pi        = clamp(width * 0.045, 14, 20);
   const listInset = clamp(width * 0.04,  14, 20);
   const hTop      = insets.top + clamp(height * 0.014, 10, 18);
@@ -116,7 +112,6 @@ const GoalsScreen: React.FC = () => {
   const inputRadius  = clamp(width * 0.028, 10, 12);
   const largeInputH  = clamp(height * 0.12,  76, 92);
 
-  // ── Form state ────────────────────────────────────────────────────────────
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
   const [priority,    setPriority]    = useState<'low'|'medium'|'high'>('medium');
@@ -126,7 +121,6 @@ const GoalsScreen: React.FC = () => {
   const [editVisible,   setEditVisible]   = useState(false);
   const [editingGoal,   setEditingGoal]   = useState<PatientGoal | null>(null);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
   const loadGoals = async () => {
     setLoading(true);
     try {
@@ -140,7 +134,6 @@ const GoalsScreen: React.FC = () => {
 
   useEffect(() => { loadGoals(); }, []);
 
-  // ── Bubbles ───────────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach(v => v.setValue(0));
@@ -174,7 +167,6 @@ const GoalsScreen: React.FC = () => {
     return () => { try { if (unsub) unsub(); } catch {} };
   }, []);
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
   const submitCreate = async () => {
     const tv = validateTextField(title, 'Title', 2);
     if (!tv.isValid) { Alert.alert('Invalid Title', tv.message || 'Title is required'); return; }
@@ -218,7 +210,7 @@ const GoalsScreen: React.FC = () => {
   const toggleExpanded = (id: string) =>
     setExpandedGoalIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  // ── Active goal card ──────────────────────────────────────────────────────
+  // ── Active goal card (unchanged) ──────────────────────────────────────────
   const renderGoal = ({ item }: { item: PatientGoal }) => {
     const pct        = item.progress_percentage || 0;
     const accent     = PRIORITY_COLORS[item.priority] ?? '#A78BFA';
@@ -232,18 +224,15 @@ const GoalsScreen: React.FC = () => {
         onPress={() => toggleExpanded(item.id)}
         style={[styles.card, { borderRadius: cardRadius, marginBottom: cardSpacing, marginHorizontal: listInset, overflow: 'hidden' }]}
       >
-        {/* Dashboard gradient overlay */}
         <LinearGradient
           colors={CARD_GRADIENT_COLORS}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFillObject, { borderRadius: cardRadius }]}
           pointerEvents="none"
         />
-        {/* Priority-coloured top accent strip */}
         <View style={{ height: 3, backgroundColor: accent, position: 'absolute', top: 0, left: 0, right: 0 }} />
 
         <View style={{ padding: cardPad, paddingTop: cardPad + 3 }}>
-          {/* Row 1: title + arrow */}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: clamp(height * 0.014, 8, 12) }}>
             <Text style={[styles.cardTitle, { fontSize: titleSz, flex: 1, paddingRight: 10 }]} numberOfLines={2}>
               {item.title}
@@ -251,7 +240,6 @@ const GoalsScreen: React.FC = () => {
             <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={arrowSz} color="#CFC3EE" style={{ marginTop: 3 }} />
           </View>
 
-          {/* Row 2: priority chip + target date chip */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: clamp(height * 0.018, 12, 16) }}>
             <View style={[styles.chip, { backgroundColor: accentFaint, borderColor: accentMid, borderRadius: chipRadius }]}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent, marginRight: 5 }} />
@@ -267,13 +255,11 @@ const GoalsScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* Progress section: label + big pct number / thin bar */}
           <View style={{ marginBottom: isExpanded ? clamp(height * 0.018, 12, 16) : 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={{ color: '#9D8EC7', fontSize: metaTxtSz, fontWeight: '600', letterSpacing: 0.6 }}>PROGRESS</Text>
               <Text style={{ color: '#FFFFFF', fontSize: pctSz, fontWeight: '900', lineHeight: pctSz * 1.1 }}>{pct}<Text style={{ fontSize: metaTxtSz + 1, color: '#9D8EC7', fontWeight: '600' }}>%</Text></Text>
             </View>
-            {/* Segmented track bar */}
             <View style={[styles.trackBg, { height: barH, borderRadius: barH / 2 }]}>
               {pct > 0 && (
                 <LinearGradient
@@ -282,7 +268,6 @@ const GoalsScreen: React.FC = () => {
                   style={[styles.trackFill, { width: `${pct}%`, height: barH, borderRadius: barH / 2 }]}
                 />
               )}
-              {/* Glowing dot at progress tip */}
               {pct > 0 && pct < 100 && (
                 <View style={[styles.trackDot, {
                   left: `${pct}%`,
@@ -295,7 +280,6 @@ const GoalsScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Expanded content */}
           {isExpanded && (
             <>
               {!!item.description && (
@@ -303,11 +287,7 @@ const GoalsScreen: React.FC = () => {
                   {item.description}
                 </Text>
               )}
-
-              {/* Divider */}
               <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: clamp(height * 0.016, 10, 14) }} />
-
-              {/* Action buttons */}
               <View style={{ flexDirection: 'row', gap: clamp(width * 0.02, 6, 8) }}>
                 <TouchableOpacity
                   style={[styles.actionBtn, { flex: 1, paddingVertical: actionPadY, borderRadius: clamp(width * 0.03, 10, 12), backgroundColor: '#A78BFA' }]}
@@ -342,63 +322,57 @@ const GoalsScreen: React.FC = () => {
     );
   };
 
-  // ── Completed goal card ───────────────────────────────────────────────────
-  const renderCompletedGoal = ({ item }: { item: PatientGoal }) => {
-    const isExpanded = expandedGoalIds.includes(item.id);
-    return (
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={() => toggleExpanded(item.id)}
-        style={[styles.card, { borderRadius: cardRadius, marginBottom: cardSpacing, marginHorizontal: listInset, overflow: 'hidden' }]}
-      >
-        <LinearGradient
-          colors={CARD_GRADIENT_COLORS}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFillObject, { borderRadius: cardRadius }]}
-          pointerEvents="none"
-        />
-        {/* Green accent strip */}
-        <View style={{ height: 3, backgroundColor: '#10B981', position: 'absolute', top: 0, left: 0, right: 0 }} />
+  // ── Completed goal card — static, no dropdown ─────────────────────────────
+  const renderCompletedGoal = ({ item }: { item: PatientGoal }) => (
+    <View
+      style={[styles.card, { borderRadius: cardRadius, marginBottom: cardSpacing, marginHorizontal: listInset, overflow: 'hidden' }]}
+    >
+      <LinearGradient
+        colors={CARD_GRADIENT_COLORS}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: cardRadius }]}
+        pointerEvents="none"
+      />
+      <View style={{ height: 3, backgroundColor: '#10B981', position: 'absolute', top: 0, left: 0, right: 0 }} />
 
-        <View style={{ padding: cardPad, paddingTop: cardPad + 3 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: clamp(height * 0.014, 8, 12) }}>
-            <Text style={[styles.cardTitle, { fontSize: titleSz, flex: 1, paddingRight: 10 }]} numberOfLines={2}>
-              {item.title}
+      <View style={{ padding: cardPad, paddingTop: cardPad + 3 }}>
+        {/* Title only — no chevron */}
+        <Text style={[styles.cardTitle, { fontSize: titleSz, marginBottom: clamp(height * 0.014, 8, 12) }]} numberOfLines={2}>
+          {item.title}
+        </Text>
+
+        {/* Completed badge + date */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: clamp(height * 0.018, 12, 16) }}>
+          <View style={[styles.chip, { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)', borderRadius: chipRadius }]}>
+            <FontAwesome name="check-circle" size={metaTxtSz} color="#10B981" style={{ marginRight: 5 }} />
+            <Text style={[styles.chipText, { color: '#10B981', fontSize: metaTxtSz }]}>Completed</Text>
+          </View>
+          {(item.completed_date || item.updated_at) && (
+            <Text style={{ color: '#7A6E9A', fontSize: metaTxtSz - 1, marginLeft: 10 }}>
+              {formatDate(item.completed_date || item.updated_at)}
             </Text>
-            <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={arrowSz} color="#CFC3EE" style={{ marginTop: 3 }} />
-          </View>
+          )}
+        </View>
 
-          {/* Completed badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: clamp(height * 0.018, 12, 16) }}>
-            <View style={[styles.chip, { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)', borderRadius: chipRadius }]}>
-              <FontAwesome name="check-circle" size={metaTxtSz} color="#10B981" style={{ marginRight: 5 }} />
-              <Text style={[styles.chipText, { color: '#10B981', fontSize: metaTxtSz }]}>Completed</Text>
-            </View>
-            {(item.completed_date || item.updated_at) && (
-              <Text style={{ color: '#7A6E9A', fontSize: metaTxtSz - 1, marginLeft: 10 }}>
-                {formatDate(item.completed_date || item.updated_at)}
-              </Text>
-            )}
+        {/* 100% progress bar */}
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: '#9D8EC7', fontSize: metaTxtSz, fontWeight: '600', letterSpacing: 0.6 }}>PROGRESS</Text>
+            <Text style={{ color: '#10B981', fontSize: pctSz, fontWeight: '900', lineHeight: pctSz * 1.1 }}>
+              100<Text style={{ fontSize: metaTxtSz + 1, color: '#9D8EC7', fontWeight: '600' }}>%</Text>
+            </Text>
           </View>
-
-          {/* 100% progress bar */}
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ color: '#9D8EC7', fontSize: metaTxtSz, fontWeight: '600', letterSpacing: 0.6 }}>PROGRESS</Text>
-              <Text style={{ color: '#10B981', fontSize: pctSz, fontWeight: '900', lineHeight: pctSz * 1.1 }}>100<Text style={{ fontSize: metaTxtSz + 1, color: '#9D8EC7', fontWeight: '600' }}>%</Text></Text>
-            </View>
-            <View style={[styles.trackBg, { height: barH, borderRadius: barH / 2 }]}>
-              <LinearGradient
-                colors={['#10B981', '#10B98170']}
-                start={[0, 0]} end={[1, 0]}
-                style={[styles.trackFill, { width: '100%', height: barH, borderRadius: barH / 2 }]}
-              />
-            </View>
+          <View style={[styles.trackBg, { height: barH, borderRadius: barH / 2 }]}>
+            <LinearGradient
+              colors={['#10B981', '#10B98170']}
+              start={[0, 0]} end={[1, 0]}
+              style={[styles.trackFill, { width: '100%', height: barH, borderRadius: barH / 2 }]}
+            />
           </View>
         </View>
-      </TouchableOpacity>
-    );
-  };
+      </View>
+    </View>
+  );
 
   // ── Tab bar ───────────────────────────────────────────────────────────────
   const renderTabBar = () => (
@@ -428,7 +402,6 @@ const GoalsScreen: React.FC = () => {
     <View style={styles.container}>
       <LinearGradient colors={['#342949', '#2a1f3d', '#342949']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-      {/* Bubbles */}
       <View style={styles.bubblesLayer} pointerEvents="none">
         <Animated.View style={[styles.bubble, { top:'10%', left:'-10%', width:bubbleLarge,  height:bubbleLarge,  transform:[{translateY:b1y},{translateX:b1x}] }]} />
         <Animated.View style={[styles.bubble, { top:'30%', right:'-5%', width:bubbleMedium, height:bubbleMedium, transform:[{translateY:b2y},{translateX:b2x}] }]} />
@@ -466,7 +439,7 @@ const GoalsScreen: React.FC = () => {
       </Animated.View>
 
       {loading ? (
-        <View style={[styles.loaderWrap, { paddingTop: listTopPad }]}>
+        <View style={styles.loaderWrap}>
           <TabLoaderCard spinnerColor="#A78BFA" fullScreen={false} />
         </View>
       ) : (
@@ -551,9 +524,8 @@ const styles = StyleSheet.create({
     elevation:1, zIndex:1000,
   },
 
-  loaderWrap: { flex:1, alignItems:'center', justifyContent:'flex-start' },
+  loaderWrap: { flex:1, alignItems:'center', justifyContent:'center' },
 
-  // ── Card — solid bg so gradient overlay looks correct and bubbles can't bleed through ──
   card: {
     backgroundColor: CARD_BG,
     borderWidth: 1,
@@ -568,11 +540,9 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: '700', color: '#FFFFFF' },
   desc:      { color: '#B8A8E6' },
 
-  // Chip (priority / date tag)
   chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   chipText: { fontWeight: '700' },
 
-  // Progress track
   trackBg:   { backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'visible', position: 'relative' },
   trackFill: {},
   trackDot: {
@@ -585,11 +555,9 @@ const styles = StyleSheet.create({
     top: 0,
   },
 
-  // Action button
   actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   actionTxt: { fontWeight: '700' },
 
-  // Tab bar
   menuBar:          { flexDirection:'row', alignItems:'center', backgroundColor:'#4A4458', borderRadius:25, zIndex:1001 },
   menuTabBtn:       { flex:1 },
   menuTabActive:    { borderRadius:22, alignItems:'center', justifyContent:'center' },
