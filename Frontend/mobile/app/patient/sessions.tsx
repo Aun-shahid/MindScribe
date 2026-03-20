@@ -28,7 +28,6 @@ export default function SessionsScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // ── Read where we came from, persist in ref so tab-cache doesn't lose it ──
   const params = useLocalSearchParams<{ from?: string }>();
   const fromRaw = params.from;
   const fromParam = Array.isArray(fromRaw) ? fromRaw[0] : fromRaw;
@@ -73,7 +72,6 @@ export default function SessionsScreen() {
   const headerTitleMarginTop    = clamp(height * 0.022, 14, 22);
   const headerEstimatedHeight   = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
   const headerFadeDistance      = clamp(height * 0.022, 14, 20);
-  const headerBackOffset        = clamp(width * 0.018, 6, 8);
 
   const bubbleLarge  = clamp(width * 0.74, 220, 310);
   const bubbleMedium = clamp(width * 0.52, 170, 230);
@@ -195,6 +193,7 @@ export default function SessionsScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#342949', '#2A1F3D', '#342949']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
+      {/* Bubbles */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, top: clamp(height * 0.06, 34, 62), right: -clamp(width * 0.12, 36, 56), backgroundColor: 'rgba(167,139,250,0.25)', transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
         <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: -clamp(height * 0.12, 80, 120), left: -clamp(width * 0.18, 56, 88), backgroundColor: 'rgba(184,168,230,0.20)', transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
@@ -206,140 +205,157 @@ export default function SessionsScreen() {
       <View style={styles.safeArea}>
         <StickyHeader scrollY={scrollY} firstWord="My" secondWord="Sessions" onBackPress={goBack} />
 
+        {/* ── Header row: back button + title in flex row (no absolute positioning) ── */}
         <Animated.View style={[styles.headerContainer, {
-          paddingTop: headerTopPadding, paddingHorizontal: pageInset, paddingBottom: headerBottomPadding,
+          paddingTop: headerTopPadding,
+          paddingHorizontal: pageInset,
+          paddingBottom: headerBottomPadding,
           opacity: scrollY.interpolate({ inputRange: [0, headerFadeDistance * 0.45, headerFadeDistance], outputRange: [1, 0, 0], extrapolate: 'clamp' }),
           transform: [{ translateY: scrollY.interpolate({ inputRange: [0, headerFadeDistance], outputRange: [0, -10], extrapolate: 'clamp' }) }],
         }]}>
-          <TouchableOpacity
-            onPress={goBack}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={[styles.backBtnCircle, { left: pageInset + headerBackOffset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius, zIndex: 1000 }]}
-          >
-            <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
-            <Text style={styles.headerWhite}>My </Text>
-            <Text style={styles.headerPurple}>Sessions</Text>
-          </Text>
+          {/* ── FIXED back button: flex-row sibling, hitSlop, zIndex 1000 ── */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              onPress={goBack}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={[styles.backBtnCircle, {
+                width: headerButtonSize,
+                height: headerButtonSize,
+                borderRadius: headerButtonRadius,
+              }]}
+            >
+              <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
+              <Text style={styles.headerWhite}>My </Text>
+              <Text style={styles.headerPurple}>Sessions</Text>
+            </Text>
+
+            {/* Spacer so title stays centred */}
+            <View style={{ width: headerButtonSize }} />
+          </View>
         </Animated.View>
 
-        <Animated.ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: sectionInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}
-          showsVerticalScrollIndicator={false}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-          scrollEventThrottle={16}
-        >
-          {/* Tab buttons */}
-          <View style={[styles.tabContainer, { marginTop: clamp(height * 0.004, 2, 4), marginBottom: clamp(height * 0.03, 20, 24) }]}>
-            <View style={[styles.menuBarContainer, { padding: menuBarPadding }]}>
-              {(['upcoming', 'past'] as const).map((t) => (
-                <TouchableOpacity key={t} activeOpacity={0.85} onPress={() => setActiveTab(t)} style={styles.menuTabButton}>
-                  {activeTab === t ? (
-                    <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0,0]} end={[1,0]} style={[styles.menuTabActive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}>
-                      <Text style={[styles.menuTabActiveText, { fontSize: menuTabTextSize }]}>{t === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={[styles.menuTabInactive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}>
-                      <Text style={[styles.menuTabInactiveText, { fontSize: menuTabTextSize }]}>{t === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+        {/* ── Loading: vertically centred on page ── */}
+        {loading ? (
+          <View style={styles.loaderCenter}>
+            <TabLoaderCard spinnerColor="#A78BFA" fullScreen={false} />
           </View>
-
-          {loading ? (
-            <View style={{ marginTop: clamp(height * 0.045, 30, 40) }}>
-              <TabLoaderCard spinnerColor="#A78BFA" fullScreen={false} />
-            </View>
-          ) : groupedSessions.length === 0 ? (
-            <View style={[styles.emptyContainer, { marginTop: clamp(height * 0.08, 48, 60) }]}>
-              <Text style={[styles.emptyText, { fontSize: clamp(width * 0.04, 15, 16) }]}>No sessions found.</Text>
-            </View>
-          ) : (
-            groupedSessions.map((group: any, gidx: number) => {
-              const therapistKey = `${group.therapist?.id || 'no'}-${gidx}`;
-              const isExpanded = expandedTherapists.has(therapistKey);
-              const sessionCount = group.sessions?.length || 0;
-
-              return (
-                <View key={`group-${gidx}-${group.therapist?.id || 'no'}`} style={[styles.therapistGroup, { marginBottom: groupGap }]}>
-                  <TouchableOpacity activeOpacity={0.7} onPress={() => toggleTherapist(therapistKey)} style={[styles.therapistCard, { borderRadius: therapistRadius, marginBottom: clamp(height * 0.015, 10, 12) }]}>
-                    <LinearGradient colors={CARD_GRAD} start={{ x:0, y:0 }} end={{ x:1, y:1 }} style={[StyleSheet.absoluteFill, { borderRadius: therapistRadius }]} pointerEvents="none" />
-                    <View style={[styles.therapistAccentBar, { borderTopLeftRadius: therapistRadius, borderTopRightRadius: therapistRadius }]} />
-                    <View style={[styles.therapistCardBody, { padding: therapistPad }]}>
-                      <View style={styles.therapistInfo}>
-                        <LinearGradient colors={['#8B7AC7', '#A78BFA']} style={[styles.avatarCircle, { width: avatarSize, height: avatarSize, borderRadius: clamp(width * 0.04, 14, 16) }]}>
-                          <FontAwesome name="user-md" size={clamp(width * 0.06, 20, 24)} color="#fff" />
-                        </LinearGradient>
-                        <View style={[styles.therapistDetails, { marginLeft: clamp(width * 0.03, 10, 12) }]}>
-                          <Text style={[styles.therapistName, { fontSize: therapistNameSize }]}>{group.therapist ? group.therapist.full_name : 'Other Sessions'}</Text>
-                          <Text style={styles.therapistEyebrow}>THERAPIST</Text>
-                        </View>
-                        <View style={styles.expandPill}>
-                          <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={clamp(width * 0.04, 14, 16)} color="#EADFFF" />
-                        </View>
+        ) : (
+          <Animated.ScrollView
+            style={styles.scroll}
+            contentContainerStyle={{ paddingHorizontal: sectionInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}
+            showsVerticalScrollIndicator={false}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+            scrollEventThrottle={16}
+          >
+            {/* Tab buttons */}
+            <View style={[styles.tabContainer, { marginTop: clamp(height * 0.004, 2, 4), marginBottom: clamp(height * 0.03, 20, 24) }]}>
+              <View style={[styles.menuBarContainer, { padding: menuBarPadding }]}>
+                {(['upcoming', 'past'] as const).map((t) => (
+                  <TouchableOpacity key={t} activeOpacity={0.85} onPress={() => setActiveTab(t)} style={styles.menuTabButton}>
+                    {activeTab === t ? (
+                      <LinearGradient colors={['#FF5AA8', '#FFB36B']} start={[0,0]} end={[1,0]} style={[styles.menuTabActive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}>
+                        <Text style={[styles.menuTabActiveText, { fontSize: menuTabTextSize }]}>{t === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={[styles.menuTabInactive, { paddingVertical: menuTabVerticalPadding, paddingHorizontal: menuTabHorizontalPadding }]}>
+                        <Text style={[styles.menuTabInactiveText, { fontSize: menuTabTextSize }]}>{t === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
                       </View>
-                      <View style={styles.therapistMetaRow}>
-                        {group.therapist?.specialization ? (
-                          <View style={styles.specializationPill}>
-                            <MaterialIcons name="local-hospital" size={clamp(width * 0.034, 11, 13)} color="#CBB7FF" />
-                            <Text style={[styles.specialization, { fontSize: specializationSize }]}>{group.therapist.specialization}</Text>
-                          </View>
-                        ) : null}
-                        <View style={styles.sessionCountPill}>
-                          <FontAwesome name="calendar-check-o" size={clamp(width * 0.034, 11, 13)} color="#FFB36B" />
-                          <Text style={[styles.sessionCountValue, { fontSize: countSize }]}>{sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.sessionCountText, { fontSize: countSize, marginTop: clamp(height * 0.008, 4, 6) }]}>
-                        {isExpanded ? 'Tap to hide the session list' : "Tap to view this therapist's sessions"}
-                      </Text>
-                    </View>
+                    )}
                   </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-                  {isExpanded && (
-                    <View style={styles.sessionStack}>
-                      {group.sessions.map((session: any, index: number) => (
-                        <TouchableOpacity
-                          key={session.id} activeOpacity={0.78}
-                          onPress={() => handleSessionPress(session)}
-                          style={[styles.sessionCard, { padding: sessionPad, borderRadius: sessionRadius, marginBottom: index === group.sessions.length - 1 ? 0 : clamp(height * 0.015, 10, 12) }]}
-                        >
-                          <LinearGradient colors={CARD_GRAD} start={{ x:0, y:0 }} end={{ x:1, y:1 }} style={[StyleSheet.absoluteFill, { borderRadius: sessionRadius }]} pointerEvents="none" />
-                          <View style={[styles.sessionAccent, { backgroundColor: activeTab === 'upcoming' ? '#FFB36B' : '#A78BFA' }]} />
-                          <View style={styles.sessionCardBody}>
-                            <View style={styles.sessionHeaderCompact}>
-                              <View style={styles.sessionHeaderLeft}>
-                                <Text style={[styles.sessionNumber, { fontSize: sessionNumberSize }]}>{session.session_number ? `Session ${session.session_number}` : 'Session'}</Text>
-                                <Text style={styles.sessionCompactMeta}>
-                                  {new Date(session.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  {'  •  '}
-                                  {new Date(session.scheduled_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                </Text>
-                              </View>
-                              <View style={styles.sessionHeaderRight}>
-                                <View style={[styles.upcomingPill, { paddingHorizontal: pillPadX, paddingVertical: pillPadY, borderRadius: pillRadius }]}>
-                                  <Text style={styles.upcomingText}>{activeTab === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
+            {groupedSessions.length === 0 ? (
+              <View style={[styles.emptyContainer, { marginTop: clamp(height * 0.08, 48, 60) }]}>
+                <Text style={[styles.emptyText, { fontSize: clamp(width * 0.04, 15, 16) }]}>No sessions found.</Text>
+              </View>
+            ) : (
+              groupedSessions.map((group: any, gidx: number) => {
+                const therapistKey = `${group.therapist?.id || 'no'}-${gidx}`;
+                const isExpanded = expandedTherapists.has(therapistKey);
+                const sessionCount = group.sessions?.length || 0;
+
+                return (
+                  <View key={`group-${gidx}-${group.therapist?.id || 'no'}`} style={[styles.therapistGroup, { marginBottom: groupGap }]}>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => toggleTherapist(therapistKey)} style={[styles.therapistCard, { borderRadius: therapistRadius, marginBottom: clamp(height * 0.015, 10, 12) }]}>
+                      <LinearGradient colors={CARD_GRAD} start={{ x:0, y:0 }} end={{ x:1, y:1 }} style={[StyleSheet.absoluteFill, { borderRadius: therapistRadius }]} pointerEvents="none" />
+                      <View style={[styles.therapistAccentBar, { borderTopLeftRadius: therapistRadius, borderTopRightRadius: therapistRadius }]} />
+                      <View style={[styles.therapistCardBody, { padding: therapistPad }]}>
+                        <View style={styles.therapistInfo}>
+                          <LinearGradient colors={['#8B7AC7', '#A78BFA']} style={[styles.avatarCircle, { width: avatarSize, height: avatarSize, borderRadius: clamp(width * 0.04, 14, 16) }]}>
+                            <FontAwesome name="user-md" size={clamp(width * 0.06, 20, 24)} color="#fff" />
+                          </LinearGradient>
+                          <View style={[styles.therapistDetails, { marginLeft: clamp(width * 0.03, 10, 12) }]}>
+                            <Text style={[styles.therapistName, { fontSize: therapistNameSize }]}>{group.therapist ? group.therapist.full_name : 'Other Sessions'}</Text>
+                            <Text style={styles.therapistEyebrow}>THERAPIST</Text>
+                          </View>
+                          <View style={styles.expandPill}>
+                            <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={clamp(width * 0.04, 14, 16)} color="#EADFFF" />
+                          </View>
+                        </View>
+                        <View style={styles.therapistMetaRow}>
+                          {group.therapist?.specialization ? (
+                            <View style={styles.specializationPill}>
+                              <MaterialIcons name="local-hospital" size={clamp(width * 0.034, 11, 13)} color="#CBB7FF" />
+                              <Text style={[styles.specialization, { fontSize: specializationSize }]}>{group.therapist.specialization}</Text>
+                            </View>
+                          ) : null}
+                          <View style={styles.sessionCountPill}>
+                            <FontAwesome name="calendar-check-o" size={clamp(width * 0.034, 11, 13)} color="#FFB36B" />
+                            <Text style={[styles.sessionCountValue, { fontSize: countSize }]}>{sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}</Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.sessionCountText, { fontSize: countSize, marginTop: clamp(height * 0.008, 4, 6) }]}>
+                          {isExpanded ? 'Tap to hide the session list' : "Tap to view this therapist's sessions"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={styles.sessionStack}>
+                        {group.sessions.map((session: any, index: number) => (
+                          <TouchableOpacity
+                            key={session.id} activeOpacity={0.78}
+                            onPress={() => handleSessionPress(session)}
+                            style={[styles.sessionCard, { padding: sessionPad, borderRadius: sessionRadius, marginBottom: index === group.sessions.length - 1 ? 0 : clamp(height * 0.015, 10, 12) }]}
+                          >
+                            <LinearGradient colors={CARD_GRAD} start={{ x:0, y:0 }} end={{ x:1, y:1 }} style={[StyleSheet.absoluteFill, { borderRadius: sessionRadius }]} pointerEvents="none" />
+                            <View style={[styles.sessionAccent, { backgroundColor: activeTab === 'upcoming' ? '#FFB36B' : '#A78BFA' }]} />
+                            <View style={styles.sessionCardBody}>
+                              <View style={styles.sessionHeaderCompact}>
+                                <View style={styles.sessionHeaderLeft}>
+                                  <Text style={[styles.sessionNumber, { fontSize: sessionNumberSize }]}>{session.session_number ? `Session ${session.session_number}` : 'Session'}</Text>
+                                  <Text style={styles.sessionCompactMeta}>
+                                    {new Date(session.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {'  •  '}
+                                    {new Date(session.scheduled_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                  </Text>
                                 </View>
-                                <View style={styles.sessionArrowBubble}>
-                                  <FontAwesome name="chevron-right" size={clamp(width * 0.036, 12, 14)} color="#EDE4FF" />
+                                <View style={styles.sessionHeaderRight}>
+                                  <View style={[styles.upcomingPill, { paddingHorizontal: pillPadX, paddingVertical: pillPadY, borderRadius: pillRadius }]}>
+                                    <Text style={styles.upcomingText}>{activeTab === 'upcoming' ? 'Upcoming' : 'Past'}</Text>
+                                  </View>
+                                  <View style={styles.sessionArrowBubble}>
+                                    <FontAwesome name="chevron-right" size={clamp(width * 0.036, 12, 14)} color="#EDE4FF" />
+                                  </View>
                                 </View>
                               </View>
                             </View>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              );
-            })
-          )}
-          <View style={{ height: 30 }} />
-        </Animated.ScrollView>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+            <View style={{ height: 30 }} />
+          </Animated.ScrollView>
+        )}
 
         <Modal visible={sessionModalVisible} transparent animationType="fade" onRequestClose={closeSessionModal}>
           <View style={styles.modalBackdrop}>
@@ -392,15 +408,33 @@ const styles = StyleSheet.create({
   container:      { flex: 1 },
   bubble:         { position: 'absolute', borderRadius: 9999 },
   safeArea:       { flex: 1 },
+
+  // ── Header ────────────────────────────────────────────────────────────────
   headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
-  backBtnCircle: {
-    position: 'absolute', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
-    shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  headerTitle:  { fontWeight: '800', textAlign: 'center' },
+  backBtnCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    zIndex: 1000,
+  },
+  headerTitle:  { flex: 1, fontWeight: '800', textAlign: 'center' },
   headerWhite:  { color: '#FFFFFF' },
   headerPurple: { color: '#B8A8E6' },
+
+  // ── Loader centred vertically ─────────────────────────────────────────────
+  loaderCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   scroll:       { flex: 1 },
   tabContainer:     { marginBottom: 24 },
   menuBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4A4458', borderRadius: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },

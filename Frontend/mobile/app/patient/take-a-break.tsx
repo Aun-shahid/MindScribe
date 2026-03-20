@@ -27,35 +27,35 @@ export default function TakeABreakScreen() {
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
-  const pageInset           = clamp(width * 0.03,   12, 18);
-  const sectionInset        = clamp(width * 0.045,  14, 20);
-  const hTop                = insets.top + clamp(height * 0.014, 10, 18);
-  const hBtnSz              = clamp(width * 0.098,  34, 40);
-  const hBtnR               = hBtnSz / 2;
-  const hIconSz             = clamp(width * 0.047,  16, 20);
-  const hTitleSz            = clamp(width * 0.072,  24, 30);
-  const hMTop               = clamp(height * 0.022, 14, 22);
-  const hBotPad             = clamp(height * 0.02,  14, 22);
-  // hEst: safe area + button row + gap + title line height + bottom pad
-  const hEst                = hTop + hBtnSz + hMTop * 0.5 + hTitleSz * 1.3 + hBotPad;
-  const headerFadeDist      = clamp(height * 0.022, 14, 20);
+  const pageInset    = clamp(width * 0.03,  12, 18);
+  const sectionInset = clamp(width * 0.045, 14, 20);
+  const hTop         = insets.top + clamp(height * 0.01, 6, 12);   // ← tighter top
+  const hBtnSz       = clamp(width * 0.098, 34, 40);
+  const hBtnR        = hBtnSz / 2;
+  const hIconSz      = clamp(width * 0.047, 16, 20);
+  const hTitleSz     = clamp(width * 0.072, 24, 30);
+  const hMTop        = clamp(height * 0.012, 8, 14);               // ← tighter gap btn→title
+  const hBotPad      = clamp(height * 0.014, 10, 16);              // ← tighter bottom
+  const hEst         = hTop + hBtnSz + hMTop + hTitleSz * 1.3 + hBotPad;
+  const headerFadeDist = clamp(height * 0.022, 14, 20);
 
-  const bubbleLarge         = clamp(width * 0.34, 100, 140);
-  const bubbleMedium        = clamp(width * 0.29,  90, 120);
-  const bubbleSmall         = clamp(width * 0.26,  82, 108);
+  const bubbleLarge  = clamp(width * 0.34, 100, 140);
+  const bubbleMedium = clamp(width * 0.29,  90, 120);
+  const bubbleSmall  = clamp(width * 0.26,  82, 108);
 
-  const contentTopPad       = hEst + clamp(height * 0.028, 18, 24);
-  const contentBotPad       = clamp(insets.bottom + height * 0.04, 30, 46);
-  const taglineSz           = clamp(width * 0.042, 15, 17);
-  const contentGap          = clamp(height * 0.024, 16, 22);
-  const cardsGap            = clamp(height * 0.026, 16, 22);
-  const cardRadius          = clamp(width * 0.05,  18, 22);
-  const cardPadding         = clamp(width * 0.048, 16, 20);
-  const cardTitleSz         = clamp(width * 0.046, 16, 18);
-  const cardSubSz           = clamp(width * 0.035, 12, 14);
-  const iconBadgeSz         = clamp(width * 0.122, 42, 50);
-  const iconSz              = clamp(width * 0.062, 22, 26);
-  const arrowSz             = clamp(width * 0.055, 20, 22);
+  // Tagline gap reduced
+  const contentTopPad  = hEst + clamp(height * 0.016, 10, 16);    // ← less gap after header
+  const contentBotPad  = clamp(insets.bottom + height * 0.04, 30, 46);
+  const taglineSz      = clamp(width * 0.042, 15, 17);
+  const taglineGap     = clamp(height * 0.018, 12, 16);            // ← tighter tagline → cards
+  const cardsGap       = clamp(height * 0.026, 16, 22);
+  const cardRadius     = clamp(width * 0.05,  18, 22);
+  const cardPadding    = clamp(width * 0.048, 16, 20);
+  const cardTitleSz    = clamp(width * 0.046, 16, 18);
+  const cardSubSz      = clamp(width * 0.035, 12, 14);
+  const iconBadgeSz    = clamp(width * 0.122, 42, 50);
+  const iconSz         = clamp(width * 0.062, 22, 26);
+  const arrowSz        = clamp(width * 0.055, 20, 22);
 
   // ── Animated values ───────────────────────────────────────────────────────
   const b1y = useRef(new Animated.Value(0)).current;
@@ -71,11 +71,9 @@ export default function TakeABreakScreen() {
   const scrollY     = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Bubble animations — useFocusEffect so they restart on screen focus ───
   useFocusEffect(
     useCallback(() => {
       [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach(v => v.setValue(0));
-
       const fly = (y: Animated.Value, x: Animated.Value, dY: number, dX: number, delay = 0) => {
         const c = Animated.loop(
           Animated.sequence([
@@ -95,7 +93,6 @@ export default function TakeABreakScreen() {
         c.start();
         return c;
       };
-
       const anims = [
         fly(b1y, b1x, 8000, 7000,    0),
         fly(b2y, b2x, 9000, 8000, 1000),
@@ -103,12 +100,10 @@ export default function TakeABreakScreen() {
         fly(b4y, b4x, 10000, 7500, 1500),
         fly(b5y, b5x, 8500, 8500, 2000),
       ];
-
       return () => anims.forEach(a => a.stop());
     }, [])
   );
 
-  // ── Shimmer animation ─────────────────────────────────────────────────────
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -126,7 +121,6 @@ export default function TakeABreakScreen() {
     outputRange: [-90, width + 90],
   });
 
-  // ── Visualization handler ─────────────────────────────────────────────────
   const handleVisualizationJourney = async () => {
     try {
       const data = await PatientService.getRelaxationContent({});
@@ -148,58 +142,24 @@ export default function TakeABreakScreen() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#342949" />
 
-      {/* Background gradient — zIndex 0 */}
       <LinearGradient
         colors={['#342949', '#2a1f3d', '#342949']}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
-      {/* Floating bubbles — zIndex 0, BEHIND everything including cards */}
       <View style={styles.bubblesLayer} pointerEvents="none">
-        <Animated.View style={[styles.bubble, {
-          width: bubbleLarge, height: bubbleLarge,
-          top: hEst - clamp(height * 0.04, 20, 30),
-          right: -bubbleLarge * 0.3,
-          backgroundColor: 'rgba(167,139,250,0.25)',
-          transform: [{ translateY: b1y }, { translateX: b1x }],
-        }]} />
-        <Animated.View style={[styles.bubble, {
-          width: bubbleLarge * 1.4, height: bubbleLarge * 1.4,
-          top: -bubbleLarge * 0.72,
-          left: -bubbleLarge * 0.56,
-          backgroundColor: 'rgba(184,168,230,0.20)',
-          transform: [{ translateY: b2y }, { translateX: b2x }],
-        }]} />
-        <Animated.View style={[styles.bubble, {
-          width: bubbleMedium, height: bubbleMedium,
-          bottom: clamp(height * 0.24, 150, 210),
-          left: -bubbleMedium * 0.2,
-          backgroundColor: 'rgba(167,139,250,0.22)',
-          transform: [{ translateY: b3y }, { translateX: b3x }],
-        }]} />
-        <Animated.View style={[styles.bubble, {
-          width: bubbleMedium * 1.15, height: bubbleMedium * 1.15,
-          bottom: clamp(height * 0.12, 80, 120),
-          right: -bubbleMedium * 0.42,
-          backgroundColor: 'rgba(184,168,230,0.18)',
-          transform: [{ translateY: b4y }, { translateX: b4x }],
-        }]} />
-        <Animated.View style={[styles.bubble, {
-          width: bubbleSmall, height: bubbleSmall,
-          top: '40%',
-          right: pageInset,
-          backgroundColor: 'rgba(167,139,250,0.15)',
-          transform: [{ translateY: b5y }, { translateX: b5x }],
-        }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: hEst - clamp(height * 0.04, 20, 30), right: -bubbleLarge * 0.3, backgroundColor: 'rgba(167,139,250,0.25)', transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleLarge * 1.4, height: bubbleLarge * 1.4, top: -bubbleLarge * 0.72, left: -bubbleLarge * 0.56, backgroundColor: 'rgba(184,168,230,0.20)', transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, bottom: clamp(height * 0.24, 150, 210), left: -bubbleMedium * 0.2, backgroundColor: 'rgba(167,139,250,0.22)', transform: [{ translateY: b3y }, { translateX: b3x }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleMedium * 1.15, height: bubbleMedium * 1.15, bottom: clamp(height * 0.12, 80, 120), right: -bubbleMedium * 0.42, backgroundColor: 'rgba(184,168,230,0.18)', transform: [{ translateY: b4y }, { translateX: b4x }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, top: '40%', right: pageInset, backgroundColor: 'rgba(167,139,250,0.15)', transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
       </View>
 
-      {/* Sticky header */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="Take a"
@@ -207,40 +167,35 @@ export default function TakeABreakScreen() {
         onBackPress={() => router.push('./actions' as any)}
       />
 
-      {/* Fading large header — flex-row layout, no absolute back button */}
+      {/* ── Fading header — flex column, back btn in-flow, NO absolute positioning ── */}
       <Animated.View style={[styles.fadingHeader, {
         paddingTop: hTop,
-        opacity: scrollY.interpolate({
-          inputRange: [0, headerFadeDist * 0.45, headerFadeDist],
-          outputRange: [1, 0, 0],
-          extrapolate: 'clamp',
-        }),
-        transform: [{
-          translateY: scrollY.interpolate({
-            inputRange: [0, headerFadeDist],
-            outputRange: [0, -10],
-            extrapolate: 'clamp',
-          }),
-        }],
+        opacity: scrollY.interpolate({ inputRange: [0, headerFadeDist * 0.45, headerFadeDist], outputRange: [1, 0, 0], extrapolate: 'clamp' }),
+        transform: [{ translateY: scrollY.interpolate({ inputRange: [0, headerFadeDist], outputRange: [0, -10], extrapolate: 'clamp' }) }],
       }]}>
-        {/* Row 1 — back button only (no right element needed here) */}
-        <View style={{ paddingHorizontal: pageInset }}>
+        {/* Back button row — left-aligned with proper horizontal inset */}
+        <View style={{ paddingHorizontal: sectionInset }}>
           <TouchableOpacity
             onPress={() => router.push('./actions' as any)}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             style={{
-              width: hBtnSz, height: hBtnSz, borderRadius: hBtnR,
-              alignItems: 'center', justifyContent: 'center',
+              width: hBtnSz,
+              height: hBtnSz,
+              borderRadius: hBtnR,
+              alignItems: 'center',
+              justifyContent: 'center',
               backgroundColor: 'rgba(255,255,255,0.08)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.14)',
+              zIndex: 1000,
             }}
           >
             <FontAwesome name="chevron-left" size={hIconSz} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Row 2 — title, below button with spacing */}
-        <View style={{ alignItems: 'center', marginTop: hMTop * 0.5, paddingBottom: hBotPad }}>
+        {/* Title — tighter gap beneath back button */}
+        <View style={{ alignItems: 'center', marginTop: hMTop, paddingBottom: hBotPad }}>
           <Text style={{ fontSize: hTitleSz, fontWeight: '800', textAlign: 'center' }}>
             <Text style={{ color: '#FFFFFF' }}>Take a </Text>
             <Text style={{ color: '#B8A8E6' }}>Break</Text>
@@ -248,7 +203,6 @@ export default function TakeABreakScreen() {
         </View>
       </Animated.View>
 
-      {/* Scroll content — zIndex 2 so it sits above bubbles */}
       <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={{
@@ -263,7 +217,7 @@ export default function TakeABreakScreen() {
         )}
         scrollEventThrottle={16}
       >
-        <Text style={[styles.tagline, { fontSize: taglineSz, marginBottom: contentGap * 1.8 }]}>
+        <Text style={[styles.tagline, { fontSize: taglineSz, marginBottom: taglineGap }]}>
           Step away. Breathe slowly. Return softer.
         </Text>
 
@@ -345,34 +299,11 @@ export default function TakeABreakScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#342949',
-  },
-
-  // Bubbles sit at zIndex 0 — BEHIND the scroll view and cards
-  bubblesLayer: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 0,
-  },
-  bubble: {
-    position: 'absolute',
-    borderRadius: 1000,
-  },
-
-  fadingHeader: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    zIndex: 900,
-  },
-
-  // Scroll view at zIndex 2 — above bubbles
-  scroll: {
-    flex: 1,
-    zIndex: 2,
-  },
-
+  container:    { flex: 1, backgroundColor: '#342949' },
+  bubblesLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 },
+  bubble:       { position: 'absolute', borderRadius: 1000 },
+  fadingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
+  scroll:       { flex: 1, zIndex: 2 },
   tagline: {
     color: 'rgba(220,210,255,0.7)',
     textAlign: 'center',
@@ -380,9 +311,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: 0.3,
   },
-
-  // Card: solid background so bubbles CANNOT bleed through
-  // rgba(255,255,255,0.07) was too transparent on APK — use a solid dark color
   card: {
     backgroundColor: '#3A3256',
     borderWidth: 1,
@@ -394,31 +322,11 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 5,
   },
-
-  cardAccentStrip: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 3,
-    overflow: 'hidden',
-  },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0, bottom: 0,
-    width: 90,
-  },
+  cardAccentStrip: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, overflow: 'hidden' },
+  shimmerOverlay:  { position: 'absolute', top: 0, bottom: 0, width: 90 },
   shimmerGradient: { flex: 1 },
-
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  iconBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    flexShrink: 0,
-  },
+  cardRow:   { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  iconBadge: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, flexShrink: 0 },
   cardBody:  { flex: 1 },
   cardTitle: { fontWeight: '700', color: '#FFFFFF', marginBottom: 5 },
   cardSub:   { color: 'rgba(200,190,240,0.72)', fontWeight: '400', lineHeight: 18 },

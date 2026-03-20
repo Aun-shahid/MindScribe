@@ -28,6 +28,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<'therapist' | 'patient' | null>(null);
@@ -180,9 +181,19 @@ export default function LoginScreen() {
             style={[styles.input, { fontSize: inputFontSize }]}
             onChangeText={handlePasswordChange}
             value={password}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             editable={!isLoading}
           />
+          <TouchableOpacity
+            onPress={() => setShowPassword(prev => !prev)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <FontAwesome
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={18}
+              color="#8D8BA7"
+            />
+          </TouchableOpacity>
         </View>
         {passwordError && <Text style={styles.fieldErrorText}>{passwordError}</Text>}
 

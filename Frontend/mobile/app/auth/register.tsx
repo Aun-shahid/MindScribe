@@ -16,7 +16,7 @@ import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { validateRegisterForm, FormValidationErrors } from '../utils/validation';
@@ -30,6 +30,8 @@ export default function RegisterScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [date, setDate] = useState<Date | null>(null);
   const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const headingSize = Math.max(30, Math.min(width * 0.09, 38));
@@ -145,7 +147,6 @@ export default function RegisterScreen() {
             styles.container,
             {
               paddingHorizontal: Math.max(20, Math.min(width * 0.06, 28)),
-              // ── moved up: reduced from insets.top + 26 ──
               paddingTop: insets.top + clamp(height * 0.005, 2, 8),
               paddingBottom: bottomSafeGap,
             },
@@ -156,14 +157,12 @@ export default function RegisterScreen() {
             <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
           </View>
 
-          {/* Image — moved up via reduced paddingTop above */}
           <Image
             style={[styles.img, { width: imageWidth, height: imageHeight }]}
             source={require('../../assets/images/register.png')}
             resizeMode="contain"
           />
 
-          {/* Heading — sits tighter under the image */}
           <Text style={[styles.title, { fontSize: headingSize, lineHeight: Math.round(headingSize * 1.08) }]}>
             <Text style={styles.titlePrimary}>Sign </Text>
             <Text style={styles.titleAccent}>Up</Text>
@@ -202,28 +201,46 @@ export default function RegisterScreen() {
           />
           {validationErrors.email && <Text style={styles.fieldErrorText}>{validationErrors.email}</Text>}
 
+          {/* ── Password ── */}
           <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>Password</Text>
-          <TextInput
-            style={[styles.input, { fontSize: inputFontSize, maxWidth: fieldWidth }, validationErrors.password && styles.inputError]}
-            placeholder="Enter password"
-            placeholderTextColor="#8D8BA7"
-            secureTextEntry
-            onChangeText={(text) => handleChange('password', text)}
-            value={form.password}
-            editable={!isLoading}
-          />
+          <View style={[styles.inputRow, { maxWidth: fieldWidth }, validationErrors.password && styles.inputError]}>
+            <TextInput
+              style={[styles.inputInner, { fontSize: inputFontSize }]}
+              placeholder="Enter password"
+              placeholderTextColor="#8D8BA7"
+              secureTextEntry={!showPassword}
+              onChangeText={(text) => handleChange('password', text)}
+              value={form.password}
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(prev => !prev)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <FontAwesome name={showPassword ? 'eye' : 'eye-slash'} size={18} color="#8D8BA7" />
+            </TouchableOpacity>
+          </View>
           {validationErrors.password && <Text style={styles.fieldErrorText}>{validationErrors.password}</Text>}
 
+          {/* ── Confirm Password ── */}
           <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>Confirm Password</Text>
-          <TextInput
-            style={[styles.input, { fontSize: inputFontSize, maxWidth: fieldWidth }, validationErrors.password_confirm && styles.inputError]}
-            placeholder="Re-enter password"
-            placeholderTextColor="#8D8BA7"
-            secureTextEntry
-            onChangeText={(text) => handleChange('password_confirm', text)}
-            value={form.password_confirm}
-            editable={!isLoading}
-          />
+          <View style={[styles.inputRow, { maxWidth: fieldWidth }, validationErrors.password_confirm && styles.inputError]}>
+            <TextInput
+              style={[styles.inputInner, { fontSize: inputFontSize }]}
+              placeholder="Re-enter password"
+              placeholderTextColor="#8D8BA7"
+              secureTextEntry={!showConfirmPassword}
+              onChangeText={(text) => handleChange('password_confirm', text)}
+              value={form.password_confirm}
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowConfirmPassword(prev => !prev)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <FontAwesome name={showConfirmPassword ? 'eye' : 'eye-slash'} size={18} color="#8D8BA7" />
+            </TouchableOpacity>
+          </View>
           {validationErrors.password_confirm && <Text style={styles.fieldErrorText}>{validationErrors.password_confirm}</Text>}
 
           <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>First Name</Text>
@@ -374,6 +391,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 11,
     borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1,
     color: '#FFFFFF', width: '100%', alignSelf: 'center',
+  },
+  // ── Row wrapper for password fields with eye icon ──
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    width: '100%',
+    alignSelf: 'center',
+    marginBottom: 0,
+  },
+  inputInner: {
+    flex: 1,
+    color: '#FFFFFF',
+    height: 22,
+    padding: 0,
   },
   inputError:     { borderColor: '#f44336', borderWidth: 2 },
   fieldErrorText: { color: '#f44336', fontSize: 12, marginTop: 4, width: '100%', maxWidth: 320, alignSelf: 'center', textAlign: 'left' },
