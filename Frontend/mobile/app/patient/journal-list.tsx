@@ -529,7 +529,7 @@ export default function JournalList() {
         scrollY={scrollY}
         firstWord="Journal"
         secondWord="Home"
-        onBackPress={() => router.back()}
+        onBackPress={() => router.push('./actions' as any)}
       />
 
       <Animated.View
@@ -548,7 +548,7 @@ export default function JournalList() {
           },
         ]}
       >
-        <TouchableOpacity style={[styles.backButton, { left: pageInset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { left: pageInset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]} onPress={() => router.push('./actions' as any)}>
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
 

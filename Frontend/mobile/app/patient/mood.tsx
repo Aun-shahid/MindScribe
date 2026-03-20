@@ -80,7 +80,14 @@ interface MoodHistoryEntry {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 export default function MoodTrackerScreen() {
-  const { tab } = useLocalSearchParams();
+  const params = useLocalSearchParams<{ tab?: string; from?: string }>();
+  const tab = params.tab;
+  // Normalise — Expo Router can return string | string[]
+  const fromRaw = params.from;
+  const fromParam = Array.isArray(fromRaw) ? fromRaw[0] : fromRaw;
+  // Persist in a ref so it survives tab-switch re-renders without re-navigation
+  const fromRef = useRef(fromParam);
+  useEffect(() => { if (fromParam) fromRef.current = fromParam; }, [fromParam]);
   const { themeStyle } = useTheme();
   const scrollRef = useRef<any>(null);
   const { width, height } = useWindowDimensions();
@@ -232,7 +239,13 @@ export default function MoodTrackerScreen() {
   };
 
   const handleBackPress = () => {
-    if (selectedMood) { clearSelectedMood(); } else { router.back(); }
+    if (selectedMood) {
+      clearSelectedMood();
+    } else if (fromRef.current === 'actions') {
+      router.push('./actions' as any);
+    } else {
+      router.push('./dashboard' as any);
+    }
   };
 
   const getIntensityColor = (value: number) => {
@@ -398,7 +411,7 @@ export default function MoodTrackerScreen() {
         <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, bottom: '30%', left: '-5%', backgroundColor: 'rgba(167,139,250,0.19)' }, { transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }]} />
       </View>
 
-      <StickyHeader scrollY={scrollY} firstWord="Mood" secondWord="Break" />
+      <StickyHeader scrollY={scrollY} firstWord="Mood" secondWord="Break" onBackPress={handleBackPress} />
 
       {/* Animated fading header */}
       <Animated.View style={[styles.headerContainer, {
@@ -409,7 +422,8 @@ export default function MoodTrackerScreen() {
       }]}>
         <TouchableOpacity
           onPress={handleBackPress}
-          style={[styles.backButton, { left: pageInset, top: headerTopPadding + clamp(height * 0.003, 2, 5), width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={[styles.backButton, { left: pageInset, top: headerTopPadding + clamp(height * 0.003, 2, 5), width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius, zIndex: 1000 }]}
         >
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
@@ -455,13 +469,15 @@ export default function MoodTrackerScreen() {
                         <Text style={styles.moodChoiceEmoji}>{mood.emoji}</Text>
                         <Text style={styles.moodChoiceLabel}>I&apos;m Feeling {mood.label}</Text>
                         <View style={styles.moodChoiceWaveWrap}>
-                          <View style={[styles.moodChoiceWave, { backgroundColor: theme.wave }]} />
-                          <View style={styles.moodChoiceMiniEmojiRow}>
-                            {[0, 1, 2, 3, 4].map((index) => (
-                              <View key={`${mood.value}-${index}`} style={styles.moodChoiceMiniEmojiBubble}>
-                                <Text style={styles.moodChoiceMiniEmoji}>{mood.emoji}</Text>
-                              </View>
-                            ))}
+                          <View style={styles.moodChoiceDivider} />
+                          <View style={[styles.moodChoiceWave, { backgroundColor: theme.wave }]}>
+                            <View style={styles.moodChoiceMiniEmojiRow}>
+                              {[0, 1, 2, 3, 4].map((index) => (
+                                <View key={`${mood.value}-${index}`} style={styles.moodChoiceMiniEmojiBubble}>
+                                  <Text style={styles.moodChoiceMiniEmoji}>{mood.emoji}</Text>
+                                </View>
+                              ))}
+                            </View>
                           </View>
                         </View>
                       </LinearGradient>
@@ -838,10 +854,11 @@ const styles = StyleSheet.create({
   moodChoiceCard: { minHeight: 184, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 26, paddingHorizontal: 18, position: 'relative' },
   moodChoiceEmoji: { fontSize: 68, lineHeight: 76, zIndex: 2 },
   moodChoiceLabel: { marginTop: 8, color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center', zIndex: 2 },
-  moodChoiceWaveWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 74, justifyContent: 'flex-end' },
-  moodChoiceWave: { position: 'absolute', left: -18, right: -18, bottom: -12, height: 58, borderTopLeftRadius: 70, borderTopRightRadius: 90, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, transform: [{ rotate: '-3deg' }] },
-  moodChoiceMiniEmojiRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 26, paddingBottom: 18, zIndex: 2 },
-  moodChoiceMiniEmojiBubble: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
+  moodChoiceWaveWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 58 },
+  moodChoiceDivider: { height: 1.5, backgroundColor: 'rgba(255,255,255,0.35)' },
+  moodChoiceWave: { flex: 1 },
+  moodChoiceMiniEmojiRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 26, paddingTop: 15 },
+  moodChoiceMiniEmojiBubble: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
   moodChoiceMiniEmoji: { fontSize: 13 },
   selectedMoodHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, marginBottom: 12 },
   changeMoodButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2F2941', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16, gap: 10 },

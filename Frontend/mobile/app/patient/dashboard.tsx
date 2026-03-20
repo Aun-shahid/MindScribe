@@ -475,14 +475,20 @@ export default function Dashboard() {
             {/* QUICK ACTIONS — 3 cards, single row */}
             <View style={[styles.quickActionsSection,{marginHorizontal:quickSectionInset,marginTop:clamp(height*0.016,12,16)}]}>
               <View style={[styles.quickActionsHeader,{marginHorizontal:quickHeaderInset-quickSectionInset}]}>
-                <Text style={[styles.quickActionsTitle,{color:'#FFFFFF',fontSize:quickTitleSize}]}>Quick Actions</Text>
+                <View style={{ flexDirection:'row', alignItems:'baseline', justifyContent:'space-between' }}>
+                  <Text style={[styles.quickActionsTitle,{color:'#FFFFFF',fontSize:quickTitleSize}]}>Quick Actions</Text>
+                  <TouchableOpacity onPress={() => router.push('./actions' as any)} activeOpacity={0.7}>
+                    <Text style={{ color:'#9D8EC7', fontSize:clamp(width*0.028,10,11), fontWeight:'600' }}>More in Actions tab →</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ color:'#7A6E9A', fontSize:clamp(width*0.03,11,12), marginTop:3 }}>Shortcuts to your most-used features</Text>
               </View>
               <View style={styles.quickActionsGrid}>
                 <View style={styles.quickActionsRow}>
                   {[
-                    {route:'./connect-with-therapist',iconBg:'#FFE7EF',icon:<FontAwesome  name="comment"   size={quickActionGlyphSize} color="#FF6B86"/>,label:'Connect with Therapist'},
-                    {route:'./mood',                  iconBg:'#FFF1E3',icon:<MaterialIcons name="local-cafe" size={quickActionGlyphSize} color="#FF9F6B"/>,label:'Take a Mood Break'},
-                    {route:'./sessions',              iconBg:'#EEE9FF',icon:<FontAwesome  name="calendar"  size={quickActionGlyphSize} color="#8B7BFF"/>,label:'View Sessions'},
+                    {route:'./connect-with-therapist?from=dashboard',iconBg:'#FFE7EF',icon:<FontAwesome  name="comment"   size={quickActionGlyphSize} color="#FF6B86"/>,label:'Connect with Therapist'},
+                    {route:'./mood?from=dashboard',                  iconBg:'#FFF1E3',icon:<MaterialIcons name="local-cafe" size={quickActionGlyphSize} color="#FF9F6B"/>,label:'Take a Mood Break'},
+                    {route:'./sessions?from=dashboard',              iconBg:'#EEE9FF',icon:<FontAwesome  name="calendar"  size={quickActionGlyphSize} color="#8B7BFF"/>,label:'View Sessions'},
                   ].map((item,i) => (
                     <TouchableOpacity key={i} style={[styles.quickActionCard,{minHeight:quickActionCardHeight}]} onPress={() => handleCardPress(item.route)} activeOpacity={0.8}>
                       <LinearGradient colors={CARD_GRADIENT_COLORS} start={{x:0,y:0}} end={{x:1,y:1}} style={[StyleSheet.absoluteFill,{borderRadius:16}]} pointerEvents="none"/>
