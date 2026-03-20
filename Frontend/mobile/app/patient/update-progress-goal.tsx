@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Animated, ScrollView, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated, useWindowDimensions } from 'react-native';
 import StickyHeader from '../components/StickyHeader';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -7,11 +7,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService from '../services/patient.service';
 import eventBus from '../utils/eventBus';
+import TabLoaderCard from '../components/TabLoaderCard';
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 export default function UpdateProgressGoal() {
   const { id } = useLocalSearchParams() as { id?: string };
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [goalId, setGoalId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -21,6 +27,41 @@ export default function UpdateProgressGoal() {
 
   // Scroll for sticky header
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const pageInset = clamp(width * 0.03, 12, 18);
+  const sectionInset = clamp(width * 0.04, 14, 20);
+  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding = clamp(height * 0.02, 14, 22);
+  const headerButtonSize = clamp(width * 0.098, 34, 40);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.047, 16, 20);
+  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.022, 14, 22);
+  const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
+
+  const bubbleLarge = clamp(width * 0.34, 100, 140);
+  const bubbleMedium = clamp(width * 0.29, 90, 120);
+  const bubbleSmall = clamp(width * 0.26, 82, 108);
+  const bubbleShift = clamp(height * 0.06, 28, 50);
+
+  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.032, 22, 30);
+  const contentBottomPadding = clamp(insets.bottom + height * 0.04, 30, 46);
+  const cardPadding = clamp(width * 0.045, 14, 18);
+  const cardRadius = clamp(width * 0.04, 14, 16);
+  const cardGap = clamp(height * 0.018, 12, 16);
+  const sectionTitleSize = clamp(width * 0.039, 14, 16);
+  const summaryTitleSize = clamp(width * 0.043, 15, 17);
+  const bodyTextSize = clamp(width * 0.033, 12, 13);
+  const donutSize = clamp(width * 0.32, 108, 132);
+  const sliderHeight = clamp(height * 0.055, 34, 42);
+  const quickPadY = clamp(height * 0.011, 7, 9);
+  const quickPadX = clamp(width * 0.032, 11, 14);
+  const quickRadius = clamp(width * 0.03, 10, 12);
+  const quickTextSize = clamp(width * 0.033, 12, 13);
+  const footerGap = clamp(width * 0.02, 6, 8);
+  const footerPadY = clamp(height * 0.018, 12, 15);
+  const footerRadius = clamp(width * 0.038, 13, 16);
+  const footerTextSize = clamp(width * 0.038, 14, 16);
 
   // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
@@ -103,12 +144,12 @@ export default function UpdateProgressGoal() {
           Animated.loop(
             Animated.sequence([
               Animated.timing(animatedValueY, {
-                toValue: 50,
+                toValue: bubbleShift,
                 duration: durationY / 2,
                 useNativeDriver: true,
               }),
               Animated.timing(animatedValueY, {
-                toValue: -50,
+                toValue: -bubbleShift,
                 duration: durationY / 2,
                 useNativeDriver: true,
               }),
@@ -123,12 +164,12 @@ export default function UpdateProgressGoal() {
           Animated.loop(
             Animated.sequence([
               Animated.timing(animatedValueX, {
-                toValue: 50,
+                toValue: bubbleShift,
                 duration: durationX / 2,
                 useNativeDriver: true,
               }),
               Animated.timing(animatedValueX, {
-                toValue: -50,
+                toValue: -bubbleShift,
                 duration: durationX / 2,
                 useNativeDriver: true,
               }),
@@ -146,8 +187,7 @@ export default function UpdateProgressGoal() {
     createFloatingAnimation(bubble3Y, bubble3X, 7500, 9500, 1000, 0);
     createFloatingAnimation(bubble4Y, bubble4X, 8500, 9000, 1500, 800);
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 2000, 1500);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y, bubbleShift]);
 
   const submit = async () => {
     if (!goalId) return;
@@ -178,8 +218,8 @@ export default function UpdateProgressGoal() {
             {
               top: '10%',
               left: '-10%',
-              width: 120,
-              height: 120,
+              width: bubbleLarge,
+              height: bubbleLarge,
               transform: [
                 { translateY: bubble1Y },
                 { translateX: bubble1X },
@@ -193,8 +233,8 @@ export default function UpdateProgressGoal() {
             {
               top: '30%',
               right: '-5%',
-              width: 100,
-              height: 100,
+              width: bubbleMedium,
+              height: bubbleMedium,
               transform: [
                 { translateY: bubble2Y },
                 { translateX: bubble2X },
@@ -208,8 +248,8 @@ export default function UpdateProgressGoal() {
             {
               top: '50%',
               left: '-8%',
-              width: 90,
-              height: 90,
+              width: bubbleSmall,
+              height: bubbleSmall,
               transform: [
                 { translateY: bubble3Y },
                 { translateX: bubble3X },
@@ -223,8 +263,8 @@ export default function UpdateProgressGoal() {
             {
               top: '70%',
               right: '-7%',
-              width: 110,
-              height: 110,
+              width: bubbleMedium,
+              height: bubbleMedium,
               transform: [
                 { translateY: bubble4Y },
                 { translateX: bubble4X },
@@ -238,8 +278,8 @@ export default function UpdateProgressGoal() {
             {
               bottom: '5%',
               left: '5%',
-              width: 95,
-              height: 95,
+              width: bubbleSmall,
+              height: bubbleSmall,
               transform: [
                 { translateY: bubble5Y },
                 { translateX: bubble5X },
@@ -257,17 +297,34 @@ export default function UpdateProgressGoal() {
       />
       
       <Animated.View style={[styles.headerContainer, {
+        paddingTop: headerTopPadding,
+        paddingHorizontal: pageInset,
+        paddingBottom: headerBottomPadding,
         opacity: scrollY.interpolate({
           inputRange: [0, 100, 150],
           outputRange: [1, 0.5, 0],
           extrapolate: 'clamp',
         })
       }]}>
-        <TouchableOpacity onPress={() => router.push('/patient/goals')} style={styles.backButton}>
-          <FontAwesome name="chevron-left" size={20} color="#FFFFFF" />
+        <TouchableOpacity
+          onPress={() => router.push('/patient/goals')}
+          style={[
+            styles.backBtnCircle,
+            {
+              left: pageInset,
+              top: headerTopPadding,
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(255,255,255,0.14)',
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
           <Text style={styles.headerWhite}>Update </Text>
           <Text style={styles.headerPurple}>Progress</Text>
         </Text>
@@ -275,7 +332,7 @@ export default function UpdateProgressGoal() {
 
       <Animated.ScrollView 
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: sectionInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -283,39 +340,39 @@ export default function UpdateProgressGoal() {
         )}
         scrollEventThrottle={16}
       >
-        {loading ? <ActivityIndicator size="large" color="#A78BFA" /> : (
+        {loading ? <TabLoaderCard spinnerColor="#A78BFA" fullScreen={false} /> : (
           <>
-            <View style={styles.summaryCard}> 
+            <View style={[styles.summaryCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}> 
               <View style={[styles.summaryAccent, { backgroundColor: '#FF6EA5' }]} />
               <View style={{ flex: 1, paddingTop: 8 }}>
-                <Text style={styles.summaryTitle} numberOfLines={1}>{title}</Text>
-                <Text style={[styles.small, { marginTop: 6 }]} numberOfLines={2}>{description}</Text>
+                <Text style={[styles.summaryTitle, { fontSize: summaryTitleSize }]} numberOfLines={1}>{title}</Text>
+                <Text style={[styles.small, { marginTop: 6, fontSize: bodyTextSize }]} numberOfLines={2}>{description}</Text>
               </View>
-              <FontAwesome name="star-o" size={22} color="#9F8BC9" style={{ marginLeft: 12 }} />
+              <FontAwesome name="star-o" size={clamp(width * 0.06, 20, 24)} color="#9F8BC9" style={{ marginLeft: 12 }} />
             </View>
 
-            <View style={styles.chartCard}> 
-              <Text style={styles.sectionTitleSmall}>Current Progress</Text>
-              <View style={{ alignItems: 'center', marginTop: 12 }}>
-                <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
-                  <Donut percent={Number(progress || 0)} size={120} strokeWidth={12} />
-                    <Text style={{ position: 'absolute', fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>{`${Number(progress || 0)}%`}</Text>
+            <View style={[styles.chartCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}> 
+              <Text style={[styles.sectionTitleSmall, { fontSize: sectionTitleSize }]}>Current Progress</Text>
+              <View style={{ alignItems: 'center', marginTop: clamp(height * 0.016, 10, 12) }}>
+                <View style={{ width: donutSize, height: donutSize, alignItems: 'center', justifyContent: 'center' }}>
+                  <Donut percent={Number(progress || 0)} size={donutSize} strokeWidth={12} />
+                    <Text style={{ position: 'absolute', fontSize: clamp(width * 0.052, 18, 22), fontWeight: '800', color: '#FFFFFF' }}>{`${Number(progress || 0)}%`}</Text>
                 </View>
               </View>
             </View>
 
-            <View style={styles.chartCard}>
-              <Text style={styles.sectionTitleSmall}>New Progress</Text>
-              <View style={{ alignItems: 'center', marginTop: 12 }}>
-                <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
-                    <Donut percent={newProgress} size={120} strokeWidth={12} colors={getProgressColors(newProgress)} />
-                    <Text style={{ position: 'absolute', fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>{`${newProgress}%`}</Text>
+            <View style={[styles.chartCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+              <Text style={[styles.sectionTitleSmall, { fontSize: sectionTitleSize }]}>New Progress</Text>
+              <View style={{ alignItems: 'center', marginTop: clamp(height * 0.016, 10, 12) }}>
+                <View style={{ width: donutSize, height: donutSize, alignItems: 'center', justifyContent: 'center' }}>
+                    <Donut percent={newProgress} size={donutSize} strokeWidth={12} colors={getProgressColors(newProgress)} />
+                    <Text style={{ position: 'absolute', fontSize: clamp(width * 0.052, 18, 22), fontWeight: '800', color: '#FFFFFF' }}>{`${newProgress}%`}</Text>
                 </View>
               </View>
 
-              <View style={{ height: 12 }} />
+              <View style={{ height: clamp(height * 0.014, 8, 12) }} />
               <Slider
-                style={{ width: '100%', height: 40 }}
+                style={{ width: '100%', height: sliderHeight }}
                 minimumValue={0}
                 maximumValue={100}
                 step={1}
@@ -328,29 +385,45 @@ export default function UpdateProgressGoal() {
 
               <View style={styles.quickRow}>
                 {[0,25,50,75,100].map((v) => (
-                  <TouchableOpacity key={v} onPress={() => setNewProgress(v)} style={[styles.quickBtn, newProgress === v && styles.quickBtnActive] }>
-                    <Text style={[styles.quickBtnText, newProgress === v && styles.quickBtnTextActive]}>{v}%</Text>
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setNewProgress(v)}
+                    style={[
+                      styles.quickBtn,
+                      { paddingVertical: quickPadY, paddingHorizontal: quickPadX, borderRadius: quickRadius },
+                      newProgress >= v && styles.quickBtnReached,
+                      newProgress === v && styles.quickBtnActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.quickBtnText,
+                        { fontSize: quickTextSize },
+                        newProgress >= v && styles.quickBtnTextReached,
+                        newProgress === v && styles.quickBtnTextActive,
+                      ]}
+                    >
+                      {v}%
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <View style={styles.messageBox}>
-                <Text style={styles.messageText}>🎉 Great start! Keep it up!</Text>
-              </View>
+            </View>
+
+            <View style={[styles.footerRow, { marginTop: clamp(height * 0.024, 16, 22) }]}> 
+              <TouchableOpacity onPress={() => router.push('/patient/goals')} style={[styles.footerCancel, { marginRight: footerGap, paddingVertical: footerPadY, borderRadius: footerRadius }]}>
+                <Text style={[styles.footerCancelText, { fontSize: footerTextSize }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submit} style={[styles.footerSave, { marginLeft: footerGap }]}> 
+                <View style={[styles.saveBtn, { paddingVertical: footerPadY, borderRadius: footerRadius }]}>
+                  <Text style={[styles.saveText, { fontSize: footerTextSize }]}>Save Changes</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </>
         )}
       </Animated.ScrollView>
-      <View style={styles.footerRow}>
-        <TouchableOpacity onPress={() => router.push('/patient/goals')} style={styles.footerCancel}>
-          <Text style={styles.footerCancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={submit} style={styles.footerSave}>
-          <View style={styles.saveBtn}>
-            <Text style={styles.saveText}>Save Changes</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -370,41 +443,44 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
   },
   headerContainer: {
-    paddingTop: 65,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 900,
+  },
+  backBtnCircle: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 65,
-    padding: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
   },
   headerTitle: {
-    fontSize: 26,
     fontWeight: '800',
+    textAlign: 'center',
   },
   headerWhite: { color: '#FFFFFF' },
   headerPurple: { color: '#B8A8E6' },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  small: { fontSize: 12, color: '#B8A8E6' },
-  sectionTitleSmall: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  scrollContent: { paddingHorizontal: 0, paddingBottom: 0 },
+  small: { color: '#B8A8E6' },
+  sectionTitleSmall: { fontWeight: '800', color: '#FFFFFF' },
   quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-  quickBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#5B5270', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  quickBtn: { backgroundColor: '#5B5270', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  quickBtnReached: { backgroundColor: 'rgba(167, 139, 250, 0.22)', borderColor: 'rgba(167, 139, 250, 0.5)' },
   quickBtnActive: { backgroundColor: '#A78BFA', borderColor: '#A78BFA' },
   quickBtnText: { color: '#B8A8E6', fontWeight: '700' },
+  quickBtnTextReached: { color: '#E5DBFF' },
   quickBtnTextActive: { color: '#fff' },
-  messageBox: { marginTop: 12, padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: 'rgba(167, 139, 250, 0.15)', borderWidth: 1, borderColor: 'rgba(167, 139, 250, 0.2)' },
-  messageText: { color: '#B8A8E6', fontWeight: '700' },
   summaryCard: { 
-    borderRadius: 14, 
-    padding: 14, 
+    borderRadius: 14,
     backgroundColor: '#473F5A', 
-    marginBottom: 14, 
+    marginBottom: 14,
     borderWidth: 1, 
     borderColor: 'rgba(255,255,255,0.1)', 
     flexDirection: 'row', 
@@ -412,23 +488,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden' 
   },
   summaryAccent: { position: 'absolute', left: 0, right: 0, top: 0, height: 6, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
-  summaryTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  summaryTitle: { fontWeight: '800', color: '#FFFFFF' },
   chartCard: { 
-    borderRadius: 14, 
-    padding: 18, 
+    borderRadius: 14,
     backgroundColor: '#473F5A', 
-    marginBottom: 16, 
+    marginBottom: 16,
     borderWidth: 1, 
     borderColor: 'rgba(255,255,255,0.1)' 
   },
-  footerRow: { position: 'absolute', left: 16, right: 16, bottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  footerCancel: { flex: 1, marginRight: 8, alignItems: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: '#5B5270', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  footerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footerCancel: { flex: 1, alignItems: 'center', backgroundColor: '#5B5270', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   footerCancelText: { color: '#FFFFFF', fontWeight: '700' },
-  footerSave: { flex: 1, marginLeft: 8, alignItems: 'center' },
+  footerSave: { flex: 1, alignItems: 'center' },
   saveBtn: { 
     width: '100%',
-    paddingVertical: 12, 
-    borderRadius: 12, 
     alignItems: 'center',
     backgroundColor: '#A78BFA'
   },

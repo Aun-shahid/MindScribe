@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import PatientService from '../services/patient.service';
+import { validateTherapistPinField } from '../utils/validation';
 import { useAuthContext } from '../contexts/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
 import StickyHeader from '../components/StickyHeader';
@@ -178,8 +179,9 @@ export default function ConnectWithTherapist() {
   };
 
   const handleConnect = async () => {
-    if (!therapistPin || therapistPin.trim().length === 0) {
-      Alert.alert('Enter PIN', 'Please enter the therapist PIN or scan the QR code');
+    const pinValidation = validateTherapistPinField(therapistPin);
+    if (!pinValidation.isValid) {
+      Alert.alert('Invalid Code', pinValidation.message || 'Therapist code is invalid.');
       return;
     }
     try {

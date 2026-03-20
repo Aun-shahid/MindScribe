@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService, { JournalAnalytics } from '../services/patient.service';
@@ -20,6 +20,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 export default function JournalAnalyticsScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<JournalAnalytics | null>(null);
@@ -94,7 +95,9 @@ export default function JournalAnalyticsScreen() {
   const stateButtonTextSize = clamp(width * 0.041, 14, 16);
 
   // ── Navigation — always to journal-list ──────────────────────────────────
-  const goBack = () => router.push('/patient/journal-list');
+  const goBack = () => from === 'analytics'
+    ? router.push('/patient/analytics')
+    : router.push('/patient/journal-list');
 
   useEffect(() => {
     const createFloatingAnimation = (

@@ -1,3 +1,33 @@
+// Validate therapist PIN (must be exactly 9 digits)
+export const validateTherapistPinField = (pin: string): ValidationResult => {
+  if (!validateRequired(pin)) {
+    return { isValid: false, message: 'Therapist code is required.' };
+  }
+  const pinRegex = /^\d{9}$/;
+  if (!pinRegex.test(pin.trim())) {
+    return { isValid: false, message: 'Therapist code must be exactly 9 digits.' };
+  }
+  return { isValid: true };
+};
+
+// Generic text field validation (e.g., journal, notes, goals)
+export const validateTextField = (value: string, fieldName: string, minLength = 1): ValidationResult => {
+  if (!validateRequired(value)) {
+    return { isValid: false, message: `${fieldName} is required.` };
+  }
+  if (value.trim().length < minLength) {
+    return { isValid: false, message: `${fieldName} must be at least ${minLength} character${minLength > 1 ? 's' : ''}.` };
+  }
+  return { isValid: true };
+};
+
+// Optional: Notes field validation (allow empty, but limit length)
+export const validateOptionalNotesField = (value: string, maxLength = 1000): ValidationResult => {
+  if (value && value.length > maxLength) {
+    return { isValid: false, message: `Notes cannot exceed ${maxLength} characters.` };
+  }
+  return { isValid: true };
+};
 // app/utils/validation.ts
 
 export const validateEmail = (email: string): boolean => {

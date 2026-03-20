@@ -1,9 +1,0 @@
-1- go to post man 
-2- login 
-3- copy access token
-4- paste it into profile postman
-5- if output shows the user verified
-6- to check refresh copy the refresh from the login
-7-paste it in the refresh from the postman
-8- when refresh done new access token given
-9- copy that access token and paste it into access postman , if user appears everyhting fine 

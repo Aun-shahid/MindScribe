@@ -1,3 +1,0 @@
-1- register a user 
-2- you will get a verification token on the temrinla console of backend
-3-take than token and paste it in verify the email link in frotnend
