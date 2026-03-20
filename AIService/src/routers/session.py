@@ -336,7 +336,6 @@ async def websocket_transcription(
     try:
         # Import services lazily to avoid circular imports
         from ..services.transcription import transcribe_audio_chunk
-        from ..services.emotion import analyze_combined_emotion
         
         chunk_index = 0
         accumulated_audio = b""
@@ -374,11 +373,7 @@ async def websocket_transcription(
                         )
                         
                         if transcription_result and transcription_result.get("text"):
-                            # Analyze emotion
-                            emotion_result = await analyze_combined_emotion(
-                                audio_data=accumulated_audio,
-                                text=transcription_result["text"]
-                            )
+                            # Emotion analysis has been deferred to post-session processing
                             
                             # Create segment
                             segment = TranscriptionSegment(
@@ -389,7 +384,7 @@ async def websocket_transcription(
                                 duration=2.0,
                                 text_urdu=transcription_result.get("text", ""),
                                 text_english=transcription_result.get("text_en", ""),
-                                emotion=emotion_result
+                                emotion=None
                             )
                             
                             # Save segment
@@ -445,3 +440,120 @@ async def websocket_transcription(
         # Clean up connection
         session_manager.connections.pop(session_id, None)
         logger.info(f"WebSocket cleaned up for session {session_id}")
+
+
+# ============================================================================
+# POST-PROCESSING ENDPOINT (Session Finalization)
+# ============================================================================
+
+@router.post("/{session_id}/finalize")
+async def finalize_session(
+    session_id: str,
+    session: AuthenticatedSession = Depends(get_current_session)
+):
+    """
+    Finalize a completed session with post-processing:
+    - Correct speaker labels using GPT-4o
+    - Translate all segments to English
+    
+    The processed segments can then be used to generate SOAP notes
+    via the /soap/{session_id}/generate endpoint.
+    
+    Returns:
+        Status and processing details
+    """
+    validate_session_access(session, session_id)
+    
+    session_data = session_manager.get_session(session_id)
+    if not session_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
+    
+    try:
+        # Import services
+        from ..services.speaker_correction import correct_speakers_with_gpt_async
+        from ..services.transcription import translate_all_segments
+        
+        # Get segments
+        segments = [
+            TranscriptionSegment(**s).model_dump()
+            for s in session_data.get("segments", [])
+        ]
+        
+        if not segments:
+            return {
+                "session_id": session_id,
+                "status": "no_data",
+                "message": "No segments to process"
+            }
+        
+        logger.info(f"Starting finalization for session {session_id} with {len(segments)} segments")
+        
+        # Step 1: Correct speakers with GPT-4o
+        logger.info("Step 1/2: Correcting speaker labels with GPT-4o...")
+        from openai import AsyncOpenAI
+        openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        
+        corrected_segments = await correct_speakers_with_gpt_async(
+            segments,
+            openai_client
+        )
+        
+        changes = sum(
+            1 for i, seg in enumerate(segments)
+            if seg.get('speaker') != corrected_segments[i].get('speaker')
+        )
+        logger.info(f"Speaker correction complete: {changes} labels corrected")
+        
+        # Step 2: Translate all segments
+        logger.info("Step 2/2: Translating segments to English...")
+        
+        # For translation, we need audio path - use session config if available
+        audio_path = session_data.get("config", {}).get("audio_path")
+        if audio_path:
+            translated_segments = await translate_all_segments(
+                audio_path,
+                corrected_segments,
+                emotion_context=True
+            )
+        else:
+            # If no audio path, just use existing text
+            translated_segments = corrected_segments
+            logger.warning("No audio path available for segment extraction during translation")
+        
+        logger.info("Translation complete")
+        
+        # Identify patient speaker
+        speakers = sorted(list({s.get('speaker') for s in translated_segments}))
+        patient_speaker = 'PATIENT' if 'PATIENT' in speakers else (speakers[1] if len(speakers) > 1 else speakers[0] if speakers else 'UNKNOWN')
+        
+        logger.info(f"Identified patient speaker: {patient_speaker}")
+        
+        # Store finalized data
+        session_manager.update_session(
+            session_id,
+            finalized_segments=translated_segments,
+            patient_speaker=patient_speaker,
+            finalization_complete=True,
+            finalized_at=datetime.utcnow()
+        )
+        
+        logger.info(f"Finalization complete for session {session_id}")
+        
+        return {
+            "session_id": session_id,
+            "status": "finalized",
+            "speaker_corrections": changes,
+            "total_segments": len(translated_segments),
+            "patient_speaker": patient_speaker,
+            "message": "Session finalization complete. Use /soap endpoint to generate SOAP notes."
+        }
+        
+    except Exception as e:
+        logger.error(f"Finalization error for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Finalization error: {str(e)}"
+        )

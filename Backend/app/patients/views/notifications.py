@@ -15,6 +15,7 @@ from ..services.notification_categories import (
     apply_notification_category_filter,
     build_therapist_notification_summary,
 )
+from ..services.notification_center import create_notification
 from .permissions import IsPatient, IsTherapist
 
 
@@ -159,6 +160,53 @@ class DevicePushTokenView(APIView):
             {
                 'detail': 'Push token(s) deactivated successfully.',
                 'deactivated_count': deactivated_count,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(tags=['Patient Notifications'])
+class PushDiagnosticsView(APIView):
+    """Send a test push and return push diagnostics for the authenticated patient."""
+
+    permission_classes = [permissions.IsAuthenticated, IsPatient]
+
+    @extend_schema(
+        summary="Send test push notification",
+        description="Triggers a test notification for the current patient and returns token/push delivery diagnostics.",
+        responses={
+            200: OpenApiResponse(
+                description='Push diagnostics',
+                response={
+                    'type': 'object',
+                    'properties': {
+                        'detail': {'type': 'string'},
+                        'active_tokens': {'type': 'integer'},
+                        'push_result': {'type': 'object'},
+                    },
+                },
+            )
+        },
+    )
+    def post(self, request):
+        active_tokens = NotificationDevice.objects.filter(user=request.user, is_active=True).count()
+
+        result = create_notification(
+            recipient=request.user,
+            notification_type='therapist_message',
+            title='MindScribe Push Test',
+            message='If you see this outside the app, push delivery is working.',
+            source_event='push_diagnostics',
+            metadata={'source': 'push_diagnostics'},
+            persist=False,
+            send_realtime=True,
+        )
+
+        return Response(
+            {
+                'detail': 'Push diagnostics completed.',
+                'active_tokens': active_tokens,
+                'push_result': result.get('push', {}),
             },
             status=status.HTTP_200_OK,
         )

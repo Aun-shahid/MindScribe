@@ -574,6 +574,11 @@ class PatientService {
     return response.data;
   }
 
+  async runPushDiagnostics(): Promise<any> {
+    const response = await api.post('/patients/notifications/push-diagnostics/');
+    return response.data;
+  }
+
   async getNotifications(params?: Record<string, any>): Promise<any[]> {
     const response = await api.get<any[]>('/patients/notifications/', { params });
     return response.data;

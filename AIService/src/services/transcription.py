@@ -1,5 +1,5 @@
 """
-Transcription Service - Audio transcription using OpenAI Whisper API.
+Transcription Service - Audio transcription using OpenAI transcription models (gpt-4o-transcribe).
 Handles audio processing and transcription for therapy sessions.
 """
 import asyncio
@@ -63,10 +63,10 @@ async def transcribe_audio_chunk(
             tmp_path = tmp_file.name
         
         try:
-            # Transcribe using Whisper
+            # Transcribe using OpenAI "gpt-4o-transcribe"
             with open(tmp_path, "rb") as audio_file:
                 transcript = await client.audio.transcriptions.create(
-                    model="whisper-1",
+                    model="gpt-4o-transcribe",
                     file=audio_file,
                     language=language,
                     response_format="text"
@@ -164,7 +164,7 @@ async def transcribe_full_audio(
         
         with open(audio_path, "rb") as audio_file:
             transcript = await client.audio.transcriptions.create(
-                model="whisper-1",
+                model="gpt-4o-transcribe",
                 file=audio_file,
                 language=language,
                 response_format="verbose_json",
@@ -191,3 +191,191 @@ async def transcribe_full_audio(
     except Exception as e:
         logger.error(f"Full transcription error: {e}")
         return {"text": "", "segments": [], "error": str(e)}
+
+
+async def quick_transcribe_segment(
+    audio_path: str,
+    start: float,
+    end: float,
+    language: str = "auto"
+) -> tuple:
+    """
+    Quickly transcribe a specific time segment from audio file.
+    Auto-detects language but constrains to English or Urdu only.
+    
+    Args:
+        audio_path: Path to audio file
+        start: Start time in seconds
+        end: End time in seconds
+        language: Language code ("ur", "en", or "auto" for detection)
+        
+    Returns:
+        Tuple of (text, language_name)
+    """
+    try:
+        import asyncio
+        from pydub import AudioSegment
+        
+        # Run in executor to avoid blocking on file I/O
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            _quick_transcribe_segment_sync,
+            audio_path,
+            start,
+            end,
+            language
+        )
+        return result
+        
+    except Exception as e:
+        logger.error(f"Quick transcribe error: {e}")
+        return "", "English"
+
+
+def _quick_transcribe_segment_sync(
+    audio_path: str,
+    start: float,
+    end: float,
+    language: str = "auto"
+) -> tuple:
+    """Synchronous segment transcription helper."""
+    try:
+        from pydub import AudioSegment
+        from openai import OpenAI
+        
+        # Extract segment from audio
+        audio = AudioSegment.from_file(audio_path)
+        start_ms = int(start * 1000)
+        end_ms = int(end * 1000)
+        segment = audio[start_ms:end_ms]
+        
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            segment.export(tmp.name, format="wav")
+            segment_path = tmp.name
+        
+        try:
+            # Initialize sync client
+            client = OpenAI(api_key=settings.openai_api_key)
+            
+            # Auto-detect language if not specified
+            if language == "auto":
+                with open(segment_path, "rb") as audio_file:
+                    detect_response = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="verbose_json"
+                    )
+                
+                detected_lang = detect_response.language if hasattr(detect_response, 'language') else 'en'
+                
+                # Constrain to English or Urdu
+                if detected_lang in ['en', 'english']:
+                    force_lang = 'en'
+                    lang_name = 'English'
+                else:
+                    # Anything else → force to Urdu
+                    force_lang = 'ur'
+                    lang_name = 'Urdu'
+            else:
+                force_lang = language
+                lang_name = 'Urdu' if language == 'ur' else 'English'
+            
+            # Transcribe with forced language
+            with open(segment_path, "rb") as audio_file:
+                response = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language=force_lang,
+                    response_format="text"
+                )
+            
+            text = response.strip() if isinstance(response, str) else response
+            
+            logger.debug(f"Transcribed segment {start:.1f}s-{end:.1f}s as {lang_name}")
+            return text, lang_name
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(segment_path):
+                os.unlink(segment_path)
+                
+    except Exception as e:
+        logger.error(f"Segment transcription sync error: {e}")
+        return "", "English"
+
+
+async def translate_all_segments(
+    audio_path: str,
+    segments: list,
+    emotion_context: bool = True
+) -> list:
+    """
+    Translate all segments from Urdu to English.
+    
+    Args:
+        audio_path: Path to audio file (for extracting segment audio if needed)
+        segments: List of segments with emotion and diarization data
+        emotion_context: Whether to use emotion context in translation
+        
+    Returns:
+        Segments with 'english' and 'urdu' fields added
+    """
+    try:
+        translated_segments = []
+        client = get_openai_client()
+        
+        logger.info(f"Beginning translation of {len(segments)} segments...")
+        
+        for idx, segment in enumerate(segments):
+            try:
+                # Get existing urdu text if available
+                urdu_text = segment.get('urdu', '')
+                
+                # If no urdu text, try to transcribe the segment
+                if not urdu_text:
+                    urdu_text, lang = await quick_transcribe_segment(
+                        audio_path,
+                        segment['start'],
+                        segment['end'],
+                        language='ur'
+                    )
+                    # Store the transcription
+                    segment = dict(segment)
+                    segment['urdu'] = urdu_text
+                    segment['language'] = lang
+                
+                # Translate to English with emotional context
+                emotion = segment.get('primary_emotion') or segment.get('emotion', '')
+                
+                # Convert EmotionLabel enum to string if needed
+                if hasattr(emotion, 'value'):
+                    emotion = emotion.value
+                
+                english_text = await translate_to_english(
+                    urdu_text,
+                    emotional_context=emotion if emotion_context else None
+                )
+                
+                # Add translation to segment
+                translated_segment = dict(segment)
+                translated_segment['english'] = english_text
+                translated_segments.append(translated_segment)
+                
+                logger.debug(f"Translated segment {idx+1}/{len(segments)}")
+                
+            except Exception as e:
+                logger.warning(f"Error translating segment {idx+1}: {e}")
+                # Keep original segment without translation
+                translated_segment = dict(segment)
+                translated_segment['english'] = ''
+                translated_segments.append(translated_segment)
+        
+        logger.info(f"Translation complete for {len(translated_segments)} segments")
+        return translated_segments
+        
+    except Exception as e:
+        logger.error(f"Batch translation error: {e}")
+        # Return segments as-is if translation fails
+        return segments

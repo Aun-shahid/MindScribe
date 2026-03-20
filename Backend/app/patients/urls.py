@@ -30,7 +30,7 @@ from .views import (
     # Notifications
     NotificationPreferenceView, NotificationListView, UnreadNotificationCountView,
     MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView,
-    DevicePushTokenView,
+    DevicePushTokenView, PushDiagnosticsView,
     TherapistNotificationListView, TherapistUnreadNotificationCountView,
     TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
     TherapistDeleteNotificationView, TherapistNotificationSummaryView
@@ -86,6 +86,7 @@ urlpatterns = [
     
     # Notifications
     path('notifications/device-token/', DevicePushTokenView.as_view(), name='notification-device-token'),
+    path('notifications/push-diagnostics/', PushDiagnosticsView.as_view(), name='notification-push-diagnostics'),
     path('notifications/preferences/', NotificationPreferenceView.as_view(), name='notification-preferences'),
     path('notifications/unread-count/', UnreadNotificationCountView.as_view(), name='notification-unread-count'),
     path('notifications/mark-all-read/', MarkAllNotificationsReadView.as_view(), name='notification-mark-all-read'),

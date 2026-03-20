@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = os.environ.get('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send')
 EXPO_ACCESS_TOKEN = os.environ.get('EXPO_ACCESS_TOKEN', '').strip()
+EXPO_ANDROID_CHANNEL_ID = os.environ.get('EXPO_ANDROID_CHANNEL_ID', 'default').strip() or 'default'
 
 
 PREFERENCE_FIELD_BY_TYPE = {
@@ -51,21 +52,13 @@ def _deactivate_token_if_invalid(token_obj, ticket):
         token_obj.save(update_fields=['is_active', 'updated_at'])
 
 
-def _send_single_expo_push(token, title, message, data=None):
-    payload = {
-        'to': token,
-        'title': title,
-        'body': message,
-        'sound': 'default',
-        'data': data or {},
-    }
-
+def _send_expo_request(payload, use_auth=True):
     request = Request(
         EXPO_PUSH_URL,
         data=json.dumps(payload).encode('utf-8'),
         headers={
             'Content-Type': 'application/json',
-            **({'Authorization': f'Bearer {EXPO_ACCESS_TOKEN}'} if EXPO_ACCESS_TOKEN else {}),
+            **({'Authorization': f'Bearer {EXPO_ACCESS_TOKEN}'} if (use_auth and EXPO_ACCESS_TOKEN) else {}),
         },
         method='POST',
     )
@@ -74,6 +67,35 @@ def _send_single_expo_push(token, title, message, data=None):
         raw = response.read().decode('utf-8')
         parsed = json.loads(raw) if raw else {}
         return parsed
+
+
+def _send_single_expo_push(token, title, message, data=None):
+    payload = {
+        'to': token,
+        'title': title,
+        'body': message,
+        'sound': 'default',
+        'priority': 'high',
+        'channelId': EXPO_ANDROID_CHANNEL_ID,
+        'badge': 1,
+        'color': '#FF6B9D',
+        'mutableContent': True,
+        'categoryId': 'notification',
+        'data': data or {},
+    }
+
+    try:
+        return _send_expo_request(payload, use_auth=True)
+    except HTTPError as exc:
+        # Some projects do not enforce access-token auth; retry once without auth
+        # when a stale/wrong EXPO_ACCESS_TOKEN causes 401/403.
+        if EXPO_ACCESS_TOKEN and exc.code in (401, 403):
+            logger.warning(
+                'Expo push auth failed (%s). Retrying once without Authorization header.',
+                exc.code,
+            )
+            return _send_expo_request(payload, use_auth=False)
+        raise
 
 
 def send_push_for_notification(*, recipient, notification_type, title, message, metadata=None):

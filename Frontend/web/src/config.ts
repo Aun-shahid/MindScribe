@@ -16,7 +16,7 @@ const getConfig = (): AppConfig => {
   // Vite exposes env vars through import.meta.env
   // All env vars must start with VITE_ to be accessible
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-  const aiServiceUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8003';
+  const aiServiceUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
   const environment = (import.meta.env.MODE || 'development') as AppConfig['environment'];
 
   // Log configuration in development
