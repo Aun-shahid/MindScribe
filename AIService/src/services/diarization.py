@@ -279,3 +279,88 @@ def merge_consecutive_speaker_turns(
     
     merged.append(current)
     return merged
+
+
+def collapse_speaker_labels(
+    segments: List[Dict],
+    target_n: int
+) -> List[Dict]:
+    """
+    Collapse/merge speaker labels down to target_n labels using an adjacency heuristic.
+    
+    Strategy:
+    - Compute total speaking time per label
+    - While unique_labels > target_n:
+      - Pick the smallest-duration label
+      - Find label that it most frequently appears adjacent to
+      - Reassign all segments with that label to the adjacent label
+    
+    Args:
+        segments: List of diarization segments
+        target_n: Target number of speakers to collapse to
+        
+    Returns:
+        Segments with merged speaker labels
+    """
+    if not segments or target_n <= 0:
+        return segments
+    
+    try:
+        from collections import Counter, defaultdict
+        
+        # Sort by start time
+        segs = sorted(segments, key=lambda s: s['start'])
+        
+        # Compute total time per speaker
+        def compute_totals():
+            total = Counter()
+            for s in segs:
+                total[s['speaker']] += s.get('duration', 0.0)
+            return total
+        
+        # Get unique speakers
+        def get_unique_speakers():
+            return sorted(list({s['speaker'] for s in segs}))
+        
+        # Compute adjacency counts
+        def compute_adjacency():
+            adj = defaultdict(Counter)
+            for a, b in zip(segs, segs[1:]):
+                speaker_a = a['speaker']
+                speaker_b = b['speaker']
+                if speaker_a != speaker_b:
+                    adj[speaker_a][speaker_b] += 1
+                    adj[speaker_b][speaker_a] += 1
+            return adj
+        
+        # Iteratively merge smallest speakers
+        while len(get_unique_speakers()) > target_n:
+            total = compute_totals()
+            adj = compute_adjacency()
+            
+            # Find smallest speaker by total duration
+            if not total:
+                break
+            
+            smallest_speaker, _ = min(total.items(), key=lambda x: x[1])
+            
+            # Find best merge candidate by adjacency
+            candidates = adj.get(smallest_speaker, {})
+            if candidates:
+                target_speaker, _ = candidates.most_common(1)[0]
+            else:
+                # Fallback: merge into largest speaker
+                target_speaker, _ = total.most_common(1)[0]
+            
+            # Reassign all segments with smallest_speaker to target_speaker
+            for seg in segs:
+                if seg['speaker'] == smallest_speaker:
+                    seg['original_speaker'] = smallest_speaker
+                    seg['speaker'] = target_speaker
+        
+        logger.info(f"Collapsed speakers to {len(get_unique_speakers())} labels")
+        return segs
+        
+    except Exception as e:
+        logger.error(f"Error collapsing speaker labels: {e}")
+        return segments
