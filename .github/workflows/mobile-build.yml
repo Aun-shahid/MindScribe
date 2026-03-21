@@ -46,21 +46,27 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/mobile/package-lock.json
 
-      - name: Validate Expo token
+      - name: Detect Expo token
+        id: expo_auth
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "EXPO_TOKEN secret is missing. Add it in GitHub repo secrets."
-            exit 1
+            echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "::warning::EXPO_TOKEN is missing. Skipping mobile build for this run."
+          else
+            echo "has_token=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Install dependencies
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: npm ci
 
       - name: Install EAS CLI
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: npm install -g eas-cli
 
       - name: Resolve build params
         id: params
+        if: steps.expo_auth.outputs.has_token == 'true'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "profile=${{ github.event.inputs.profile }}" >> $GITHUB_OUTPUT
@@ -71,6 +77,7 @@ jobs:
           fi
 
       - name: Trigger EAS build
+        if: steps.expo_auth.outputs.has_token == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -79,3 +86,7 @@ jobs:
             --profile ${{ steps.params.outputs.profile }} \
             --non-interactive \
             --no-wait
+
+      - name: Build skipped (missing token)
+        if: steps.expo_auth.outputs.has_token != 'true'
+        run: echo "Mobile build skipped because EXPO_TOKEN is not configured in repository secrets."

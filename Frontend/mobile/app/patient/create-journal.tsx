@@ -17,11 +17,11 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService from '../services/patient.service';
+import { validateTextField } from '../utils/validation';
 import eventBus from '../utils/eventBus';
 import type { CreateJournalEntryData, JournalPrompt } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
 const getInitialFormData = (): CreateJournalEntryData => ({
@@ -33,7 +33,6 @@ const getInitialFormData = (): CreateJournalEntryData => ({
   entry_date: new Date().toISOString().split('T')[0],
 });
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const MOOD_TAGS = [
   'Happy', 'Grateful', 'Anxious', 'Calm', 'Excited',
   'Sad', 'Hopeful', 'Stressed', 'Peaceful', 'Overwhelmed',
@@ -46,7 +45,6 @@ const MOOD_TAG_COLORS: Record<string, string> = {
   Overwhelmed: '#8E44AD',
 };
 
-// ─── Standard card system ─────────────────────────────────────────────────────
 const C = {
   bg:           '#342949',
   bgMid:        '#2A1F3D',
@@ -71,7 +69,6 @@ const CARD_GRAD: readonly [string, string, string] = [
   'rgba(52,41,73,0.72)',
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function CreateJournal() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -85,7 +82,6 @@ export default function CreateJournal() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY  = useRef(new Animated.Value(0)).current;
 
-  // bubble refs
   const b1y = useRef(new Animated.Value(0)).current;
   const b1x = useRef(new Animated.Value(0)).current;
   const b2y = useRef(new Animated.Value(0)).current;
@@ -97,9 +93,8 @@ export default function CreateJournal() {
   const b5y = useRef(new Animated.Value(0)).current;
   const b5x = useRef(new Animated.Value(0)).current;
 
-  // ── Responsive tokens ──────────────────────────────────────────────────────
   const pi          = clamp(width * 0.048,  16, 24);
-  const si          = clamp(width * 0.04,   14, 20);   // scroll inset
+  const si          = clamp(width * 0.04,   14, 20);
   const hTop        = insets.top + clamp(height * 0.014, 10, 18);
   const hBtnSz      = clamp(width * 0.098,  34, 40);
   const hBtnR       = hBtnSz / 2;
@@ -109,19 +104,16 @@ export default function CreateJournal() {
   const hPadBot     = clamp(height * 0.02,  14, 22);
   const hEst        = hTop + hMTop + hTitleSz + 8 + hPadBot;
 
-  // bubbles
   const bLarge  = clamp(width * 0.74, 220, 320);
   const bMedium = clamp(width * 0.56, 170, 260);
   const bSmall  = clamp(width * 0.34, 110, 160);
 
-  // layout
   const contTopPad  = hEst + clamp(height * 0.034, 22, 34);
   const contBotPad  = clamp(height * 0.05,   30, 46);
   const sGap        = clamp(height * 0.028,  18, 24);
   const cPad        = clamp(width * 0.045,   14, 18);
   const cR          = clamp(width * 0.042,   13, 16);
 
-  // typography
   const cTitleSz    = clamp(width * 0.042,  15, 17);
   const cSubSz      = clamp(width * 0.034,  12, 14);
   const titleInSz   = clamp(width * 0.042,  15, 17);
@@ -152,11 +144,9 @@ export default function CreateJournal() {
   const submitTxtSz = clamp(width * 0.043,   15, 18);
   const submitIconSz= clamp(width * 0.046,   16, 19);
 
-  // ── Bubble animations — restart on every focus ────────────────────────────
   useFocusEffect(
     useCallback(() => {
       [b1y,b1x,b2y,b2x,b3y,b3x,b4y,b4x,b5y,b5x].forEach((v) => v.setValue(0));
-
       const fly = (y: Animated.Value, x: Animated.Value, dY: number, dX: number) => {
         const c = Animated.parallel([
           Animated.loop(Animated.sequence([
@@ -171,7 +161,6 @@ export default function CreateJournal() {
         c.start();
         return c;
       };
-
       const anims = [
         fly(b1y, b1x, 8000,  7000),
         fly(b2y, b2x, 10000, 8000),
@@ -179,12 +168,10 @@ export default function CreateJournal() {
         fly(b4y, b4x, 8500,  7200),
         fly(b5y, b5x, 9500,  8200),
       ];
-
       return () => anims.forEach((a) => a.stop());
     }, [b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y])
   );
 
-  // ── Init on focus ─────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       setFormData(getInitialFormData());
@@ -195,7 +182,6 @@ export default function CreateJournal() {
     }, [fadeAnim])
   );
 
-  // ── Prompt load ───────────────────────────────────────────────────────────
   const loadTodayPrompt = async () => {
     setLoadingPrompt(true);
     try {
@@ -207,7 +193,6 @@ export default function CreateJournal() {
       if (err.response?.status === 404) {
         setPromptError('no_prompts');
       } else {
-        console.error('[CreateJournal] Error loading prompt:', err);
         setPromptError('error');
       }
     } finally {
@@ -215,7 +200,6 @@ export default function CreateJournal() {
     }
   };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   const toggleMoodTag = (tag: string) => {
     setFormData((prev) => {
       const current = prev.mood_tags_list || [];
@@ -229,12 +213,14 @@ export default function CreateJournal() {
   };
 
   const handleSubmit = async (retryCount = 0) => {
-    if (!formData.title.trim()) {
-      Alert.alert('Required Field', 'Please add a title to your journal entry');
+    const titleValidation = validateTextField(formData.title, 'Title', 2);
+    if (!titleValidation.isValid) {
+      Alert.alert('Invalid Title', titleValidation.message || 'Please add a valid title to your journal entry');
       return;
     }
-    if (!formData.content.trim()) {
-      Alert.alert('Required Field', 'Please write some content');
+    const contentValidation = validateTextField(formData.content, 'Content', 5);
+    if (!contentValidation.isValid) {
+      Alert.alert('Invalid Content', contentValidation.message || 'Please write some content');
       return;
     }
     setSubmitting(true);
@@ -246,7 +232,6 @@ export default function CreateJournal() {
         { text: 'OK', onPress: () => router.push('./journal-list') },
       ]);
     } catch (err: any) {
-      console.error('[Journal] Error creating:', err);
       const isNetworkError = !err.response && err.request;
       const isServerError  = err.response?.status >= 500;
       if (isNetworkError && retryCount < 1) {
@@ -255,8 +240,8 @@ export default function CreateJournal() {
         return;
       }
       let msg = 'Failed to save journal entry.';
-      if (isNetworkError)              msg = 'Unable to connect. Please check your connection.';
-      else if (isServerError)          msg = 'Server error. Please try again later.';
+      if (isNetworkError)                   msg = 'Unable to connect. Please check your connection.';
+      else if (isServerError)               msg = 'Server error. Please try again later.';
       else if (err.response?.data?.message) msg = err.response.data.message;
       Alert.alert('Failed to Save', msg, [
         { text: 'Try Again', onPress: () => handleSubmit(0) },
@@ -269,74 +254,37 @@ export default function CreateJournal() {
 
   const wordCount = formData.content.trim().split(/\s+/).filter((w) => w).length;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── back handler — goes to journal-list ──────────────────────────────────
+  const handleBack = () => router.push('./journal-list');
+
   return (
     <View style={[s.container, { backgroundColor: C.bg }]}>
-
-      {/* Background gradient */}
-      <LinearGradient
-        colors={[C.bg, C.bgMid, C.bg]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+      <LinearGradient colors={[C.bg, C.bgMid, C.bg]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
       {/* Ambient glow blobs */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={[s.glow, {
-          width: bLarge * 1.1, height: bLarge * 1.1,
-          top: -bLarge * 0.3, right: -bLarge * 0.3,
-          backgroundColor: 'rgba(167,139,250,0.06)',
-        }]} />
-        <View style={[s.glow, {
-          width: bMedium, height: bMedium,
-          bottom: '18%', left: -bMedium * 0.35,
-          backgroundColor: 'rgba(255,179,107,0.05)',
-        }]} />
+        <View style={[s.glow, { width: bLarge * 1.1, height: bLarge * 1.1, top: -bLarge * 0.3, right: -bLarge * 0.3, backgroundColor: 'rgba(167,139,250,0.06)' }]} />
+        <View style={[s.glow, { width: bMedium, height: bMedium, bottom: '18%', left: -bMedium * 0.35, backgroundColor: 'rgba(255,179,107,0.05)' }]} />
       </View>
 
-      {/* Floating bubbles — odd=warm purple, even=cool light purple */}
+      {/* Floating bubbles */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {/* 1 — odd */}
-        <Animated.View style={[s.bubble, {
-          width: bMedium, height: bMedium,
-          top: '10%', left: '-10%',
-          backgroundColor: 'rgba(167,139,250,0.15)',
-        }, { transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
-        {/* 2 — even */}
-        <Animated.View style={[s.bubble, {
-          width: bLarge, height: bLarge,
-          top: '25%', right: '-15%',
-          backgroundColor: 'rgba(184,168,230,0.18)',
-        }, { transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
-        {/* 3 — odd */}
-        <Animated.View style={[s.bubble, {
-          width: bMedium, height: bMedium,
-          top: '50%', left: '10%',
-          backgroundColor: 'rgba(167,139,250,0.13)',
-        }, { transform: [{ translateY: b3y }, { translateX: b3x }] }]} />
-        {/* 4 — even */}
-        <Animated.View style={[s.bubble, {
-          width: bLarge * 0.78, height: bLarge * 0.78,
-          bottom: '15%', right: '5%',
-          backgroundColor: 'rgba(184,168,230,0.22)',
-        }, { transform: [{ translateY: b4y }, { translateX: b4x }] }]} />
-        {/* 5 — odd */}
-        <Animated.View style={[s.bubble, {
-          width: bSmall, height: bSmall,
-          bottom: '30%', left: '-5%',
-          backgroundColor: 'rgba(167,139,250,0.19)',
-        }, { transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
+        <Animated.View style={[s.bubble, { width: bMedium, height: bMedium, top: '10%', left: '-10%', backgroundColor: 'rgba(167,139,250,0.15)', transform: [{ translateY: b1y }, { translateX: b1x }] }]} />
+        <Animated.View style={[s.bubble, { width: bLarge, height: bLarge, top: '25%', right: '-15%', backgroundColor: 'rgba(184,168,230,0.18)', transform: [{ translateY: b2y }, { translateX: b2x }] }]} />
+        <Animated.View style={[s.bubble, { width: bMedium, height: bMedium, top: '50%', left: '10%', backgroundColor: 'rgba(167,139,250,0.13)', transform: [{ translateY: b3y }, { translateX: b3x }] }]} />
+        <Animated.View style={[s.bubble, { width: bLarge * 0.78, height: bLarge * 0.78, bottom: '15%', right: '5%', backgroundColor: 'rgba(184,168,230,0.22)', transform: [{ translateY: b4y }, { translateX: b4x }] }]} />
+        <Animated.View style={[s.bubble, { width: bSmall, height: bSmall, bottom: '30%', left: '-5%', backgroundColor: 'rgba(167,139,250,0.19)', transform: [{ translateY: b5y }, { translateX: b5x }] }]} />
       </View>
 
-      {/* Sticky header */}
+      {/* Sticky header — back goes to journal-list */}
       <StickyHeader
         scrollY={scrollY}
         firstWord="New"
         secondWord="Journal"
-        onBackPress={() => router.back()}
+        onBackPress={handleBack}
       />
 
-      {/* Fading large header */}
+      {/* Fading large header — no underline gradient, back goes to journal-list */}
       <Animated.View style={[s.headerContainer, {
         paddingTop: hTop,
         paddingHorizontal: pi,
@@ -348,43 +296,25 @@ export default function CreateJournal() {
         }),
       }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={[s.backBtnCircle, { left: pi, top: hTop, width: hBtnSz, height: hBtnSz, borderRadius: hBtnR }]}
         >
           <FontAwesome name="chevron-left" size={hIcon} color={C.white} />
         </TouchableOpacity>
 
-        {/* Centred heading + gradient underline */}
+        {/* Centred heading — no underline gradient */}
         <View style={{ alignItems: 'center', marginTop: hMTop }}>
           <Text style={{ fontSize: hTitleSz, fontWeight: '800', textAlign: 'center' }}>
             <Text style={{ color: C.white }}>New </Text>
             <Text style={{ color: C.purple }}>Journal</Text>
           </Text>
-          <LinearGradient
-            colors={['transparent', C.purple, C.orange, 'transparent']}
-            start={[0, 0]} end={[1, 0]}
-            style={{
-              height: 2,
-              width: clamp(width * 0.3, 96, 130),
-              borderRadius: 2,
-              marginTop: clamp(height * 0.007, 5, 7),
-            }}
-          />
         </View>
       </Animated.View>
 
-      {/* Scrollable form */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: si,
-            paddingTop: contTopPad,
-            paddingBottom: contBotPad,
-          }}
+          contentContainerStyle={{ paddingHorizontal: si, paddingTop: contTopPad, paddingBottom: contBotPad }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
@@ -393,26 +323,20 @@ export default function CreateJournal() {
         >
           <Animated.View style={{ opacity: fadeAnim }}>
 
-            {/* ══════════════════════════════════════════════
-                TODAY'S PROMPT
-            ══════════════════════════════════════════════ */}
+            {/* ── Today's Prompt ── */}
             {loadingPrompt ? (
               <View style={[s.card, {
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                 gap: 12, padding: promptCPad, borderRadius: promptR,
-                backgroundColor: C.surface, borderColor: C.border,
-                marginBottom: sGap,
+                backgroundColor: C.surface, borderColor: C.border, marginBottom: sGap,
               }]}>
                 <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                   style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
                 <ActivityIndicator size="small" color={C.purple} />
-                <Text style={{ color: C.textFaint, fontSize: cSubSz }}>
-                  Loading today's prompt…
-                </Text>
+                <Text style={{ color: C.textFaint, fontSize: cSubSz }}>Loading today's prompt…</Text>
               </View>
             ) : todayPrompt ? (
               <View style={{ marginBottom: sGap }}>
-                {/* Category badge */}
                 <View style={{ marginBottom: clamp(height * 0.015, 10, 12) }}>
                   <View style={{
                     alignSelf: 'flex-start',
@@ -426,25 +350,12 @@ export default function CreateJournal() {
                     </Text>
                   </View>
                 </View>
-
-                {/* Prompt card */}
-                <View style={[s.card, {
-                  padding: promptCPad, borderRadius: promptR,
-                  backgroundColor: C.surface, borderColor: C.border,
-                  overflow: 'hidden',
-                }]}>
+                <View style={[s.card, { padding: promptCPad, borderRadius: promptR, backgroundColor: C.surface, borderColor: C.border, overflow: 'hidden' }]}>
                   <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                     style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
-                  {/* Purple accent strip */}
-                  <View style={{
-                    position: 'absolute', top: 0, left: 0, right: 0,
-                    height: 3, backgroundColor: C.purple,
-                    borderTopLeftRadius: promptR, borderTopRightRadius: promptR,
-                  }} />
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: C.purple, borderTopLeftRadius: promptR, borderTopRightRadius: promptR }} />
                   <View style={{ marginTop: clamp(height * 0.01, 6, 10) }}>
-                    <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>
-                      💭
-                    </Text>
+                    <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>💭</Text>
                     <Text style={{ color: C.white, fontSize: promptTSz, fontWeight: '700', lineHeight: Math.round(promptTSz * 1.45), textAlign: 'center', marginBottom: 8 }}>
                       {todayPrompt.prompt}
                     </Text>
@@ -457,11 +368,7 @@ export default function CreateJournal() {
                 </View>
               </View>
             ) : promptError === 'error' ? (
-              <View style={[s.card, {
-                padding: promptCPad, borderRadius: promptR,
-                backgroundColor: C.surfaceMuted, borderColor: C.border,
-                marginBottom: sGap, overflow: 'hidden',
-              }]}>
+              <View style={[s.card, { padding: promptCPad, borderRadius: promptR, backgroundColor: C.surfaceMuted, borderColor: C.border, marginBottom: sGap, overflow: 'hidden' }]}>
                 <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                   style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
                 <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>📝</Text>
@@ -471,21 +378,12 @@ export default function CreateJournal() {
               </View>
             ) : null}
 
-            {/* ══════════════════════════════════════════════
-                TITLE CARD
-            ══════════════════════════════════════════════ */}
-            <View style={[s.card, {
-              padding: 0, overflow: 'hidden',
-              borderRadius: cR, backgroundColor: C.surface,
-              borderColor: C.border, marginBottom: sGap,
-            }]}>
+            {/* ── Title Card ── */}
+            <View style={[s.card, { padding: 0, overflow: 'hidden', borderRadius: cR, backgroundColor: C.surface, borderColor: C.border, marginBottom: sGap }]}>
               <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                 style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
-              {/* Purple accent strip */}
               <View style={{ height: 3, backgroundColor: C.purple, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
-
               <View style={{ padding: cPad }}>
-                {/* Header row */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: clamp(height * 0.018, 12, 16) }}>
                   <LinearGradient
                     colors={[`${C.purple}30`, `${C.purple}10`]}
@@ -494,16 +392,10 @@ export default function CreateJournal() {
                     <FontAwesome name="pencil" size={iconSz} color="#C4B0FF" />
                   </LinearGradient>
                   <View>
-                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.5 }}>
-                      Entry Title
-                    </Text>
-                    <Text style={{ color: C.textMuted, fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 1.2, marginTop: 1 }}>
-                      REQUIRED
-                    </Text>
+                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.5 }}>Entry Title</Text>
+                    <Text style={{ color: C.textMuted, fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 1.2, marginTop: 1 }}>REQUIRED</Text>
                   </View>
                 </View>
-
-                {/* Underline input */}
                 <View style={{ borderBottomWidth: 1.5, borderBottomColor: `${C.purple}70`, paddingBottom: 4 }}>
                   <TextInput
                     style={{
@@ -522,21 +414,12 @@ export default function CreateJournal() {
               </View>
             </View>
 
-            {/* ══════════════════════════════════════════════
-                CONTENT CARD
-            ══════════════════════════════════════════════ */}
-            <View style={[s.card, {
-              padding: 0, overflow: 'hidden',
-              borderRadius: cR, backgroundColor: C.surface,
-              borderColor: C.border, marginBottom: sGap,
-            }]}>
+            {/* ── Content Card ── */}
+            <View style={[s.card, { padding: 0, overflow: 'hidden', borderRadius: cR, backgroundColor: C.surface, borderColor: C.border, marginBottom: sGap }]}>
               <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                 style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
-              {/* Orange accent strip */}
               <View style={{ height: 3, backgroundColor: C.orange, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
-
               <View style={{ padding: cPad }}>
-                {/* Header row */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: clamp(height * 0.014, 10, 14) }}>
                   <LinearGradient
                     colors={[`${C.orange}30`, `${C.orange}10`]}
@@ -545,19 +428,11 @@ export default function CreateJournal() {
                     <FontAwesome name="edit" size={iconSz} color={C.orange} />
                   </LinearGradient>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>
-                      What's on your mind?
-                    </Text>
-                    <Text style={{ color: '#C9A97E', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 0.8, marginTop: 1 }}>
-                      Write freely — no rules here
-                    </Text>
+                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>What's on your mind?</Text>
+                    <Text style={{ color: '#C9A97E', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 0.8, marginTop: 1 }}>Write freely — no rules here</Text>
                   </View>
                 </View>
-
-                {/* Separator */}
                 <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
-
-                {/* Text area */}
                 <TextInput
                   style={{
                     backgroundColor: 'transparent', color: C.white,
@@ -574,38 +449,18 @@ export default function CreateJournal() {
                   numberOfLines={12}
                   textAlignVertical="top"
                 />
-
-                {/* Word count footer */}
-                <View style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 6,
-                  marginTop: 8, paddingTop: 8,
-                  borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
-                }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' }}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange, opacity: 0.7 }} />
-                  <Text style={{ color: C.textMuted, fontSize: wordCntSz, fontStyle: 'italic' }}>
-                    {wordCount} words
-                  </Text>
+                  <Text style={{ color: C.textMuted, fontSize: wordCntSz, fontStyle: 'italic' }}>{wordCount} words</Text>
                 </View>
               </View>
             </View>
 
-            {/* ══════════════════════════════════════════════
-                TAGS CARD
-            ══════════════════════════════════════════════ */}
-            <View style={[s.card, {
-              padding: cPad, overflow: 'hidden',
-              borderRadius: cR, backgroundColor: C.surface,
-              borderColor: C.border, marginBottom: sGap,
-            }]}>
+            {/* ── Tags Card ── */}
+            <View style={[s.card, { padding: cPad, overflow: 'hidden', borderRadius: cR, backgroundColor: C.surface, borderColor: C.border, marginBottom: sGap }]}>
               <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                 style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
-              {/* Accent strip — absolute */}
-              <View style={{
-                position: 'absolute', top: 0, left: 0, right: 0,
-                height: 3, backgroundColor: C.purple,
-                borderTopLeftRadius: cR, borderTopRightRadius: cR,
-              }} />
-
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: C.purple, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
               <View style={{ marginTop: clamp(height * 0.008, 4, 8) }}>
                 <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '700', marginBottom: clamp(height * 0.008, 5, 7) }}>
                   🎨 Tags{' '}
@@ -629,9 +484,7 @@ export default function CreateJournal() {
                           backgroundColor: isSelected ? tagColor : `${tagColor}24`,
                         }}
                       >
-                        <Text style={{ color: C.white, fontSize: pillTxtSz, fontWeight: '600' }}>
-                          {tag}
-                        </Text>
+                        <Text style={{ color: C.white, fontSize: pillTxtSz, fontWeight: '600' }}>{tag}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -639,29 +492,13 @@ export default function CreateJournal() {
               </View>
             </View>
 
-            {/* ══════════════════════════════════════════════
-                FAVOURITE TOGGLE CARD
-            ══════════════════════════════════════════════ */}
-            <View style={[s.card, {
-              padding: cPad, overflow: 'hidden',
-              borderRadius: cR, backgroundColor: C.surface,
-              borderColor: C.border, marginBottom: sGap,
-            }]}>
+            {/* ── Favourite Toggle Card ── */}
+            <View style={[s.card, { padding: cPad, overflow: 'hidden', borderRadius: cR, backgroundColor: C.surface, borderColor: C.border, marginBottom: sGap }]}>
               <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                 style={[StyleSheet.absoluteFill, { borderRadius: cR, zIndex: -1 }]} pointerEvents="none" />
-              <View style={{
-                position: 'absolute', top: 0, left: 0, right: 0,
-                height: 3, backgroundColor: C.orange,
-                borderTopLeftRadius: cR, borderTopRightRadius: cR,
-              }} />
-
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: C.orange, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
               <TouchableOpacity
-                style={{
-                  flexDirection: 'row', alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: clamp(height * 0.016, 10, 14),
-                  marginTop: clamp(height * 0.008, 4, 8),
-                }}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: clamp(height * 0.016, 10, 14), marginTop: clamp(height * 0.008, 4, 8) }}
                 onPress={() => setFormData((prev) => ({ ...prev, is_favorite: !prev.is_favorite }))}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -676,16 +513,10 @@ export default function CreateJournal() {
                     <Text style={{ fontSize: clamp(width * 0.048, 16, 20) }}>⭐</Text>
                   </View>
                   <View>
-                    <Text style={{ color: C.white, fontSize: swLblSz, fontWeight: '700' }}>
-                      Mark as Favourite
-                    </Text>
-                    <Text style={{ color: '#CEC2EE', fontSize: swSubSz, marginTop: 2 }}>
-                      Pin this journal for quick access
-                    </Text>
+                    <Text style={{ color: C.white, fontSize: swLblSz, fontWeight: '700' }}>Mark as Favourite</Text>
+                    <Text style={{ color: '#CEC2EE', fontSize: swSubSz, marginTop: 2 }}>Pin this journal for quick access</Text>
                   </View>
                 </View>
-
-                {/* Toggle */}
                 <View style={{
                   width: swW, height: swH, borderRadius: swR, padding: 2,
                   borderWidth: 1,
@@ -703,29 +534,17 @@ export default function CreateJournal() {
               </TouchableOpacity>
             </View>
 
-            {/* ══════════════════════════════════════════════
-                SAVE BUTTON
-            ══════════════════════════════════════════════ */}
+            {/* ── Save Button ── */}
             <TouchableOpacity
               onPress={() => handleSubmit(0)}
               disabled={submitting}
               activeOpacity={0.9}
-              style={[{
-                borderRadius: submitR, overflow: 'hidden',
-                marginTop: clamp(height * 0.02, 12, 18),
-                opacity: submitting ? 0.6 : 1,
-              }]}
+              style={[{ borderRadius: submitR, overflow: 'hidden', marginTop: clamp(height * 0.02, 12, 18), opacity: submitting ? 0.6 : 1 }]}
             >
               <LinearGradient
                 colors={['#8B5CF6', '#A78BFA']}
                 start={[0, 0]} end={[1, 1]}
-                style={{
-                  width: '100%',
-                  minHeight: clamp(height * 0.064, 48, 56),
-                  borderRadius: submitR,
-                  alignItems: 'center', justifyContent: 'center',
-                  paddingVertical: submitPadY,
-                }}
+                style={{ width: '100%', minHeight: clamp(height * 0.064, 48, 56), borderRadius: submitR, alignItems: 'center', justifyContent: 'center', paddingVertical: submitPadY }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: clamp(width * 0.024, 8, 10) }}>
                   <FontAwesome name={submitting ? 'spinner' : 'save'} size={submitIconSz} color={C.white} />
@@ -743,15 +562,11 @@ export default function CreateJournal() {
   );
 }
 
-// ─── StyleSheet ───────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   container: { flex: 1 },
   glow:      { position: 'absolute', borderRadius: 9999 },
   bubble:    { position: 'absolute', borderRadius: 9999 },
-
-  headerContainer: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900,
-  },
+  headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
   backBtnCircle: {
     position: 'absolute',
     alignItems: 'center', justifyContent: 'center',
@@ -760,7 +575,6 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.03,
     shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 1,
   },
-
   card: {
     elevation: 7,
     shadowColor: '#120A24',
@@ -769,7 +583,5 @@ const s = StyleSheet.create({
     shadowRadius: 18,
     borderWidth: 1,
   },
-  iconBadge: {
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
-  },
+  iconBadge: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 });

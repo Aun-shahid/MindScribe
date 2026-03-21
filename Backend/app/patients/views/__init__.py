@@ -26,7 +26,7 @@ from .activities import ActivityLogListCreateView, ActivityLogDetailView, Activi
 from .notifications import (
     NotificationPreferenceView, NotificationListView, UnreadNotificationCountView,
     MarkNotificationReadView, MarkAllNotificationsReadView, DeleteNotificationView,
-    DevicePushTokenView,
+    DevicePushTokenView, PushDiagnosticsView,
     TherapistNotificationListView, TherapistUnreadNotificationCountView,
     TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
     TherapistDeleteNotificationView, TherapistNotificationSummaryView
@@ -77,6 +77,7 @@ __all__ = [
     'MarkAllNotificationsReadView',
     'DeleteNotificationView',
     'DevicePushTokenView',
+    'PushDiagnosticsView',
     'TherapistNotificationListView',
     'TherapistUnreadNotificationCountView',
     'TherapistMarkNotificationReadView',

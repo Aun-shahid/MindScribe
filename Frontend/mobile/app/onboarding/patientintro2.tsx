@@ -38,7 +38,7 @@ export default function PatientIntro2() {
           }
         },
       }),
-    [router]
+    [router],
   );
 
   const emojis = [
@@ -78,7 +78,7 @@ export default function PatientIntro2() {
         />
       </View>
 
-      {/* Bottom half — straight top edge */}
+      {/* Bottom half */}
       <View
         style={[
           styles.bottomContainer,
@@ -107,11 +107,7 @@ export default function PatientIntro2() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#d8c9ea',
-  },
-
+  container: { flex: 1, backgroundColor: '#d8c9ea' },
   heroSection: {
     width: '100%',
     alignItems: 'center',
@@ -119,11 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d8c9ea',
     overflow: 'hidden',
   },
-
-  groupImage: {
-    zIndex: 2,
-  },
-
+  groupImage: { zIndex: 2 },
   bottomContainer: {
     width: '100%',
     alignItems: 'center',
@@ -131,37 +123,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#342949',
     paddingHorizontal: 22,
   },
-
-  description: {
-    textAlign: 'center',
-    fontWeight: '800',
-    paddingHorizontal: 14,
-    color: '#FFFFFF',
-  },
-
-  textAccent: {
-    color: '#4ec0c7',
-  },
-
-  progressContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-
-  dot: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-
-  dotActive: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-
-  swipeHint: {
-    color: 'rgba(255,255,255,0.72)',
-    letterSpacing: 0.3,
-  },
+  description: { textAlign: 'center', fontWeight: '800', paddingHorizontal: 14, color: '#FFFFFF' },
+  textAccent: { color: '#4ec0c7' },
+  progressContainer: { flexDirection: 'row', gap: 8 },
+  dot: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+  dotActive: { height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
+  swipeHint: { color: 'rgba(255,255,255,0.72)', letterSpacing: 0.3 },
 });

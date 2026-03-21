@@ -20,10 +20,31 @@ const isLoopbackOrEmulatorUrl = (url: string): boolean => {
     );
 };
 
-const getDefaultBackendUrl = (): string => {
-    if (__DEV__) {
-        return Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+const isPrivateNetworkUrl = (url: string): boolean => {
+    try {
+        const parsed = new URL(url);
+        const host = (parsed.hostname || '').toLowerCase();
+
+        if (!host) return false;
+
+        if (host === 'localhost' || host.endsWith('.local')) return true;
+
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+            const parts = host.split('.').map((n) => Number(n));
+            const [a, b] = parts;
+            if (a === 10 || a === 127) return true;
+            if (a === 192 && b === 168) return true;
+            if (a === 172 && b >= 16 && b <= 31) return true;
+        }
+
+        return false;
+    } catch {
+        return false;
     }
+};
+
+const getDefaultBackendUrl = (): string => {
+    // Always return production URL since backend is deployed
     return PRODUCTION_BACKEND_URL;
 };
 
@@ -34,11 +55,9 @@ const getResolvedBackendUrl = (): string => {
         return getDefaultBackendUrl();
     }
 
-    if (__DEV__) {
-        return configured;
-    }
-
-    return isLoopbackOrEmulatorUrl(configured) ? PRODUCTION_BACKEND_URL : configured;
+    return (isLoopbackOrEmulatorUrl(configured) || isPrivateNetworkUrl(configured))
+        ? PRODUCTION_BACKEND_URL
+        : configured;
 };
 
 export const BASE_URL = getResolvedBackendUrl();

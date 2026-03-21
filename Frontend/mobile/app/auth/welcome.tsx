@@ -1,5 +1,3 @@
-
-
 import {
   View,
   Text,
@@ -13,6 +11,8 @@ import { router } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const ONBOARDING_KEY = 'has_completed_onboarding';
+
 export default function Welcome() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -23,22 +23,25 @@ export default function Welcome() {
   const titleSize = width < 380 ? 32 : 38;
   const bottomSafeGap = Math.max(insets.bottom + 42, 54);
 
+  const handleGetStarted = async () => {
+    await AsyncStorage.setItem('selected_role', 'patient');
+    const done = await AsyncStorage.getItem(ONBOARDING_KEY);
+    if (done === 'true') {
+      // Already seen the intro slides — go straight to login
+      router.push('../auth/login');
+    } else {
+      // First time — show the intro slides
+      router.push('../onboarding/patientintro1');
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 28, paddingBottom: bottomSafeGap }]}>
       <View style={styles.header}>
-        {/* <Image
-          source={require('../../assets/images/brain.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        /> */}
-     <FontAwesome5
-  name="brain"
-  size={45}
-  color="#FFFFFF"
-  style={{ marginTop: 17 }}
-/>
+        <FontAwesome5 name="brain" size={45} color="#FFFFFF" style={{ marginTop: 17 }} />
         <Text style={[styles.title, { fontSize: titleSize }]}>
-          <Text style={{ color: '#FFFFFF' }}>Mind</Text><Text style={{ color: '#B8A8E6' }}>Scribe</Text>
+          <Text style={{ color: '#FFFFFF' }}>Mind</Text>
+          <Text style={{ color: '#B8A8E6' }}>Scribe</Text>
         </Text>
       </View>
 
@@ -50,14 +53,9 @@ export default function Welcome() {
 
       <TouchableOpacity
         style={[styles.btn, { width: buttonWidth, paddingVertical: buttonVerticalPadding }]}
-        onPress={async () => {
-          await AsyncStorage.setItem('selected_role', 'patient');
-          router.push('../onboarding/patientintro1');
-        }}
+        onPress={handleGetStarted}
       >
-        <Text style={[styles.btnLabel, { fontSize: buttonTextSize }]}> 
-          Get Started
-        </Text>
+        <Text style={[styles.btnLabel, { fontSize: buttonTextSize }]}>Get Started</Text>
       </TouchableOpacity>
     </View>
   );
@@ -76,11 +74,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
-  logo: {
-    width: 52,
-    height: 52,
-    marginTop: 10,
-  },
   title: {
     fontWeight: '800',
     marginTop: 10,
@@ -96,8 +89,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
   },
-
-
   btn: {
     borderRadius: 50,
     paddingVertical: 12,
@@ -115,5 +106,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
-

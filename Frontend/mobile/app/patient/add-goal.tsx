@@ -1,15 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, Animated } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, Animated, useWindowDimensions } from 'react-native';
 import Slider from '@react-native-community/slider';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService, { CreatePatientGoalData } from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import StickyHeader from '../components/StickyHeader';
-import OriginalHeader from '../components/OriginalHeader';
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 export default function AddGoalPage() {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low'|'medium'|'high'>('medium');
@@ -33,6 +40,43 @@ export default function AddGoalPage() {
 
   // Scroll animation for sticky header
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const pageInset = clamp(width * 0.03, 12, 18);
+  const headerBackOffset = clamp(width * 0.018, 6, 8);
+  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding = clamp(height * 0.02, 14, 22);
+  const headerButtonSize = clamp(width * 0.098, 34, 40);
+  const headerButtonRadius = headerButtonSize / 2;
+  const headerIconSize = clamp(width * 0.047, 16, 20);
+  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const headerTitleMarginTop = clamp(height * 0.022, 14, 22);
+  const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
+  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.03, 20, 30);
+  const cardPadding = clamp(width * 0.045, 14, 18);
+  const cardRadius = clamp(width * 0.042, 13, 16);
+  const cardTitleSize = clamp(width * 0.042, 15, 17);
+  const cardMetaSize = clamp(width * 0.029, 10, 11);
+  const cardSurface = '#3F3752';
+  const cardBorder = 'rgba(255,255,255,0.16)';
+  const iconBadgeSize = clamp(width * 0.076, 26, 32);
+  const iconSize = clamp(width * 0.032, 11, 13);
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setDescription('');
+    setPriority('medium');
+    setTargetDate('');
+    setDateObj(null);
+    setShowDatePicker(false);
+    setProgress('0');
+    setLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetForm();
+    }, [resetForm])
+  );
 
   const submit = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Title is required');
@@ -140,7 +184,10 @@ export default function AddGoalPage() {
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
     const current = selectedDate || dateObj;
-    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event?.type === 'dismissed') return;
+    }
     if (current) {
       setDateObj(current);
       const dd = String(current.getDate()).padStart(2, '0');
@@ -242,9 +289,48 @@ export default function AddGoalPage() {
         onBackPress={() => router.push('/patient/goals')}
       />
 
+      <Animated.View
+        style={[
+          styles.headerContainer,
+          {
+            paddingTop: headerTopPadding,
+            paddingHorizontal: pageInset,
+            paddingBottom: headerBottomPadding,
+            opacity: scrollY.interpolate({
+              inputRange: [0, 100, 150],
+              outputRange: [1, 0.5, 0],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.push('/patient/goals')}
+          style={[
+            styles.backBtnCircle,
+            {
+              left: pageInset + headerBackOffset,
+              top: headerTopPadding,
+              width: headerButtonSize,
+              height: headerButtonSize,
+              borderRadius: headerButtonRadius,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(255,255,255,0.14)',
+            },
+          ]}
+        >
+          <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize, marginTop: headerTitleMarginTop }]}>
+          <Text style={styles.headerWhite}>Add </Text>
+          <Text style={styles.headerPurple}>Goal</Text>
+        </Text>
+      </Animated.View>
+
       <Animated.ScrollView 
         style={styles.scroll} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: contentTopPadding }]}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -252,89 +338,147 @@ export default function AddGoalPage() {
         )}
         scrollEventThrottle={16}
       >
-        {/* Original Header */}
-        <OriginalHeader
-          scrollY={scrollY}
-          firstWord="Add"
-          secondWord="Goal"
-          onBackPress={() => router.push('/patient/goals')}
-        />
-
-        <View style={styles.card}>
-          <View style={[styles.accent, { backgroundColor: '#FF6EA5' }]} />
-          <Text style={styles.cardLabel}>Goal Title</Text>
-          <TextInput 
-            value={title} 
-            onChangeText={setTitle} 
-            placeholder="E.g., Daily Meditation Practice" 
-            placeholderTextColor="#B8A8E6" 
-            style={styles.inputCard} 
-          />
-        </View>
-
-        <View style={styles.card}>
-          <View style={[styles.accent, { backgroundColor: '#06b6d4' }]} />
-          <Text style={styles.cardLabel}>Description</Text>
-          <TextInput 
-            value={description} 
-            onChangeText={setDescription} 
-            placeholder="Describe your goal and why it matters to you..." 
-            placeholderTextColor="#B8A8E6" 
-            style={[styles.inputCard, { height: 100 }]} 
-            multiline 
-          />
-        </View>
-
-        <View style={styles.card}>
-          <View style={[styles.accent, { backgroundColor: '#8b5cf6' }]} />
-          <Text style={styles.cardLabel}>Target Date</Text>
-          <TouchableOpacity 
-            onPress={() => setShowDatePicker(true)} 
-            activeOpacity={0.8} 
-            style={[styles.inputCard, { justifyContent: 'center' }]}
-          >
-            <Text style={{ color: targetDate ? '#FFFFFF' : '#B8A8E6' }}>
-              {targetDate || 'dd/mm/yyyy'}
-            </Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={dateObj || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-              onChange={onChangeDate}
-            />
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <View style={[styles.accent, { backgroundColor: '#ff9f6b' }]} />
-          <Text style={styles.cardLabel}>Initial Progress</Text>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressPercent}>{progress || '0'}%</Text>
+        <View style={[styles.card, { borderRadius: cardRadius, backgroundColor: cardSurface, borderColor: cardBorder }]}>
+          <View style={[styles.topAccent, { backgroundColor: '#A78BFA' }]} />
+          <View style={{ padding: cardPadding }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { width: iconBadgeSize, height: iconBadgeSize, borderRadius: iconBadgeSize / 2, backgroundColor: 'rgba(167,139,250,0.18)', borderColor: 'rgba(167,139,250,0.45)' }]}>
+                <FontAwesome name="pencil" size={iconSize} color="#C4B0FF" />
+              </View>
+              <View>
+                <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Goal Title</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>REQUIRED</Text>
+              </View>
+            </View>
+            <View style={styles.underlineInputWrap}>
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="E.g., Daily Meditation Practice"
+                placeholderTextColor="rgba(184,168,230,0.45)"
+                style={styles.titleInput}
+              />
+            </View>
           </View>
-          <Slider
-            style={{ width: '100%', height: 40 }}
-            minimumValue={0}
-            maximumValue={100}
-            step={1}
-            value={Number(progress)}
-            minimumTrackTintColor="#FF6EA5"
-            maximumTrackTintColor="#E5E7EB"
-            thumbTintColor="#FF6EA5"
-            onValueChange={(v) => setProgress(String(Math.round(v)))}
-          />
         </View>
 
-        <View style={styles.card}>
-          <View style={[styles.accent, { backgroundColor: '#FF6EA5' }]} />
-          <Text style={styles.cardLabel}>Priority Level</Text>
-          <View style={styles.priorityRow}>
-            {(['low','medium','high'] as const).map((p) => (
-              <TouchableOpacity key={p} onPress={() => setPriority(p)} style={[styles.priorityPill, priority === p && styles.priorityPillActive]}>
-                <Text style={[styles.priorityText, priority === p && styles.priorityTextActive]}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
-              </TouchableOpacity>
-            ))}
+        <View style={[styles.card, { borderRadius: cardRadius, backgroundColor: cardSurface, borderColor: cardBorder }]}>
+          <View style={[styles.topAccent, { backgroundColor: '#FFB36B' }]} />
+          <View style={{ padding: cardPadding }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { width: iconBadgeSize, height: iconBadgeSize, borderRadius: iconBadgeSize / 2, backgroundColor: 'rgba(255,179,107,0.15)', borderColor: 'rgba(255,179,107,0.4)' }]}>
+                <FontAwesome name="edit" size={iconSize} color="#FFB36B" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Description</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize, color: '#C9A97E' }]}>Explain your goal clearly</Text>
+              </View>
+            </View>
+            <View style={styles.cardSeparator} />
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe your goal and why it matters to you..."
+              placeholderTextColor="rgba(184,168,230,0.45)"
+              style={styles.contentInput}
+              multiline
+            />
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderRadius: cardRadius, backgroundColor: cardSurface, borderColor: cardBorder }]}>
+          <View style={[styles.topAccent, { backgroundColor: '#8B5CF6' }]} />
+          <View style={{ padding: cardPadding }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { width: iconBadgeSize, height: iconBadgeSize, borderRadius: iconBadgeSize / 2, backgroundColor: 'rgba(139,92,246,0.18)', borderColor: 'rgba(139,92,246,0.45)' }]}>
+                <FontAwesome name="calendar" size={iconSize} color="#C4B0FF" />
+              </View>
+              <View>
+                <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Target Date</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>Optional deadline</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.8}
+              style={styles.dateTrigger}
+            >
+              <Text style={{ color: targetDate ? '#FFFFFF' : 'rgba(184,168,230,0.75)', fontWeight: '600' }}>
+                {targetDate || 'dd/mm/yyyy'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <View style={styles.datePickerWrap}>
+                <DateTimePicker
+                  value={dateObj || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                  onChange={onChangeDate}
+                />
+                {Platform.OS === 'ios' && (
+                  <View style={styles.dateActionsRow}>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.dateActionBtn}>
+                      <Text style={styles.dateActionText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)} style={[styles.dateActionBtn, styles.dateActionBtnPrimary]}>
+                      <Text style={[styles.dateActionText, styles.dateActionTextPrimary]}>Done ✓</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderRadius: cardRadius, backgroundColor: cardSurface, borderColor: cardBorder }]}>
+          <View style={[styles.topAccent, { backgroundColor: '#FF9F6B' }]} />
+          <View style={{ padding: cardPadding }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { width: iconBadgeSize, height: iconBadgeSize, borderRadius: iconBadgeSize / 2, backgroundColor: 'rgba(255,159,107,0.16)', borderColor: 'rgba(255,159,107,0.42)' }]}>
+                <FontAwesome name="line-chart" size={iconSize} color="#FFB36B" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Initial Progress</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>Set your starting point</Text>
+              </View>
+              <View style={styles.progressPercentPill}>
+                <Text style={styles.progressPercent}>{progress || '0'}%</Text>
+              </View>
+            </View>
+            <View style={styles.cardSeparator} />
+            <Slider
+              style={{ width: '100%', height: 40 }}
+              minimumValue={0}
+              maximumValue={100}
+              step={1}
+              value={Number(progress)}
+              minimumTrackTintColor="#FF6EA5"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#FF6EA5"
+              onValueChange={(v) => setProgress(String(Math.round(v)))}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderRadius: cardRadius, backgroundColor: cardSurface, borderColor: cardBorder }]}>
+          <View style={[styles.topAccent, { backgroundColor: '#FF6EA5' }]} />
+          <View style={{ padding: cardPadding }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { width: iconBadgeSize, height: iconBadgeSize, borderRadius: iconBadgeSize / 2, backgroundColor: 'rgba(255,110,165,0.15)', borderColor: 'rgba(255,110,165,0.4)' }]}>
+                <FontAwesome name="flag" size={iconSize} color="#FF8AB8" />
+              </View>
+              <View>
+                <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Priority Level</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>Choose urgency</Text>
+              </View>
+            </View>
+            <View style={styles.priorityRow}>
+              {(['low','medium','high'] as const).map((p) => (
+                <TouchableOpacity key={p} onPress={() => setPriority(p)} style={[styles.priorityPill, priority === p && styles.priorityPillActive]}>
+                  <Text style={[styles.priorityText, priority === p && styles.priorityTextActive]}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -365,24 +509,25 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
   },
   headerContainer: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 26,
-    marginBottom: 14,
-    marginHorizontal: 0,
-    backgroundColor: '#342949',
-  },
-  backButton: {
     position: 'absolute',
-    left: 20,
-    top: 52,
-    padding: 8,
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 900,
+  },
+  backBtnCircle: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
   },
   headerTitle: {
-    fontSize: 26,
     fontWeight: '800',
-    marginBottom: 10,
-    marginTop: 20,
     textAlign: 'center',
   },
   headerWhite: { color: '#FFFFFF' },
@@ -390,31 +535,126 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, zIndex: 2 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
   card: { 
-    backgroundColor: '#473F5A', 
-    padding: 16, 
-    borderRadius: 14, 
+    backgroundColor: '#3F3752', 
+    padding: 0,
+    borderRadius: 14,
     marginBottom: 14,
     marginHorizontal: 0,
     flexDirection: 'column',
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.1)',
-    position: 'relative'
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  accent: { position: 'absolute', left: 14, top: 18, width: 4, height: 28, borderRadius: 4 },
-  cardLabel: { fontSize: 14, fontWeight: '700', marginLeft: 14, marginBottom: 8, color: '#FFFFFF' },
-  inputCard: { 
-    borderRadius: 10, 
-    padding: 12, 
-    borderWidth: 1, 
+  topAccent: {
+    height: 3,
+    width: '100%',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardIconBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+  },
+  cardHeaderLabel: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  cardHeaderMeta: {
+    color: '#9D8EC7',
+    letterSpacing: 1,
+    marginTop: 1,
+    textTransform: 'uppercase',
+  },
+  underlineInputWrap: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.22)',
+    paddingBottom: 2,
+  },
+  titleInput: {
+    backgroundColor: 'transparent',
+    color: '#FFFFFF',
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+    height: 42,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  cardSeparator: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginBottom: 8,
+  },
+  contentInput: {
+    backgroundColor: 'transparent',
+    color: '#FFFFFF',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    fontSize: 15,
+    minHeight: 100,
+    lineHeight: 22,
+    letterSpacing: 0.2,
+    textAlignVertical: 'top',
+  },
+  dateTrigger: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#4A4160',
+  },
+  datePickerWrap: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    marginTop: 6, 
-    paddingLeft: 14,
     backgroundColor: '#5B5270',
-    color: '#FFFFFF'
   },
-  progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  progressPercent: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-  priorityRow: { flexDirection: 'row', marginTop: 10, marginLeft: 6 },
+  dateActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  dateActionBtn: {
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  dateActionBtnPrimary: {
+    backgroundColor: '#A78BFA',
+    borderColor: '#A78BFA',
+  },
+  dateActionText: {
+    color: '#E7DDF8',
+    fontWeight: '700',
+  },
+  dateActionTextPrimary: {
+    color: '#FFFFFF',
+  },
+  progressPercentPill: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  progressPercent: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  priorityRow: { flexDirection: 'row', marginTop: 4 },
   priorityPill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#5B5270', marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   priorityPillActive: { backgroundColor: '#A78BFA', borderColor: '#A78BFA' },
   priorityText: { color: '#B8A8E6', fontWeight: '700' },

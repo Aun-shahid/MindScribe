@@ -1,5 +1,6 @@
 
 
+
 """
 Urdu to English Emotion Recognition Pipeline
 A Streamlit app for therapist-patient conversation analysis
@@ -226,7 +227,17 @@ def perform_speaker_diarization(audio_path: str, diarization_pipeline, min_speak
 
     with st.spinner("Identifying speakers in the conversation..."):
         try:
-            # Run diarization. If the user provided speaker hints, try passing them as kwargs.
+            # Load audio as in-memory tensor to avoid AudioDecoder issues
+            import torchaudio
+            waveform, sample_rate = torchaudio.load(audio_path)
+            
+            # PyAnnote accepts in-memory audio as dict when AudioDecoder fails
+            audio_in_memory = {
+                "waveform": waveform,
+                "sample_rate": sample_rate
+            }
+            
+            # Run diarization with in-memory audio
             try:
                 kwargs = {}
                 if min_speakers and min_speakers > 0:
@@ -234,23 +245,45 @@ def perform_speaker_diarization(audio_path: str, diarization_pipeline, min_speak
                 if max_speakers and max_speakers > 0:
                     kwargs['max_speakers'] = int(max_speakers)
                 if kwargs:
-                    diarization = diarization_pipeline(audio_path, **kwargs)
+                    diarization = diarization_pipeline(audio_in_memory, **kwargs)
                 else:
-                    diarization = diarization_pipeline(audio_path)
+                    diarization = diarization_pipeline(audio_in_memory)
             except TypeError:
                 # Some pipeline versions may not accept min/max kwargs
                 st.info("⚠️ Diarization pipeline did not accept min_speakers/max_speakers; running default diarization.")
-                diarization = diarization_pipeline(audio_path)
+                diarization = diarization_pipeline(audio_in_memory)
 
-            # Extract segments
+            # Extract segments - handle both old and new PyAnnote API
             segments = []
-            for turn, _, speaker in diarization.itertracks(yield_label=True):
-                segments.append({
-                    'speaker': speaker,
-                    'start': float(turn.start),
-                    'end': float(turn.end),
-                    'duration': float(turn.end - turn.start)
-                })
+            
+            # Try new API first (DiarizeOutput object)
+            if hasattr(diarization, 'segments'):
+                # New API: diarization.segments is a list of segments
+                for segment in diarization.segments:
+                    segments.append({
+                        'speaker': segment.speaker,
+                        'start': float(segment.start),
+                        'end': float(segment.end),
+                        'duration': float(segment.end - segment.start)
+                    })
+            elif hasattr(diarization, 'itertracks'):
+                # Old API: use itertracks
+                for turn, _, speaker in diarization.itertracks(yield_label=True):
+                    segments.append({
+                        'speaker': speaker,
+                        'start': float(turn.start),
+                        'end': float(turn.end),
+                        'duration': float(turn.end - turn.start)
+                    })
+            else:
+                # Try iterating directly
+                for turn, _, speaker in diarization:
+                    segments.append({
+                        'speaker': speaker,
+                        'start': float(turn.start) if hasattr(turn, 'start') else float(turn[0]),
+                        'end': float(turn.end) if hasattr(turn, 'end') else float(turn[1]),
+                        'duration': float(turn.end - turn.start) if hasattr(turn, 'start') else float(turn[1] - turn[0])
+                    })
 
             unique_speakers = sorted(list(set([s['speaker'] for s in segments])))
             st.success(f"✅ Found {len(unique_speakers)} unique speakers: {', '.join(unique_speakers)}")
@@ -619,6 +652,245 @@ def analyze_emotions_for_segments(
 
 
 # ============================================================================
+# MODULE 5.5: GPT-4O SPEAKER CORRECTION
+# ============================================================================
+
+def quick_transcribe_segment(
+    audio_path: str,
+    start: float,
+    end: float,
+    openai_client: OpenAI
+) -> tuple:
+    """
+    Quick transcription for GPT analysis. 
+    Auto-detects language but constrains to English or Urdu only.
+    Returns (text, language).
+    """
+    try:
+        audio = AudioSegment.from_file(audio_path)
+        segment = audio[int(start * 1000):int(end * 1000)]
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            segment.export(tmp.name, format="wav")
+            segment_path = tmp.name
+        
+        # First, auto-detect the language
+        with open(segment_path, "rb") as audio_file:
+            detect_response = openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="verbose_json"
+            )
+        
+        detected_lang = detect_response.language if hasattr(detect_response, 'language') else 'en'
+        
+        # Map detected language to English or Urdu only
+        # If it's English or close to English, use English
+        # If it's Urdu, Hindi, or any other language, use Urdu
+        if detected_lang in ['en', 'english']:
+            force_lang = 'en'
+            lang_name = 'English'
+        else:
+            # Anything else (ur, hi, ko, etc.) → force to Urdu
+            force_lang = 'ur'
+            lang_name = 'Urdu'
+        
+        # Now transcribe with the forced language constraint
+        with open(segment_path, "rb") as audio_file:
+            response = openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language=force_lang,
+                response_format="text"
+            )
+        
+        os.unlink(segment_path)
+        text = response.strip() if isinstance(response, str) else response.text.strip()
+        return text, lang_name
+        
+    except Exception as e:
+        return "", "English"
+
+
+def correct_speakers_with_gpt(
+    segments: List[Dict],
+    openai_client: OpenAI
+) -> List[Dict]:
+    """
+    Use GPT-4o to correct speaker labels based on conversation context.
+    Analyzes therapeutic dialogue patterns to identify THERAPIST vs PATIENT.
+    """
+    st.subheader("🧠 AI-Enhanced Speaker Correction (GPT-4o)")
+    
+    if not segments or len(segments) == 0:
+        return segments
+    
+    # Build conversation for analysis
+    conversation_lines = []
+    detected_languages = set()
+    for idx, seg in enumerate(segments, 1):
+        speaker = seg.get('speaker', 'UNKNOWN')
+        text = seg.get('urdu', '').strip() or '[No text]'
+        lang = seg.get('language', 'Urdu')
+        if lang in ['English', 'Urdu']:
+            detected_languages.add(lang)
+        time_str = f"{seg.get('start', 0):.1f}s-{seg.get('end', 0):.1f}s"
+        conversation_lines.append(f"Line {idx} [{speaker}] ({time_str}): {text}")
+    
+    conversation_text = "\n".join(conversation_lines)
+    
+    # Create language note from detected languages
+    if detected_languages:
+        lang_list = sorted(list(detected_languages))
+        language_note = f"\n**NOTE: This conversation contains {' and '.join(lang_list)} language(s).**\n"
+    else:
+        language_note = "\n**NOTE: This conversation is in Urdu or English.**\n"
+    
+    # Sophisticated GPT prompt with therapeutic patterns
+    prompt = f"""You are an expert in analyzing therapeutic conversations between a therapist and a patient.
+{language_note}
+You will receive a diarized conversation with speaker labels (SPEAKER_00, SPEAKER_01, etc.) that may be INCORRECT.
+Your task is to correct these labels to THERAPIST and PATIENT based on conversational patterns.
+
+**CRITICAL PATTERNS:**
+
+**THERAPIST characteristics:**
+- Asks open-ended questions: "آپ کیسا محسوس کر رہے ہیں؟" (How are you feeling?)
+- Uses reflective listening: "میں سمجھتا ہوں" (I understand)
+- Probes for details: "کیا آپ مجھے بتا سکتے ہیں..." (Can you tell me...)
+- Provides guidance and reassurance
+- Maintains professional, calm tone
+- Typically initiates conversation
+- Asks "when", "why", "how" questions
+
+**PATIENT characteristics:**
+- Answers questions directly
+- Shares personal experiences: "مجھے بہت پریشانی ہے" (I'm very worried) or "I feel anxious"
+- Describes symptoms, feelings, problems
+- Expresses distress, confusion, uncertainty
+- Responds to therapist's prompts
+- Uses first-person narratives ("I feel", "I can't", "میں محسوس کرتا ہوں")
+
+**EXAMPLE CONVERSATIONS (LEARN THESE PATTERNS):**
+
+**Urdu Example:**
+Line 1 [SPEAKER_00] (0.0s-3.2s): السلام علیکم، آج آپ کیسا محسوس کر رہے ہیں؟
+Line 2 [SPEAKER_01] (3.5s-5.8s): وعلیکم السلام، میں بہت پریشان ہوں
+Line 3 [SPEAKER_00] (6.0s-8.5s): کیا آپ مجھے بتا سکتے ہیں کہ کیا ہوا؟
+Line 4 [SPEAKER_01] (8.8s-12.1s): میری نوکری چلی گئی اور مجھے نیند نہیں آتی
+Line 5 [SPEAKER_00] (12.5s-16.2s): یہ واقعی مشکل وقت ہے۔ آپ کو یہ احساس کب سے ہو رہا ہے؟
+Line 6 [SPEAKER_01] (16.5s-18.2s): پچھلے دو ہفتوں سے
+Line 7 [SPEAKER_00] (18.5s-21.8s): میں سمجھتا ہوں۔ آئیے اس کے بارے میں مزید بات کرتے ہیں
+Line 8 [SPEAKER_01] (22.0s-26.5s): مجھے لگتا ہے کہ کوئی مجھے سمجھتا نہیں
+Line 9 [SPEAKER_00] (27.0s-30.2s): آپ کے گھر والے کیا کہتے ہیں؟
+
+**English Example:**
+Line 1 [SPEAKER_00] (0.0s-2.5s): Hello, how are you feeling today?
+Line 2 [SPEAKER_01] (2.8s-4.5s): I'm really anxious
+Line 3 [SPEAKER_00] (4.8s-7.2s): Can you tell me what happened?
+Line 4 [SPEAKER_01] (7.5s-10.8s): I lost my job and I can't sleep
+Line 5 [SPEAKER_00] (11.0s-14.5s): That sounds really difficult. When did this start?
+Line 6 [SPEAKER_01] (14.8s-16.2s): About two weeks ago
+Line 7 [SPEAKER_00] (16.5s-19.0s): I understand. Let's talk more about this
+Line 8 [SPEAKER_01] (19.5s-22.8s): I feel like nobody understands me
+Line 9 [SPEAKER_00] (23.0s-25.5s): What does your family say?
+
+**CORRECTED (JSON format):**
+```json
+{{
+  "1": "THERAPIST",
+  "2": "PATIENT",
+  "3": "THERAPIST",
+  "4": "PATIENT",
+  "5": "THERAPIST",
+  "6": "PATIENT",
+  "7": "THERAPIST",
+  "8": "PATIENT",
+  "9": "THERAPIST"
+}}
+```
+
+**ANALYSIS LOGIC:**
+- Line 1: Greeting + question → THERAPIST
+- Line 2: Personal feeling → PATIENT
+- Line 3: Probes for info → THERAPIST
+- Line 4: Shares problem → PATIENT
+- Line 5: Empathy + follow-up → THERAPIST
+- Line 6: Timeline answer → PATIENT
+- Line 7: Reflective + suggestion → THERAPIST
+- Line 8: Personal emotion → PATIENT
+- Line 9: Family context question → THERAPIST
+
+---
+
+**ANALYZE THIS CONVERSATION:**
+
+{conversation_text}
+
+**INSTRUCTIONS:**
+1. Analyze each line's content and conversational role
+2. Identify who asks questions (THERAPIST) vs who answers (PATIENT)
+3. Look for professional guidance vs personal sharing
+4. Return ONLY a JSON object with corrected labels
+5. Format: {{"1": "THERAPIST", "2": "PATIENT", ...}}
+6. Every line MUST have "THERAPIST" or "PATIENT"
+7. NO explanations, just JSON
+"""
+    
+    with st.spinner("🤖 Analyzing conversation with GPT-4o..."):
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert conversational analyst specializing in therapeutic dialogue. You identify therapist vs patient roles with high accuracy by analyzing question-answer patterns, professional tone, and emotional disclosure."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=1500
+            )
+            
+            correction_text = response.choices[0].message.content.strip()
+            
+            import json
+            if "```json" in correction_text:
+                correction_text = correction_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in correction_text:
+                correction_text = correction_text.split("```")[1].split("```")[0].strip()
+            
+            corrections = json.loads(correction_text)
+            
+            corrected_segments = []
+            for idx, seg in enumerate(segments, 1):
+                new_seg = seg.copy()
+                if str(idx) in corrections:
+                    new_seg['speaker'] = corrections[str(idx)]
+                    new_seg['original_speaker'] = seg.get('speaker')
+                corrected_segments.append(new_seg)
+            
+            changes = sum(1 for i, seg in enumerate(segments) if seg['speaker'] != corrected_segments[i]['speaker'])
+            
+            st.success(f"✅ GPT-4o correction complete: {changes} labels corrected")
+            
+            with st.expander("🔄 Correction Summary"):
+                therapist_count = sum(1 for s in corrected_segments if s['speaker'] == 'THERAPIST')
+                patient_count = sum(1 for s in corrected_segments if s['speaker'] == 'PATIENT')
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("THERAPIST", therapist_count)
+                with col2:
+                    st.metric("PATIENT", patient_count)
+                with col3:
+                    st.metric("Corrected", changes)
+            
+            return corrected_segments
+            
+        except Exception as e:
+            st.error(f"❌ GPT-4o correction failed: {str(e)}")
+            st.info("Continuing with PyAnnote labels...")
+            return segments
+
+
+# ============================================================================
 # MODULE 6: TRANSLATION TO ENGLISH WITH CONTEXT PRESERVATION
 # ============================================================================
 
@@ -861,22 +1133,15 @@ def predict_text_emotions(text_lines: List[str], tokenizer, model) -> List[Dict]
         })
     return results
 
-def perform_patient_text_emotion_analysis(segments: List[Dict]):
-    """Extract all patient (second speaker) translated text and analyze sentence-wise emotions"""
+def perform_patient_text_emotion_analysis(segments: List[Dict], patient_speaker: str):
+    """Extract all patient translated text and analyze sentence-wise emotions"""
     st.header("💬 Step 7: Patient Text-Based Emotion Analysis")
     
     if not segments:
         st.warning("No segments found for emotion analysis.")
         return
     
-    # Identify all unique speakers and assume 2nd speaker is the patient
-    speakers = sorted(list(set([s['speaker'] for s in segments])))
-    if len(speakers) < 2:
-        st.warning("Less than two speakers found — cannot determine patient.")
-        return
-    
-    patient_speaker = speakers[1]
-    st.info(f"🧠 Assuming **{patient_speaker}** is the patient.")
+    st.info(f"🧠 Analyzing text emotions for **{patient_speaker}** (patient).")
 
     # Combine all English translated text from the patient
     patient_lines = [s.get("english", "").strip() for s in segments if s["speaker"] == patient_speaker and s.get("english")]
@@ -911,14 +1176,14 @@ def perform_patient_text_emotion_analysis(segments: List[Dict]):
                 st.write(f"{emo}: {score*100:.1f}%")
 
 
-def build_combined_copy_paste_report(segments: List[Dict]) -> str:
+def build_combined_copy_paste_report(segments: List[Dict], patient_speaker: str) -> str:
     """
     Build a copy-paste friendly combined report for all segments.
 
     For each segment (utterance) include:
       - Segment number, speaker, time
       - Audio-emotion label and confidence
-      - Text-emotion label and confidence (only for patient / second speaker)
+      - Text-emotion label and confidence (only for patient speaker)
       - Urdu transcription
       - English translation
 
@@ -926,10 +1191,6 @@ def build_combined_copy_paste_report(segments: List[Dict]) -> str:
     """
     if not segments:
         return ""
-
-    # Determine patient speaker (assume second speaker if available)
-    speakers = sorted(list({s['speaker'] for s in segments}))
-    patient_speaker = speakers[1] if len(speakers) > 1 else speakers[0]
 
     # Load text emotion model once
     try:
@@ -969,7 +1230,7 @@ def build_combined_copy_paste_report(segments: List[Dict]) -> str:
     return combined
 
 
-def plot_patient_emotions(segments: List[Dict], patient_speaker: str, agg_mode: str = "Per utterance", window_size: int = 30, max_points: int = 300, min_conf: float = 0.0, agg_bins: int = 4):
+def plot_patient_emotions(segments: List[Dict], patient_speaker: str, agg_mode: str = "Per utterance", window_size: int = 30, max_points: int = 300, min_conf: float = 0.0):
     """
     Plot patient-level emotion comparisons (audio vs text).
 
@@ -1037,25 +1298,6 @@ def plot_patient_emotions(segments: List[Dict], patient_speaker: str, agg_mode: 
             agg_rows.append({'time': t, 'audio_emotion': audio_label, 'text_emotion': text_label,
                              'audio_conf': group['audio_conf'].mean(), 'text_conf': group['text_conf'].mean(), 'count': len(group)})
         df_plot = pd.DataFrame(agg_rows)
-    elif agg_mode == "Aggregate N segments":
-        # Group patient segments into `agg_bins` approximately-equal bins
-        n = max(1, int(agg_bins))
-        df_plot = df.copy()
-        if len(df_plot) <= n:
-            # Not enough segments to aggregate; keep per-utterance view
-            df_plot = df_plot
-        else:
-            groups = np.array_split(df_plot, n)
-            agg_rows = []
-            for group in groups:
-                if group.empty:
-                    continue
-                t = group['time'].mean()
-                audio_label = group['audio_emotion'].mode().iloc[0] if not group['audio_emotion'].mode().empty else 'unknown'
-                text_label = group['text_emotion'].mode().iloc[0] if not group['text_emotion'].mode().empty else 'N/A'
-                agg_rows.append({'time': t, 'audio_emotion': audio_label, 'text_emotion': text_label,
-                                 'audio_conf': group['audio_conf'].mean(), 'text_conf': group['text_conf'].mean(), 'count': len(group)})
-            df_plot = pd.DataFrame(agg_rows)
     elif agg_mode == "Change-only":
         # Keep only rows where either label changes from previous
         df_plot = df.copy()
@@ -1343,19 +1585,10 @@ def main():
         Adjust plotting / aggregation options before running analysis. Patient speaker selection
         will appear after analysis completes.
         """)
-        agg_mode = st.selectbox("Aggregation mode", options=["Per utterance", "Time window", "Change-only", "Aggregate N segments"], index=0)
+        agg_mode = st.selectbox("Aggregation mode", options=["Per utterance", "Time window", "Change-only"], index=0)
         window_size = st.slider("Window size for aggregation (s)", 10, 120, 30, 5)
         max_points = st.slider("Max points to display", 50, 1000, 300, 50)
         min_conf = st.slider("Min confidence filter (both audio/text)", 0.0, 1.0, 0.0, 0.05)
-        # If using the "Aggregate N segments" mode, choose number of bins
-        agg_bins = st.number_input(
-            "Aggregate bins (N)",
-            min_value=1,
-            max_value=50,
-            value=4,
-            step=1,
-            help="Number of aggregate bins when using 'Aggregate N segments' mode."
-        )
         # Expected number of speakers: 0 = auto (no hint)
         expected_speakers = st.number_input(
             "Expected number of speakers (0 = auto)",
@@ -1365,12 +1598,6 @@ def main():
             step=1,
             help="If you know how many speakers are in the audio, set this to reduce over-segmentation."
         )
-        st.markdown("""
-        **Auto-collapse over-segmented labels**
-        If diarization returns many small speaker labels, enable this to merge minor labels into the major speakers.
-        """)
-        auto_collapse = st.checkbox("Auto-collapse small labels into N speakers", value=False)
-        collapse_target = st.number_input("Collapse target speakers (N)", min_value=1, max_value=10, value=2, step=1) if auto_collapse else 0
     
     # Check if API keys are provided
     if not openai_api_key or not hf_token:
@@ -1409,23 +1636,127 @@ def main():
 
         # Step 1: Speaker diarization (use the resampled WAV to avoid AudioDecoder issues)
         if expected_speakers and expected_speakers > 0:
-            segments = perform_speaker_diarization(resampled_path, diarization_pipeline, min_speakers=expected_speakers, max_speakers=expected_speakers)
+            pyannote_segments = perform_speaker_diarization(resampled_path, diarization_pipeline, min_speakers=expected_speakers, max_speakers=expected_speakers)
         else:
-            segments = perform_speaker_diarization(resampled_path, diarization_pipeline)
+            pyannote_segments = perform_speaker_diarization(resampled_path, diarization_pipeline)
 
-        # If auto-collapse was selected, try collapsing labels to the requested target
-        if auto_collapse:
-            try:
-                before = len(set([s['speaker'] for s in segments]))
-                segments = collapse_speaker_labels(segments, target_n=collapse_target)
-                after = len(set([s['speaker'] for s in segments]))
-                st.info(f"Auto-collapsed speaker labels: {before} -> {after}")
-            except Exception as e:
-                st.warning(f"Auto-collapse failed: {e}")
-
-        if not segments:
+        if not pyannote_segments:
             st.error("❌ No segments found. Please try a different audio file.")
             return
+        
+        st.divider()
+        
+        # ========================================================================
+        # DIARIZATION WITH GPT-4O CORRECTION
+        # ========================================================================
+        st.header("🔬 Speaker Diarization & Transcription")
+        
+        # Quick transcribe all segments
+        st.info("📝 Transcribing segments for speaker identification...")
+        pyannote_with_text = []
+        progress = st.progress(0)
+        for i, seg in enumerate(pyannote_segments):
+            text, language = quick_transcribe_segment(resampled_path, seg['start'], seg['end'], openai_client)
+            seg_copy = seg.copy()
+            seg_copy['urdu'] = text
+            seg_copy['language'] = language
+            pyannote_with_text.append(seg_copy)
+            progress.progress((i + 1) / len(pyannote_segments))
+        progress.empty()
+        
+        # Show PyAnnote diarization results first
+        st.divider()
+        st.header("📊 PyAnnote Diarization Results")
+        
+        with st.expander("🤖 View PyAnnote Acoustic Diarization (Before GPT Correction)", expanded=False):
+            pyannote_speakers = {}
+            for seg in pyannote_with_text:
+                spk = seg['speaker']
+                pyannote_speakers[spk] = pyannote_speakers.get(spk, 0) + 1
+            
+            st.markdown("**Speaker Distribution (PyAnnote):**")
+            cols = st.columns(len(pyannote_speakers))
+            for idx, (spk, count) in enumerate(pyannote_speakers.items()):
+                with cols[idx]:
+                    st.metric(spk, f"{count} segments")
+            
+            st.markdown("---")
+            st.markdown("**Diarization Transcript (PyAnnote):**")
+            for idx, seg in enumerate(pyannote_with_text, 1):
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    st.markdown(f"**Segment {idx}**")
+                    st.caption(f"⏱️ {seg['start']:.1f}s - {seg['end']:.1f}s")
+                    st.info(f"🎤 **{seg['speaker']}**")
+                with col2:
+                    st.markdown(f"**{seg.get('urdu', '[No text]')}**")
+                st.markdown("")
+        
+        # Apply GPT-4o speaker correction
+        st.divider()
+        st.subheader("🧠 AI-Enhanced Speaker Identification")
+        gpt_corrected = correct_speakers_with_gpt(pyannote_with_text, openai_client)
+        
+        # Display MAIN transcript with corrected speakers
+        st.divider()
+        st.header("📋 Final Transcript (GPT-4o Corrected)")
+        
+        with st.expander("📝 View Complete Transcript with Speaker Labels", expanded=True):
+            gpt_speakers = {}
+            for seg in gpt_corrected:
+                spk = seg['speaker']
+                gpt_speakers[spk] = gpt_speakers.get(spk, 0) + 1
+            
+            st.markdown("**Speaker Distribution:**")
+            cols = st.columns(len(gpt_speakers))
+            for idx, (spk, count) in enumerate(gpt_speakers.items()):
+                with cols[idx]:
+                    st.metric(spk, f"{count} segments")
+            
+            st.markdown("---")
+            st.markdown("**Conversation Transcript:**")
+            for idx, seg in enumerate(gpt_corrected, 1):
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    st.markdown(f"**Segment {idx}**")
+                    st.caption(f"⏱️ {seg['start']:.1f}s - {seg['end']:.1f}s")
+                    
+                    # Show speaker with color coding
+                    if seg['speaker'] == 'THERAPIST':
+                        st.info(f"🩺 **{seg['speaker']}**")
+                    elif seg['speaker'] == 'PATIENT':
+                        st.success(f"👤 **{seg['speaker']}**")
+                    else:
+                        st.warning(f"🎤 **{seg['speaker']}**")
+                with col2:
+                    st.markdown(f"**{seg.get('urdu', '[No text]')}**")
+                st.markdown("")
+        
+        # Optional: Show PyAnnote comparison for debugging
+        with st.expander("🔍 Debug: Compare PyAnnote vs GPT-4o", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**🤖 PyAnnote (Acoustic-Only)**")
+                pyannote_speakers = {}
+                for seg in pyannote_with_text:
+                    spk = seg['speaker']
+                    pyannote_speakers[spk] = pyannote_speakers.get(spk, 0) + 1
+                for spk, count in pyannote_speakers.items():
+                    st.metric(spk, count)
+            
+            with col2:
+                st.markdown("**✨ GPT-4o (Context-Aware)**")
+                for spk, count in gpt_speakers.items():
+                    st.metric(spk, count)
+            
+            changes = sum(1 for i, seg in enumerate(pyannote_with_text) if seg['speaker'] != gpt_corrected[i]['speaker'])
+            st.info(f"GPT-4o made {changes} corrections based on conversation context")
+        
+        # Use corrected segments for all downstream processing
+        segments = gpt_corrected
+        st.divider()
+        st.success("✅ Using GPT-4o corrected transcript for emotion analysis and plotting")
 
         # Merge consecutive same-speaker turns into utterances, splitting on long pauses
         utterances = merge_consecutive_speaker_turns(segments, max_pause=max_pause)
@@ -1445,10 +1776,25 @@ def main():
             openai_client
         )
 
-        # Allow explicit selection of which speaker is the patient (default: second speaker)
+        # Auto-select PATIENT speaker for emotion analysis and plotting
         speakers = sorted(list({s['speaker'] for s in final_segments}))
-        default_patient = speakers[1] if len(speakers) > 1 else speakers[0]
-        patient_speaker = st.selectbox("Select patient speaker (for text/audio plotting)", options=speakers, index=1 if len(speakers) > 1 else 0)
+        
+        # Try to find PATIENT label first
+        if 'PATIENT' in speakers:
+            default_patient_idx = speakers.index('PATIENT')
+            patient_speaker = 'PATIENT'
+        else:
+            # Fallback to second speaker if PATIENT label not found
+            default_patient_idx = 1 if len(speakers) > 1 else 0
+            patient_speaker = speakers[default_patient_idx]
+        
+        # Allow user to override if needed
+        patient_speaker = st.selectbox(
+            "Select patient speaker (for emotion analysis & plotting)", 
+            options=speakers, 
+            index=default_patient_idx,
+            help="GPT-4o typically identifies this correctly as PATIENT"
+        )
 
         # Compute per-utterance text-emotion for the chosen patient and attach to segments
         try:
@@ -1482,7 +1828,7 @@ def main():
 
         # Step 5: Text-based emotion analysis for patient (sentence-level view)
         st.divider()
-        perform_patient_text_emotion_analysis(final_segments)
+        perform_patient_text_emotion_analysis(final_segments, patient_speaker)
 
         # Step 6: Plot patient-level emotion timeline and summaries
         st.divider()
@@ -1493,14 +1839,14 @@ def main():
         # after analysis when speaker IDs are known.
 
         try:
-            plot_patient_emotions(final_segments, patient_speaker, agg_mode=agg_mode, window_size=window_size, max_points=max_points, min_conf=min_conf, agg_bins=agg_bins)
+            plot_patient_emotions(final_segments, patient_speaker, agg_mode=agg_mode, window_size=window_size, max_points=max_points, min_conf=min_conf)
         except Exception as e:
             st.warning(f"Plotting failed: {e}")
 
         # Step 6: Build a combined copy-paste-friendly report and offer download
         st.divider()
         st.header("📋 Combined Copy-Paste Report")
-        combined_report = build_combined_copy_paste_report(final_segments)
+        combined_report = build_combined_copy_paste_report(final_segments, patient_speaker)
         if combined_report:
             st.info("Below is a combined report you can copy-paste into Word. A download button is also available.")
             st.text_area("Combined Report (copy-paste)", combined_report, height=600)
@@ -1543,7 +1889,7 @@ def main():
         st.divider()
         st.header("📈 Patient Emotion Overview (Audio vs Text)")
         try:
-            plot_patient_emotions(final_segments, patient_speaker, agg_mode=agg_mode, window_size=window_size, max_points=max_points, min_conf=min_conf, agg_bins=agg_bins)
+            plot_patient_emotions(final_segments, patient_speaker, agg_mode=agg_mode, window_size=window_size, max_points=max_points, min_conf=min_conf)
         except Exception as e:
             st.warning(f"Plotting failed: {e}")
 
