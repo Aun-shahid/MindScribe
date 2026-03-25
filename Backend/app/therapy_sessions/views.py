@@ -3046,6 +3046,30 @@ class SessionTranscriptionView(generics.GenericAPIView):
             transcription = session.transcription
             segments = transcription.segments.all().order_by('start_time')
             
+            from transcription.models import EmotionAnalysis
+            import json
+            segment_ids = [s.id for s in segments]
+            
+            # Fetch emotions using raw SQL to bypass JSONField deserialization
+            emotions_map = {}
+            try:
+                emotions_qs = EmotionAnalysis.objects.filter(segment_id__in=segment_ids).values()
+                emotions_map = {str(e['segment_id']): e for e in emotions_qs}
+            except TypeError:
+                # JSONField deserialization error - fall back to raw SQL query
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    placeholders = ','.join(['%s'] * len(segment_ids))
+                    cursor.execute(f"""
+                        SELECT id, segment_id, primary_emotion, emotion_scores, valence, arousal, confidence
+                        FROM emotion_analysis
+                        WHERE segment_id IN ({placeholders})
+                    """, segment_ids)
+                    columns = [col[0] for col in cursor.description]
+                    for row in cursor.fetchall():
+                        row_dict = dict(zip(columns, row))
+                        emotions_map[str(row_dict['segment_id'])] = row_dict
+            
             segments_data = []
             for segment in segments:
                 segment_data = {
@@ -3059,33 +3083,24 @@ class SessionTranscriptionView(generics.GenericAPIView):
                     'language': segment.language,
                 }
                 
-                # Safely try to fetch emotion data, wrapping it because Django might crash on JSON parsing in the DB
-                emotion = None
-                try:
-                    emotion = getattr(segment, 'emotion', None)
-                except Exception:
-                    pass
-
-                if emotion and hasattr(emotion, 'primary_emotion'):
-                    segment_data['emotion'] = {
-                        'primary_emotion': getattr(emotion, 'primary_emotion', 'neutral'),
-                        'valence': getattr(emotion, 'valence', 0.0),
-                        'arousal': getattr(emotion, 'arousal', 0.0),
-                        'confidence': getattr(emotion, 'confidence', 1.0),
-                        'emotion_scores': {}
-                    }
-                    
-                    # Try to parse the emotion scores if they don't crash the property access directly
-                    scores = {}
-                    try:
-                        scores = getattr(emotion, 'emotion_scores', {})
-                        if isinstance(scores, str):
+                # Use data from .values() directly to bypass Django DB JSON parsing
+                emotion_data = emotions_map.get(str(segment.id))
+                if emotion_data:
+                    scores = emotion_data.get('emotion_scores', {})
+                    if isinstance(scores, str):
+                        try:
                             import json
                             scores = json.loads(scores)
-                    except Exception:
-                        pass
-                        
-                    segment_data['emotion']['emotion_scores'] = scores if isinstance(scores, dict) else {}
+                        except Exception:
+                            scores = {}
+
+                    segment_data['emotion'] = {
+                        'primary_emotion': emotion_data.get('primary_emotion', 'neutral'),
+                        'valence': emotion_data.get('valence', 0.0),
+                        'arousal': emotion_data.get('arousal', 0.0),
+                        'confidence': emotion_data.get('confidence', 1.0),
+                        'emotion_scores': scores if isinstance(scores, dict) else {}
+                    }
                     
                 segments_data.append(segment_data)
             
