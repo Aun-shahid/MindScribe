@@ -718,9 +718,11 @@ export const useAIServiceWebSocket = (
     chunkIndexRef.current = 0;
   }, []);
 
-  const sendAudioChunk = useCallback((audioData: string, sampleRate: number = 16000, format: string = 'wav') => {
+  const sendAudioChunk = useCallback((audioData: string | null, sampleRate: number = 16000, format: string = 'wav') => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      sessionsService.sendAudioChunk(wsRef.current, audioData, chunkIndexRef.current, sampleRate, format);
+      if (audioData) {
+        sessionsService.sendAudioChunk(wsRef.current, audioData, chunkIndexRef.current, sampleRate, format);
+      }
       chunkIndexRef.current += 1;
     } else {
       console.warn('[AI Service WS] Cannot send audio - WebSocket not open');

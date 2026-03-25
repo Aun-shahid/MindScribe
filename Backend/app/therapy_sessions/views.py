@@ -25,6 +25,7 @@ from .models import (
     Session, SessionTemplate, PatientProgress, SessionReminder, 
     TherapistAvailability, TherapistDateOverride, SessionQRCode, SessionAudio, SessionInsight
 )
+from transcription.models import Transcription
 from .serializers import (
     SessionSerializer, SessionCreateSerializer, SessionUpdateSerializer,
     SessionTemplateSerializer, PatientProgressSerializer, 
@@ -2892,15 +2893,30 @@ class SessionEmotionalAnalysisView(generics.GenericAPIView):
         
         # Try to get real data from transcription models
         try:
-            # Note: Transcription data is now handled by the AI service
-            # For now, return static mock data until AI service integration is complete
-            response_data = self._get_static_analysis_data(session)
+            # First try if Session has a direct relation or calculate it on the fly
+            # For now return an empty/unavailable structure
+            response_data = {
+                'session_id': str(session.id),
+                'analysis_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'unavailable',
+                'overall_sentiment': {
+                    'primary': 'neutral',
+                    'score': 0.0,
+                    'summary': 'Analysis unavailable.'
+                },
+                'mood_distribution': {},
+                'mood_timeline': [],
+                'emotional_patterns': {
+                    'dominant_emotions': [],
+                    'emotional_shift': 'unknown'
+                },
+                'key_topics': [],
+                'recommendations': []
+            }
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception:
-            # Return static mock data when no transcription exists or any error occurs
-            response_data = self._get_static_analysis_data(session)
-            return Response(response_data, status=status.HTTP_200_OK)
+            # Return empty data instead of static mock data
+            return Response({'detail': 'Analysis unavailable.'}, status=status.HTTP_404_NOT_FOUND)
     
     def _get_static_analysis_data(self, session):
         """Return static mock data for frontend integration"""
@@ -3043,16 +3059,34 @@ class SessionTranscriptionView(generics.GenericAPIView):
                     'language': segment.language,
                 }
                 
-                # Add emotion data if available
-                if hasattr(segment, 'emotion'):
+                # Safely try to fetch emotion data, wrapping it because Django might crash on JSON parsing in the DB
+                emotion = None
+                try:
+                    emotion = getattr(segment, 'emotion', None)
+                except Exception:
+                    pass
+
+                if emotion and hasattr(emotion, 'primary_emotion'):
                     segment_data['emotion'] = {
-                        'primary_emotion': segment.emotion.primary_emotion,
-                        'valence': segment.emotion.valence,
-                        'arousal': segment.emotion.arousal,
-                        'confidence': segment.emotion.confidence,
-                        'emotion_scores': segment.emotion.emotion_scores
+                        'primary_emotion': getattr(emotion, 'primary_emotion', 'neutral'),
+                        'valence': getattr(emotion, 'valence', 0.0),
+                        'arousal': getattr(emotion, 'arousal', 0.0),
+                        'confidence': getattr(emotion, 'confidence', 1.0),
+                        'emotion_scores': {}
                     }
-                
+                    
+                    # Try to parse the emotion scores if they don't crash the property access directly
+                    scores = {}
+                    try:
+                        scores = getattr(emotion, 'emotion_scores', {})
+                        if isinstance(scores, str):
+                            import json
+                            scores = json.loads(scores)
+                    except Exception:
+                        pass
+                        
+                    segment_data['emotion']['emotion_scores'] = scores if isinstance(scores, dict) else {}
+                    
                 segments_data.append(segment_data)
             
             response_data = {
@@ -3063,25 +3097,24 @@ class SessionTranscriptionView(generics.GenericAPIView):
                 'processing_started_at': transcription.processing_started_at,
                 'processing_completed_at': transcription.processing_completed_at,
                 'duration_seconds': session.duration_minutes * 60 if session.duration_minutes else 3600,
-                'segments': segments_data if segments_data else self._get_static_segments(),
-                'segment_count': len(segments_data) if segments_data else 24,
+                'segments': segments_data,
+                'segment_count': len(segments_data),
             }
             
             return Response(response_data, status=status.HTTP_200_OK)
             
         except Transcription.DoesNotExist:
-            # Return static mock data for frontend integration
+            # Return empty data instead of mock data now that integration is complete
             response_data = {
                 'session_id': str(session.id),
                 'transcription_id': None,
-                'transcription_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'mock_data',
+                'transcription_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'unavailable',
                 'language_detected': 'en',
                 'processing_started_at': None,
                 'processing_completed_at': None,
                 'duration_seconds': session.duration_minutes * 60 if session.duration_minutes else 3600,
-                'segments': self._get_static_segments(),
-                'segment_count': 24,
-                'is_mock_data': True,
+                'segments': [],
+                'segment_count': 0,
             }
             
             return Response(response_data, status=status.HTTP_200_OK)

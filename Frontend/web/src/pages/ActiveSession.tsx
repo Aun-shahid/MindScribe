@@ -180,9 +180,23 @@ const ActiveSession: React.FC = () => {
 
       while (pending.length >= chunkSamplesRef.current) {
         const chunkSamples = pending.splice(0, chunkSamplesRef.current);
-        const chunk = new Int16Array(chunkSamples);
-        const base64 = encodeInt16ToBase64(chunk);
-        sendAudioChunk(base64, 16000, 'pcm16');
+        
+        // Calculate RMS to detect silence
+        let sumSquares = 0;
+        for (let i = 0; i < chunkSamples.length; i++) {
+          const normalized = chunkSamples[i] / 32768.0;
+          sumSquares += normalized * normalized;
+        }
+        const rms = Math.sqrt(sumSquares / chunkSamples.length);
+
+        if (rms > 0.005) { // Threshold for silence
+          const chunk = new Int16Array(chunkSamples);
+          const base64 = encodeInt16ToBase64(chunk);
+          sendAudioChunk(base64, 16000, 'pcm16');
+        } else {
+          // Send null to just increment the chunk index and maintain timeline
+          sendAudioChunk(null, 16000, 'pcm16');
+        }
       }
     };
 
