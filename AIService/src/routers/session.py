@@ -19,6 +19,7 @@ from ..schemas import (
     AudioEmotionResult, TextEmotionResult, EmotionLabel
 )
 from ..config import settings
+from ..database import get_db_context, Transcription, TranscriptionSegment as DBTranscriptionSegment, EmotionAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,32 @@ async def stop_session(
     
     transcript = session_manager.stop_session(session_id)
     
-    # TODO: Save transcript to database if request.save_transcript
+    # Analyze emotion for each segment
+    if transcript and transcript.segments:
+        logger.info(f"Analyzing emotions for {len(transcript.segments)} segments...")
+        from ..services.emotion import analyze_text_emotion
+        
+        for i, seg in enumerate(transcript.segments):
+            text = seg.text_english or seg.text_urdu or ''
+            if text.strip():
+                emotion_result = await analyze_text_emotion(text)
+                transcript.segments[i].emotion = emotion_result.primary_emotion
+            else:
+                transcript.segments[i].emotion = EmotionLabel.NEUTRAL
+        
+        logger.info("Emotion analysis complete")
+    
+    # Save transcript to database if requested
+    if request.save_transcript and transcript:
+        try:
+            django_session_id = session_data.get("config", {}).get("session_id")
+            if django_session_id:
+                await save_transcript_to_db(transcript, django_session_id)
+                logger.info(f"Transcript saved to database for session {django_session_id}")
+            else:
+                logger.warning("No Django session ID found, skipping database save")
+        except Exception as e:
+            logger.error(f"Failed to save transcript to database: {e}")
     
     return SessionStopResponse(
         session_id=session_id,
@@ -360,52 +386,62 @@ async def websocket_transcription(
                 # Process audio chunk
                 try:
                     audio_b64 = message.get("audio_data", "")
+                    client_chunk_index = message.get("chunk_index", chunk_index)
                     audio_bytes = base64.b64decode(audio_b64)
                     accumulated_audio += audio_bytes
                     
                     # Process when we have enough audio (e.g., every 2 seconds)
                     # Assuming 16kHz, 16-bit audio = 32000 bytes per second
                     if len(accumulated_audio) >= 64000:  # ~2 seconds
-                        # Transcribe
-                        transcription_result = await transcribe_audio_chunk(
-                            accumulated_audio,
-                            language=session_manager.get_session(session_id).get("config", {}).get("language", "ur")
-                        )
+                        # Add a safety check for silence on backend
+                        import audioop
+                        rms = audioop.rms(accumulated_audio, 2)
                         
-                        if transcription_result and transcription_result.get("text"):
-                            # Emotion analysis has been deferred to post-session processing
-                            
-                            # Create segment
-                            segment = TranscriptionSegment(
-                                id=f"seg_{chunk_index:04d}",
-                                speaker=transcription_result.get("speaker", "SPEAKER_00"),
-                                start_time=chunk_index * 2.0,  # Approximate timing
-                                end_time=(chunk_index + 1) * 2.0,
-                                duration=2.0,
-                                text_urdu=transcription_result.get("text", ""),
-                                text_english=transcription_result.get("text_en", ""),
-                                emotion=None
+                        if rms > 150:  # equivalent to ~0.005 threshold
+                            # Transcribe
+                            transcription_result = await transcribe_audio_chunk(
+                                accumulated_audio,
+                                language=session_manager.get_session(session_id).get("config", {}).get("language", "ur")
                             )
                             
-                            # Save segment
-                            session_manager.add_segment(session_id, segment)
-                            
-                            # Send transcription update
-                            update = TranscriptionUpdate(
-                                type="transcription",
-                                segment=segment,
-                                is_final=False,
-                                timestamp=datetime.utcnow()
-                            )
-                            
-                            await websocket.send_json(update.model_dump(mode="json"))
-                            chunk_index += 1
+                            if transcription_result and transcription_result.get("text"):
+                                # Ensure we don't output common whisper hallucinations
+                                text_lower = transcription_result.get("text", "").lower().strip()
+                                hallucination_phrases = ["thank you", "subtitles by", "amara.org", "thanks for watching"]
+                                is_hallucination = any(p in text_lower for p in hallucination_phrases) and len(text_lower) < 20
+                                
+                                if not is_hallucination:
+                                    # Create segment
+                                    segment = TranscriptionSegment(
+                                        id=f"seg_{client_chunk_index:04d}",
+                                        speaker=transcription_result.get("speaker", "SPEAKER_00"),
+                                        start_time=client_chunk_index * 2.0,  # Accurate timing based on frontend
+                                        end_time=(client_chunk_index + 1) * 2.0,
+                                        duration=2.0,
+                                        text_urdu=transcription_result.get("text", ""),
+                                        text_english=transcription_result.get("text_en", ""),
+                                        emotion=None
+                                    )
+                                    
+                                    # Save segment
+                                    session_manager.add_segment(session_id, segment)
+                                    
+                                    # Send transcription update
+                                    update = TranscriptionUpdate(
+                                        type="transcription",
+                                        segment=segment,
+                                        is_final=False,
+                                        timestamp=datetime.utcnow()
+                                    )
+                                    
+                                    await websocket.send_json(update.model_dump(mode="json"))
                         
+                        chunk_index += 1
                         # Clear buffer
                         accumulated_audio = b""
                     
                     # Update session activity
-                    session_manager.update_session(session_id, chunk_count=chunk_index)
+                    session_manager.update_session(session_id, chunk_count=client_chunk_index)
                     
                 except Exception as e:
                     logger.error(f"Audio processing error: {e}")
@@ -525,6 +561,20 @@ async def finalize_session(
         
         logger.info("Translation complete")
         
+        # Step 3: Analyze emotion for each segment
+        logger.info("Step 3/3: Analyzing emotions for all segments...")
+        from ..services.emotion import analyze_text_emotion
+        
+        for i, segment in enumerate(translated_segments):
+            text = segment.get('text_english') or segment.get('text_urdu') or ''
+            if text.strip():
+                emotion_result = await analyze_text_emotion(text)
+                translated_segments[i]['emotion'] = emotion_result.primary_emotion
+            else:
+                translated_segments[i]['emotion'] = EmotionLabel.NEUTRAL
+        
+        logger.info("Emotion analysis complete")
+        
         # Identify patient speaker
         speakers = sorted(list({s.get('speaker') for s in translated_segments}))
         patient_speaker = 'PATIENT' if 'PATIENT' in speakers else (speakers[1] if len(speakers) > 1 else speakers[0] if speakers else 'UNKNOWN')
@@ -548,7 +598,7 @@ async def finalize_session(
             "speaker_corrections": changes,
             "total_segments": len(translated_segments),
             "patient_speaker": patient_speaker,
-            "message": "Session finalization complete. Use /soap endpoint to generate SOAP notes."
+            "message": "Session finalization complete with speaker correction, translation, and emotion analysis. Use /soap endpoint to generate SOAP notes."
         }
         
     except Exception as e:
@@ -557,3 +607,53 @@ async def finalize_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Finalization error: {str(e)}"
         )
+
+
+async def save_transcript_to_db(transcript: FullTranscript, django_session_id: str):
+    """Save transcript and emotion analysis to database."""
+    import uuid
+    from datetime import datetime
+    
+    async with get_db_context() as db:
+        # Create transcription record
+        transcription = Transcription(
+            id=uuid.uuid4(),
+            session_id=uuid.UUID(django_session_id),
+            status='completed',
+            processing_completed_at=datetime.utcnow()
+        )
+        db.add(transcription)
+        await db.flush()  # Get the ID
+        
+        # Create segments and emotion analyses
+        for seg in transcript.segments:
+            segment = DBTranscriptionSegment(
+                transcription_id=transcription.id,
+                speaker_type='unknown',  # TODO: map from speaker
+                speaker_id=seg.speaker,
+                text=seg.text_english or seg.text_urdu,
+                start_time=seg.start_time,
+                end_time=seg.end_time,
+                confidence_score=1.0,  # TODO: add confidence
+                language='ur' if seg.text_urdu else 'en'
+            )
+            db.add(segment)
+            await db.flush()
+            
+            # Create emotion analysis if emotion is set
+            if hasattr(seg, 'emotion') and seg.emotion and seg.emotion != EmotionLabel.UNKNOWN:
+                emotion_str = seg.emotion.value if hasattr(seg.emotion, 'value') else str(seg.emotion)
+                # Parse if it's returning looking like "EmotionLabel.NEUTRAL"
+                if emotion_str.startswith("EmotionLabel."):
+                    emotion_str = emotion_str.split(".")[1].lower()
+                emotion_analysis = EmotionAnalysis(
+                    segment_id=segment.id,
+                    primary_emotion=emotion_str,
+                    emotion_scores={emotion_str: 1.0},
+                    valence=0.0,  # TODO: calculate valence
+                    arousal=0.0,  # TODO: calculate arousal
+                    confidence=1.0
+                )
+                db.add(emotion_analysis)
+        
+        await db.commit()

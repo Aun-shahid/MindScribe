@@ -26,6 +26,7 @@ from .models import (
     Session, SessionTemplate, PatientProgress, SessionReminder, 
     TherapistAvailability, TherapistDateOverride, SessionQRCode, SessionAudio, SessionInsight
 )
+from transcription.models import Transcription
 from .serializers import (
     SessionSerializer, SessionCreateSerializer, SessionUpdateSerializer,
     SessionTemplateSerializer, PatientProgressSerializer, 
@@ -2851,15 +2852,30 @@ class SessionEmotionalAnalysisView(generics.GenericAPIView):
         
         # Try to get real data from transcription models
         try:
-            # Note: Transcription data is now handled by the AI service
-            # For now, return static mock data until AI service integration is complete
-            response_data = self._get_static_analysis_data(session)
+            # First try if Session has a direct relation or calculate it on the fly
+            # For now return an empty/unavailable structure
+            response_data = {
+                'session_id': str(session.id),
+                'analysis_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'unavailable',
+                'overall_sentiment': {
+                    'primary': 'neutral',
+                    'score': 0.0,
+                    'summary': 'Analysis unavailable.'
+                },
+                'mood_distribution': {},
+                'mood_timeline': [],
+                'emotional_patterns': {
+                    'dominant_emotions': [],
+                    'emotional_shift': 'unknown'
+                },
+                'key_topics': [],
+                'recommendations': []
+            }
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception:
-            # Return static mock data when no transcription exists or any error occurs
-            response_data = self._get_static_analysis_data(session)
-            return Response(response_data, status=status.HTTP_200_OK)
+            # Return empty data instead of static mock data
+            return Response({'detail': 'Analysis unavailable.'}, status=status.HTTP_404_NOT_FOUND)
     
     def _get_static_analysis_data(self, session):
         """Return static mock data for frontend integration"""
@@ -2989,6 +3005,30 @@ class SessionTranscriptionView(generics.GenericAPIView):
             transcription = session.transcription
             segments = transcription.segments.all().order_by('start_time')
             
+            from transcription.models import EmotionAnalysis
+            import json
+            segment_ids = [s.id for s in segments]
+            
+            # Fetch emotions using raw SQL to bypass JSONField deserialization
+            emotions_map = {}
+            try:
+                emotions_qs = EmotionAnalysis.objects.filter(segment_id__in=segment_ids).values()
+                emotions_map = {str(e['segment_id']): e for e in emotions_qs}
+            except TypeError:
+                # JSONField deserialization error - fall back to raw SQL query
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    placeholders = ','.join(['%s'] * len(segment_ids))
+                    cursor.execute(f"""
+                        SELECT id, segment_id, primary_emotion, emotion_scores, valence, arousal, confidence
+                        FROM emotion_analysis
+                        WHERE segment_id IN ({placeholders})
+                    """, segment_ids)
+                    columns = [col[0] for col in cursor.description]
+                    for row in cursor.fetchall():
+                        row_dict = dict(zip(columns, row))
+                        emotions_map[str(row_dict['segment_id'])] = row_dict
+            
             segments_data = []
             for segment in segments:
                 segment_data = {
@@ -3002,16 +3042,25 @@ class SessionTranscriptionView(generics.GenericAPIView):
                     'language': segment.language,
                 }
                 
-                # Add emotion data if available
-                if hasattr(segment, 'emotion'):
+                # Use data from .values() directly to bypass Django DB JSON parsing
+                emotion_data = emotions_map.get(str(segment.id))
+                if emotion_data:
+                    scores = emotion_data.get('emotion_scores', {})
+                    if isinstance(scores, str):
+                        try:
+                            import json
+                            scores = json.loads(scores)
+                        except Exception:
+                            scores = {}
+
                     segment_data['emotion'] = {
-                        'primary_emotion': segment.emotion.primary_emotion,
-                        'valence': segment.emotion.valence,
-                        'arousal': segment.emotion.arousal,
-                        'confidence': segment.emotion.confidence,
-                        'emotion_scores': segment.emotion.emotion_scores
+                        'primary_emotion': emotion_data.get('primary_emotion', 'neutral'),
+                        'valence': emotion_data.get('valence', 0.0),
+                        'arousal': emotion_data.get('arousal', 0.0),
+                        'confidence': emotion_data.get('confidence', 1.0),
+                        'emotion_scores': scores if isinstance(scores, dict) else {}
                     }
-                
+                    
                 segments_data.append(segment_data)
             
             response_data = {
@@ -3022,25 +3071,24 @@ class SessionTranscriptionView(generics.GenericAPIView):
                 'processing_started_at': transcription.processing_started_at,
                 'processing_completed_at': transcription.processing_completed_at,
                 'duration_seconds': session.duration_minutes * 60 if session.duration_minutes else 3600,
-                'segments': segments_data if segments_data else self._get_static_segments(),
-                'segment_count': len(segments_data) if segments_data else 24,
+                'segments': segments_data,
+                'segment_count': len(segments_data),
             }
             
             return Response(response_data, status=status.HTTP_200_OK)
             
         except Transcription.DoesNotExist:
-            # Return static mock data for frontend integration
+            # Return empty data instead of mock data now that integration is complete
             response_data = {
                 'session_id': str(session.id),
                 'transcription_id': None,
-                'transcription_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'mock_data',
+                'transcription_status': 'pending' if session.status in ['UPCOMING', 'REQUESTED'] else 'unavailable',
                 'language_detected': 'en',
                 'processing_started_at': None,
                 'processing_completed_at': None,
                 'duration_seconds': session.duration_minutes * 60 if session.duration_minutes else 3600,
-                'segments': self._get_static_segments(),
-                'segment_count': 24,
-                'is_mock_data': True,
+                'segments': [],
+                'segment_count': 0,
             }
             
             return Response(response_data, status=status.HTTP_200_OK)

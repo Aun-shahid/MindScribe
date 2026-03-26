@@ -963,7 +963,7 @@ const SessionDetailPage: React.FC = () => {
                           <p className="text-sm text-gray-600 leading-relaxed">{segment.text}</p>
                           {segment.emotion && (
                             <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              {segment.emotion}
+                              {typeof segment.emotion === 'string' ? segment.emotion : (segment.emotion.primary_emotion || JSON.stringify(segment.emotion))}
                             </span>
                           )}
                         </div>

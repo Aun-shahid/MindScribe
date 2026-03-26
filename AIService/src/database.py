@@ -4,8 +4,12 @@ Uses SQLAlchemy async for PostgreSQL connection.
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+import uuid
 
 from .config import settings
 
@@ -28,8 +32,58 @@ async_session_maker = async_sessionmaker(
     autoflush=False,
 )
 
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, JSON, Boolean
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 # Base class for ORM models (if needed for local models)
 Base = declarative_base()
+
+
+class Transcription(Base):
+    __tablename__ = 'transcriptions'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+    session_id = Column(UUID(as_uuid=True), nullable=False)  # Django session id
+    status = Column(String(20), default='pending')
+    language_detected = Column(String(10))
+    processing_started_at = Column(DateTime)
+    processing_completed_at = Column(DateTime)
+    error_message = Column(Text)
+    
+    segments = relationship("TranscriptionSegment", back_populates="transcription")
+
+
+class TranscriptionSegment(Base):
+    __tablename__ = 'transcription_segments'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transcription_id = Column(UUID(as_uuid=True), ForeignKey('transcriptions.id'), nullable=False)
+    speaker_type = Column(String(20))
+    speaker_id = Column(String(50))
+    text = Column(Text, nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+    confidence_score = Column(Float)
+    language = Column(String(10))
+    
+    transcription = relationship("Transcription", back_populates="segments")
+    emotion_analysis = relationship("EmotionAnalysis", back_populates="segment", uselist=False)
+
+
+class EmotionAnalysis(Base):
+    __tablename__ = 'emotion_analysis'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    segment_id = Column(Integer, ForeignKey('transcription_segments.id'), nullable=False)
+    primary_emotion = Column(String(50), nullable=False)
+    emotion_scores = Column(JSON, default=dict)
+    valence = Column(Float, nullable=False)
+    arousal = Column(Float, nullable=False)
+    confidence = Column(Float, nullable=False)
+    
+    segment = relationship("TranscriptionSegment", back_populates="emotion_analysis")
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
