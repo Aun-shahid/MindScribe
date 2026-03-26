@@ -941,20 +941,24 @@ class EnhancedPatientCreateSerializer(serializers.Serializer):
     
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness"""
-        if not value:
+        normalized_phone = ''.join(ch for ch in str(value or '').strip() if ch.isdigit())
+
+        if not normalized_phone:
             raise serializers.ValidationError("Phone number is required.")
         
-        # Check if phone number is already in use
-        if User.objects.filter(phone_number=value).exists():
+        # Check if phone number is already in use after normalization
+        if User.objects.filter(phone_number=normalized_phone).exists():
             raise serializers.ValidationError("A user with this phone number already exists.")
         
-        return value
+        return normalized_phone
     
     def validate_email(self, value):
         """Validate email uniqueness if provided"""
-        if value and User.objects.filter(email=value).exists():
+        normalized_email = (value or '').strip().lower()
+
+        if normalized_email and User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
-        return value
+        return normalized_email
     
     def validate_preferred_session_days(self, value):
         """Validate preferred session days"""
@@ -1035,6 +1039,8 @@ class SessionScheduleSerializer(serializers.Serializer):
     is_online = serializers.BooleanField(default=False)
     patient_goals = serializers.CharField(required=False, allow_blank=True)
     fee_charged = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    consent_recording = serializers.BooleanField(required=False, default=False)
+    consent_ai_analysis = serializers.BooleanField(required=False, default=False)
     
     def validate_patient_id(self, value):
         """Validate that patient exists and is connected to therapist"""

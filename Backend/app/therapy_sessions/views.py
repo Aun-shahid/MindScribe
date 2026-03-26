@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db import IntegrityError
 from django.db.models import Q, Count, Avg
 from rest_framework import generics, status, permissions, serializers
 from rest_framework.permissions import IsAuthenticated
@@ -470,6 +471,32 @@ class CreatePatientView(generics.CreateAPIView):
                     'errors': serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
+        except IntegrityError as e:
+            error_text = str(e).lower()
+            errors = {}
+
+            if 'email' in error_text:
+                errors['email'] = ['A user with this email already exists.']
+
+            if 'phone_number' in error_text:
+                errors['phone_number'] = ['A user with this phone number already exists.']
+
+            if 'username' in error_text:
+                if request.data.get('email'):
+                    errors['email'] = ['A user with this email already exists.']
+                else:
+                    errors['phone_number'] = ['A user with this phone number already exists.']
+
+            if not errors:
+                errors['non_field_errors'] = ['Unable to create patient due to a duplicate unique value.']
+
+            return Response(
+                {
+                    'detail': 'Validation failed.',
+                    'errors': errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
             return Response(
                 {'detail': f'Error creating patient: {str(e)}'}, 
@@ -677,81 +704,11 @@ class EndSessionView(generics.GenericAPIView):
             # Just save the updated fields for already completed sessions
             session.save()
 
-        # Trigger AI service analysis asynchronously (non-blocking)
-        ai_analysis_info = None
-        if not is_already_completed and session.consent_recording and session.consent_ai_analysis:
-            try:
-                from .token_utils import generate_session_token
-                import requests as http_requests
-                import threading
-
-                ai_token = generate_session_token(
-                    session_id=session.id,
-                    therapist_id=user.id,
-                    expiration_hours=2
-                )
-                ai_service_url = getattr(settings, 'AI_SERVICE_URL', 'http://localhost:8001')
-
-                def _trigger_ai_analysis(session_id, token, url):
-                    """Background call to AI service for SOAP notes / insights."""
-                    try:
-                        resp = http_requests.post(
-                            f"{url}/api/v1/soap/{session_id}/generate",
-                            json={
-                                "include_emotions": True,
-                                "additional_context": "",
-                            },
-                            headers={"Authorization": f"Bearer {token}"},
-                            timeout=60,
-                        )
-                        if resp.ok:
-                            logger.info(f"AI analysis completed for session {session_id}")
-                            # Store insights back to DB
-                            result = resp.json()
-                            soap = result.get("soap_note")
-                            if soap:
-                                try:
-                                    insight, _ = SessionInsight.objects.update_or_create(
-                                        session_id=session_id,
-                                        defaults={
-                                            "recommendations": soap.get("plan", {}).get("content", ""),
-                                            "key_themes": soap.get("key_themes", []),
-                                        }
-                                    )
-                                except Exception as db_err:
-                                    logger.warning(f"Could not store AI insights for session {session_id}: {db_err}")
-                        else:
-                            logger.warning(f"AI analysis returned {resp.status_code} for session {session_id}")
-                    except Exception as e:
-                        logger.warning(f"AI analysis call failed for session {session_id}: {e}")
-
-                # Fire and forget in a background thread so the response is fast
-                thread = threading.Thread(
-                    target=_trigger_ai_analysis,
-                    args=(str(session.id), ai_token, ai_service_url),
-                    daemon=True,
-                )
-                thread.start()
-
-                ai_analysis_info = {
-                    'status': 'triggered',
-                    'message': 'AI analysis has been triggered in the background. Results will be available shortly.',
-                    'ai_service_url': ai_service_url,
-                }
-            except Exception as e:
-                logger.warning(f"Failed to trigger AI analysis for session {session.id}: {e}")
-                ai_analysis_info = {
-                    'status': 'skipped',
-                    'message': f'AI analysis could not be triggered: {str(e)}',
-                }
-        
         response_message = 'Session notes updated successfully.' if is_already_completed else 'Session ended successfully.'
         response_data = {
             'detail': response_message,
             'session': SessionSerializer(session).data,
         }
-        if ai_analysis_info:
-            response_data['ai_analysis'] = ai_analysis_info
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -2143,6 +2100,8 @@ class SessionScheduleView(APIView):
             'is_online': serializer.validated_data['is_online'],
             'patient_goals': serializer.validated_data.get('patient_goals', ''),
             'fee_charged': serializer.validated_data.get('fee_charged'),
+            'consent_recording': serializer.validated_data.get('consent_recording', False),
+            'consent_ai_analysis': serializer.validated_data.get('consent_ai_analysis', False),
             'status': 'UPCOMING',
             'created_by': request.user
         }

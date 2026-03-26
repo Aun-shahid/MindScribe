@@ -189,7 +189,7 @@ export const useNotifications = () => {
     stopHeartbeat();
     heartbeatRef.current = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ event: 'ping' }));
+        ws.send(JSON.stringify({ type: 'ping' }));
       }
     }, HEARTBEAT_INTERVAL_MS);
   };

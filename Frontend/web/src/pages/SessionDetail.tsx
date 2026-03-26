@@ -15,10 +15,14 @@ import {
   Trash2,
   Phone,
   Mail,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { useSessionDetail, useSessionAnalysis, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
+import type { SOAPNote } from '../types/session';
+
+type SessionDetailTab = 'overview' | 'soap' | 'emotional-profile' | 'ai-insights';
 
 
 const SessionDetailPage: React.FC = () => {
@@ -58,6 +62,12 @@ const SessionDetailPage: React.FC = () => {
     next_session_goals: '',
   });
   const [savingSummary, setSavingSummary] = useState(false);
+  const [activeTab, setActiveTab] = useState<SessionDetailTab>('overview');
+  const [soapNote, setSoapNote] = useState<SOAPNote | null>(null);
+  const [soapLoading, setSoapLoading] = useState(false);
+  const [soapGenerating, setSoapGenerating] = useState(false);
+  const [soapError, setSoapError] = useState<string | null>(null);
+  const [soapFetchAttempted, setSoapFetchAttempted] = useState(false);
 
   const {
     session,
@@ -90,6 +100,20 @@ const SessionDetailPage: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    const queryTab = new URLSearchParams(location.search).get('tab');
+    if (
+      queryTab === 'overview' ||
+      queryTab === 'soap' ||
+      queryTab === 'emotional-profile' ||
+      queryTab === 'ai-insights'
+    ) {
+      setActiveTab(queryTab);
+    } else {
+      setActiveTab('overview');
+    }
+  }, [location.search]);
+
+  React.useEffect(() => {
     if (session?.session_notes) {
       setNoteText(session.session_notes);
     }
@@ -113,6 +137,62 @@ const SessionDetailPage: React.FC = () => {
       });
     }
   }, [session]);
+
+  const isCompletedSession = session?.status === 'COMPLETED';
+
+  const handleTabChange = (tab: SessionDetailTab) => {
+    setActiveTab(tab);
+    navigate(`${location.pathname}?tab=${tab}`, { replace: true, state: location.state });
+  };
+
+  const loadSoapNote = async () => {
+    if (!id) return;
+
+    setSoapLoading(true);
+    setSoapError(null);
+
+    try {
+      const note = await sessionsService.getSessionSOAP(id);
+      setSoapNote(note);
+    } catch (error: any) {
+      setSoapNote(null);
+      setSoapError(error?.message || 'Unable to load SOAP note for this session.');
+    } finally {
+      setSoapFetchAttempted(true);
+      setSoapLoading(false);
+    }
+  };
+
+  const handleGenerateSoap = async () => {
+    if (!id) return;
+
+    setSoapGenerating(true);
+    setSoapError(null);
+
+    try {
+      const generated = await sessionsService.generateSessionSOAP(id, {
+        include_emotions: true,
+      });
+      setSoapNote(generated.soap_note);
+      setSoapFetchAttempted(true);
+    } catch (error: any) {
+      setSoapError(error?.message || 'Failed to generate SOAP note.');
+    } finally {
+      setSoapGenerating(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'soap' && isCompletedSession && !soapNote && !soapLoading && !soapFetchAttempted) {
+      loadSoapNote();
+    }
+  }, [activeTab, isCompletedSession, soapNote, soapLoading, soapFetchAttempted]);
+
+  React.useEffect(() => {
+    setSoapFetchAttempted(false);
+    setSoapError(null);
+    setSoapNote(null);
+  }, [id]);
 
   const handleSaveDetails = async () => {
     if (!id) return;
@@ -250,7 +330,7 @@ const SessionDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50">
       {/* Enhanced Header with Gradient */}
-      <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-purple-700 text-white shadow-lg">
+      <div className=" text-purple-900 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-8">
             <div className="flex items-center space-x-4">
@@ -262,14 +342,18 @@ const SessionDetailPage: React.FC = () => {
               </button>
               <div>
                 <div className="flex items-center space-x-3">
-                  <h1 className="text-3xl font-bold">Session #{session.id}</h1>
-                  <div className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold border-2 shadow-lg ${getStatusColor(session.status)}`}>
+                  <h1 className="text-2xl font-serif font-bold">Session Details</h1>
+                  <div className={`inline-flex text-purple-900 items-center px-2 py-1.5 rounded-full text-sm font-semibold border-2 shadow-lg ${getStatusColor(session.status)}`}>
                     {session.status?.replace('_', ' ').toUpperCase()}
                   </div>
                 </div>
-                <div className="flex items-center mt-2 text-purple-100">
+                <div className="flex items-center mt-2 text-purple-900">
                   <User size={16} className="mr-2" />
-                  <p className="text-lg font-medium">{session.patient.full_name}</p>
+                  <p className=" font-medium">Session id #{session.id}</p>
+                </div>
+                <div className="flex items-center mt-2 text-purple-900">
+                  <User size={16} className="mr-2" />
+                  <p className=" font-medium">{session.patient.full_name}</p>
                 </div>
               </div>
             </div>
@@ -280,8 +364,8 @@ const SessionDetailPage: React.FC = () => {
                 className="flex items-center space-x-2 px-4 py-2.5 bg-red-600/90 backdrop-blur-sm rounded-xl hover:bg-red-700 transition-all duration-200 hover:scale-105 shadow-lg"
                 title="Delete session"
               >
-                <Trash2 size={18} />
-                <span className="hidden sm:inline font-medium">Delete</span>
+                <Trash2 size={18} color='white' />
+                <span className="hidden sm:inline text-white font-medium">Delete</span>
               </button>
             </div>
           </div>
@@ -289,7 +373,49 @@ const SessionDetailPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-2 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <button
+              onClick={() => handleTabChange('overview')}
+              className={`px-4 py-2.5 rounded-xl  font-semibold transition-colors ${activeTab === 'overview'
+                ? 'bg-[#431657] text-white'
+                : 'bg-gray-100 text-[#431657] hover:bg-[#d4bdde]'
+                }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => handleTabChange('soap')}
+              className={`px-4 py-2.5 rounded-xl  font-semibold transition-colors ${activeTab === 'soap'
+                ? 'bg-[#431657] text-white'
+                : 'bg-gray-100 text-[#431657] hover:bg-[#d4bdde]'
+                }`}
+            >
+              SOAP Notes
+            </button>
+            <button
+              onClick={() => handleTabChange('emotional-profile')}
+              className={`px-4 py-2.5 rounded-xl  font-semibold transition-colors ${activeTab === 'emotional-profile'
+                ? 'bg-[#431657] text-white'
+                : 'bg-gray-100 text-[#431657] hover:bg-[#d4bdde]'
+                }`}
+            >
+              Emotional Profile
+            </button>
+            <button
+              onClick={() => handleTabChange('ai-insights')}
+              className={`px-4 py-2.5 rounded-xl  font-semibold transition-colors ${activeTab === 'ai-insights'
+                ? 'bg-[#431657] text-white'
+                : 'bg-gray-100 text-[#431657] hover:bg-[#d4bdde]'
+                }`}
+            >
+              AI Insights
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Session Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Session Overview */}
@@ -401,8 +527,8 @@ const SessionDetailPage: React.FC = () => {
                   </div>
                 ) : (
                   /* View Mode */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
+                    <div className="flex items-start space-x-1 p-2 bg-gray-50 rounded-xl">
                       <div className="p-2 bg-green-100 rounded-lg">
                         <Calendar className="text-green-600" size={20} />
                       </div>
@@ -452,7 +578,7 @@ const SessionDetailPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <FileText className="text-blue-600 mr-2" size={20} />
-                    <h3 className="text-lg font-bold text-gray-900">Session Notes</h3>
+                    <h3 className="text-lg font-sans font-semibold text-gray-900">Session Notes</h3>
                   </div>
                   {!isEditingNotes ? (
                     <button
@@ -567,7 +693,7 @@ const SessionDetailPage: React.FC = () => {
                 <div className="p-6 space-y-6">
                   {isEditingSummary ? (
                     <>
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Session Summary
                         </label>
@@ -577,7 +703,7 @@ const SessionDetailPage: React.FC = () => {
                           className="w-full h-32 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none text-base"
                           placeholder="Summarize what was discussed in this session..."
                         />
-                      </div>
+                      </div> */}
                       <div>
                         <label className="block text-sm font-semibold text-gray-900 mb-2">
                           Patient Goals
@@ -614,14 +740,14 @@ const SessionDetailPage: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      {/* <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                         <p className="font-semibold text-gray-900 mb-2 flex items-center">
                           <span className="mr-2">📋</span> Session Summary
                         </p>
                         <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                           {session.session_summary || <span className="text-gray-400 italic">Not provided</span>}
                         </p>
-                      </div>
+                      </div> */}
                       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                         <p className="font-semibold text-gray-900 mb-2 flex items-center">
                           <span className="mr-2">🎯</span> Patient Goals
@@ -698,7 +824,7 @@ const SessionDetailPage: React.FC = () => {
                   {session.mood_improvement !== null && session.mood_improvement !== 0 && (
                     <div className={`rounded-xl p-4 ${session.mood_improvement > 0 ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'}`}>
                       <p className="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Mood Change</p>
-                      <p className={`text-3xl font-bold ${session.mood_improvement > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className={`text-xl font-bold ${session.mood_improvement > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {session.mood_improvement > 0 ? '+' : ''}{session.mood_improvement} points
                       </p>
                       <p className={`text-sm font-semibold mt-2 ${session.mood_improvement > 0 ? 'text-green-700' : 'text-red-700'}`}>
@@ -713,7 +839,7 @@ const SessionDetailPage: React.FC = () => {
                     <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl p-5 border border-purple-200">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Session Effectiveness</span>
-                        <span className="text-3xl font-bold text-purple-600">{session.session_effectiveness}<span className="text-lg text-gray-500">/10</span></span>
+                        <span className="text-xl font-bold text-purple-600">{session.session_effectiveness}<span className="text-lg text-gray-500">/10</span></span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                         <div
@@ -871,7 +997,7 @@ const SessionDetailPage: React.FC = () => {
               <div className="p-6 space-y-5">
                 <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                   <p className="text-sm font-medium text-gray-500 mb-1">Patient Name</p>
-                  <p className="text-lg font-bold text-gray-900">{session.patient.full_name}</p>
+                  <p className="text-md font-semibold text-gray-900">{session.patient.full_name}</p>
                 </div>
 
                 {session.patient.email && (
@@ -967,7 +1093,105 @@ const SessionDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        )}
+
+        {activeTab === 'soap' && (
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-violet-50 to-violet-100/50 px-6 py-4 border-b border-violet-200">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">SOAP Notes</h3>
+                  {isCompletedSession ? (
+                    <p className="text-sm text-gray-500 mt-1">AI-generated structured clinical notes from your session recording.</p>
+                  ) : (
+                    <p className="text-sm text-gray-500 mt-1">This will be available after the session is completed.</p>
+                  )}
+                </div>
+                {isCompletedSession && (
+                  <button
+                    onClick={handleGenerateSoap}
+                    disabled={soapGenerating}
+                    className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={16} className="mr-2" />
+                    {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {!isCompletedSession ? (
+                <p className="text-gray-500 italic">This will be available after the session is completed.</p>
+              ) : soapLoading ? (
+                <div className="flex items-center text-gray-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-600 mr-3"></div>
+                  Loading SOAP notes...
+                </div>
+              ) : soapNote ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Subjective</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{soapNote.subjective?.content || 'Not available.'}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Objective</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{soapNote.objective?.content || 'Not available.'}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Assessment</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{soapNote.assessment?.content || 'Not available.'}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Plan</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{soapNote.plan?.content || 'Not available.'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">No SOAP note generated yet for this session.</p>
+                  <button
+                    onClick={handleGenerateSoap}
+                    disabled={soapGenerating}
+                    className="inline-flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={16} className="mr-2" />
+                    {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
+                  </button>
+                </div>
+              )}
+
+              {soapError && (
+                <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                  {soapError}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'emotional-profile' && (
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h3 className="text-xl font-bold text-gray-900">Emotional Profile</h3>
+            {isCompletedSession ? (
+              <p className="text-sm text-gray-500 mt-2">Coming soon.</p>
+            ) : (
+              <p className="text-sm text-gray-500 mt-2">This will be available after the session is completed.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'ai-insights' && (
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h3 className="text-xl font-bold text-gray-900">AI Insights</h3>
+            {isCompletedSession ? (
+              <p className="text-sm text-gray-500 mt-2">Coming soon.</p>
+            ) : (
+              <p className="text-sm text-gray-500 mt-2">This will be available after the session is completed.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

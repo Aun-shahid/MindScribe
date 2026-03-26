@@ -11,6 +11,40 @@ type SOAPFormState = {
   plan: string;
 };
 
+type SOAPTab = keyof SOAPFormState;
+
+const SOAP_TAB_CONFIG: Array<{
+  key: SOAPTab;
+  label: string;
+  placeholder: string;
+  helper: string;
+}> = [
+  {
+    key: 'subjective',
+    label: 'Subjective',
+    placeholder: 'Patient-reported symptoms, feelings, and concerns...',
+    helper: 'Patient perspective, concerns, and self-reported experience.',
+  },
+  {
+    key: 'objective',
+    label: 'Objective',
+    placeholder: 'Observable findings, behaviors, measurable data...',
+    helper: 'Observable data, behavior, and measurable findings.',
+  },
+  {
+    key: 'assessment',
+    label: 'Assessment',
+    placeholder: 'Clinical interpretation and progress evaluation...',
+    helper: 'Clinical interpretation, progress, and diagnostic reasoning.',
+  },
+  {
+    key: 'plan',
+    label: 'Plan',
+    placeholder: 'Treatment plan, interventions, and follow-up...',
+    helper: 'Interventions, homework, and follow-up strategy.',
+  },
+];
+
 const SessionSOAP: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -27,6 +61,7 @@ const SessionSOAP: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<SOAPTab>('subjective');
 
   const syncForm = useCallback((note: SOAPNote) => {
     setForm({
@@ -122,7 +157,11 @@ const SessionSOAP: React.FC = () => {
 
       setSoap(updated);
       syncForm(updated);
-      setMessage('SOAP note updated successfully.');
+      setMessage('SOAP note updated successfully. Returning to sessions...');
+
+      setTimeout(() => {
+        navigate('/sessions');
+      }, 1000);
     } catch (err: any) {
       setError(err?.message || 'Failed to update SOAP note');
     } finally {
@@ -199,44 +238,41 @@ const SessionSOAP: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center mb-4">
             <FileText className="text-purple-600 mr-2" size={24} />
-            <h2 className="text-xl font-semibold text-gray-900">Subjective</h2>
+            <h2 className="text-xl font-semibold text-gray-900">SOAP Sections</h2>
           </div>
-          <textarea
-            className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-            value={form.subjective}
-            onChange={(e) => setField('subjective', e.target.value)}
-            placeholder="Patient-reported symptoms, feelings, and concerns..."
-          />
-        </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Objective</h2>
-          <textarea
-            className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-            value={form.objective}
-            onChange={(e) => setField('objective', e.target.value)}
-            placeholder="Observable findings, behaviors, measurable data..."
-          />
-        </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+            {SOAP_TAB_CONFIG.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Assessment</h2>
-          <textarea
-            className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-            value={form.assessment}
-            onChange={(e) => setField('assessment', e.target.value)}
-            placeholder="Clinical interpretation and progress evaluation..."
-          />
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Plan</h2>
-          <textarea
-            className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-            value={form.plan}
-            onChange={(e) => setField('plan', e.target.value)}
-            placeholder="Treatment plan, interventions, and follow-up..."
-          />
+          {SOAP_TAB_CONFIG.filter((tab) => tab.key === activeTab).map((tab) => (
+            <div key={tab.key}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{tab.label}</h3>
+              <p className="text-sm text-gray-500 mb-3">{tab.helper}</p>
+              <textarea
+                className="w-full h-56 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                value={form[tab.key]}
+                onChange={(e) => setField(tab.key, e.target.value)}
+                placeholder={tab.placeholder}
+              />
+            </div>
+          ))}
         </div>
 
         {soap?.emotional_summary && (

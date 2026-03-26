@@ -16,6 +16,7 @@ const EndSession: React.FC = () => {
   const [homeworkAssigned, setHomeworkAssigned] = useState('');
   const [nextSessionGoals, setNextSessionGoals] = useState('');
   const [sessionEffectiveness, setSessionEffectiveness] = useState('8');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Use hooks
   const { session } = useSessionDetail(id!);
@@ -67,12 +68,18 @@ const EndSession: React.FC = () => {
         console.log('   Result:', response);
         console.log('   AI Analysis:', response.ai_analysis);
 
-        // Navigate either to SOAP notes (to review generated notes) or session details.
-        if (navigateToSOAP) {
-          navigate(`/sessions/${id}/soap`);
-        } else {
-          navigate(`/sessions/${id}`);
-        }
+        const completionMessage = navigateToSOAP
+          ? 'Session completed successfully! Redirecting you to SOAP Notes where you can generate and save.'
+          : 'Session completed successfully!';
+        setSuccessMessage(completionMessage);
+
+        setTimeout(() => {
+          if (navigateToSOAP) {
+            navigate(`/sessions/${id}/soap`);
+          } else {
+            navigate('/sessions');
+          }
+        }, 2200);
       } else if (endSessionError) {
         console.error('❌ [EndSession] Failed to complete session');
         console.error('   Error:', endSessionError);
@@ -163,6 +170,15 @@ const EndSession: React.FC = () => {
           )}
 
           {/* Session Notes */}
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <p className="text-green-800 text-sm font-medium">{successMessage}</p>
+                </div>
+              </div>
+            )}
+
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center mb-4">
               <FileText className="text-purple-600 mr-3" size={24} />

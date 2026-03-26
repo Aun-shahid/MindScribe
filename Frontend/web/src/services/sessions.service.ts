@@ -181,7 +181,16 @@ class SessionsService {
    */
   async getSessionSOAP(sessionId: string): Promise<SOAPNote> {
     try {
-      const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`);
+      const authToken = localStorage.getItem('ai_service_token');
+      if (!authToken) {
+        throw new Error('AI session token is missing. Start and complete the session flow to generate or load SOAP notes.');
+      }
+
+      const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -196,11 +205,21 @@ class SessionsService {
     payload: { include_emotions?: boolean; additional_context?: string } = {}
   ): Promise<SOAPGenerateResponse> {
     try {
+      const authToken = localStorage.getItem('ai_service_token');
+      if (!authToken) {
+        throw new Error('AI session token is missing. Start and complete the session flow before generating SOAP notes.');
+      }
+
       const response = await aiApi.post<SOAPGenerateResponse>(
         `/soap/${sessionId}/generate`,
         {
           include_emotions: payload.include_emotions ?? true,
           additional_context: payload.additional_context ?? '',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
         }
       );
       return response.data;
@@ -222,7 +241,16 @@ class SessionsService {
     }
   ): Promise<SOAPNote> {
     try {
-      const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload);
+      const authToken = localStorage.getItem('ai_service_token');
+      if (!authToken) {
+        throw new Error('AI session token is missing. Re-open this session through the active session flow before saving SOAP notes.');
+      }
+
+      const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -350,12 +378,7 @@ class SessionsService {
    */
   async createSession(sessionData: SessionFormData): Promise<SessionType> {
     try {
-      const dataWithConsent = {
-        ...sessionData,
-        consent_recording: true,
-        consent_ai_analysis: true,
-      };
-      const response = await api.post<SessionType>('/therapy_sessions/schedule/', dataWithConsent);
+      const response = await api.post<SessionType>('/therapy_sessions/schedule/', sessionData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
