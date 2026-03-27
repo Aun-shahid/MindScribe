@@ -83,8 +83,7 @@ const SessionDetailPage: React.FC = () => {
   // Fetch AI analysis and transcription for completed sessions
   const {
     analysis,
-    loading: analysisLoading,
-    error: analysisError
+    loading: analysisLoading
   } = useSessionAnalysis(session?.status === 'COMPLETED' ? id! : '');
 
   const {
