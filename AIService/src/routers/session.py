@@ -195,6 +195,34 @@ async def stop_session(
         )
     
     transcript = session_manager.stop_session(session_id)
+
+    # Post-process transcript before emotion + persistence:
+    # 1) classify each segment as THERAPIST/PATIENT
+    # 2) normalize mixed-language text into English
+    if transcript and transcript.segments:
+        from ..services.transcription_refinement import normalize_segments_for_therapy
+
+        raw_segments = []
+        for seg in transcript.segments:
+            source_text = seg.text_urdu or seg.text_english or ""
+            raw_segments.append({
+                "id": seg.id,
+                "start": seg.start_time,
+                "end": seg.end_time,
+                "duration": seg.duration,
+                "speaker": seg.speaker,
+                "text": source_text,
+            })
+
+        normalized_segments = await normalize_segments_for_therapy(raw_segments)
+
+        # Apply normalized values back to transcript segments
+        for i, nseg in enumerate(normalized_segments):
+            if i >= len(transcript.segments):
+                break
+            transcript.segments[i].speaker = str(nseg.get("speaker", transcript.segments[i].speaker))
+            transcript.segments[i].text_urdu = str(nseg.get("text_original", transcript.segments[i].text_urdu or ""))
+            transcript.segments[i].text_english = str(nseg.get("text_english", transcript.segments[i].text_english or ""))
     
     # Analyze emotion for each segment
     if transcript and transcript.segments:
@@ -399,9 +427,10 @@ async def websocket_transcription(
                         
                         if rms > 150:  # equivalent to ~0.005 threshold
                             # Transcribe
+                            current_session = session_manager.get_session(session_id) or {}
                             transcription_result = await transcribe_audio_chunk(
                                 accumulated_audio,
-                                language=session_manager.get_session(session_id).get("config", {}).get("language", "ur")
+                                language=current_session.get("config", {}).get("language", "ur")
                             )
                             
                             if transcription_result and transcription_result.get("text"):
@@ -489,8 +518,9 @@ async def finalize_session(
 ):
     """
     Finalize a completed session with post-processing:
-    - Correct speaker labels using GPT-4o
-    - Translate all segments to English
+    - Transcribe with OpenAI diarization model (when audio file available)
+    - Classify each segment as THERAPIST/PATIENT
+    - Normalize all segment text to English
     
     The processed segments can then be used to generate SOAP notes
     via the /soap/{session_id}/generate endpoint.
@@ -509,14 +539,33 @@ async def finalize_session(
     
     try:
         # Import services
-        from ..services.speaker_correction import correct_speakers_with_gpt_async
-        from ..services.transcription import translate_all_segments
-        
-        # Get segments
-        segments = [
-            TranscriptionSegment(**s).model_dump()
-            for s in session_data.get("segments", [])
-        ]
+        from ..services.transcription import transcribe_full_audio_diarized
+        from ..services.transcription_refinement import normalize_segments_for_therapy
+
+        # Source segments: prefer full diarized transcript from file if audio_path exists.
+        segments = []
+        audio_path = session_data.get("config", {}).get("audio_path")
+        language = session_data.get("config", {}).get("language", "ur")
+
+        if audio_path:
+            logger.info("Running full-audio diarization transcription for finalization...")
+            diarized_result = await transcribe_full_audio_diarized(audio_path, language=language)
+            segments = diarized_result.get("segments", [])
+            if diarized_result.get("error"):
+                raise RuntimeError(diarized_result["error"])
+        else:
+            logger.warning("No audio_path found; finalizing from in-memory segments.")
+            for s in session_data.get("segments", []):
+                seg = TranscriptionSegment(**s)
+                source_text = seg.text_urdu or seg.text_english or ""
+                segments.append({
+                    "id": seg.id,
+                    "start": seg.start_time,
+                    "end": seg.end_time,
+                    "duration": seg.duration,
+                    "speaker": seg.speaker,
+                    "text": source_text,
+                })
         
         if not segments:
             return {
@@ -526,79 +575,108 @@ async def finalize_session(
             }
         
         logger.info(f"Starting finalization for session {session_id} with {len(segments)} segments")
-        
-        # Step 1: Correct speakers with GPT-4o
-        logger.info("Step 1/2: Correcting speaker labels with GPT-4o...")
-        from openai import AsyncOpenAI
-        openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
-        
-        corrected_segments = await correct_speakers_with_gpt_async(
-            segments,
-            openai_client
-        )
-        
+
+        # Step 1: Normalize roles and language via LLM post-processing
+        logger.info("Step 1/2: Classifying roles + normalizing all text to English...")
+        normalized_segments = await normalize_segments_for_therapy(segments)
+
         changes = sum(
             1 for i, seg in enumerate(segments)
-            if seg.get('speaker') != corrected_segments[i].get('speaker')
+            if i < len(normalized_segments) and seg.get('speaker') != normalized_segments[i].get('speaker')
         )
-        logger.info(f"Speaker correction complete: {changes} labels corrected")
+        logger.info(f"Post-processing complete: {changes} speaker labels changed")
+
+        # Convert normalized dicts into standard schema segments
+        finalized_transcription_segments = []
+        for seg in normalized_segments:
+            finalized_transcription_segments.append(TranscriptionSegment(
+                id=str(seg.get("id", "")),
+                speaker=str(seg.get("speaker", "PATIENT")),
+                start_time=float(seg.get("start", 0.0) or 0.0),
+                end_time=float(seg.get("end", 0.0) or 0.0),
+                duration=float(seg.get("duration", 0.0) or 0.0),
+                text_urdu=str(seg.get("text_original", "") or ""),
+                text_english=str(seg.get("text_english", "") or ""),
+                emotion=None,
+            ))
+
+        # Step 2: Analyze emotion for each segment (on normalized English text)
+        logger.info("Step 2/2: Analyzing emotions for all segments...")
+        from ..services.emotion import analyze_combined_emotion, analyze_text_emotion
+        import os
         
-        # Step 2: Translate all segments
-        logger.info("Step 2/2: Translating segments to English...")
-        
-        # For translation, we need audio path - use session config if available
-        audio_path = session_data.get("config", {}).get("audio_path")
-        if audio_path:
-            translated_segments = await translate_all_segments(
-                audio_path,
-                corrected_segments,
-                emotion_context=True
-            )
-        else:
-            # If no audio path, just use existing text
-            translated_segments = corrected_segments
-            logger.warning("No audio path available for segment extraction during translation")
-        
-        logger.info("Translation complete")
-        
-        # Step 3: Analyze emotion for each segment
-        logger.info("Step 3/3: Analyzing emotions for all segments...")
-        from ..services.emotion import analyze_text_emotion
-        
-        for i, segment in enumerate(translated_segments):
-            text = segment.get('text_english') or segment.get('text_urdu') or ''
+        # Load audio if available to perform combined audio+text sentiment analysis
+        full_audio = None
+        if audio_path and os.path.exists(audio_path):
+            try:
+                import pydub
+                logger.info(f"Loading full audio for emotion fusion: {audio_path}")
+                # Use pydub to slice memory easily
+                full_audio = pydub.AudioSegment.from_file(audio_path)
+                full_audio = full_audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            except Exception as e:
+                logger.error(f"Failed to load audio for emotion extraction: {e}")
+
+        for i, segment in enumerate(finalized_transcription_segments):
+            text = segment.text_english or segment.text_urdu or ''
             if text.strip():
-                emotion_result = await analyze_text_emotion(text)
-                translated_segments[i]['emotion'] = emotion_result.primary_emotion
+                if full_audio:
+                    try:
+                        # Extract audio bytes for the segment's duration
+                        start_ms = int(segment.start_time * 1000)
+                        end_ms = int(segment.end_time * 1000)
+                        
+                        # Fallback if somehow end_time <= start_time
+                        if end_ms <= start_ms:
+                            end_ms = start_ms + 1000
+                            
+                        seg_audio = full_audio[start_ms:end_ms]
+                        audio_bytes = seg_audio.raw_data
+                        
+                        # Smart combination of both models via LLM
+                        combined_result = await analyze_combined_emotion(audio_bytes, text)
+                        
+                        # Store the final converged label to DB schema format
+                        finalized_transcription_segments[i].emotion = combined_result.final_emotion
+                    except Exception as e:
+                        logger.error(f"Combined emotion failed for segment {i}, falling back to text only: {e}")
+                        emotion_result = await analyze_text_emotion(text)
+                        finalized_transcription_segments[i].emotion = emotion_result.primary_emotion
+                else:
+                    emotion_result = await analyze_text_emotion(text)
+                    finalized_transcription_segments[i].emotion = emotion_result.primary_emotion
             else:
-                translated_segments[i]['emotion'] = EmotionLabel.NEUTRAL
-        
+                finalized_transcription_segments[i].emotion = EmotionLabel.NEUTRAL
+
         logger.info("Emotion analysis complete")
-        
+
         # Identify patient speaker
-        speakers = sorted(list({s.get('speaker') for s in translated_segments}))
+        speakers = sorted(list({s.speaker for s in finalized_transcription_segments}))
         patient_speaker = 'PATIENT' if 'PATIENT' in speakers else (speakers[1] if len(speakers) > 1 else speakers[0] if speakers else 'UNKNOWN')
-        
+
         logger.info(f"Identified patient speaker: {patient_speaker}")
-        
+
+        segments_dump = [seg.model_dump() for seg in finalized_transcription_segments]
+
         # Store finalized data
         session_manager.update_session(
             session_id,
-            finalized_segments=translated_segments,
+            segments=segments_dump,
+            finalized_segments=segments_dump,
             patient_speaker=patient_speaker,
             finalization_complete=True,
             finalized_at=datetime.utcnow()
         )
-        
+
         logger.info(f"Finalization complete for session {session_id}")
-        
+
         return {
             "session_id": session_id,
             "status": "finalized",
             "speaker_corrections": changes,
-            "total_segments": len(translated_segments),
+            "total_segments": len(finalized_transcription_segments),
             "patient_speaker": patient_speaker,
-            "message": "Session finalization complete with speaker correction, translation, and emotion analysis. Use /soap endpoint to generate SOAP notes."
+            "message": "Session finalization complete with role classification, English normalization, and emotion analysis. Use /soap endpoint to generate SOAP notes."
         }
         
     except Exception as e:
@@ -627,15 +705,32 @@ async def save_transcript_to_db(transcript: FullTranscript, django_session_id: s
         
         # Create segments and emotion analyses
         for seg in transcript.segments:
+            speaker_value = str(seg.speaker or "").strip().upper()
+            if speaker_value == "THERAPIST":
+                speaker_type = "therapist"
+            elif speaker_value == "PATIENT":
+                speaker_type = "patient"
+            else:
+                speaker_type = "unknown"
+
+            segment_text = seg.text_english or seg.text_urdu or ""
+            if seg.text_english:
+                lang = "en"
+            elif seg.text_urdu:
+                lang = "ur"
+            else:
+                lang = ""
+
             segment = DBTranscriptionSegment(
                 transcription_id=transcription.id,
-                speaker_type='unknown',  # TODO: map from speaker
+                speaker_type=speaker_type,
+                # Keep original post-processed speaker label for traceability.
                 speaker_id=seg.speaker,
-                text=seg.text_english or seg.text_urdu,
+                text=segment_text,
                 start_time=seg.start_time,
                 end_time=seg.end_time,
                 confidence_score=1.0,  # TODO: add confidence
-                language='ur' if seg.text_urdu else 'en'
+                language=lang
             )
             db.add(segment)
             await db.flush()

@@ -16,6 +16,8 @@ import shutil
 
 import numpy as np
 import torch
+import json
+import os
 
 from ..config import settings
 from ..schemas import (
@@ -398,80 +400,91 @@ def _analyze_text_emotion_sync(text: str) -> TextEmotionResult:
             confidence=0.5,
             all_scores={}
         )
-        
     except Exception as e:
         logger.error(f"Text emotion sync error: {e}")
         return TextEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN,
-            confidence=0.0,
+            primary_emotion=EmotionLabel.NEUTRAL,
+            confidence=0.5,
             all_scores={}
         )
-
 
 async def analyze_combined_emotion(
-    audio_data: Optional[bytes] = None,
-    text: Optional[str] = None
+    audio_data: bytes,
+    text: str,
+    sample_rate: int = 16000
 ) -> CombinedEmotionResult:
     """
-    Perform combined audio and text emotion analysis.
-    
-    Args:
-        audio_data: Optional raw audio bytes
-        text: Optional text to analyze
-        
-    Returns:
-        CombinedEmotionResult with both analyses and final decision
+    Combines audio and text-based emotion analysis to give a grounded classification.
+    Uses an LLM to smartly fuse the two results into a final emotional context.
     """
-    # Run both analyses concurrently if available
+    # 1. Run both models concurrently
+    audio_task = asyncio.create_task(analyze_audio_emotion(audio_data, sample_rate))
+    text_task = asyncio.create_task(analyze_text_emotion(text))
+    
+    audio_result, text_result = await asyncio.gather(audio_task, text_task)
+    
+    # Check if they agree right away
+    agreement = (audio_result.primary_emotion == text_result.primary_emotion)
+    
+    # 2. Use an LLM to fuse them smartly
+    # We use a fast model for rapid per-segment fusion
     try:
-        if audio_data and text:
-            audio_result, text_result = await asyncio.gather(
-                analyze_audio_emotion(audio_data),
-                analyze_text_emotion(text)
-            )
-        elif audio_data:
-            audio_result = await analyze_audio_emotion(audio_data)
-            text_result = TextEmotionResult(
-                primary_emotion=EmotionLabel.UNKNOWN,
-                confidence=0.0,
-                all_scores={}
-            )
-        elif text:
-            audio_result = AudioEmotionResult(
-                primary_emotion=EmotionLabel.UNKNOWN,
-                confidence=0.0,
-                all_scores={}
-            )
-            text_result = await analyze_text_emotion(text)
-        else:
-            audio_result = AudioEmotionResult(
-                primary_emotion=EmotionLabel.UNKNOWN,
-                confidence=0.0,
-                all_scores={}
-            )
-            text_result = TextEmotionResult(
-                primary_emotion=EmotionLabel.UNKNOWN,
-                confidence=0.0,
-                all_scores={}
-            )
+        from .transcription import get_openai_client
+        import json
+        import os
+        client = get_openai_client()
+        
+        prompt = (
+            "You are an expert clinical emotion analyst.\n"
+            f"You are analyzing a transcript segment: \"{text}\"\n"
+            f"- A speech-processing model detected the vocal emotion as: {audio_result.primary_emotion.value.upper()} (confidence: {audio_result.confidence:.2f})\n"
+            f"- A text-sentiment model detected the textual emotion as: {text_result.primary_emotion.value.upper()} (confidence: {text_result.confidence:.2f})\n\n"
+            "Combine these signals to determine the single most accurate underlying emotion. "
+            "Consider sarcasm (e.g., positive words but angry/sad voice means angry/sad). "
+            "Consider vocal leakage (if text is neutral but voice is sad, the result is sad).\n"
+            "Respond ONLY with a JSON object with two keys:\n"
+            "1. 'final_emotion': one of [JOY, SADNESS, ANGER, NEUTRAL, SURPRISE, DISGUST, FEAR]\n"
+            "2. 'confidence': a float between 0.0 and 1.0 representing your confidence in this fusion."
+        )
+
+        model_name = os.getenv("TRANSCRIPTION_REFINEMENT_MODEL", "gpt-4o-mini")
+        request_kwargs = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": "You are a clinical AI that accurately resolves conflicting or synergistic emotion signals into a single JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            "response_format": {"type": "json_object"}
+        }
+        
+        # GPT-5 compatibility
+        if not model_name.lower().startswith("gpt-5"):
+            request_kwargs["temperature"] = 0.0
+            request_kwargs["max_tokens"] = 100
+
+        response = await client.chat.completions.create(**request_kwargs)
+        raw_content = response.choices[0].message.content.strip()
+        parsed = json.loads(raw_content)
+        
+        final_label_str = parsed.get("final_emotion", EmotionLabel.NEUTRAL.value)
+        final_emotion = normalize_emotion_label(final_label_str)
+        final_confidence = float(parsed.get("confidence", 0.5))
+
     except Exception as e:
-        logger.error(f"Combined emotion analysis error: {e}")
-        audio_result = AudioEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN,
-            confidence=0.0,
-            all_scores={}
-        )
-        text_result = TextEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN,
-            confidence=0.0,
-            all_scores={}
-        )
-    
-    # Determine final emotion based on both sources
-    final_emotion, final_confidence, agreement = _combine_emotions(
-        audio_result, text_result
-    )
-    
+        logger.error(f"LLM emotion fusion failed: {e}")
+        # Fallback heuristic if LLM fails
+        if agreement:
+            final_emotion = audio_result.primary_emotion
+            final_confidence = max(audio_result.confidence, text_result.confidence)
+        else:
+            # Weighted fallback: slightly favor audio if high confidence
+            if audio_result.confidence > 0.6:
+                final_emotion = audio_result.primary_emotion
+                final_confidence = audio_result.confidence * 0.8
+            else:
+                final_emotion = text_result.primary_emotion
+                final_confidence = text_result.confidence * 0.8
+
     return CombinedEmotionResult(
         audio_emotion=audio_result,
         text_emotion=text_result,
@@ -479,51 +492,3 @@ async def analyze_combined_emotion(
         final_confidence=final_confidence,
         agreement=agreement
     )
-
-
-def _combine_emotions(
-    audio: AudioEmotionResult,
-    text: TextEmotionResult
-) -> Tuple[EmotionLabel, float, bool]:
-    """
-    Combine audio and text emotion results into final decision.
-    
-    Strategy:
-    - If both agree, use that emotion with averaged confidence
-    - If they disagree, prefer the one with higher confidence
-    - Weight audio slightly higher for therapy context (60/40)
-    
-    Returns:
-        Tuple of (final_emotion, confidence, agreement)
-    """
-    audio_weight = 0.6
-    text_weight = 0.4
-    
-    # Check if both have valid results
-    audio_valid = audio.primary_emotion != EmotionLabel.UNKNOWN and audio.confidence > 0
-    text_valid = text.primary_emotion != EmotionLabel.UNKNOWN and text.confidence > 0
-    
-    if not audio_valid and not text_valid:
-        return EmotionLabel.UNKNOWN, 0.0, True
-    
-    if not audio_valid:
-        return text.primary_emotion, text.confidence, True
-    
-    if not text_valid:
-        return audio.primary_emotion, audio.confidence, True
-    
-    # Both valid - check agreement
-    agreement = audio.primary_emotion == text.primary_emotion
-    
-    if agreement:
-        avg_confidence = (audio.confidence + text.confidence) / 2
-        return audio.primary_emotion, avg_confidence, True
-    
-    # Disagreement - use weighted decision
-    audio_score = audio.confidence * audio_weight
-    text_score = text.confidence * text_weight
-    
-    if audio_score >= text_score:
-        return audio.primary_emotion, audio.confidence, False
-    else:
-        return text.primary_emotion, text.confidence, False

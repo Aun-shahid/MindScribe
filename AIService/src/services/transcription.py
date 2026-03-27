@@ -6,7 +6,7 @@ import asyncio
 import io
 import tempfile
 import os
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 import logging
 
 from openai import AsyncOpenAI
@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 openai_client: Optional[AsyncOpenAI] = None
+
+
+def _get_value(obj: Any, key: str, default: Any = None) -> Any:
+    """Safely read a field from dict-like or object-like responses."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 def get_openai_client() -> AsyncOpenAI:
@@ -190,6 +197,59 @@ async def transcribe_full_audio(
         
     except Exception as e:
         logger.error(f"Full transcription error: {e}")
+        return {"text": "", "segments": [], "error": str(e)}
+
+
+async def transcribe_full_audio_diarized(
+    audio_path: str,
+    language: str = "ur"
+) -> Dict[str, Any]:
+    """
+    Transcribe complete audio with speaker diarization using OpenAI diarization model.
+
+    Returns:
+        Dict containing transcript text and diarized segments.
+    """
+    try:
+        client = get_openai_client()
+
+        with open(audio_path, "rb") as audio_file:
+            transcript = await client.audio.transcriptions.create(
+                model="gpt-4o-transcribe-diarize",
+                file=audio_file,
+                response_format="diarized_json",
+                language=language,
+                chunking_strategy="auto"
+            )
+
+        raw_segments = _get_value(transcript, "segments", []) or []
+        segments: List[Dict[str, Any]] = []
+
+        for idx, seg in enumerate(raw_segments):
+            start = float(_get_value(seg, "start", 0.0) or 0.0)
+            end = float(_get_value(seg, "end", 0.0) or 0.0)
+            text = str(_get_value(seg, "text", "") or "").strip()
+            speaker = str(_get_value(seg, "speaker", "UNKNOWN") or "UNKNOWN")
+            seg_id = str(_get_value(seg, "id", f"seg_{idx:04d}") or f"seg_{idx:04d}")
+
+            segments.append({
+                "id": seg_id,
+                "start": start,
+                "end": end,
+                "duration": max(0.0, end - start),
+                "speaker": speaker,
+                "text": text,
+            })
+
+        return {
+            "text": str(_get_value(transcript, "text", "") or ""),
+            "duration": _get_value(transcript, "duration", None),
+            "segments": segments,
+            "language": language,
+        }
+
+    except Exception as e:
+        logger.error(f"Diarized full transcription error: {e}")
         return {"text": "", "segments": [], "error": str(e)}
 
 

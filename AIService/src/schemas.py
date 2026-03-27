@@ -82,7 +82,7 @@ class TranscriptionSegment(BaseModel):
     duration: float = Field(..., ge=0.0)
     text_urdu: str = ""
     text_english: str = ""
-    emotion: Optional[CombinedEmotionResult] = None
+    emotion: Optional[Any] = None
     
     class Config:
         json_schema_extra = {

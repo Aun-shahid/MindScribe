@@ -7,6 +7,7 @@ import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from django.conf import settings
+from django.db import close_old_connections
 
 from .notification_service import (
     send_goal_reminder_notifications,
@@ -64,6 +65,8 @@ def run_reminder_scheduler_tick():
     journal_count = 0
 
     try:
+        close_old_connections()
+
         session_count = send_session_reminder_notifications()
     except Exception:
         logger.exception("Session reminder tick failed")
@@ -87,6 +90,9 @@ def run_reminder_scheduler_tick():
         journal_count = send_journal_reminder_notifications()
     except Exception:
         logger.exception("Journal reminder tick failed")
+
+    finally:
+        close_old_connections()
 
     logger.debug(
         "Reminder tick complete (session=%s therapist_session=%s goal=%s mood=%s journal=%s)",
