@@ -39,10 +39,16 @@ export const useStartSession = () => {
       const data = await sessionsService.startSession(sessionId);
       console.log('[useSessions] ✅ AI Service session started:', data);
 
-      // Store AI service token if provided
+      // Store AI service API token if provided
       if (data.ai_service_token) {
         localStorage.setItem('ai_service_token', data.ai_service_token);
         console.log('[useSessions] 💾 Stored AI Service token');
+      }
+
+      // Store AI service WebSocket token if provided
+      if (data.ai_websocket_token || data.websocket_token) {
+        localStorage.setItem('ai_websocket_token', data.ai_websocket_token || data.websocket_token || '');
+        console.log('[useSessions] 💾 Stored AI Service WebSocket token');
       }
 
       setResult(data);

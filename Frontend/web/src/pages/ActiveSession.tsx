@@ -41,7 +41,7 @@ const ActiveSession: React.FC = () => {
   const [sessionDuration, setSessionDuration] = useState('00:00');
   const [sessionStartTime] = useState(new Date());
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [aiServiceToken, setAiServiceToken] = useState<string | null>(null);
+  const [aiWebsocketToken, setAiWebsocketToken] = useState<string | null>(null);
   // const [websocketRoomId, setWebsocketRoomId] = useState<string | null>(null);
   
   const location = useLocation();
@@ -80,7 +80,7 @@ const ActiveSession: React.FC = () => {
     sendAudioChunk,
   } = useAIServiceWebSocket(
     sessionStarted ? id! : null,
-    aiServiceToken,
+    aiWebsocketToken,
     { autoConnect: false }
   );
 
@@ -132,6 +132,9 @@ const ActiveSession: React.FC = () => {
   const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const pendingSamplesRef = useRef<number[]>([]);
   const chunkSamplesRef = useRef<number>(160000); // 2s @ 16kHz
+  const chunkQueueRef = useRef<Array<{ audioData: string | null; sampleRate: number; format: string; capturedAt: number }>>([]);
+  const [uploadDelayMs, setUploadDelayMs] = useState(0);
+  const [queuedChunkCount, setQueuedChunkCount] = useState(0);
 
   const encodeInt16ToBase64 = (samples: Int16Array): string => {
     const bytes = new Uint8Array(samples.buffer);
@@ -193,6 +196,8 @@ const ActiveSession: React.FC = () => {
     processorNodeRef.current = null;
     sourceNodeRef.current = null;
     pendingSamplesRef.current = [];
+    chunkQueueRef.current = [];
+    setQueuedChunkCount(0);
   }, []);
 
   const startAudioCapture = useCallback(async () => {
@@ -239,17 +244,55 @@ const ActiveSession: React.FC = () => {
         if (rms > 0.005) { // Threshold for silence
           const chunk = new Int16Array(chunkSamples);
           const base64 = encodeInt16ToBase64(chunk);
-          sendAudioChunk(base64, 16000, 'pcm16');
+          chunkQueueRef.current.push({
+            audioData: base64,
+            sampleRate: 16000,
+            format: 'pcm16',
+            capturedAt: Date.now(),
+          });
         } else {
-          // Send null to just increment the chunk index and maintain timeline
-          sendAudioChunk(null, 16000, 'pcm16');
+          // Queue silence markers too so chunk indexes remain aligned on backend
+          chunkQueueRef.current.push({
+            audioData: null,
+            sampleRate: 16000,
+            format: 'pcm16',
+            capturedAt: Date.now(),
+          });
         }
+
+        setQueuedChunkCount(chunkQueueRef.current.length);
       }
     };
 
     sourceNode.connect(processorNode);
     processorNode.connect(audioContext.destination);
-  }, [sendAudioChunk]);
+  }, []);
+
+  // Smoothly flush queued chunks to reduce burstiness when browser/network lags.
+  useEffect(() => {
+    if (!isRecording || !aiConnected) return;
+
+    const interval = window.setInterval(() => {
+      const queue = chunkQueueRef.current;
+      if (!queue.length) return;
+
+      // Adaptive burst: recover backlog faster if queue grows.
+      const burst = queue.length > 8 ? 3 : queue.length > 4 ? 2 : 1;
+
+      for (let i = 0; i < burst; i += 1) {
+        const packet = queue.shift();
+        if (!packet) break;
+
+        const delay = Date.now() - packet.capturedAt;
+        setUploadDelayMs((prev) => Math.round(prev * 0.75 + delay * 0.25));
+        sendAudioChunk(packet.audioData, packet.sampleRate, packet.format);
+      }
+
+      setQueuedChunkCount(queue.length);
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [isRecording, aiConnected, sendAudioChunk]);
 
   // Build emotion percentages strictly from backend emotion keys.
   // Prefer live WS segment emotions; fallback to analysis mood_distribution.
@@ -318,8 +361,8 @@ const ActiveSession: React.FC = () => {
       if (currentSession.status === 'IN_PROGRESS') {
         console.log('ℹ️ Session already in progress, reconnecting...');
         setSessionStarted(true);
-        const storedToken = localStorage.getItem('ai_service_token');
-        if (storedToken) setAiServiceToken(storedToken);
+        const storedWsToken = localStorage.getItem('ai_websocket_token');
+        if (storedWsToken) setAiWebsocketToken(storedWsToken);
         return;
       }
 
@@ -330,8 +373,8 @@ const ActiveSession: React.FC = () => {
         if (latest.status === 'IN_PROGRESS') {
           console.warn('ℹ️ Session already IN_PROGRESS server-side, skipping /start/');
           setSessionStarted(true);
-          const storedToken = localStorage.getItem('ai_service_token');
-          if (storedToken) setAiServiceToken(storedToken);
+          const storedWsToken = localStorage.getItem('ai_websocket_token');
+          if (storedWsToken) setAiWebsocketToken(storedWsToken);
           return;
         }
 
@@ -345,7 +388,11 @@ const ActiveSession: React.FC = () => {
         console.log('🎯 startSession result:', JSON.stringify(result, null, 2));
         if (result) {
           setSessionStarted(true);
-          if (result.ai_service_token) setAiServiceToken(result.ai_service_token);
+          const wsToken = result.ai_websocket_token || result.websocket_token || null;
+          if (wsToken) {
+            setAiWebsocketToken(wsToken);
+            localStorage.setItem('ai_websocket_token', wsToken);
+          }
           // Re-fetch so session.websocket_room_id is up to date
           await fetchSession();
         } else {
@@ -371,11 +418,11 @@ const ActiveSession: React.FC = () => {
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
-    if (sessionStarted && aiServiceToken && id && !aiConnected) {
+    if (sessionStarted && aiWebsocketToken && id && !aiConnected) {
       console.log('🔌 AI Service token available, connecting WebSocket...');
       setTimeout(() => connectAIService(), 500);
     }
-  }, [sessionStarted, aiServiceToken, id, aiConnected, connectAIService]);
+  }, [sessionStarted, aiWebsocketToken, id, aiConnected, connectAIService]);
 
   // Cleanup WebSockets on unmount
   useEffect(() => {
@@ -427,6 +474,8 @@ const ActiveSession: React.FC = () => {
       sendControl('pause_session');
     }
     await stopAudioCapture();
+    chunkQueueRef.current = [];
+    setQueuedChunkCount(0);
     console.log('🎤 Recording stopped');
   }, [wsConnected, sendControl, stopAudioCapture]);
 
@@ -543,7 +592,7 @@ const ActiveSession: React.FC = () => {
             )}
 
             {/* AI Service WebSocket Status - show when we have the token */}
-            {aiServiceToken && (
+            {aiWebsocketToken && (
               <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${aiConnected
                 ? 'bg-blue-50 border-blue-200 text-blue-800'
                 : 'bg-yellow-50 border-yellow-200 text-yellow-800'
@@ -554,9 +603,14 @@ const ActiveSession: React.FC = () => {
                     {aiConnected ? '🤖 AI Transcription Service Connected' : '🟡 Connecting to AI transcription service...'}
                   </p>
                 </div>
-                <span className="text-sm font-medium">
-                  {aiTranscriptionSegments.length} segments
-                </span>
+                <div className="text-right text-sm font-medium">
+                  <p>{aiTranscriptionSegments.length} segments</p>
+                  {aiConnected && isRecording && (
+                    <p className={`${uploadDelayMs > 3000 ? 'text-amber-700' : 'text-blue-700'} text-xs`}>
+                      Delay: {uploadDelayMs}ms • Queue: {queuedChunkCount}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -610,7 +664,7 @@ const ActiveSession: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleStopRecording}
-                      className="flex items-center bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      className="flex items-center bg-[#431657] hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
                     >
                       <Square size={20} className="mr-2" />
                       Stop Recording
@@ -667,7 +721,7 @@ const ActiveSession: React.FC = () => {
                     <FileText size={48} className="mx-auto mb-2 opacity-50" />
                     <p>Waiting for transcription...</p>
                     <p className="text-sm mt-1">Start recording to see live transcript</p>
-                    {!aiConnected && aiServiceToken && (
+                    {!aiConnected && aiWebsocketToken && (
                       <p className="text-xs mt-2 text-yellow-600">Connecting to AI service...</p>
                     )}
                   </div>

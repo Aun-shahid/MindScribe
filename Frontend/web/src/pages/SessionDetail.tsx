@@ -1,20 +1,15 @@
 // src/pages/SessionDetail.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ChevronLeft,
   User,
-  Calendar,
-  Clock,
-  MapPin,
   FileText,
   Edit3,
   Edit,
   Save,
   X,
   Trash2,
-  Phone,
-  Mail,
   Activity,
   Sparkles
 } from 'lucide-react';
@@ -24,6 +19,19 @@ import type { SOAPNote } from '../types/session';
 
 type SessionDetailTab = 'overview' | 'soap' | 'emotional-profile' | 'ai-insights';
 
+const EMOTION_VISUAL_ORDER = ['joy', 'surprise', 'neutral', 'fear', 'sadness', 'anger', 'disgust', 'unknown'] as const;
+
+const EMOTION_COLORS: Record<string, string> = {
+  joy: '#10b981',
+  surprise: '#0ea5e9',
+  neutral: '#6b7280',
+  fear: '#f59e0b',
+  sadness: '#3b82f6',
+  anger: '#ef4444',
+  disgust: '#84cc16',
+  unknown: '#a855f7',
+};
+
 
 const SessionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,11 +39,6 @@ const SessionDetailPage: React.FC = () => {
   const location = useLocation();
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Check if coming from "Start Right Now" flow
-  const startImmediately = (location.state as { startImmediately?: boolean })?.startImmediately || false;
-
   // Session details editing states
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [detailsData, setDetailsData] = useState<{
@@ -89,15 +92,6 @@ const SessionDetailPage: React.FC = () => {
     loading: transcriptionLoading,
     error: transcriptionError
   } = useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
-
-  // Auto-refresh current time every 30 seconds to check if session time is reached
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
 
   React.useEffect(() => {
     const queryTab = new URLSearchParams(location.search).get('tab');
@@ -298,6 +292,182 @@ const SessionDetailPage: React.FC = () => {
     }
   };
 
+  const emotionEvents = React.useMemo(() => {
+    const segments = transcription?.segments || [];
+
+    type EmotionPoint = {
+      time: number;
+      valence: number | null;
+      arousal: number | null;
+      emotion: string;
+      confidence: number;
+      speaker: string;
+      text: string;
+      source: 'text_only' | 'audio_text' | 'unknown';
+      textEmotion: string | null;
+      audioEmotion: string | null;
+    };
+
+    const points: EmotionPoint[] = [];
+
+    segments.forEach((segment: any) => {
+      const rawEmotion = segment?.emotion;
+      if (!rawEmotion) return;
+
+      let primaryEmotion = 'unknown';
+      let valence: number | null = null;
+      let arousal: number | null = null;
+      let confidence = 0;
+      let source: 'text_only' | 'audio_text' | 'unknown' = 'unknown';
+      let textEmotion: string | null = null;
+      let audioEmotion: string | null = null;
+
+      if (typeof rawEmotion === 'string') {
+        primaryEmotion = rawEmotion.toLowerCase();
+        source = 'text_only';
+      } else if (typeof rawEmotion === 'object') {
+        const hasPrimaryEmotion = typeof rawEmotion.primary_emotion === 'string' || typeof rawEmotion.final_emotion === 'string';
+        const hasLegacyScores = typeof rawEmotion.valence === 'number' || typeof rawEmotion.arousal === 'number' || typeof rawEmotion.confidence === 'number';
+
+        textEmotion = typeof rawEmotion.text_emotion?.primary_emotion === 'string'
+          ? String(rawEmotion.text_emotion.primary_emotion).toLowerCase()
+          : null;
+        audioEmotion = typeof rawEmotion.audio_emotion?.primary_emotion === 'string'
+          ? String(rawEmotion.audio_emotion.primary_emotion).toLowerCase()
+          : null;
+
+        if (textEmotion && audioEmotion) source = 'audio_text';
+        else if (textEmotion) source = 'text_only';
+        else if (hasPrimaryEmotion || hasLegacyScores) source = 'text_only';
+
+        primaryEmotion = String(
+          rawEmotion.primary_emotion ||
+          rawEmotion.final_emotion ||
+          textEmotion ||
+          rawEmotion.audio_emotion?.primary_emotion ||
+          'unknown'
+        ).toLowerCase();
+
+        valence = typeof rawEmotion.valence === 'number' ? rawEmotion.valence : null;
+        arousal = typeof rawEmotion.arousal === 'number' ? rawEmotion.arousal : null;
+
+        confidence = typeof rawEmotion.confidence === 'number'
+          ? rawEmotion.confidence
+          : (typeof rawEmotion.final_confidence === 'number'
+            ? rawEmotion.final_confidence
+            : (typeof rawEmotion.text_emotion?.confidence === 'number'
+              ? rawEmotion.text_emotion.confidence
+              : 0));
+      }
+
+      points.push({
+        time: Number(segment.start_time || 0),
+        valence,
+        arousal,
+        emotion: primaryEmotion || 'unknown',
+        confidence,
+        speaker: String(segment.speaker || segment.speaker_type || 'Unknown'),
+        text: String(segment.text || segment.text_english || segment.text_urdu || ''),
+        source,
+        textEmotion,
+        audioEmotion,
+      });
+    });
+
+    return points.sort((a, b) => a.time - b.time);
+  }, [transcription]);
+
+  const emotionTimeline = React.useMemo(
+    () => emotionEvents.filter((point) => point.valence !== null && point.arousal !== null),
+    [emotionEvents]
+  );
+
+  const emotionSummary = React.useMemo(() => {
+    if (!emotionEvents.length) {
+      return {
+        averageValence: null as number | null,
+        averageArousal: null as number | null,
+        dominantEmotion: null as string | null,
+      };
+    }
+
+    const valencePoints = emotionTimeline.filter((p) => p.valence !== null);
+    const arousalPoints = emotionTimeline.filter((p) => p.arousal !== null);
+
+    const averageValence = valencePoints.length
+      ? valencePoints.reduce((sum, p) => sum + (p.valence as number), 0) / valencePoints.length
+      : null;
+
+    const averageArousal = arousalPoints.length
+      ? arousalPoints.reduce((sum, p) => sum + (p.arousal as number), 0) / arousalPoints.length
+      : null;
+
+    const counts: Record<string, number> = {};
+    emotionEvents.forEach((point) => {
+      counts[point.emotion] = (counts[point.emotion] || 0) + 1;
+    });
+
+    const dominantEmotion = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+    return {
+      averageValence,
+      averageArousal,
+      dominantEmotion,
+    };
+  }, [emotionEvents, emotionTimeline]);
+
+  const emotionLineChart = React.useMemo(() => {
+    const emotionPoints = emotionEvents.filter((point) => EMOTION_VISUAL_ORDER.includes(point.emotion as any));
+    if (emotionPoints.length < 2) return null;
+
+    const width = 920;
+    const height = 280;
+    const padding = 36;
+    const leftAxisWidth = 102;
+    const maxTime = Math.max(...emotionPoints.map((p) => p.time), 1);
+
+    const xFor = (t: number) => leftAxisWidth + padding + (t / maxTime) * (width - leftAxisWidth - padding * 2);
+    const yForEmotion = (emotion: string) => {
+      const idx = Math.max(0, EMOTION_VISUAL_ORDER.indexOf(emotion as any));
+      const slots = EMOTION_VISUAL_ORDER.length - 1 || 1;
+      return padding + (idx / slots) * (height - padding * 2);
+    };
+
+    const emotionPath = emotionPoints
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${xFor(point.time)} ${yForEmotion(point.emotion)}`)
+      .join(' ');
+
+    return {
+      width,
+      height,
+      leftAxisWidth,
+      emotionPath,
+      points: emotionPoints,
+      xFor,
+      yForEmotion,
+      yTicks: EMOTION_VISUAL_ORDER,
+    };
+  }, [emotionEvents]);
+
+  const emotionSourceSummary = React.useMemo(() => {
+    const withAudio = emotionEvents.filter((event) => event.source === 'audio_text').length;
+    const textOnly = emotionEvents.filter((event) => event.source === 'text_only').length;
+    const unknown = emotionEvents.filter((event) => event.source === 'unknown').length;
+
+    let mode: 'text_only' | 'audio_text' | 'mixed' | 'none' = 'none';
+    if (withAudio > 0 && textOnly > 0) mode = 'mixed';
+    else if (withAudio > 0) mode = 'audio_text';
+    else if (textOnly > 0) mode = 'text_only';
+    else if (unknown > 0) mode = 'text_only';
+
+    return {
+      withAudio,
+      textOnly,
+      unknown,
+      mode,
+    };
+  }, [emotionEvents]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -358,7 +528,7 @@ const SessionDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex flex-col space-y-3 items-end">
               <button
                 onClick={handleDeleteSession}
                 className="flex items-center space-x-2 px-4 py-2.5 bg-red-600/90 backdrop-blur-sm rounded-xl hover:bg-red-700 transition-all duration-200 hover:scale-105 shadow-lg"
@@ -366,6 +536,14 @@ const SessionDetailPage: React.FC = () => {
               >
                 <Trash2 size={18} color='white' />
                 <span className="hidden sm:inline text-white font-medium">Delete</span>
+              </button>
+
+              <button
+                onClick={() => navigate(`/patients/${session.patient.id}`)}
+                className="flex items-center space-x-2 px-4 py-2.5 bg-white text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
+              >
+                <User size={18} />
+                <span className="hidden sm:inline">View Patient Profile</span>
               </button>
             </div>
           </div>
@@ -415,22 +593,22 @@ const SessionDetailPage: React.FC = () => {
         </div>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6">
           {/* Main Session Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6">
             {/* Session Overview */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 px-6 py-4 border-b border-purple-200">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-white">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <FileText className="mr-2 text-purple-600" size={22} />
+                  <h2 className="text-xl font-serif font-semibold tracking-tight text-gray-900 flex items-center">
+                    <FileText className="mr-2 text-gray-500" size={20} />
                     Session Overview
                   </h2>
                   <div className="flex items-center gap-3">
                     {!isEditingDetails ? (
                       <button
                         onClick={() => setIsEditingDetails(true)}
-                        className="flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium"
+                        className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                         title="Edit session details"
                       >
                         <Edit3 size={16} className="mr-1" />
@@ -527,45 +705,22 @@ const SessionDetailPage: React.FC = () => {
                   </div>
                 ) : (
                   /* View Mode */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
-                    <div className="flex items-start space-x-1 p-2 bg-gray-50 rounded-xl">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <Calendar className="text-green-600" size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">Date</p>
-                        <p className="text-base font-semibold text-gray-900">{sessionDateTime.date}</p>
-                      </div>
+                  <div className="rounded-xl border border-gray-200 divide-y divide-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Date</p>
+                      <p className="md:col-span-2 text-sm font-medium text-gray-900">{sessionDateTime.date}</p>
                     </div>
-
-                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Clock className="text-blue-600" size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">Time</p>
-                        <p className="text-base font-semibold text-gray-900">{sessionDateTime.time}</p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Time</p>
+                      <p className="md:col-span-2 text-sm font-medium text-gray-900">{sessionDateTime.time}</p>
                     </div>
-
-                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <MapPin className="text-purple-600" size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">Location</p>
-                        <p className="text-base font-semibold text-gray-900">{session.location || 'Not specified'} {session.is_online && '🌐'}</p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Location</p>
+                      <p className="md:col-span-2 text-sm font-medium text-gray-900">{session.location || 'Not specified'} {session.is_online && '• Online'}</p>
                     </div>
-
-                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
-                      <div className="p-2 bg-orange-100 rounded-lg">
-                        <Clock className="text-orange-600" size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
-                        <p className="text-base font-semibold text-gray-900">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Duration</p>
+                      <p className="md:col-span-2 text-sm font-medium text-gray-900">{session.duration_minutes || session.actual_duration_minutes || 60} minutes</p>
                     </div>
                   </div>
                 )}
@@ -871,68 +1026,7 @@ const SessionDetailPage: React.FC = () => {
             )}
 
             {/* Emotional Analysis Section - Only for COMPLETED sessions */}
-            {session.status === 'COMPLETED' && analysis && !analysisError && (
-              <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-blue-200">
-                  <div className="flex items-center">
-                    <Activity className="text-blue-600 mr-2" size={20} />
-                    <h3 className="text-lg font-bold text-gray-900">Emotional Analysis</h3>
-                    {analysis.is_mock_data && (
-                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Mock Data</span>
-                    )}
-                  </div>
-                </div>
-                <div className="p-6 space-y-6">
-                  {/* Overall Mood */}
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Overall Mood</p>
-                    <p className="text-2xl font-bold text-blue-600">{analysis.overall_mood}</p>
-                    <p className="text-sm text-gray-600 mt-1">Mood Score: {analysis.mood_score}/10</p>
-                  </div>
-
-                  {/* Mood Distribution */}
-                  {analysis.mood_distribution && Object.keys(analysis.mood_distribution).length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Mood Distribution</p>
-                      <div className="space-y-2">
-                        {Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => (
-                          <div key={emotion}>
-                            <div className="flex justify-between mb-1">
-                              <span className="text-sm text-gray-600 capitalize">{emotion}</span>
-                              <span className="text-sm font-medium text-gray-900">{percentage}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Key Moments */}
-                  {analysis.key_moments && analysis.key_moments.length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Key Emotional Moments</p>
-                      <div className="space-y-3">
-                        {analysis.key_moments.map((moment, index) => (
-                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-blue-600 uppercase">{moment.emotion}</span>
-                              <span className="text-xs text-gray-500">{Math.floor(moment.timestamp / 60)}:{String(Math.floor(moment.timestamp % 60)).padStart(2, '0')}</span>
-                            </div>
-                            <p className="text-sm text-gray-700">{moment.text}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            
 
             {/* Transcription Section - Only for COMPLETED sessions */}
             {session.status === 'COMPLETED' && transcription && !transcriptionError && (
@@ -963,7 +1057,11 @@ const SessionDetailPage: React.FC = () => {
                           <p className="text-sm text-gray-600 leading-relaxed">{segment.text}</p>
                           {segment.emotion && (
                             <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              {typeof segment.emotion === 'string' ? segment.emotion : (segment.emotion.primary_emotion || JSON.stringify(segment.emotion))}
+                              {(() => {
+                                if (typeof segment.emotion === 'string') return segment.emotion;
+                                const e = segment.emotion as any;
+                                return e.primary_emotion || e.final_emotion || JSON.stringify(segment.emotion);
+                              })()}
                             </span>
                           )}
                         </div>
@@ -982,117 +1080,6 @@ const SessionDetailPage: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Sidebar - Patient Info */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Patient Information Card */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden sticky top-6">
-              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 px-6 py-4 border-b border-indigo-200">
-                <div className="flex items-center">
-                  <User className="text-indigo-600 mr-2" size={20} />
-                  <h3 className="text-lg font-bold text-gray-900">Patient Information</h3>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-5">
-                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Patient Name</p>
-                  <p className="text-md font-semibold text-gray-900">{session.patient.full_name}</p>
-                </div>
-
-                {session.patient.email && (
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm font-medium text-gray-500 mb-2">Email</p>
-                    <div className="flex items-center">
-                      <Mail size={16} className="text-indigo-600 mr-2" />
-                      <a
-                        href={`mailto:${session.patient.email}`}
-                        className="text-indigo-600 hover:text-indigo-700 font-medium break-all"
-                      >
-                        {session.patient.email}
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {session.patient.phone_number && (
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm font-medium text-gray-500 mb-2">Phone</p>
-                    <div className="flex items-center">
-                      <Phone size={16} className="text-indigo-600 mr-2" />
-                      <a
-                        href={`tel:${session.patient.phone_number}`}
-                        className="text-indigo-600 hover:text-indigo-700 font-medium"
-                      >
-                        {session.patient.phone_number}
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Session Type</p>
-                  <p className="text-base font-semibold text-gray-900 capitalize">{session.session_type}</p>
-                </div>
-
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Created</p>
-                  <p className="text-base font-semibold text-gray-900">
-                    {new Date(session.scheduled_date).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="pt-4 space-y-3">
-                  {(() => {
-                    const sessionTime = new Date(session.scheduled_date);
-                    const isSessionTimeReached = currentTime >= sessionTime;
-                    const isCompleted = session.status === 'COMPLETED';
-                    const isCancelled = session.status === 'CANCELLED';
-                    // Allow immediate start if coming from "Start Right Now" flow
-                    const canStart = startImmediately || isSessionTimeReached;
-                    const isDisabled = isCompleted || isCancelled || !canStart;
-
-                    let buttonText = 'Start Session';
-                    if (isCompleted) buttonText = 'Session Completed';
-                    else if (isCancelled) buttonText = 'Session Cancelled';
-                    else if (!canStart) {
-                      buttonText = `Available at ${sessionTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-                    }
-
-                    const handleStartSession = () => {
-                      if (!id) return;
-                      navigate(`/sessions/${id}/active`, { state: { session } });
-                    };
-
-                    return (
-                      <button
-                        onClick={handleStartSession}
-                        className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${isDisabled
-                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl hover:scale-105'
-                          }`}
-                        disabled={isDisabled}
-                      >
-                        {buttonText}
-                      </button>
-                    );
-                  })()}
-
-                  <button
-                    onClick={() => navigate(`/patients/${session.patient.id}`)}
-                    className="w-full bg-white text-indigo-600 border-2 border-indigo-600 py-3 px-4 rounded-xl hover:bg-indigo-50 transition-all duration-200 font-semibold hover:scale-105"
-                  >
-                    View Patient Profile
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
           </div>
         )}
 
@@ -1101,7 +1088,7 @@ const SessionDetailPage: React.FC = () => {
             <div className="bg-gradient-to-r from-violet-50 to-violet-100/50 px-6 py-4 border-b border-violet-200">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">SOAP Notes</h3>
+                  <h3 className="text-xl font-serif font-bold text-gray-900">SOAP Notes</h3>
                   {isCompletedSession ? (
                     <p className="text-sm text-gray-500 mt-1">AI-generated structured clinical notes from your session recording.</p>
                   ) : (
@@ -1131,20 +1118,28 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               ) : soapNote ? (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Subjective</p>
+                  <div className="rounded-xl border border-gray-200  bg-gray-50 overflow-hidden">
+                    <div className="w-full bg-[#dbb4eb] px-4 py-2">
+                      <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold mb-2">Subjective</p>
+                    </div>
                     <p className="text-gray-800 whitespace-pre-wrap">{soapNote.subjective?.content || 'Not available.'}</p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Objective</p>
+                  <div className="rounded-xl border border-gray-200  bg-gray-50">
+                    <div className="w-full bg-[#dbb4eb] px-4 py-2">
+                      <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold mb-2">Objective</p>
+                    </div>
                     <p className="text-gray-800 whitespace-pre-wrap">{soapNote.objective?.content || 'Not available.'}</p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Assessment</p>
+                  <div className="rounded-xl border border-gray-200  bg-gray-50">
+                    <div className="w-full bg-[#dbb4eb] px-4 py-2">
+                      <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold mb-2">Assessment</p>
+                    </div>
                     <p className="text-gray-800 whitespace-pre-wrap">{soapNote.assessment?.content || 'Not available.'}</p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Plan</p>
+                  <div className="rounded-xl border border-gray-200  bg-gray-50">
+                    <div className="w-full bg-[#dbb4eb] px-4 py-2">
+                      <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold mb-2">Plan</p>
+                    </div>
                     <p className="text-gray-800 whitespace-pre-wrap">{soapNote.plan?.content || 'Not available.'}</p>
                   </div>
                 </div>
@@ -1172,13 +1167,228 @@ const SessionDetailPage: React.FC = () => {
         )}
 
         {activeTab === 'emotional-profile' && (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900">Emotional Profile</h3>
-            {isCompletedSession ? (
-              <p className="text-sm text-gray-500 mt-2">Coming soon.</p>
-            ) : (
-              <p className="text-sm text-gray-500 mt-2">This will be available after the session is completed.</p>
-            )}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-cyan-50 to-blue-100/60 px-6 py-4 border-b border-cyan-200">
+                <h3 className="text-xl font-bold text-gray-900">Emotional Profile</h3>
+                <p className="text-sm text-gray-600 mt-1">Session-level emotion signals from backend segment analysis.</p>
+              </div>
+
+              <div className="p-6">
+                {!isCompletedSession ? (
+                  <p className="text-sm text-gray-500">This will be available after the session is completed.</p>
+                ) : (analysisLoading || transcriptionLoading) ? (
+                  <div className="flex items-center text-gray-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-600 mr-3"></div>
+                    Loading emotional profile data...
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Dominant Emotion</p>
+                        <p className="text-xl font-bold text-gray-900 mt-2 capitalize">{emotionSummary.dominantEmotion || analysis?.overall_mood || 'Unavailable'}</p>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Average Valence</p>
+                        <p className="text-xl font-bold text-gray-900 mt-2">{emotionSummary.averageValence !== null ? emotionSummary.averageValence.toFixed(2) : 'Unavailable'}</p>
+                        {emotionSummary.averageValence !== null && (
+                          <div className="mt-3">
+                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-gradient-to-r from-red-500 via-gray-400 to-emerald-500"
+                                style={{ width: `${Math.max(0, Math.min(100, ((emotionSummary.averageValence + 1) / 2) * 100))}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Negative to Positive</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Average Arousal</p>
+                        <p className="text-xl font-bold text-gray-900 mt-2">{emotionSummary.averageArousal !== null ? emotionSummary.averageArousal.toFixed(2) : 'Unavailable'}</p>
+                        {emotionSummary.averageArousal !== null && (
+                          <div className="mt-3">
+                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-gradient-to-r from-blue-300 to-blue-700"
+                                style={{ width: `${Math.max(0, Math.min(100, emotionSummary.averageArousal * 100))}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Calm to Intense</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Emotion Analysis Mode</p>
+                        {emotionSourceSummary.mode === 'audio_text' && (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Dual Source (Audio + Text)</span>
+                        )}
+                        {emotionSourceSummary.mode === 'text_only' && (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Text-Only</span>
+                        )}
+                        {emotionSourceSummary.mode === 'mixed' && (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Mixed</span>
+                        )}
+                        {emotionSourceSummary.mode === 'none' && (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">No Emotion Payload</span>
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Dual-source segments</p>
+                          <p className="text-lg font-bold text-gray-900 mt-1">{emotionSourceSummary.withAudio}</p>
+                        </div>
+                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Text-only segments</p>
+                          <p className="text-lg font-bold text-gray-900 mt-1">{emotionSourceSummary.textOnly}</p>
+                        </div>
+                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Unknown source</p>
+                          <p className="text-lg font-bold text-gray-900 mt-1">{emotionSourceSummary.unknown}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Emotion Journey (Timeline)</p>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+                          {EMOTION_VISUAL_ORDER.map((emotionKey) => (
+                            <span key={emotionKey} className="inline-flex items-center capitalize">
+                              <span className="w-2.5 h-2.5 rounded-full mr-1.5" style={{ backgroundColor: EMOTION_COLORS[emotionKey] }}></span>
+                              {emotionKey}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {emotionLineChart ? (
+                        <div className="w-full overflow-x-auto">
+                          <svg viewBox={`0 0 ${emotionLineChart.width} ${emotionLineChart.height}`} className="w-full min-w-[760px] h-72">
+                            <line
+                              x1={emotionLineChart.leftAxisWidth}
+                              y1="36"
+                              x2={emotionLineChart.leftAxisWidth}
+                              y2={emotionLineChart.height - 36}
+                              stroke="#e5e7eb"
+                              strokeWidth="1"
+                            />
+                            <line
+                              x1={emotionLineChart.leftAxisWidth}
+                              y1={emotionLineChart.height - 36}
+                              x2={emotionLineChart.width - 36}
+                              y2={emotionLineChart.height - 36}
+                              stroke="#e5e7eb"
+                              strokeWidth="1"
+                            />
+
+                            {emotionLineChart.yTicks.map((emotionKey) => {
+                              const y = emotionLineChart.yForEmotion(emotionKey);
+                              return (
+                                <g key={emotionKey}>
+                                  <line
+                                    x1={emotionLineChart.leftAxisWidth}
+                                    y1={y}
+                                    x2={emotionLineChart.width - 36}
+                                    y2={y}
+                                    stroke="#f3f4f6"
+                                    strokeDasharray="4 4"
+                                    strokeWidth="1"
+                                  />
+                                  <text
+                                    x={emotionLineChart.leftAxisWidth - 10}
+                                    y={y + 4}
+                                    textAnchor="end"
+                                    fontSize="11"
+                                    fill="#6b7280"
+                                    style={{ textTransform: 'capitalize' }}
+                                  >
+                                    {emotionKey}
+                                  </text>
+                                </g>
+                              );
+                            })}
+
+                            <path d={emotionLineChart.emotionPath} fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
+
+                            {emotionLineChart.points.map((point, index) => (
+                              <circle
+                                key={`${point.time}-${index}`}
+                                cx={emotionLineChart.xFor(point.time)}
+                                cy={emotionLineChart.yForEmotion(point.emotion)}
+                                r="4"
+                                fill={EMOTION_COLORS[point.emotion] || EMOTION_COLORS.unknown}
+                              />
+                            ))}
+                          </svg>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">Insufficient emotion event data for timeline chart.</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Mood Distribution</p>
+                      {analysis?.mood_distribution && Object.keys(analysis.mood_distribution).length > 0 ? (
+                        <div className="space-y-3">
+                          {Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => (
+                            <div key={emotion}>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-sm text-gray-700 capitalize">{emotion}</span>
+                                <span className="text-sm font-semibold text-gray-900">{percentage}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${percentage}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No mood distribution data found.</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Emotion Events</p>
+                      {emotionEvents.length > 0 ? (
+                        <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                          {emotionEvents.map((point, index) => (
+                            <div key={`${point.time}-${index}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span>{point.speaker}</span>
+                                <span>{Math.floor(point.time / 60)}:{String(Math.floor(point.time % 60)).padStart(2, '0')}</span>
+                              </div>
+                              <p className="text-sm text-gray-900 font-medium capitalize">{point.emotion}</p>
+                              <div className="text-xs text-gray-600 mt-1">
+                                <span>Valence: {point.valence !== null ? point.valence.toFixed(2) : 'N/A'}</span>
+                                <span className="mx-2">|</span>
+                                <span>Arousal: {point.arousal !== null ? point.arousal.toFixed(2) : 'N/A'}</span>
+                                <span className="mx-2">|</span>
+                                <span>Confidence: {(point.confidence * 100).toFixed(0)}%</span>
+                              </div>
+                              <div className="text-[11px] text-gray-500 mt-1 flex flex-wrap gap-2">
+                                <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">Source: {point.source === 'audio_text' ? 'Audio + Text' : point.source === 'text_only' ? 'Text Only' : 'Unknown'}</span>
+                                {point.textEmotion && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Text: {point.textEmotion}</span>}
+                                {point.audioEmotion && <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Audio: {point.audioEmotion}</span>}
+                              </div>
+                              {point.text && (
+                                <p className="text-xs text-gray-500 mt-2 line-clamp-2">{point.text}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No per-segment emotion events found yet.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

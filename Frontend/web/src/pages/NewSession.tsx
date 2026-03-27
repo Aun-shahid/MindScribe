@@ -90,13 +90,8 @@ const NewSession = () => {
 
       if (session) {
         if (sessionTiming === 'now') {
-          // For "Right Now" sessions, go directly to session detail page to start
-          navigate(`/sessions/${session.id}`, {
-            state: {
-              message: 'Session created! You can start it now.',
-              startImmediately: true
-            }
-          });
+          // For "Right Now" sessions, jump straight into the active session flow.
+          navigate(`/sessions/${session.id}/active`);
         } else if (isUpcomingSession()) {
           // For future sessions, go to dashboard with success message
           navigate('/dashboard', {
@@ -106,8 +101,8 @@ const NewSession = () => {
             }
           });
         } else {
-          // For current/immediate sessions, go to session detail page to start
-          navigate(`/sessions/${session.id}`);
+          // For near-term sessions, jump straight into the active session flow.
+          navigate(`/sessions/${session.id}/active`);
         }
       }
     } catch (err: unknown) {

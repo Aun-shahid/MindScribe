@@ -8,7 +8,7 @@ export interface SessionTranscriptionSegment {
   start_time: number;
   end_time: number;
   confidence: number;
-  emotion?: string;
+  emotion?: AIEmotionPayload;
 }
 
 export type AIEmotionLabel =
@@ -35,6 +35,16 @@ export interface AICombinedEmotionResult {
   agreement: boolean;
 }
 
+export interface AIBackendEmotionPayload {
+  primary_emotion?: string;
+  valence?: number;
+  arousal?: number;
+  confidence?: number;
+  emotion_scores?: Record<string, number>;
+}
+
+export type AIEmotionPayload = AICombinedEmotionResult | AIBackendEmotionPayload | string;
+
 export interface AILiveTranscriptionSegment {
   id: string;
   speaker: string;
@@ -44,7 +54,7 @@ export interface AILiveTranscriptionSegment {
   text?: string;
   text_urdu?: string;
   text_english?: string;
-  emotion?: AICombinedEmotionResult;
+  emotion?: AIEmotionPayload;
 }
 
 export interface SessionTranscription {
@@ -106,7 +116,8 @@ export interface StartSessionResponse {
   status?: string; // From AI Service
   websocket_token?: string; // From AI Service
   message?: string; // From AI Service
-  ai_service_token?: string; // Legacy field for compatibility
+  ai_service_token?: string; // Bearer token for AI REST endpoints
+  ai_websocket_token?: string; // Token dedicated for AI WebSocket connection
   ai_service_url?: string;
   token_info?: {
     expires_in_hours: number;

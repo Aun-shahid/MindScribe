@@ -115,7 +115,8 @@ class SessionsService {
           session_id: response.data.session_id,
           status: response.data.status,
           websocket_token: response.data.websocket_token,
-          ai_service_token: response.data.websocket_token, // Map for compatibility
+          ai_websocket_token: response.data.websocket_token,
+          ai_service_token: authToken,
           message: response.data.message,
           ai_service_url: effectiveAiServiceUrl,
         };
