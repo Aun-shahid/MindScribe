@@ -310,6 +310,50 @@ class SessionsService {
       throw this.handleError(error);
     }
   }
+  /**
+ * Get full transcript with dual-source emotion from AI Service
+ * Falls back to Django transcription if AI Service unavailable
+ */
+async getAITranscription(sessionId: string): Promise<SessionTranscription> {
+  const aiToken = localStorage.getItem('ai_service_token');
+  
+  if (aiToken) {
+    try {
+      const response = await aiApi.get(`/session/${sessionId}/transcript`, {
+        headers: { Authorization: `Bearer ${aiToken}` },
+      });
+      
+      const data = response.data;
+      // Map AI Service FullTranscript → SessionTranscription shape
+      const segments = (data.segments || []).map((seg: any) => ({
+        id: seg.id,
+        speaker: seg.speaker,
+        speaker_type: seg.speaker?.toLowerCase() === 'therapist' ? 'therapist' : 'patient',
+        speaker_id: seg.speaker,
+        text: seg.text_english || seg.text_urdu || '',
+        text_english: seg.text_english || '',
+        text_urdu: seg.text_urdu || '',
+        start_time: seg.start_time,
+        end_time: seg.end_time,
+        confidence: 1.0,
+        // Emotion comes as flat SegmentEmotionResult — pass through as-is
+        emotion: seg.emotion || null,
+      }));
+      
+      return {
+        session_id: data.session_id || sessionId,
+        segments,
+        total_duration: data.total_duration || 0,
+        speaker_count: data.speaker_count || 0,
+      };
+    } catch (aiErr) {
+      console.warn('[SessionsService] AI Service transcript unavailable, falling back to Django:', aiErr);
+    }
+  }
+  
+  // Fallback to Django backend
+  return this.getTranscription(sessionId);
+}
 
   /**
    * Update the therapist-written session summary (visible to patient)

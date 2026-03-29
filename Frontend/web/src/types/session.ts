@@ -4,7 +4,11 @@
 export interface SessionTranscriptionSegment {
   id: string;
   speaker: string;
+  speaker_type?: string;
+  speaker_id?: string;
   text: string;
+  text_english?: string;
+  text_urdu?: string;
   start_time: number;
   end_time: number;
   confidence: number;
@@ -26,6 +30,17 @@ export interface AIEmotionResult {
   confidence: number;
   all_scores: Record<string, number>;
 }
+export interface AISegmentEmotionResult {
+  // Flat strings — what AI Service actually returns
+  audio_emotion: AIEmotionLabel | null;
+  audio_confidence: number;
+  text_emotion: AIEmotionLabel | null;
+  text_confidence: number;
+  final_emotion: AIEmotionLabel;
+  final_confidence: number;
+  agreement: boolean | null;
+  analysis_type: 'combined' | 'text_only' | 'audio_only';
+}
 
 export interface AICombinedEmotionResult {
   audio_emotion: AIEmotionResult;
@@ -43,7 +58,11 @@ export interface AIBackendEmotionPayload {
   emotion_scores?: Record<string, number>;
 }
 
-export type AIEmotionPayload = AICombinedEmotionResult | AIBackendEmotionPayload | string;
+export type AIEmotionPayload = 
+  | AISegmentEmotionResult      // AI Service flat format (new)
+  | AICombinedEmotionResult     // legacy nested format
+  | AIBackendEmotionPayload     // Django backend format
+  | string;   
 
 export interface AILiveTranscriptionSegment {
   id: string;

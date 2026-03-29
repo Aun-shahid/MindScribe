@@ -66,12 +66,52 @@ export const useStartSession = () => {
 };
 
 /**
+ * Poll the AI service SOAP status endpoint until the pipeline is done.
+ * Returns true if ready, false if timed out.
+ */
+const waitForPipeline = async (
+  sessionId: string,
+  aiToken: string,
+  maxWaitMs = 120_000,
+  intervalMs = 4_000
+): Promise<boolean> => {
+  const aiServiceUrl = (import.meta as any).env?.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${aiServiceUrl}/api/v1/soap/${sessionId}/status`, {
+        headers: { Authorization: `Bearer ${aiToken}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[useSessions] Pipeline status:', data);
+        if (data.pipeline_complete || data.segment_count > 0) {
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('[useSessions] Pipeline status poll error (will retry):', e);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  console.warn('[useSessions] Pipeline did not finish within timeout — proceeding anyway');
+  return false;
+};
+
+/**
  * Hook for ending a session (with AI analysis trigger)
  */
 export const useEndSession = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<TherapistError | null>(null);
   const [result, setResult] = useState<EndSessionResponse | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<
+    'idle' | 'stopping' | 'processing' | 'ready' | 'timeout'
+  >('idle');
 
   // Form states moved from useTherapist.ts
   const [sessionNotes, setSessionNotes] = useState('');
@@ -95,6 +135,7 @@ export const useEndSession = () => {
     ) => {
       setLoading(true);
       setError(null);
+      setPipelineStatus('stopping');
       try {
         // 1. End session in Django backend
         const response = await sessionsService.endSession(sessionId, data);
@@ -105,9 +146,7 @@ export const useEndSession = () => {
           console.log('[useSessions] Stopping AI Service session...');
           try {
             await sessionsService.stopAISession(sessionId, aiToken);
-            console.log('[useSessions] AI Service session stopped successfully');
-            // Keep token for post-session SOAP operations on this session.
-            // Removing it here causes 401 on /soap endpoints.
+            console.log('[useSessions] AI Service session stopped — pipeline started in background');
           } catch (stopErr) {
             console.warn('[useSessions] Failed to stop AI Service session (non-critical):', stopErr);
           }
@@ -118,12 +157,69 @@ export const useEndSession = () => {
       } catch (err) {
         console.error('[useSessions] Failed to end session:', err);
         setError(err as TherapistError);
+        setPipelineStatus('idle');
         return null;
       } finally {
         setLoading(false);
       }
     },
     []
+  );
+
+  /**
+   * End the session AND wait for the AI pipeline to finish before navigating to SOAP.
+   * Shows a "Processing..." state to the user instead of hitting a 400.
+   */
+  const endSessionAndGoToSOAP = useCallback(
+    async (
+      sessionId: string,
+      data: {
+        session_notes?: string;
+        patient_goals?: string;
+        patient_mood_after?: number;
+        homework_assigned?: string;
+        next_session_goals?: string;
+        session_effectiveness?: number;
+      }
+    ): Promise<{ success: boolean; timedOut: boolean }> => {
+      setLoading(true);
+      setError(null);
+      setPipelineStatus('stopping');
+
+      try {
+        // Step 1: End Django session
+        await sessionsService.endSession(sessionId, data);
+
+        // Step 2: Stop AI service session (kicks off background pipeline)
+        const aiToken = localStorage.getItem('ai_service_token');
+        if (aiToken) {
+          try {
+            await sessionsService.stopAISession(sessionId, aiToken);
+            console.log('[useSessions] AI pipeline started in background');
+          } catch (stopErr) {
+            console.warn('[useSessions] stopAISession failed (non-critical):', stopErr);
+          }
+
+          // Step 3: Poll until pipeline is done (or timeout)
+          setPipelineStatus('processing');
+          console.log('[useSessions] Waiting for AI pipeline to finish...');
+          const ready = await waitForPipeline(sessionId, aiToken);
+          setPipelineStatus(ready ? 'ready' : 'timeout');
+        } else {
+          setPipelineStatus('ready');
+        }
+
+        return { success: true, timedOut: pipelineStatus === 'timeout' };
+      } catch (err) {
+        console.error('[useSessions] endSessionAndGoToSOAP failed:', err);
+        setError(err as TherapistError);
+        setPipelineStatus('idle');
+        return { success: false, timedOut: false };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pipelineStatus]
   );
 
   const handleCompleteSession = useCallback(async (sessionId: string) => {
@@ -151,6 +247,8 @@ export const useEndSession = () => {
 
   return {
     endSession,
+    endSessionAndGoToSOAP,
+    pipelineStatus,
     result,
     loading,
     error,
@@ -174,6 +272,13 @@ export const useEndSession = () => {
 /**
  * Hook for fetching session emotional analysis
  */
+const AI_SERVICE_URL = (import.meta as any).env?.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+
+/**
+ * Hook for fetching session emotional analysis.
+ * Reads from AI Service transcript (has full audio+text+fused emotion breakdown).
+ * Falls back gracefully if not available.
+ */
 export const useSessionAnalysis = (sessionId: string) => {
   const [analysis, setAnalysis] = useState<SessionEmotionalAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,9 +288,115 @@ export const useSessionAnalysis = (sessionId: string) => {
     if (!sessionId) return;
     setLoading(true);
     setError(null);
+
     try {
-      const data = await sessionsService.getEmotionalAnalysis(sessionId);
-      setAnalysis(data);
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(
+        `${AI_SERVICE_URL}/api/v1/session/${sessionId}/transcript`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!res.ok) {
+        throw new Error(`AI service returned ${res.status}`);
+      }
+
+      const transcript = await res.json();
+      const segments: any[] = transcript.segments || [];
+
+      // ── Build emotional_timeline from segments ───────────────────────────
+      const emotional_timeline = segments.map((seg: any) => {
+        const em = seg.emotion;
+        const isCombined = em?.analysis_type === 'combined';
+        return {
+          timestamp: seg.start_time,
+          speaker: (seg.speaker || '').toUpperCase(),
+          // Final fused emotion (for the GPT line)
+          emotion: em?.final_emotion ?? 'unknown',
+          confidence: em?.final_confidence ?? 0,
+          // Audio model
+          audio_emotion: isCombined ? (em?.audio_emotion ?? null) : null,
+          audio_confidence: isCombined ? (em?.audio_confidence ?? 0) : 0,
+          // Text model
+          text_emotion: isCombined ? (em?.text_emotion ?? null) : null,
+          text_confidence: isCombined ? (em?.text_confidence ?? 0) : 0,
+          // Meta
+          analysis_type: em?.analysis_type ?? 'unknown',
+          agreement: em?.agreement ?? null,
+        };
+      });
+
+      // ── Compute dominant emotion, valence, arousal ───────────────────────
+      const EMOTION_DIMENSIONAL: Record<string, [number, number]> = {
+        joy:      [ 0.85, 0.75],
+        surprise: [ 0.10, 0.85],
+        neutral:  [ 0.00, 0.20],
+        fear:     [-0.65, 0.80],
+        sadness:  [-0.70, 0.25],
+        anger:    [-0.60, 0.90],
+        disgust:  [-0.75, 0.55],
+        unknown:  [ 0.00, 0.00],
+      };
+
+      const patientSegs = segments.filter(
+        (s: any) => (s.speaker || '').toUpperCase() === 'PATIENT' && s.emotion
+      );
+
+      const emotionCounts: Record<string, number> = {};
+      let totalValence = 0, totalArousal = 0, weightedCount = 0;
+
+      patientSegs.forEach((s: any) => {
+        const em = s.emotion;
+        const label = em?.final_emotion ?? 'unknown';
+        const conf = em?.final_confidence ?? 1;
+        emotionCounts[label] = (emotionCounts[label] ?? 0) + 1;
+        const [v, a] = EMOTION_DIMENSIONAL[label] ?? [0, 0];
+        totalValence += v * conf;
+        totalArousal += a * conf;
+        weightedCount += conf;
+      });
+
+      const dominant = Object.entries(emotionCounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'unknown';
+
+      const avgValence = weightedCount > 0
+        ? parseFloat((totalValence / weightedCount).toFixed(3))
+        : null;
+      const avgArousal = weightedCount > 0
+        ? parseFloat((totalArousal / weightedCount).toFixed(3))
+        : null;
+
+      // ── Count analysis types ─────────────────────────────────────────────
+      const dualSource = patientSegs.filter(
+        (s: any) => s.emotion?.analysis_type === 'combined'
+      ).length;
+      const textOnly = patientSegs.filter(
+        (s: any) => s.emotion?.analysis_type === 'text_only'
+      ).length;
+      const unknownSource = patientSegs.filter(
+        (s: any) => !s.emotion?.analysis_type || s.emotion?.analysis_type === 'unknown'
+      ).length;
+
+      // ── Mood distribution (patient only, GPT fused) ──────────────────────
+      const mood_distribution = Object.entries(emotionCounts).map(([emotion, count]) => ({
+        emotion,
+        count,
+        percentage: patientSegs.length > 0
+          ? parseFloat(((count / patientSegs.length) * 100).toFixed(1))
+          : 0,
+      }));
+
+      setAnalysis({
+        emotional_timeline,
+        dominant_emotion: dominant,
+        average_valence: avgValence,
+        average_arousal: avgArousal,
+        dual_source_segments: dualSource,
+        text_only_segments: textOnly,
+        unknown_source_segments: unknownSource,
+        mood_distribution,
+        mood_timeline: emotional_timeline, // alias for older page references
+      } as any);
+
     } catch (err) {
       setError(err as TherapistError);
     } finally {
@@ -203,6 +414,10 @@ export const useSessionAnalysis = (sessionId: string) => {
 /**
  * Hook for fetching session transcription
  */
+/**
+ * Hook for fetching session transcription
+ * Prefers AI Service (has full dual-source emotion) over Django backend
+ */
 export const useSessionTranscription = (sessionId: string) => {
   const [transcription, setTranscription] = useState<SessionTranscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,7 +428,8 @@ export const useSessionTranscription = (sessionId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await sessionsService.getTranscription(sessionId);
+      // Use AI Service transcript (has audio_emotion + text_emotion flat strings)
+      const data = await sessionsService.getAITranscription(sessionId);
       setTranscription(data);
     } catch (err) {
       setError(err as TherapistError);
@@ -228,7 +444,6 @@ export const useSessionTranscription = (sessionId: string) => {
 
   return { transcription, loading, error, refetch: fetchTranscription };
 };
-
 /**
  * Hook for managing all sessions for a therapist
  */
@@ -243,9 +458,6 @@ export const useSessions = (initialFilter: SessionFilter = {}) => {
       setLoading(true);
       setError(null);
       const currentFilter = filterOverride || filter;
-      // Note: sessionsService needs to be updated to support getSessions if not already
-      // For now using api directly or updating sessionsService is required
-      // Since I'm refactoring, I'll assume sessionsService.getSessions exists or I'll add it
       const data = await sessionsService.getSessions(currentFilter);
       setSessions(data);
     } catch (err) {
@@ -439,7 +651,6 @@ export const useSessionConsent = (params: SessionConsentParams) => {
       const session = await sessionsService.createSession(sessionData);
 
       if (session) {
-        // AI Session Start is often handled separately now
         await sessionsService.startSession(session.id);
         navigate(`/sessions/${session.id}`);
       }
@@ -514,7 +725,6 @@ export const useLiveSession = (
     if (!roomId) return;
     const token = localStorage.getItem('access_token') || '';
 
-    // Clean up existing connection
     if (wsRef.current) {
       wsRef.current.close();
     }
@@ -523,14 +733,13 @@ export const useLiveSession = (
       onOpen: () => {
         setConnected(true);
         setError(null);
-        retryCountRef.current = 0; // reset retries on success
+        retryCountRef.current = 0;
 
         if (retryTimeoutRef.current) {
           clearTimeout(retryTimeoutRef.current);
           retryTimeoutRef.current = null;
         }
 
-        // Start heartbeat
         heartbeatRef.current = setInterval(() => {
           sessionsService.sendHeartbeat(ws);
         }, heartbeatIntervalMs);
@@ -558,7 +767,6 @@ export const useLiveSession = (
           heartbeatRef.current = null;
         }
 
-        // Auto retry up to 5 times with 3 second delay
         if (retryCountRef.current < 5) {
           retryCountRef.current += 1;
           console.log(`[SessionWS] Retrying connection... attempt ${retryCountRef.current}/5`);
@@ -575,7 +783,7 @@ export const useLiveSession = (
   }, [roomId, heartbeatIntervalMs, getWsCloseMessage]);
 
   const disconnect = useCallback(() => {
-    retryCountRef.current = 5; // stop retrying
+    retryCountRef.current = 5;
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
@@ -605,7 +813,6 @@ export const useLiveSession = (
     if (wsRef.current) sessionsService.sendAudioData(wsRef.current, audioData);
   }, []);
 
-  // Auto-connect if requested
   useEffect(() => {
     if (autoConnect && roomId) {
       connect();
@@ -631,8 +838,6 @@ export const useLiveSession = (
 
 /**
  * Hook for connecting to AI Service WebSocket for live transcription and emotion analysis
- * This is separate from the Django WebSocket (useLiveSession)
- * Uses aiServiceUrl from config.ts
  */
 export const useAIServiceWebSocket = (
   sessionId: string | null,
@@ -659,7 +864,6 @@ export const useAIServiceWebSocket = (
       return;
     }
 
-    // Clean up existing connection
     if (wsRef.current) {
       console.log('[AI Service WS] Closing existing connection');
       wsRef.current.close();
@@ -675,12 +879,11 @@ export const useAIServiceWebSocket = (
           setError(null);
           console.log('[AI Service WS] Connected - ready to stream audio');
 
-          // Start heartbeat
           heartbeatRef.current = setInterval(() => {
             if (wsRef.current) {
               sessionsService.sendAIServiceHeartbeat(wsRef.current);
             }
-          }, 30000); // Every 30 seconds
+          }, 30000);
         },
         onTranscription: (segment) => {
           console.log('[AI Service WS] New transcription segment:', segment);
@@ -731,7 +934,6 @@ export const useAIServiceWebSocket = (
     chunkIndexRef.current = 0;
   }, []);
 
-  // Auto-connect if requested
   useEffect(() => {
     if (autoConnect && sessionId && aiServiceToken) {
       connect();
