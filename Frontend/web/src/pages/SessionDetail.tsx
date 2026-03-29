@@ -1036,17 +1036,27 @@ const SessionDetailPage: React.FC = () => {
                       <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Mood Distribution</p>
                       {analysis?.mood_distribution && Object.keys(analysis.mood_distribution).length > 0 ? (
                         <div className="space-y-3">
-                          {Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => (
-                            <div key={emotion}>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-sm text-gray-700 capitalize">{emotion}</span>
-                                <span className="text-sm font-semibold text-gray-900">{percentage}%</span>
+                          {(Array.isArray(analysis.mood_distribution)
+                            ? analysis.mood_distribution
+                            : Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => ({
+                                emotion, percentage
+                              }))
+                          ).map((item: any) => {
+                            const emotion = item.emotion ?? item[0];
+                            const pct = Number(item.percentage ?? item[1] ?? 0);
+                            return (
+                              <div key={emotion}>
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-sm text-gray-700 capitalize">{emotion}</span>
+                                  <span className="text-sm font-semibold text-gray-900">{pct.toFixed(1)}%</span>
+                                </div>
+                                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                                  <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600"
+                                    style={{ width: `${Math.min(100, pct)}%` }} />
+                                </div>
                               </div>
-                              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${percentage}%` }} />
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500">No mood distribution data found.</p>

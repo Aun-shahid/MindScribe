@@ -2,7 +2,8 @@
 SOAP Notes Router - Generate and manage SOAP notes for therapy sessions.
 Uses GPT-4o-mini for intelligent SOAP note generation.
 """
-
+from ..database import async_session_maker, SOAPNoteDB
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 import logging
@@ -135,7 +136,18 @@ async def generate_soap(
 
         # Store in memory
         soap_notes_store[session_id] = soap_note
+        async with async_session_maker() as db:
+            db_note = SOAPNoteDB(
+                session_id=session_id,
+                subjective=soap_note.subjective.content,
+                objective=soap_note.objective.content,
+                assessment=soap_note.assessment.content,
+                plan=soap_note.plan.content,
+                raw_json=json.loads(soap_note.json()),
+            )
 
+            db.add(db_note)
+            await db.commit()
         # Calculate processing time
         processing_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 

@@ -136,3 +136,16 @@ async def init_db():
 async def close_db():
     """Close database connection pool."""
     await engine.dispose()
+class SOAPNoteDB(Base):
+    __tablename__ = "soap_notes_ai"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True, nullable=False)
+
+    subjective = Column(Text)
+    objective = Column(Text)
+    assessment = Column(Text)
+    plan = Column(Text)
+
+    raw_json = Column(JSON)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

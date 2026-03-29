@@ -66,7 +66,7 @@ def verify_token(token: str) -> TokenPayload:
         if token_type == "access":
             # Access token structure: {user_id, email, type: "access"}
             return TokenPayload(
-                session_id=payload.get("session_id", ""),  # May not exist in access tokens
+                session_id=payload.get("session_id") or None,  # May not exist in access tokens
                 therapist_id=str(payload.get("user_id", "")),
                 iat=datetime.fromtimestamp(payload["iat"]),
                 exp=datetime.fromtimestamp(payload["exp"]),
