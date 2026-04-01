@@ -13,7 +13,7 @@ import {
   Activity,
   Sparkles
 } from 'lucide-react';
-import { useSessionDetail, useSessionAnalysis, useSessionTranscription } from '../hooks/useSessions';
+import { useSessionDetail, useSessionAnalysis, useSessionInsights, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
 
@@ -76,6 +76,16 @@ const SessionDetailPage: React.FC = () => {
 
   const { transcription, loading: transcriptionLoading, error: transcriptionError } =
     useSessionTranscription(session?.status === 'COMPLETED' ? id! : '');
+
+  const {
+    insight: sessionInsight,
+    loading: insightsLoading,
+    generating: insightsGenerating,
+    error: insightsError,
+    fetchInsights,
+    generateInsights,
+    clearError: clearInsightsError,
+  } = useSessionInsights(session?.status === 'COMPLETED' ? id! : '', { autoFetch: false });
 
   React.useEffect(() => {
     const queryTab = new URLSearchParams(location.search).get('tab');
@@ -149,6 +159,11 @@ const SessionDetailPage: React.FC = () => {
     }
   };
 
+  const handleGenerateInsights = async () => {
+    if (!id) return;
+    await generateInsights(true);
+  };
+
   React.useEffect(() => {
     if (activeTab === 'soap' && isCompletedSession && !soapNote && !soapLoading && !soapFetchAttempted) {
       loadSoapNote();
@@ -156,9 +171,16 @@ const SessionDetailPage: React.FC = () => {
   }, [activeTab, isCompletedSession, soapNote, soapLoading, soapFetchAttempted]);
 
   React.useEffect(() => {
+    if (activeTab === 'ai-insights' && isCompletedSession && !sessionInsight && !insightsLoading) {
+      fetchInsights();
+    }
+  }, [activeTab, isCompletedSession, sessionInsight, insightsLoading, fetchInsights]);
+
+  React.useEffect(() => {
     setSoapFetchAttempted(false);
     setSoapError(null);
     setSoapNote(null);
+    clearInsightsError();
   }, [id]);
 
   const handleSaveDetails = async () => {
@@ -1106,9 +1128,103 @@ const SessionDetailPage: React.FC = () => {
 
         {/* ── AI INSIGHTS TAB ── */}
         {activeTab === 'ai-insights' && (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900">AI Insights</h3>
-            <p className="text-sm text-gray-500 mt-2">{isCompletedSession ? 'Coming soon.' : 'This will be available after the session is completed.'}</p>
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-fuchsia-50 to-indigo-100/60 px-6 py-4 border-b border-fuchsia-200">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">AI Insights</h3>
+                  <p className="text-sm text-gray-600 mt-1">Therapist coaching insights generated from notes, SOAP, transcription, and emotion signals.</p>
+                </div>
+                {isCompletedSession && (
+                  <button
+                    onClick={handleGenerateInsights}
+                    disabled={insightsGenerating}
+                    className="inline-flex items-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={16} className="mr-2" /> {insightsGenerating ? 'Generating...' : 'Generate AI Insights'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {!isCompletedSession ? (
+                <p className="text-gray-500 italic">This will be available after the session is completed.</p>
+              ) : insightsLoading ? (
+                <div className="flex items-center text-gray-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-fuchsia-600 mr-3" /> Loading AI insights...
+                </div>
+              ) : sessionInsight ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Overall Mood</p>
+                      <p className="text-lg font-bold text-gray-900 mt-1 capitalize">{sessionInsight.overall_mood || 'Unavailable'}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Mood Score</p>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {sessionInsight.mood_score !== null && sessionInsight.mood_score !== undefined
+                          ? `${sessionInsight.mood_score.toFixed(1)} / 10`
+                          : 'Unavailable'}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Generated At</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">
+                        {sessionInsight.generated_at
+                          ? new Date(sessionInsight.generated_at).toLocaleString()
+                          : 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Key Themes</p>
+                    {sessionInsight.key_themes?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {sessionInsight.key_themes.map((theme, idx) => (
+                          <span key={`${theme}-${idx}`} className="text-sm px-3 py-1.5 rounded-full bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200">
+                            {theme}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No key themes available.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Recommendations</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {sessionInsight.recommendations || 'No recommendations available.'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Emotional Patterns</p>
+                    <pre className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 overflow-x-auto">
+                      {JSON.stringify(sessionInsight.emotional_patterns || {}, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">No AI insights generated yet for this session.</p>
+                  <button
+                    onClick={handleGenerateInsights}
+                    disabled={insightsGenerating}
+                    className="inline-flex items-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={16} className="mr-2" /> {insightsGenerating ? 'Generating...' : 'Generate AI Insights'}
+                  </button>
+                </div>
+              )}
+
+              {insightsError && (
+                <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{(insightsError as any)?.message || 'Failed to load/generate AI insights.'}</div>
+              )}
+            </div>
           </div>
         )}
       </div>

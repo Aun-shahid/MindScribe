@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     
     # OpenAI Configuration
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
+
+    # ElevenLabs Configuration
+    elevenlabs_api_key: str = Field(default="", alias="ELEVENLABS_API_KEY")
+    elevenlabs_realtime_model: str = Field(
+        default="scribe_v2_realtime",
+        alias="ELEVENLABS_REALTIME_MODEL"
+    )
     
     backend_url: str = Field(..., alias="BACKEND_URL")
     

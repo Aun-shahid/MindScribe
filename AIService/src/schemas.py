@@ -39,7 +39,7 @@ class AudioEmotionResult(BaseModel):
 
 
 class TextEmotionResult(BaseModel):
-    """Raw output from j-hartmann/distilroberta text model."""
+    """Raw output from GPT-based text emotion classifier."""
     primary_emotion: EmotionLabel
     confidence: float = Field(..., ge=0.0, le=1.0)
     all_scores: Dict[str, float] = Field(default_factory=dict)
@@ -62,9 +62,8 @@ class SegmentEmotionResult(BaseModel):
     both model outputs independently and then show the GPT-fused final.
 
     analysis_type:
-      'combined'   — both Wav2Vec2 (audio) and distilroberta (text) ran,
-                     GPT-4o-mini fused the result
-      'text_only'  — only distilroberta ran (audio unavailable / too short)
+            'combined'   — both Wav2Vec2 (audio) and GPT text stage ran
+            'text_only'  — only GPT text stage ran (audio unavailable / too short)
       'audio_only' — only Wav2Vec2 ran (no English translation available)
     """
     audio_emotion: Optional[EmotionLabel] = Field(
@@ -73,7 +72,7 @@ class SegmentEmotionResult(BaseModel):
     audio_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
     text_emotion: Optional[EmotionLabel] = Field(
-        None, description="Emotion from j-hartmann/distilroberta text model"
+        None, description="Emotion from GPT-based text classifier"
     )
     text_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 

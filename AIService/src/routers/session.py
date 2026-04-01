@@ -3,12 +3,12 @@ Session Router - WebSocket-based real-time transcription and session management.
 
 EMOTION PIPELINE ORDER (matches the tested Streamlit pipeline):
   Stage 1 — After audio sliced per segment → Wav2Vec2 audio emotion → logged
-  Stage 2 — After translation done → distilroberta text emotion → logged
-  Stage 3 — Both results → GPT-4o-mini fusion → logged
+    Stage 2 — After translation done → GPT-5-mini text emotion (audio-aware) → logged
+    Stage 3 — Lightweight final resolver (text-first, audio-aware) → logged
 Both audio_emotion and text_emotion stored separately on SegmentEmotionResult.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 import asyncio
 import json
 import logging
@@ -30,12 +30,20 @@ from ..schemas import (
 from ..config import settings
 from ..database import (
     get_db_context, Transcription,
-    TranscriptionSegment as DBTranscriptionSegment, EmotionAnalysis
+    TranscriptionSegment as DBTranscriptionSegment, EmotionAnalysis,
+    SessionDB, SessionInsightDB, SOAPNoteDB
 )
 from ..services.emotion import normalize_emotion_label
+from ..services.transcription import get_openai_client
+from pydantic import BaseModel
+from sqlalchemy import select
 logger = logging.getLogger(__name__)
 router = APIRouter()
 active_sessions: Dict[str, Dict] = {}
+
+
+class SessionInsightsGenerateRequest(BaseModel):
+    force: bool = True
 
 
 # ============================================================================
@@ -241,6 +249,89 @@ async def get_transcript(
     )
 
 
+@router.get("/{session_id}/insights")
+async def get_session_insights(
+    session_id: str,
+    session: AuthenticatedSession = Depends(get_current_session)
+):
+    if session.session_id is not None and session.session_id != session_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session ID")
+
+    async with get_db_context() as db:
+        result = await db.execute(
+            select(SessionInsightDB).where(SessionInsightDB.session_id == session_uuid)
+        )
+        insight = result.scalar_one_or_none()
+
+        if not insight:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session insights not found")
+
+        return {
+            "detail": "Session insights retrieved successfully",
+            "insight": _serialize_session_insight(insight),
+        }
+
+
+@router.post("/{session_id}/insights")
+async def generate_session_insights(
+    session_id: str,
+    request: SessionInsightsGenerateRequest,
+    session: AuthenticatedSession = Depends(get_current_session)
+):
+    if session.session_id is not None and session.session_id != session_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session ID")
+
+    async with get_db_context() as db:
+        result = await db.execute(select(SessionDB).where(SessionDB.id == session_uuid))
+        session_row = result.scalar_one_or_none()
+        if not session_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        if (session_row.status or "").upper() != "COMPLETED":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session must be completed before generating insights")
+
+        existing_result = await db.execute(
+            select(SessionInsightDB).where(SessionInsightDB.session_id == session_uuid)
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing and not request.force:
+            return {
+                "detail": "Session insights already exist",
+                "generation": {"status": "skipped", "reason": "already_generated"},
+                "insight": _serialize_session_insight(existing),
+            }
+
+        context = await _build_insight_context(db, session_id=session_id, session_uuid=session_uuid)
+        generated = await _generate_insight_payload(context)
+
+        if not existing:
+            existing = SessionInsightDB(session_id=session_uuid)
+            db.add(existing)
+
+        existing.overall_mood = _safe_str(generated.get("overall_mood"), max_len=50)
+        existing.mood_score = _safe_float(generated.get("mood_score"), min_val=0.0, max_val=10.0)
+        existing.key_themes = _safe_string_list(generated.get("key_themes"), max_items=8)
+        existing.emotional_patterns = generated.get("emotional_patterns") if isinstance(generated.get("emotional_patterns"), dict) else {}
+        existing.recommendations = _safe_str(generated.get("recommendations"), max_len=4000)
+        existing.generated_at = datetime.utcnow()
+        await db.flush()
+
+        return {
+            "detail": "Session insights generated successfully",
+            "generation": {"status": "generated", "source": "fastapi"},
+            "insight": _serialize_session_insight(existing),
+        }
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -283,8 +374,8 @@ async def _run_full_pipeline(
     Pipeline stages:
       1  Save raw audio
       2  PCM → 16kHz WAV
-      3  Diarization (PyAnnote)
-      4  Whisper transcription per segment
+            3  ElevenLabs diarized transcription (scribe_v2)
+        4  Normalize diarized segments for downstream steps
       5  GPT-4o speaker correction (THERAPIST / PATIENT)
       6  Translate Urdu → English
 
@@ -293,24 +384,24 @@ async def _run_full_pipeline(
          → logged to console with all_scores
 
       ── EMOTION STAGE 2 ──────────────────────────────────
-      8  distilroberta text emotion per segment (English)
+        8  GPT-5-mini text emotion per segment (English, audio-aware)
          → logged to console with all_scores
 
       ── EMOTION FUSION ───────────────────────────────────
-      9  GPT-4o-mini fusion of audio + text per segment
-         → logged to console showing both inputs and final
+        9  Lightweight final resolver using Stage 2 output
+            → logged to console with both signals
 
       10 Save to DB
     """
     import tempfile
     from openai import OpenAI
-    from ..services.diarization import diarize_audio
-    from ..services.transcription import translate_to_english
+    from ..services.transcription import (
+        transcribe_full_audio_diarized,
+        translate_to_english,
+    )
     from ..services.emotion import (
          analyze_audio_emotion,
         analyze_text_emotion,
-        _fuse_emotions_with_gpt,
-        
     )
 
     logger.info(f"[PIPELINE] ═══ START session={session_id} ═══")
@@ -319,7 +410,6 @@ async def _run_full_pipeline(
 
     try:
         # ── Step 1 ──────────────────────────────────────────────────────────
-        import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".raw") as f:
             f.write(audio_buffer)
             tmp_raw = f.name
@@ -335,55 +425,51 @@ async def _run_full_pipeline(
         full_audio_16k = full_audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
 
         # ── Step 3 ──────────────────────────────────────────────────────────
-        logger.info("[PIPELINE] Step 3 — diarization...")
-        raw_segments = await diarize_audio(tmp_resampled)
-        logger.info(f"[PIPELINE] Step 3 — {len(raw_segments)} segments")
+        logger.info("[PIPELINE] Step 3 — ElevenLabs diarized transcription...")
+        diarized = await transcribe_full_audio_diarized(
+            audio_path=tmp_resampled,
+            language=language,
+        )
+        if diarized.get("error"):
+            raise RuntimeError(f"Diarized transcription failed: {diarized['error']}")
+
+        raw_segments = diarized.get("segments", []) or []
+        logger.info(f"[PIPELINE] Step 3 — {len(raw_segments)} diarized segments")
         if not raw_segments:
             logger.warning("[PIPELINE] No segments — aborting")
             return
 
-        # ── Step 4: Whisper transcription ───────────────────────────────────
-        logger.info("[PIPELINE] Step 4 — Whisper transcription...")
+        # ── Step 4: normalize diarized response ─────────────────────────────
+        logger.info("[PIPELINE] Step 4 — normalizing diarized segments...")
         sync_client = OpenAI(api_key=settings.openai_api_key)
         transcribed_segments = []
+        default_lang = "English" if str(language).lower().startswith("en") else "Urdu"
 
         for idx, seg in enumerate(raw_segments):
             try:
-                start_ms = int(seg['start'] * 1000)
-                end_ms = int(seg['end'] * 1000)
-                if end_ms - start_ms < 500:
+                start = float(seg.get('start', 0.0) or 0.0)
+                end = float(seg.get('end', 0.0) or 0.0)
+                text = str(seg.get('text', '') or '').strip()
+
+                if end <= start:
                     continue
-                seg_audio = full_audio[start_ms:end_ms]
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_seg:
-                    seg_audio.export(tmp_seg.name, format="wav")
-                    seg_path = tmp_seg.name
-                try:
-                    with open(seg_path, "rb") as af:
-                        detect_resp = sync_client.audio.transcriptions.create(
-                            model="whisper-1", file=af, response_format="verbose_json"
-                        )
-                    detected_lang = getattr(detect_resp, 'language', 'ur')
-                    force_lang = 'en' if detected_lang in ['en', 'english'] else 'ur'
-                    with open(seg_path, "rb") as af:
-                        trans_resp = sync_client.audio.transcriptions.create(
-                            model="whisper-1", file=af,
-                            language=force_lang, response_format="text"
-                        )
-                    text = trans_resp.strip() if isinstance(trans_resp, str) else str(trans_resp)
-                finally:
-                    if os.path.exists(seg_path):
-                        os.unlink(seg_path)
+                if not text:
+                    continue
 
                 transcribed_segments.append({
-                    **seg,
+                    **dict(seg),
+                    'start': start,
+                    'end': end,
+                    'duration': max(0.0, end - start),
                     'text': text,
-                    'language': 'English' if force_lang == 'en' else 'Urdu',
-                    'id': f"seg_{idx:04d}"
+                    'language': default_lang,
+                    'speaker': str(seg.get('speaker', 'UNKNOWN') or 'UNKNOWN'),
+                    'id': str(seg.get('id', f"seg_{idx:04d}") or f"seg_{idx:04d}"),
                 })
             except Exception as e:
-                logger.warning(f"[PIPELINE] Transcription failed seg {idx}: {e}")
+                logger.warning(f"[PIPELINE] Segment normalization failed seg {idx}: {e}")
 
-        logger.info(f"[PIPELINE] Step 4 — transcribed {len(transcribed_segments)} segments")
+        logger.info(f"[PIPELINE] Step 4 — normalized {len(transcribed_segments)} segments")
 
         # ── Step 5: GPT speaker correction ─────────────────────────────────
         logger.info("[PIPELINE] Step 5 — GPT-4o speaker correction...")
@@ -444,10 +530,10 @@ async def _run_full_pipeline(
         logger.info("[PIPELINE] Step 7 ═══ EMOTION STAGE 1 complete ═══")
 
         # ════════════════════════════════════════════════════════════════════
-        # EMOTION STAGE 2 — distilroberta text emotion
+        # EMOTION STAGE 2 — GPT text emotion (audio-aware)
         # Run AFTER translation so English text is available.
         # ════════════════════════════════════════════════════════════════════
-        logger.info("[PIPELINE] Step 8 ═══ EMOTION STAGE 2: distilroberta text emotion ═══")
+        logger.info("[PIPELINE] Step 8 ═══ EMOTION STAGE 2: GPT-5-mini text emotion (audio-aware) ═══")
         text_emotion_map: Dict[str, Optional[TextEmotionResult]] = {}
 
         for seg in corrected_segments:
@@ -456,7 +542,8 @@ async def _run_full_pipeline(
 
             if text_en:
                 try:
-                    text_res = await analyze_text_emotion(text_en)
+                    audio_res = audio_emotion_map.get(seg_id)
+                    text_res = await analyze_text_emotion(text_en, audio_result=audio_res)
                     text_emotion_map[seg_id] = text_res
 
                     # ── console debug ───────────────────────────────────────
@@ -470,7 +557,7 @@ async def _run_full_pipeline(
                     )
                 except Exception as e:
                     text_emotion_map[seg_id] = None
-                    logger.error(f"[EMOTION-TEXT] seg={seg_id} — distilroberta ERROR: {e}")
+                    logger.error(f"[EMOTION-TEXT] seg={seg_id} — GPT text classifier ERROR: {e}")
             else:
                 text_emotion_map[seg_id] = None
                 logger.debug(f"[EMOTION-TEXT] seg={seg_id} — no English text, skipped")
@@ -478,10 +565,10 @@ async def _run_full_pipeline(
         logger.info("[PIPELINE] Step 8 ═══ EMOTION STAGE 2 complete ═══")
 
         # ════════════════════════════════════════════════════════════════════
-        # EMOTION FUSION — GPT-4o-mini
-        # Receives both audio + text results and resolves the final label.
+        # EMOTION FINAL — lightweight resolver
+        # Stage 2 already had audio context, so this step is intentionally light.
         # ════════════════════════════════════════════════════════════════════
-        logger.info("[PIPELINE] Step 9 ═══ EMOTION FUSION: GPT-4o-mini ═══")
+        logger.info("[PIPELINE] Step 9 ═══ EMOTION FINAL: lightweight resolver ═══")
         final_segments = []
 
         for seg in corrected_segments:
@@ -492,51 +579,35 @@ async def _run_full_pipeline(
             emotion_result: SegmentEmotionResult
 
             if audio_res and text_res and text_en:
-                # ── Both signals → GPT fusion ───────────────────────────────
-                try:
-                    fused_em, fused_conf = await _fuse_emotions_with_gpt(
-                        audio_result=audio_res, text_result=text_res, text=text_en
-                    )
-                    agreement = (audio_res.primary_emotion == text_res.primary_emotion)
-                    emotion_result = SegmentEmotionResult(
-                        audio_emotion=audio_res.primary_emotion,
-                        audio_confidence=audio_res.confidence,
-                        text_emotion=text_res.primary_emotion,
-                        text_confidence=text_res.confidence,
-                        final_emotion=fused_em,
-                        final_confidence=fused_conf,
-                        agreement=agreement,
-                        analysis_type="combined"
-                    )
-                    logger.info(
-                        f"[EMOTION-FUSION] seg={seg_id} | "
-                        f"INPUT audio={audio_res.primary_emotion.value}({audio_res.confidence:.2f}) "
-                        f"text={text_res.primary_emotion.value}({text_res.confidence:.2f}) "
-                        f"agree={agreement} | "
-                        f">>> GPT_FINAL={fused_em.value.upper()}({fused_conf:.2f})"
-                    )
-                except Exception as e:
-                    logger.error(f"[EMOTION-FUSION] seg={seg_id} — GPT failed: {e}, using fallback")
-                    agreement = (audio_res.primary_emotion == text_res.primary_emotion)
-                    if agreement:
-                        final_em, final_conf = audio_res.primary_emotion, max(audio_res.confidence, text_res.confidence)
-                    elif audio_res.confidence > 0.6:
-                        final_em, final_conf = audio_res.primary_emotion, audio_res.confidence * 0.8
-                    else:
-                        final_em, final_conf = text_res.primary_emotion, text_res.confidence * 0.8
-                    emotion_result = SegmentEmotionResult(
-                        audio_emotion=audio_res.primary_emotion, audio_confidence=audio_res.confidence,
-                        text_emotion=text_res.primary_emotion, text_confidence=text_res.confidence,
-                        final_emotion=final_em, final_confidence=final_conf,
-                        agreement=agreement, analysis_type="combined"
-                    )
-                    logger.info(f"[EMOTION-FUSION] seg={seg_id} FALLBACK >>> {final_em.value.upper()}({final_conf:.2f})")
+                agreement = (audio_res.primary_emotion == text_res.primary_emotion)
+                final_em = text_res.primary_emotion if text_res.primary_emotion != EmotionLabel.UNKNOWN else audio_res.primary_emotion
+                final_conf = text_res.confidence if text_res.primary_emotion != EmotionLabel.UNKNOWN else audio_res.confidence
+                if agreement:
+                    final_conf = min(0.98, max(final_conf, audio_res.confidence) * 0.95)
+
+                emotion_result = SegmentEmotionResult(
+                    audio_emotion=audio_res.primary_emotion,
+                    audio_confidence=audio_res.confidence,
+                    text_emotion=text_res.primary_emotion,
+                    text_confidence=text_res.confidence,
+                    final_emotion=final_em,
+                    final_confidence=final_conf,
+                    agreement=agreement,
+                    analysis_type="combined"
+                )
+                logger.info(
+                    f"[EMOTION-FINAL] seg={seg_id} | "
+                    f"audio={audio_res.primary_emotion.value}({audio_res.confidence:.2f}) "
+                    f"text={text_res.primary_emotion.value}({text_res.confidence:.2f}) "
+                    f"agree={agreement} | "
+                    f">>> FINAL={final_em.value.upper()}({final_conf:.2f})"
+                )
 
             elif text_res:
                 # ── Text only ───────────────────────────────────────────────
                 emotion_result = SegmentEmotionResult.from_text_only(text_res)
                 logger.info(
-                    f"[EMOTION-FUSION] seg={seg_id} TEXT-ONLY >>> "
+                    f"[EMOTION-FINAL] seg={seg_id} TEXT-ONLY >>> "
                     f"{text_res.primary_emotion.value.upper()}({text_res.confidence:.2f})"
                 )
             elif audio_res:
@@ -548,15 +619,22 @@ async def _run_full_pipeline(
                     agreement=None, analysis_type="audio_only"
                 )
                 logger.info(
-                    f"[EMOTION-FUSION] seg={seg_id} AUDIO-ONLY >>> "
+                    f"[EMOTION-FINAL] seg={seg_id} AUDIO-ONLY >>> "
                     f"{audio_res.primary_emotion.value.upper()}({audio_res.confidence:.2f})"
                 )
             else:
                 # ── Nothing worked ──────────────────────────────────────────
                 emotion_result = SegmentEmotionResult(
-                    final_emotion=EmotionLabel.NEUTRAL, analysis_type="text_only"
+                    audio_emotion=None,
+                    audio_confidence=0.0,
+                    text_emotion=None,
+                    text_confidence=0.0,
+                    final_emotion=EmotionLabel.NEUTRAL,
+                    final_confidence=0.0,
+                    agreement=None,
+                    analysis_type="text_only"
                 )
-                logger.warning(f"[EMOTION-FUSION] seg={seg_id} — no emotion data → NEUTRAL")
+                logger.warning(f"[EMOTION-FINAL] seg={seg_id} — no emotion data → NEUTRAL")
 
             ts = TranscriptionSegment(
                 id=str(seg.get('id', '')),
@@ -788,7 +866,7 @@ async def finalize_session(
     try:
         from ..services.transcription import transcribe_full_audio_diarized
         from ..services.transcription_refinement import normalize_segments_for_therapy
-        from ..services.emotion import analyze_audio_emotion, analyze_text_emotion, _fuse_emotions_with_gpt
+        from ..services.emotion import analyze_audio_emotion, analyze_text_emotion
 
         audio_path = session_data.get("config", {}).get("audio_path")
         language = session_data.get("config", {}).get("language", "ur")
@@ -856,29 +934,40 @@ async def finalize_session(
             # Stage 2: text
             if text.strip():
                 try:
-                    text_res = await analyze_text_emotion(text)
+                    text_res = await analyze_text_emotion(text, audio_result=audio_res)
                     logger.info(f"[FINALIZE-TEXT] seg={seg.id} >>> {text_res.primary_emotion.value.upper()}({text_res.confidence:.2f})")
                 except Exception as e:
                     logger.warning(f"[FINALIZE-TEXT] seg={seg.id} failed: {e}")
 
-            # Fusion
+            # Lightweight final resolver
             if audio_res and text_res and text.strip():
-                try:
-                    fused_em, fused_conf = await _fuse_emotions_with_gpt(audio_res, text_res, text)
-                    finalized[i].emotion = SegmentEmotionResult(
-                        audio_emotion=audio_res.primary_emotion, audio_confidence=audio_res.confidence,
-                        text_emotion=text_res.primary_emotion, text_confidence=text_res.confidence,
-                        final_emotion=fused_em, final_confidence=fused_conf,
-                        agreement=(audio_res.primary_emotion == text_res.primary_emotion),
-                        analysis_type="combined"
-                    )
-                    logger.info(f"[FINALIZE-FUSION] seg={seg.id} >>> GPT_FINAL={fused_em.value.upper()}({fused_conf:.2f})")
-                except Exception as e:
-                    finalized[i].emotion = SegmentEmotionResult.from_text_only(text_res)
+                agreement = (audio_res.primary_emotion == text_res.primary_emotion)
+                final_em = text_res.primary_emotion if text_res.primary_emotion != EmotionLabel.UNKNOWN else audio_res.primary_emotion
+                final_conf = text_res.confidence if text_res.primary_emotion != EmotionLabel.UNKNOWN else audio_res.confidence
+                if agreement:
+                    final_conf = min(0.98, max(final_conf, audio_res.confidence) * 0.95)
+
+                finalized[i].emotion = SegmentEmotionResult(
+                    audio_emotion=audio_res.primary_emotion, audio_confidence=audio_res.confidence,
+                    text_emotion=text_res.primary_emotion, text_confidence=text_res.confidence,
+                    final_emotion=final_em, final_confidence=final_conf,
+                    agreement=agreement,
+                    analysis_type="combined"
+                )
+                logger.info(f"[FINALIZE-FINAL] seg={seg.id} >>> FINAL={final_em.value.upper()}({final_conf:.2f})")
             elif text_res:
                 finalized[i].emotion = SegmentEmotionResult.from_text_only(text_res)
             else:
-                finalized[i].emotion = SegmentEmotionResult(final_emotion=EmotionLabel.NEUTRAL, analysis_type="text_only")
+                finalized[i].emotion = SegmentEmotionResult(
+                    audio_emotion=None,
+                    audio_confidence=0.0,
+                    text_emotion=None,
+                    text_confidence=0.0,
+                    final_emotion=EmotionLabel.NEUTRAL,
+                    final_confidence=0.0,
+                    agreement=None,
+                    analysis_type="text_only"
+                )
 
         speakers = sorted({s.speaker for s in finalized})
         patient_speaker = 'PATIENT' if 'PATIENT' in speakers else (speakers[1] if len(speakers) > 1 else speakers[0] if speakers else 'UNKNOWN')
@@ -1029,3 +1118,207 @@ async def _load_transcript_from_db(session_id: str) -> FullTranscript:
             created_at=transcription_row.processing_completed_at,
             updated_at=transcription_row.processing_completed_at
         )
+
+
+def _serialize_session_insight(insight: SessionInsightDB) -> Dict[str, Any]:
+    return {
+        "id": str(insight.id),
+        "overall_mood": insight.overall_mood,
+        "mood_score": insight.mood_score,
+        "key_themes": insight.key_themes or [],
+        "emotional_patterns": insight.emotional_patterns or {},
+        "recommendations": insight.recommendations,
+        "generated_at": insight.generated_at.isoformat() if insight.generated_at else None,
+    }
+
+
+async def _build_insight_context(db, session_id: str, session_uuid: uuid.UUID) -> Dict[str, Any]:
+    session_result = await db.execute(select(SessionDB).where(SessionDB.id == session_uuid))
+    session_row = session_result.scalar_one_or_none()
+
+    soap_result = await db.execute(
+        select(SOAPNoteDB)
+        .where(SOAPNoteDB.session_id == session_id)
+        .order_by(SOAPNoteDB.created_at.desc())
+        .limit(1)
+    )
+    soap_row = soap_result.scalar_one_or_none()
+
+    transcript_text = ""
+    emotion_dist: Dict[str, int] = {}
+    avg_valence = None
+    avg_arousal = None
+
+    transcript_result = await db.execute(
+        select(Transcription)
+        .where(Transcription.session_id == session_uuid)
+        .order_by(Transcription.processing_completed_at.desc())
+        .limit(1)
+    )
+    transcription_row = transcript_result.scalar_one_or_none()
+
+    if transcription_row:
+        seg_result = await db.execute(
+            select(DBTranscriptionSegment, EmotionAnalysis)
+            .outerjoin(EmotionAnalysis, EmotionAnalysis.segment_id == DBTranscriptionSegment.id)
+            .where(DBTranscriptionSegment.transcription_id == transcription_row.id)
+            .order_by(DBTranscriptionSegment.start_time)
+        )
+        rows = seg_result.all()
+
+        lines: List[str] = []
+        valences: List[float] = []
+        arousals: List[float] = []
+        char_count = 0
+        max_chars = int(os.getenv("SESSION_INSIGHTS_MAX_TRANSCRIPT_CHARS", "9000"))
+
+        for seg, em in rows:
+            speaker = (seg.speaker_type or "unknown").upper()
+            text = (seg.text or "").strip()
+            if text:
+                line = f"[{speaker}] {text}"
+                if char_count + len(line) <= max_chars:
+                    lines.append(line)
+                    char_count += len(line) + 1
+
+            if em and em.primary_emotion:
+                key = em.primary_emotion.lower()
+                emotion_dist[key] = emotion_dist.get(key, 0) + 1
+                if em.valence is not None:
+                    valences.append(float(em.valence))
+                if em.arousal is not None:
+                    arousals.append(float(em.arousal))
+
+        transcript_text = "\n".join(lines)
+        if valences:
+            avg_valence = sum(valences) / len(valences)
+        if arousals:
+            avg_arousal = sum(arousals) / len(arousals)
+
+    return {
+        "session": {
+            "id": session_id,
+            "status": session_row.status if session_row else None,
+            "session_notes": session_row.session_notes if session_row else None,
+            "session_summary": session_row.session_summary if session_row else None,
+            "patient_goals": session_row.patient_goals if session_row else None,
+            "homework_assigned": session_row.homework_assigned if session_row else None,
+            "next_session_goals": session_row.next_session_goals if session_row else None,
+            "therapist_observations": session_row.therapist_observations if session_row else None,
+            "patient_mood_before": session_row.patient_mood_before if session_row else None,
+            "patient_mood_after": session_row.patient_mood_after if session_row else None,
+            "session_effectiveness": session_row.session_effectiveness if session_row else None,
+        },
+        "soap_note": {
+            "subjective": soap_row.subjective if soap_row else None,
+            "objective": soap_row.objective if soap_row else None,
+            "assessment": soap_row.assessment if soap_row else None,
+            "plan": soap_row.plan if soap_row else None,
+        },
+        "transcription": {
+            "excerpt": transcript_text,
+            "emotion_distribution": emotion_dist,
+            "avg_valence": avg_valence,
+            "avg_arousal": avg_arousal,
+        },
+    }
+
+
+async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_openai_client()
+    model_name = os.getenv("SESSION_INSIGHTS_MODEL", "gpt-5")
+
+    system_prompt = (
+        "You are an expert clinical supervision assistant. "
+        "Analyze one completed therapy session and produce coaching insights for the therapist. "
+        "Use only provided data. Do not diagnose conditions and do not prescribe medication. "
+        "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations."
+    )
+
+    request_kwargs: Dict[str, Any] = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Generate session insight JSON from this data:\n" + json.dumps(context, ensure_ascii=True)},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+    if not model_name.lower().startswith("gpt-5"):
+        request_kwargs["temperature"] = 0.2
+        request_kwargs["max_tokens"] = 800
+
+    try:
+        response = await client.chat.completions.create(**request_kwargs)
+        raw = response.choices[0].message.content or "{}"
+        parsed = _extract_json_object(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception as e:
+        logger.error(f"Session insight generation failed in FastAPI: {e}")
+
+    # Fallback payload
+    session_data = context.get("session", {}) or {}
+    emotion_dist = context.get("transcription", {}).get("emotion_distribution", {}) or {}
+    dominant = max(emotion_dist.items(), key=lambda x: x[1])[0] if emotion_dist else "mixed"
+
+    return {
+        "overall_mood": dominant,
+        "mood_score": session_data.get("patient_mood_after"),
+        "key_themes": ["Session reflection", "Therapeutic alliance", "Next-session planning"],
+        "emotional_patterns": {
+            "emotion_distribution": emotion_dist,
+            "avg_valence": context.get("transcription", {}).get("avg_valence"),
+            "avg_arousal": context.get("transcription", {}).get("avg_arousal"),
+        },
+        "recommendations": (
+            "- Reflect and summarize patient language at transition points.\n"
+            "- Set one measurable between-session behavior target.\n"
+            "- Start next session by reviewing adherence and barriers."
+        ),
+    }
+
+
+def _extract_json_object(raw: str) -> Dict[str, Any]:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            candidate = parts[1]
+            if candidate.lower().startswith("json"):
+                candidate = candidate[4:].strip()
+            text = candidate.strip()
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _safe_str(value: Any, max_len: int) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[:max_len]
+
+
+def _safe_float(value: Any, min_val: float, max_val: float) -> Optional[float]:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(min_val, min(max_val, number))
+
+
+def _safe_string_list(value: Any, max_items: int) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    output: List[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text:
+            output.append(text[:120])
+        if len(output) >= max_items:
+            break
+    return output

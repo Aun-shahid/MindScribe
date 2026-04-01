@@ -615,13 +615,32 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
    */
   async getSessionInsights(sessionId: string): Promise<SessionInsight | null> {
     try {
-      const response = await api.get<SessionInsight>(
-        `/therapy_sessions/sessions/${sessionId}/analysis/`
+      const authToken = localStorage.getItem('access_token');
+      const response = await aiApi.get<{ insight: SessionInsight | null }>(
+        `/session/${sessionId}/insights`,
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
-      return response.data;
+      return response.data?.insight || null;
     } catch {
       // Insights may not be generated yet
       return null;
+    }
+  }
+
+  /**
+   * Generate AI insights for a completed session.
+   */
+  async generateSessionInsights(sessionId: string, force: boolean = true): Promise<SessionInsight | null> {
+    try {
+      const authToken = localStorage.getItem('access_token');
+      const response = await aiApi.post<{ insight: SessionInsight | null }>(
+        `/session/${sessionId}/insights`,
+        { force },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      return response.data?.insight || null;
+    } catch (error) {
+      throw this.handleError(error);
     }
   }
 

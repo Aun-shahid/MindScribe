@@ -18,6 +18,7 @@ import type {
   SessionUpdate,
   SessionConsentData,
   SessionConsentParams,
+  SessionInsight,
 } from '../types/session';
 import type { TherapistError } from '../types/therapist';
 
@@ -443,6 +444,74 @@ export const useSessionTranscription = (sessionId: string) => {
   }, [fetchTranscription]);
 
   return { transcription, loading, error, refetch: fetchTranscription };
+};
+
+/**
+ * Hook for fetching and generating session AI insights.
+ */
+export const useSessionInsights = (
+  sessionId: string,
+  options: { autoFetch?: boolean } = {}
+) => {
+  const { autoFetch = true } = options;
+
+  const [insight, setInsight] = useState<SessionInsight | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<TherapistError | null>(null);
+
+  const fetchInsights = useCallback(async () => {
+    if (!sessionId) return null;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await sessionsService.getSessionInsights(sessionId);
+      setInsight(data);
+      return data;
+    } catch (err) {
+      setError(err as TherapistError);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  const generateInsights = useCallback(async (force: boolean = true) => {
+    if (!sessionId) return null;
+    setGenerating(true);
+    setError(null);
+    try {
+      const data = await sessionsService.generateSessionInsights(sessionId, force);
+      setInsight(data);
+      return data;
+    } catch (err) {
+      setError(err as TherapistError);
+      return null;
+    } finally {
+      setGenerating(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    setInsight(null);
+    setError(null);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (autoFetch && sessionId) {
+      fetchInsights();
+    }
+  }, [autoFetch, sessionId, fetchInsights]);
+
+  return {
+    insight,
+    loading,
+    generating,
+    error,
+    fetchInsights,
+    generateInsights,
+    clearError: () => setError(null),
+  };
 };
 /**
  * Hook for managing all sessions for a therapist

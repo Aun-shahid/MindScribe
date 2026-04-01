@@ -47,11 +47,13 @@ async def lifespan(app: FastAPI):
     # Preload models (can be disabled in development to speed up reloads)
     if settings.preload_models:
         try:
-            from .services.emotion import load_emotion_model
+            from .services.emotion import load_emotion_model, load_text_emotion_pipeline
             load_emotion_model()
-            logger.info("Emotion model loaded and ready")
+            load_text_emotion_pipeline()
+            logger.info("Emotion models loaded and ready (audio + text)")
+            logger.info("Diarization pipeline configured: ElevenLabs scribe_v2 (non-realtime POST)")
         except Exception as e:
-            logger.warning(f"Failed to preload emotion model: {e}")
+            logger.warning(f"Failed to preload emotion models: {e}")
     else:
         logger.info("Model preloading skipped (PRELOAD_MODELS=False)")
     

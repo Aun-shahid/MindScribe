@@ -4,13 +4,13 @@ Emotion Analysis Service - Dual emotion analysis (audio + text).
 Models:
   Audio: Wav2Vec2ForSequenceClassification (path from EMOTION_MODEL_PATH env var)
          → AudacityA/wav2vec-ft-er by default
-  Text:  j-hartmann/emotion-english-distilroberta-base (HuggingFace, hardcoded)
-  Fusion: GPT-4o-mini (via _fuse_emotions_with_gpt — called by session.py pipeline)
+    Text:  GPT-based classifier (default: gpt-5-mini), optionally informed by audio stage
+    Fusion: lightweight resolver (text-first, audio-aware)
 
 The pipeline in session.py calls each function independently in order:
   1. analyze_audio_emotion()      → AudioEmotionResult
-  2. analyze_text_emotion()       → TextEmotionResult
-  3. _fuse_emotions_with_gpt()    → (EmotionLabel, float)
+    2. analyze_text_emotion(..., audio_result=...) → TextEmotionResult
+    3. _fuse_emotions_with_gpt()    → (EmotionLabel, float)
 so that audio and text results can be logged separately before fusion.
 """
 import asyncio
@@ -190,7 +190,7 @@ def load_emotion_model() -> Tuple[Any, Any]:
 # ============================================================================
 
 def load_text_emotion_pipeline():
-    """Load j-hartmann/emotion-english-distilroberta-base pipeline."""
+    """Load distilroberta fallback pipeline for resilience."""
     global _text_emotion_pipeline
 
     if _text_emotion_pipeline is not None:
@@ -279,23 +279,116 @@ def _analyze_audio_emotion_sync(
 # Text emotion analysis
 # ============================================================================
 
-async def analyze_text_emotion(text: str) -> TextEmotionResult:
+def _extract_json_object(raw: str) -> Dict[str, Any]:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            candidate = parts[1]
+            if candidate.lower().startswith("json"):
+                candidate = candidate[4:].strip()
+            text = candidate.strip()
+    return json.loads(text)
+
+
+async def _analyze_text_emotion_with_gpt(
+    text: str,
+    audio_result: Optional[AudioEmotionResult] = None,
+) -> TextEmotionResult:
+    from .transcription import get_openai_client
+
+    client = get_openai_client()
+    model_name = os.getenv("EMOTION_TEXT_MODEL", "gpt-5-mini")
+
+    audio_context = "No audio context available."
+    if audio_result is not None:
+        audio_context = (
+            f"Audio model predicted {audio_result.primary_emotion.value.upper()} "
+            f"with confidence {audio_result.confidence:.2f}. "
+            "Use this as a weak prior to correct textual ambiguity, not as hard truth."
+        )
+
+    prompt = (
+        "Classify the emotion of this therapy transcript segment.\n"
+        "Return strict JSON only with this schema:\n"
+        "{\"primary_emotion\": \"JOY|SADNESS|ANGER|NEUTRAL|SURPRISE|DISGUST|FEAR\", "
+        "\"confidence\": 0.0-1.0, "
+        "\"all_scores\": {\"joy\":0-1,\"sadness\":0-1,\"anger\":0-1,\"neutral\":0-1,\"surprise\":0-1,\"disgust\":0-1,\"fear\":0-1}}\n"
+        "Confidence should reflect certainty of the chosen primary emotion.\n"
+        f"Audio prior: {audio_context}\n"
+        f"Text: \"{text}\""
+    )
+
+    request_kwargs: Dict[str, Any] = {
+        "model": model_name,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a clinical emotion classifier. Output valid JSON only. "
+                    "Use the text as primary evidence and audio as contextual prior."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+    if not model_name.lower().startswith("gpt-5"):
+        request_kwargs["temperature"] = 0.0
+        request_kwargs["max_tokens"] = 220
+
+    response = await client.chat.completions.create(**request_kwargs)
+    raw_content = response.choices[0].message.content or "{}"
+    parsed = _extract_json_object(raw_content)
+
+    primary = normalize_emotion_label(parsed.get("primary_emotion", EmotionLabel.NEUTRAL.value))
+    confidence = float(parsed.get("confidence", 0.5) or 0.5)
+    confidence = max(0.0, min(1.0, confidence))
+
+    raw_scores_obj = parsed.get("all_scores")
+    all_scores_raw: Dict[str, Any] = raw_scores_obj if isinstance(raw_scores_obj, dict) else {}
+    normalized_scores: Dict[str, float] = {}
+    for k, v in all_scores_raw.items():
+        try:
+            key = normalize_emotion_label(k).value
+            normalized_scores[key] = float(v)
+        except Exception:
+            continue
+
+    if primary.value not in normalized_scores:
+        normalized_scores[primary.value] = confidence
+
+    return TextEmotionResult(
+        primary_emotion=primary,
+        confidence=confidence,
+        all_scores=normalized_scores,
+    )
+
+
+async def analyze_text_emotion(
+    text: str,
+    audio_result: Optional[AudioEmotionResult] = None,
+) -> TextEmotionResult:
     """
-    Analyze emotion from English text using j-hartmann/distilroberta-base.
-    Called by session.py pipeline at Stage 2 (after translation).
+    Analyze emotion from text using GPT (default: gpt-5-mini), optionally
+    conditioned on audio emotion stage output.
     """
     if not text or not text.strip():
         return TextEmotionResult(
             primary_emotion=EmotionLabel.NEUTRAL, confidence=0.5, all_scores={}
         )
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _analyze_text_emotion_sync, text)
+        return await _analyze_text_emotion_with_gpt(text, audio_result=audio_result)
     except Exception as e:
-        logger.error(f"Text emotion analysis error: {e}")
-        return TextEmotionResult(
-            primary_emotion=EmotionLabel.UNKNOWN, confidence=0.0, all_scores={}
-        )
+        logger.error(f"Text emotion analysis (GPT) error: {e}; falling back to distilroberta")
+        try:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _analyze_text_emotion_sync, text)
+        except Exception as inner:
+            logger.error(f"Text emotion fallback error: {inner}")
+            return TextEmotionResult(
+                primary_emotion=EmotionLabel.UNKNOWN, confidence=0.0, all_scores={}
+            )
 
 
 def _analyze_text_emotion_sync(text: str) -> TextEmotionResult:
@@ -337,91 +430,17 @@ async def _fuse_emotions_with_gpt(
     text: str
 ) -> Tuple[EmotionLabel, float]:
     """
-    Send pre-computed audio and text emotion results to GPT-4o-mini for fusion.
+    Lightweight fusion resolver.
 
     Returns (final_emotion, final_confidence).
-
-    This is called by session.py AFTER both individual models have already run
-    and their results have been logged to console independently.
-
-    Raises on GPT failure — caller should catch and apply heuristic fallback.
     """
-    from .transcription import get_openai_client
+    if text_result.primary_emotion != EmotionLabel.UNKNOWN:
+        confidence = max(0.0, min(1.0, text_result.confidence))
+        if text_result.primary_emotion == audio_result.primary_emotion:
+            confidence = min(0.98, max(confidence, audio_result.confidence) * 0.95)
+        return text_result.primary_emotion, confidence
 
-    client = get_openai_client()
-
-    prompt = (
-        "You are an expert clinical emotion analyst specialising in psychotherapy sessions.\n\n"
-        f"Transcript segment: \"{text}\"\n\n"
-        "Model results:\n"
-        f"  - distilroberta TEXT model:  {text_result.primary_emotion.value.upper()} "
-        f"(confidence: {text_result.confidence:.2f})\n"
-        f"  - Wav2Vec2 AUDIO model:      {audio_result.primary_emotion.value.upper()} "
-        f"(confidence: {audio_result.confidence:.2f})\n\n"
-        "FUSION RULES — apply in order, stop at the first that matches:\n\n"
-        "1. BOTH AGREE → Use that emotion. Final confidence = average of both confidences, "
-        "   capped at 0.97.\n\n"
-        "2. TEXT WINS BY DEFAULT in therapy settings. The text model is generally more "
-        "   reliable here because:\n"
-        "   - Patients use explicit emotional language ('I feel anxious', 'I don't know what "
-        "     to do anymore').\n"
-        "   - The audio model (Wav2Vec2) was trained on acted speech corpora and frequently "
-        "     misclassifies soft conversational sadness, resignation, or worry as NEUTRAL.\n"
-        "   Use the TEXT result when:\n"
-        "   a) Text confidence >= 0.50, AND audio confidence < 0.70.\n"
-        "   b) Text confidence >= 0.65 (regardless of audio confidence).\n"
-        "   Final confidence = text confidence × 0.90.\n\n"
-        "3. AUDIO OVERRIDES TEXT only in these specific clinical situations:\n"
-        "   a) VOCAL LEAKAGE — text is NEUTRAL or the segment is short (< 6 words), but "
-        "      audio is NOT NEUTRAL with confidence > 0.60. The patient said nothing "
-        "      meaningful but their voice carries the emotion. Use audio emotion.\n"
-        "   b) SARCASM / MASKING — text is positive (JOY) but audio is SADNESS, ANGER, or "
-        "      FEAR with confidence > 0.65. Trust the voice over the words.\n"
-        "   c) AUDIO DOMINANCE — audio confidence > 0.75 AND text confidence < 0.45. "
-        "      The text signal is too weak to rely on.\n"
-        "   Final confidence = audio confidence × 0.85.\n\n"
-        "4. FALLBACK — if none of the above rules clearly apply, use the model with the "
-        "   higher raw confidence. Final confidence = winner confidence × 0.80.\n\n"
-        "Important clinical notes:\n"
-        "- In therapy, SADNESS, FEAR, and ANXIETY often present as quiet or flat speech — "
-        "  do NOT default to NEUTRAL just because the voice is calm.\n"
-        "- Prefer a specific emotion over NEUTRAL when there is reasonable evidence.\n"
-        "- Do NOT invent emotions not supported by either model.\n\n"
-        "Respond ONLY with a JSON object:\n"
-        "  {\"final_emotion\": \"<ONE OF: JOY SADNESS ANGER NEUTRAL SURPRISE DISGUST FEAR>\","
-        " \"confidence\": <float 0.0-1.0>, \"rule_applied\": \"<1|2a|2b|3a|3b|3c|4>\"}"
-    )
-
-    model_name = os.getenv("TRANSCRIPTION_REFINEMENT_MODEL", "gpt-4o-mini")
-    request_kwargs = {
-        "model": model_name,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a clinical AI that fuses audio and text emotion signals "
-                    "into a single JSON result. Return only valid JSON, no markdown."
-                )
-            },
-            {"role": "user", "content": prompt}
-        ],
-        "response_format": {"type": "json_object"}
-    }
-    if not model_name.lower().startswith("gpt-5"):
-        request_kwargs["temperature"] = 0.0
-        request_kwargs["max_tokens"] = 100
-
-    response = await client.chat.completions.create(**request_kwargs)
-    raw_content = response.choices[0].message.content.strip()
-    parsed = json.loads(raw_content)
-
-    final_label_str = parsed.get("final_emotion", EmotionLabel.NEUTRAL.value)
-    final_emotion = normalize_emotion_label(final_label_str)
-    final_confidence = float(parsed.get("confidence", 0.5))
-    rule_applied = parsed.get("rule_applied", "?")
-    logger.debug(f"[GPT-FUSION] rule={rule_applied} → {final_label_str}({final_confidence:.2f})")
-
-    return final_emotion, final_confidence
+    return audio_result.primary_emotion, max(0.0, min(1.0, audio_result.confidence))
 
 
 # ============================================================================
@@ -440,9 +459,8 @@ async def analyze_combined_emotion(
     For the main pipeline (_run_full_pipeline) the three steps are called
     separately so results can be logged at each stage.
     """
-    audio_task = asyncio.create_task(analyze_audio_emotion(audio_data, sample_rate))
-    text_task = asyncio.create_task(analyze_text_emotion(text))
-    audio_result, text_result = await asyncio.gather(audio_task, text_task)
+    audio_result = await analyze_audio_emotion(audio_data, sample_rate)
+    text_result = await analyze_text_emotion(text, audio_result=audio_result)
 
     agreement = (audio_result.primary_emotion == text_result.primary_emotion)
 

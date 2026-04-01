@@ -184,7 +184,9 @@ def validate_session_access(
     Raises:
         HTTPException: If session IDs don't match
     """
-    if session.session_id != requested_session_id:
+    # Therapist-level tokens may not be bound to one session.
+    # Only enforce strict matching when token actually carries a session_id.
+    if session.session_id is not None and session.session_id != requested_session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: token session ID does not match requested session"
