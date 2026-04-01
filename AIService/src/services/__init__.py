@@ -1,12 +1,12 @@
 """
 Services package for AI Service.
 """
-from . import transcription, emotion, diarization, soap_generator, rag_service
+from . import transcription, transcription_refinement, emotion, soap_generator, rag_service
 
 __all__ = [
     "transcription",
-    "emotion", 
-    "diarization",
+    "transcription_refinement",
+    "emotion",
     "soap_generator",
-    "rag_service"
+    "rag_service",
 ]

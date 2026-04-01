@@ -251,7 +251,7 @@ const SessionCalendar: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-purple-900 text-white">
+      <div className=" text-purple-900 bg-white shadow-sm border-b border-gray-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
@@ -262,8 +262,8 @@ const SessionCalendar: React.FC = () => {
                 <ChevronLeft size={24} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold">Session Calendar</h1>
-                <p className="text-purple-200">Professional Scheduling</p>
+                <h1 className="text-3xl font-serif font-bold">Session Calendar</h1>
+                <p className="text-purple-800 mt-2 font-serif">Professional Scheduling</p>
               </div>
             </div>
             <div className="flex space-x-2">

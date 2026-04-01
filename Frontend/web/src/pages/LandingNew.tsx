@@ -118,7 +118,44 @@ const LandingNew = () => {
           background: 'linear-gradient(135deg, #F6F2FF 0%, #E9E1FF 100%)'
         }}
       >
-        <div className="absolute inset-y-0 right-0 w-[42%] bg-[#6E5F9E]" />
+        <div className="absolute inset-y-0 right-0 w-[42%] overflow-hidden">
+  <svg
+    width="100%"
+    height="100%"
+    viewBox="0 0 680 380"
+    preserveAspectRatio="xMidYMid slice"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect width="680" height="380" fill="#3d2d6e" />
+    <polygon points="340,0 520,140 340,200 160,140"  fill="#6E5F9E" />
+    <polygon points="340,0 160,140 0,80 0,0"          fill="#4a3880" />
+    <polygon points="340,0 680,0 680,80 520,140"      fill="#5a4a90" />
+    <polygon points="0,80 160,140 80,260 0,200"       fill="#3d2d6e" />
+    <polygon points="680,80 680,200 600,260 520,140"  fill="#7B6BAE" />
+    <polygon points="160,140 340,200 260,310 80,260"  fill="#4f3f85" />
+    <polygon points="520,140 600,260 420,310 340,200" fill="#8074B8" />
+    <polygon points="80,260 260,310 200,380 0,380 0,200"      fill="#2e2058" />
+    <polygon points="600,260 680,200 680,380 480,380 420,310" fill="#5a4a90" />
+    <polygon points="260,310 420,310 480,380 200,380"         fill="#3d2d6e" />
+    <polygon points="260,310 340,200 420,310 340,360"         fill="#6E5F9E" />
+    <line x1="340" y1="0"   x2="160" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
+    <line x1="340" y1="0"   x2="520" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
+    <line x1="340" y1="0"   x2="0"   y2="80"  stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
+    <line x1="340" y1="0"   x2="680" y2="80"  stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
+    <line x1="160" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
+    <line x1="520" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
+    <line x1="340" y1="200" x2="260" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
+    <line x1="340" y1="200" x2="420" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
+    <line x1="160" y1="140" x2="80"  y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
+    <line x1="520" y1="140" x2="600" y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
+    <line x1="80"  y1="260" x2="260" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
+    <line x1="600" y1="260" x2="420" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
+    <line x1="340" y1="0" x2="680" y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
+    <line x1="340" y1="0" x2="0"   y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
+    <line x1="340" y1="0" x2="580" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
+    <line x1="340" y1="0" x2="100" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
+  </svg>
+</div>
 
         <motion.div className="absolute inset-0" style={{ opacity: overlayOpacity }}>
           <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-[#B8A3FF]/20 blur-3xl" />
@@ -177,14 +214,11 @@ const LandingNew = () => {
 
               <div className="mt-10 flex items-center gap-4">
                 <div className="flex -space-x-2">
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#d4d9d6]" />
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#c0c8c4]" />
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#a9b4af]" />
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#b399c9]" />
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#5b446f]" />
+                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#3b124b]" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-[#5A45A5]">500+ Testimonials</p>
-                  <p className="text-sm text-[#6E5F9E]">Listen to what they say about us.</p>
-                </div>
+               
               </div>
             </motion.div>
 
@@ -195,10 +229,7 @@ const LandingNew = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              <div
-                className="absolute inset-y-0 right-0 h-full w-full "
-                style={{ background: 'purple-900', borderRadius: '0px' }}
-              />
+              
 
               <img
                 src="/images/profff.png"

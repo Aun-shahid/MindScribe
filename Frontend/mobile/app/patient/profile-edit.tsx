@@ -92,6 +92,9 @@ export default function ProfileEdit() {
   const btnPadY  = clamp(height * 0.018, 14, 18);
   const btnTxtSz = clamp(width * 0.044,  15, 18);
 
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const goBack = () => router.push('/patient/profile');
+
   // ── useFocusEffect bubbles ────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
@@ -136,7 +139,7 @@ export default function ProfileEdit() {
         date_of_birth: values.date_of_birth,
       });
       Alert.alert('Profile updated!', 'Your profile has been saved successfully.');
-      router.back();
+      goBack();
     } catch (e: any) {
       Alert.alert('Update failed', e?.message || 'Could not update profile.');
     } finally {
@@ -157,7 +160,6 @@ export default function ProfileEdit() {
 
       {/* Bubbles */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {/* 1 — odd warm purple 0.25 — top-right */}
         <Animated.View style={[styles.bubble, {
           width: bubbleMedium, height: bubbleMedium,
           top: clamp(height * 0.06, 34, 62),
@@ -165,7 +167,6 @@ export default function ProfileEdit() {
           backgroundColor: 'rgba(167,139,250,0.25)',
           transform: [{ translateY: b1y }, { translateX: b1x }],
         }]} />
-        {/* 2 — even cool 0.20 — top-left */}
         <Animated.View style={[styles.bubble, {
           width: bubbleLarge, height: bubbleLarge,
           top: -clamp(height * 0.12, 80, 120),
@@ -173,7 +174,6 @@ export default function ProfileEdit() {
           backgroundColor: 'rgba(184,168,230,0.20)',
           transform: [{ translateY: b2y }, { translateX: b2x }],
         }]} />
-        {/* 3 — odd warm 0.22 — mid-left */}
         <Animated.View style={[styles.bubble, {
           width: clamp(width * 0.4, 120, 170), height: clamp(width * 0.4, 120, 170),
           bottom: clamp(height * 0.24, 160, 230),
@@ -181,7 +181,6 @@ export default function ProfileEdit() {
           backgroundColor: 'rgba(167,139,250,0.22)',
           transform: [{ translateY: b3y }, { translateX: b3x }],
         }]} />
-        {/* 4 — even cool 0.18 — bottom-right */}
         <Animated.View style={[styles.bubble, {
           width: clamp(width * 0.48, 150, 200), height: clamp(width * 0.48, 150, 200),
           bottom: clamp(height * 0.12, 80, 120),
@@ -189,7 +188,6 @@ export default function ProfileEdit() {
           backgroundColor: 'rgba(184,168,230,0.18)',
           transform: [{ translateY: b4y }, { translateX: b4x }],
         }]} />
-        {/* 5 — odd warm 0.15 — mid-right */}
         <Animated.View style={[styles.bubble, {
           width: bubbleSmall, height: bubbleSmall,
           top: '40%',
@@ -204,7 +202,7 @@ export default function ProfileEdit() {
         scrollY={scrollY}
         firstWord="Edit"
         secondWord="Profile"
-        onBackPress={() => router.back()}
+        onBackPress={goBack}
       />
 
       {/* Fading large header */}
@@ -218,31 +216,24 @@ export default function ProfileEdit() {
           extrapolate: 'clamp',
         }),
       }]}>
+        {/* Back button — fixed: left:pi (not off-screen), hitSlop, zIndex above header */}
         <TouchableOpacity
           style={[styles.backBtn, {
             left: pi, top: hTop,
             width: hBtnSz, height: hBtnSz, borderRadius: hBtnR,
           }]}
-          onPress={() => router.back()}
+          onPress={goBack}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <FontAwesome name="chevron-left" size={hIcon} color="#FFFFFF" />
         </TouchableOpacity>
 
+        {/* Heading — no underline gradient */}
         <View style={{ alignItems: 'center', marginTop: hMTop }}>
           <Text style={{ fontSize: hTitleSz, fontWeight: '800', textAlign: 'center' }}>
             <Text style={{ color: '#FFFFFF' }}>Edit </Text>
             <Text style={{ color: '#B8A8E6' }}>Profile</Text>
           </Text>
-          <LinearGradient
-            colors={['transparent', '#A78BFA', '#FFB36B', 'transparent']}
-            start={[0, 0]} end={[1, 0]}
-            style={{
-              height: 2,
-              width: clamp(width * 0.3, 96, 130),
-              borderRadius: 2,
-              marginTop: clamp(height * 0.007, 5, 7),
-            }}
-          />
         </View>
       </Animated.View>
 
@@ -271,7 +262,6 @@ export default function ProfileEdit() {
             <View key={field.key} style={{ marginBottom: cGap }}>
               <View style={[styles.card, { borderRadius: cR }]}>
 
-                {/* Gradient overlay */}
                 <LinearGradient
                   colors={CARD_GRAD}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -279,7 +269,7 @@ export default function ProfileEdit() {
                   pointerEvents="none"
                 />
 
-                {/* Coloured accent strip */}
+                {/* Accent strip */}
                 <View style={{
                   height: 3,
                   backgroundColor: field.strip,
@@ -288,7 +278,7 @@ export default function ProfileEdit() {
 
                 <View style={{ padding: cPad }}>
 
-                  {/* Icon badge + label row */}
+                  {/* Icon badge + label */}
                   <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -316,7 +306,7 @@ export default function ProfileEdit() {
                     </View>
                   </View>
 
-                  {/* Underline input (CreateJournal style) */}
+                  {/* Underline input */}
                   <View style={{
                     borderBottomWidth: 1.5,
                     borderBottomColor: field.accentBorder,
@@ -373,7 +363,7 @@ export default function ProfileEdit() {
 
           {/* ── Cancel ── */}
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={goBack}
             activeOpacity={0.8}
             style={{ alignItems: 'center', marginTop: clamp(height * 0.018, 12, 16), paddingVertical: clamp(height * 0.012, 8, 12) }}
           >
@@ -400,6 +390,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    zIndex: 1000,
   },
 
   card: {

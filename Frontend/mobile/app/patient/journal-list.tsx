@@ -23,6 +23,15 @@ import type { JournalEntry, JournalFilters } from '../services/patient.service';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
+// ── Same glass recipe as analytics stat cards ─────────────────────────────
+const CARD_BG              = 'rgba(71,63,90,0.92)';
+const CARD_BORDER          = 'rgba(255,255,255,0.08)';
+const CARD_GRADIENT_COLORS = [
+  'rgba(255,179,107,0.14)',
+  'rgba(167,139,250,0.10)',
+  'rgba(52,41,73,0.92)',
+] as const;
+
 export default function JournalList() {
   const { themeStyle } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -97,6 +106,8 @@ export default function JournalList() {
   const cardSideInset = clamp(width * 0.012, 4, 8);
   const cardPadding = clamp(width * 0.04, 14, 16);
   const cardRadius = clamp(width * 0.04, 14, 16);
+  const accentStripH = 3;
+
   const titleSize = clamp(width * 0.042, 15, 17);
   const titleLineHeight = Math.round(titleSize * 1.34);
   const bodySize = clamp(width * 0.037, 13, 15);
@@ -152,62 +163,32 @@ export default function JournalList() {
 
   useEffect(() => {
     loadEntries();
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-    // subscribe to journal updates from other screens
-    const onJournalUpdated = () => {
-      setRefreshing(true);
-      loadEntries();
-    };
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    const onJournalUpdated = () => { setRefreshing(true); loadEntries(); };
     const off = eventBus.subscribe('journalUpdated', onJournalUpdated);
     return () => off();
   }, [fadeAnim, loadEntries]);
 
   useEffect(() => {
-    // Floating bubble animations
     const createFloatingAnimation = (
-      valueY: Animated.Value,
-      valueX: Animated.Value,
-      durationY: number,
-      durationX: number,
-      delayY = 0,
-      delayX = 0
+      valueY: Animated.Value, valueX: Animated.Value,
+      durationY: number, durationX: number, delayY = 0, delayX = 0
     ) => {
       Animated.loop(
         Animated.parallel([
           Animated.sequence([
             Animated.delay(delayY),
-            Animated.timing(valueY, {
-              toValue: bubbleShiftY,
-              duration: durationY,
-              useNativeDriver: true,
-            }),
-            Animated.timing(valueY, {
-              toValue: -bubbleShiftY,
-              duration: durationY,
-              useNativeDriver: true,
-            }),
+            Animated.timing(valueY, { toValue: bubbleShiftY, duration: durationY, useNativeDriver: true }),
+            Animated.timing(valueY, { toValue: -bubbleShiftY, duration: durationY, useNativeDriver: true }),
           ]),
           Animated.sequence([
             Animated.delay(delayX),
-            Animated.timing(valueX, {
-              toValue: bubbleShiftX,
-              duration: durationX,
-              useNativeDriver: true,
-            }),
-            Animated.timing(valueX, {
-              toValue: -bubbleShiftX,
-              duration: durationX,
-              useNativeDriver: true,
-            }),
+            Animated.timing(valueX, { toValue: bubbleShiftX, duration: durationX, useNativeDriver: true }),
+            Animated.timing(valueX, { toValue: -bubbleShiftX, duration: durationX, useNativeDriver: true }),
           ]),
         ])
       ).start();
     };
-
     createFloatingAnimation(bubble1Y, bubble1X, 8000, 7000, 0, 500);
     createFloatingAnimation(bubble2Y, bubble2X, 9000, 8500, 1000, 1500);
     createFloatingAnimation(bubble3Y, bubble3X, 10000, 9000, 500, 0);
@@ -215,10 +196,7 @@ export default function JournalList() {
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
   }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y, bubbleShiftX, bubbleShiftY]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadEntries();
-  };
+  const onRefresh = () => { setRefreshing(true); loadEntries(); };
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -233,10 +211,10 @@ export default function JournalList() {
 
   const getOrderingLabel = () => {
     switch (ordering) {
-      case '-created_at': return 'Newest First';
-      case 'created_at': return 'Oldest First';
-      case '-updated_at': return 'Recently Updated';
-      default: return 'Newest First';
+      case '-created_at':  return 'Newest First';
+      case 'created_at':   return 'Oldest First';
+      case '-updated_at':  return 'Recently Updated';
+      default:             return 'Newest First';
     }
   };
 
@@ -248,72 +226,111 @@ export default function JournalList() {
     setFilters({ ordering: '-created_at' });
   };
 
+  // ── Journal card — analytics glass style ─────────────────────────────────
   const renderJournalCard = ({ item }: { item: JournalEntry }) => {
     const formattedDate = new Date(item.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+      month: 'short', day: 'numeric', year: 'numeric',
     });
-
     const formattedTime = new Date(item.created_at).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
+      hour: 'numeric', minute: '2-digit',
     });
     const hasMoreContent = (item.content || '').trim().length > 120;
+    const tagsList: string[] = (item as any).mood_tags_list || item.tags_list || [];
+
+    // Pick a subtle accent colour per entry based on first tag or fallback
+    const accentColor = item.is_favorite ? '#FFB36B' : '#A78BFA';
 
     return (
-      <View style={[styles.cardWrapper, { marginBottom: cardSpacing, marginHorizontal: cardSideInset }]}> 
+      <View style={[styles.cardWrapper, { marginBottom: cardSpacing, marginHorizontal: cardSideInset }]}>
         <TouchableOpacity
-          style={[styles.card, { backgroundColor: 'rgba(71,63,90,0.68)', borderColor: 'rgba(255,255,255,0.08)', padding: cardPadding, borderRadius: cardRadius }]}
+          activeOpacity={0.88}
+          style={[
+            styles.card,
+            {
+              backgroundColor: CARD_BG,
+              borderColor: CARD_BORDER,
+              borderRadius: cardRadius,
+              overflow: 'hidden',
+            },
+          ]}
           onPress={() => router.push(`./journal-detail?id=${item.id}` as any)}
         >
-          {/* Glassy gradient overlay */}
+          {/* ── Glass gradient overlay (same as analytics) ── */}
           <LinearGradient
-            colors={['rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)']}
+            colors={CARD_GRADIENT_COLORS}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]}
+            pointerEvents="none"
           />
+
+          {/* ── Top accent strip ── */}
+          <View
+            style={{
+              height: accentStripH,
+              backgroundColor: accentColor,
+              position: 'absolute',
+              top: 0, left: 0, right: 0,
+            }}
+          />
+
+          {/* ── Favourite star ── */}
           {item.is_favorite && (
             <FontAwesome
               name="star"
               size={favoriteIconSize}
               color="#FFB36B"
-              style={[styles.favoritePinned, { fontSize: favoriteIconSize, top: favoriteTopOffset, right: favoriteRightOffset }]}
+              style={[styles.favoritePinned, { top: favoriteTopOffset + accentStripH, right: favoriteRightOffset }]}
             />
           )}
 
-          <View style={styles.cardHeader}>
-            <FontAwesome name="pencil" size={leftIconSize} color="#B8A8E6" style={[styles.privacyIcon, { fontSize: leftIconSize }]} />
-            <View style={[styles.titleMetaWrap, { marginLeft: titleIconGap }]}> 
-              <Text style={[styles.titleInline, { color: '#FFFFFF', fontSize: titleSize, lineHeight: titleLineHeight, paddingRight: titleRightReserve }]} numberOfLines={2}>{item.title}</Text>
+          <View style={{ padding: cardPadding, paddingTop: cardPadding + accentStripH }}>
+            {/* Title row */}
+            <View style={styles.cardHeader}>
+              <FontAwesome name="pencil" size={leftIconSize} color="#B8A8E6" style={styles.privacyIcon} />
+              <View style={[styles.titleMetaWrap, { marginLeft: titleIconGap }]}>
+                <Text
+                  style={[styles.titleInline, { color: '#FFFFFF', fontSize: titleSize, lineHeight: titleLineHeight, paddingRight: titleRightReserve }]}
+                  numberOfLines={2}
+                >
+                  {item.title}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <Text style={[styles.cardDateBelow, { color: '#B8A8E6', fontSize: metaSize, lineHeight: metaLineHeight, marginTop: titleToDateGap }]}>{formattedDate} · {formattedTime}</Text>
+            {/* Date */}
+            <Text style={[styles.cardDateBelow, { color: '#B8A8E6', fontSize: metaSize, lineHeight: metaLineHeight, marginTop: titleToDateGap }]}>
+              {formattedDate} · {formattedTime}
+            </Text>
 
-          <Text
-            style={[styles.content, { color: '#E5E5E5', fontSize: bodySize, lineHeight: bodyLineHeight, marginTop: dateToContentGap, marginBottom: clamp(height * 0.006, 4, 6) }]}
-            numberOfLines={2}
-            ellipsizeMode="tail"
-          >
-            {item.content}
-          </Text>
-          {hasMoreContent && (
-            <Text style={[styles.contentMoreHint, { color: '#B8A8E6', fontSize: metaSize, lineHeight: metaLineHeight, marginBottom: tagsBottomGap }]}>... tap to see more</Text>
-          )}
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginVertical: clamp(height * 0.01, 6, 8) }} />
 
-          {((item as any).mood_tags_list || item.tags_list) && (((item as any).mood_tags_list || item.tags_list).length > 0) && (
-            <View style={[styles.tagsContainer, { gap: tagsGap, marginBottom: tagsBottomGap }]}> 
-              {((item as any).mood_tags_list || item.tags_list).slice(0, 3).map((tag: string, index: number) => {
-                return (
+            {/* Content preview */}
+            <Text
+              style={[styles.content, { color: '#E5E5E5', fontSize: bodySize, lineHeight: bodyLineHeight, marginBottom: clamp(height * 0.006, 4, 6) }]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {item.content}
+            </Text>
+            {hasMoreContent && (
+              <Text style={[styles.contentMoreHint, { color: '#B8A8E6', fontSize: metaSize, lineHeight: metaLineHeight, marginBottom: tagsBottomGap }]}>
+                ... tap to see more
+              </Text>
+            )}
+
+            {/* Tags */}
+            {tagsList.length > 0 && (
+              <View style={[styles.tagsContainer, { gap: tagsGap, marginBottom: tagsBottomGap }]}>
+                {tagsList.slice(0, 3).map((tag: string, index: number) => (
                   <View
                     key={index}
                     style={[
                       styles.tag,
                       {
-                        backgroundColor: '#5B5270',
-                        borderColor: 'rgba(255,255,255,0.15)',
+                        backgroundColor: 'rgba(255,179,107,0.12)',
+                        borderColor: 'rgba(255,179,107,0.28)',
                         paddingVertical: tagPaddingY,
                         paddingHorizontal: tagPaddingX,
                         borderRadius: tagRadius,
@@ -322,32 +339,40 @@ export default function JournalList() {
                   >
                     <Text style={[styles.tagText, { color: '#FFB36B', fontSize: tagTextSize }]}>{tag}</Text>
                   </View>
-                );
-              })}
-              {(((item as any).mood_tags_list || item.tags_list).length > 3) && (
-                <Text style={[styles.moreText, { color: '#B8A8E6', fontSize: footerTextSize }]}>+{(((item as any).mood_tags_list || item.tags_list).length - 3)} more</Text>
-              )}
-            </View>
-          )}
-
-          <View style={styles.cardFooter}>
-            <Text style={[styles.wordCount, { color: '#B8A8E6', fontSize: footerTextSize }]}> 
-              {(() => {
-                const wc = (item.word_count ?? (item.content ? item.content.trim().split(/\s+/).filter(Boolean).length : 0));
-                return `${wc}${wc === 1 ? ' word' : ' words'}`;
-              })()}
-            </Text>
-            {(typeof item.mood_improvement === 'number' && !isNaN(item.mood_improvement) && item.mood_improvement !== 0) && (
-              <View style={[styles.moodBadge, { backgroundColor: item.mood_improvement > 0 ? '#5B5270' : '#5B5270', paddingHorizontal: tagPaddingX, paddingVertical: tagPaddingY, borderRadius: tagRadius }]}>
-                <Text style={[styles.moodText, { color: item.mood_improvement > 0 ? '#4ADE80' : '#F87171', fontSize: footerTextSize }]}>
-                  {item.mood_improvement > 0 ? '↑' : '↓'} Mood {Math.abs(item.mood_improvement)}
-                </Text>
+                ))}
+                {tagsList.length > 3 && (
+                  <Text style={[styles.moreText, { color: '#B8A8E6', fontSize: footerTextSize }]}>
+                    +{tagsList.length - 3} more
+                  </Text>
+                )}
               </View>
             )}
+
+            {/* Footer */}
+            <View style={styles.cardFooter}>
+              <Text style={[styles.wordCount, { color: '#9D8EC7', fontSize: footerTextSize }]}>
+                {(() => {
+                  const wc = item.word_count ?? (item.content ? item.content.trim().split(/\s+/).filter(Boolean).length : 0);
+                  return `${wc}${wc === 1 ? ' word' : ' words'}`;
+                })()}
+              </Text>
+              {typeof item.mood_improvement === 'number' && !isNaN(item.mood_improvement) && item.mood_improvement !== 0 && (
+                <View style={[styles.moodBadge, {
+                  backgroundColor: item.mood_improvement > 0 ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
+                  borderColor: item.mood_improvement > 0 ? 'rgba(74,222,128,0.30)' : 'rgba(248,113,113,0.30)',
+                  borderWidth: 1,
+                  paddingHorizontal: tagPaddingX,
+                  paddingVertical: tagPaddingY,
+                  borderRadius: tagRadius,
+                }]}>
+                  <Text style={[styles.moodText, { color: item.mood_improvement > 0 ? '#4ADE80' : '#F87171', fontSize: footerTextSize }]}>
+                    {item.mood_improvement > 0 ? '↑' : '↓'} Mood {Math.abs(item.mood_improvement)}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </TouchableOpacity>
-        
-        {/* Delete Button removed for list display */}
       </View>
     );
   };
@@ -368,15 +393,22 @@ export default function JournalList() {
   const listHeader = (
     <>
       {/* Gradient CTA */}
-      <View style={[styles.ctaWrap, { paddingHorizontal: pageInset, marginTop: ctaTopMargin, marginBottom: ctaBottomMargin }] }>
-        <TouchableOpacity onPress={() => router.push('/patient/create-journal')} style={[styles.newEntryButton, { paddingVertical: newEntryPaddingY, borderRadius: newEntryRadius }] }>
+      <View style={[styles.ctaWrap, { paddingHorizontal: pageInset, marginTop: ctaTopMargin, marginBottom: ctaBottomMargin }]}>
+        <TouchableOpacity
+          onPress={() => router.push('/patient/create-journal')}
+          style={[styles.newEntryButton, { paddingVertical: newEntryPaddingY, borderRadius: newEntryRadius }]}
+        >
           <Text style={[styles.newEntryText, { fontSize: newEntryTextSize }]}>+ New Journal Entry</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search & Filters */}
-      <View style={[styles.filterSection, { paddingHorizontal: pageInset, marginBottom: filterSectionBottom }] }>
-        <View style={[styles.searchBar, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: searchPaddingX, paddingVertical: searchPaddingY, borderRadius: searchRadius, marginBottom: searchBottomMargin }]}>
+      <View style={[styles.filterSection, { paddingHorizontal: pageInset, marginBottom: filterSectionBottom }]}>
+        <View style={[styles.searchBar, {
+          backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)',
+          paddingHorizontal: searchPaddingX, paddingVertical: searchPaddingY,
+          borderRadius: searchRadius, marginBottom: searchBottomMargin,
+        }]}>
           <FontAwesome5 name="search" size={searchIconSize} color="#B8A8E6" style={[styles.searchIcon, { marginRight: searchIconGap }]} />
           <TextInput
             style={[styles.searchInput, { color: '#FFFFFF', fontSize: searchTextSize }]}
@@ -387,14 +419,11 @@ export default function JournalList() {
           />
         </View>
 
-        <View style={[styles.filterRow, { gap: filterRowGap }] }>
+        <View style={[styles.filterRow, { gap: filterRowGap }]}>
           <View style={styles.filterRowLeft}>
             <TouchableOpacity
               style={[styles.pill, !showFavoritesOnly ? styles.pillActive : styles.pillInactive, { paddingHorizontal: pillPaddingX, paddingVertical: pillPaddingY, borderRadius: pillRadius, marginRight: pillGap }]}
-              onPress={() => {
-                setShowFavoritesOnly(false);
-                setFilters((prev) => ({ ...prev, favorite: undefined }));
-              }}
+              onPress={() => { setShowFavoritesOnly(false); setFilters(prev => ({ ...prev, favorite: undefined })); }}
             >
               <FontAwesome5 name="layer-group" size={pillIconSize} color="#FFFFFF" style={[styles.pillIcon, { marginRight: searchIconGap }]} />
               <Text style={[styles.pillText, { fontSize: pillTextSize }, !showFavoritesOnly ? { color: '#fff' } : { color: '#B8A8E6' }]}>All</Text>
@@ -402,10 +431,7 @@ export default function JournalList() {
 
             <TouchableOpacity
               style={[styles.pill, showFavoritesOnly ? styles.pillActive : styles.pillInactive, { paddingHorizontal: pillPaddingX, paddingVertical: pillPaddingY, borderRadius: pillRadius, marginRight: 0 }]}
-              onPress={() => {
-                setShowFavoritesOnly(true);
-                setFilters((prev) => ({ ...prev, favorite: 'true' }));
-              }}
+              onPress={() => { setShowFavoritesOnly(true); setFilters(prev => ({ ...prev, favorite: 'true' })); }}
             >
               <FontAwesome5 name="star" solid size={pillIconSize} color="#FFFFFF" style={[styles.pillIcon, { marginRight: searchIconGap }]} />
               <Text style={[styles.pillText, { fontSize: pillTextSize }, showFavoritesOnly ? { color: '#fff' } : { color: '#B8A8E6' }]}>Favorites</Text>
@@ -413,7 +439,10 @@ export default function JournalList() {
           </View>
 
           <View style={styles.filterRowRight}>
-            <TouchableOpacity style={[styles.pillAlt, { paddingHorizontal: pillPaddingX, paddingVertical: pillPaddingY, borderRadius: pillRadius, flexShrink: 1 }]} onPress={() => setShowOrderingPicker(!showOrderingPicker)}>
+            <TouchableOpacity
+              style={[styles.pillAlt, { paddingHorizontal: pillPaddingX, paddingVertical: pillPaddingY, borderRadius: pillRadius, flexShrink: 1 }]}
+              onPress={() => setShowOrderingPicker(!showOrderingPicker)}
+            >
               <Text style={[styles.pillText, { color: '#B8A8E6', fontSize: pillTextSize, flex: 1 }]} numberOfLines={1}>{getOrderingLabel()}</Text>
               <FontAwesome name="chevron-down" size={pillChevronSize} color="#B8A8E6" style={{ marginLeft: searchIconGap }} />
             </TouchableOpacity>
@@ -427,128 +456,44 @@ export default function JournalList() {
                 <FontAwesome name="times" size={clearIconSize} color="#f44336" />
               </TouchableOpacity>
             )}
-
           </View>
         </View>
-
       </View>
     </>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: '#342949' }]}>
-      <LinearGradient
-        colors={['#342949', '#2A1F3D', '#342949']}
-        style={styles.screenGradient}
-      />
-      
+      <LinearGradient colors={['#342949', '#2A1F3D', '#342949']} style={styles.screenGradient} />
+
       <View style={styles.floatingBubbles}>
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: bubbleMedium,
-              height: bubbleMedium,
-              top: '10%',
-              left: '-10%',
-              backgroundColor: 'rgba(167,139,250,0.15)', // purple
-              transform: [
-                { translateY: bubble1Y },
-                { translateX: bubble1X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: bubbleLarge,
-              height: bubbleLarge,
-              top: '25%',
-              right: '-15%',
-              backgroundColor: 'rgba(184,168,230,0.18)', // light purple/blue
-              transform: [
-                { translateY: bubble2Y },
-                { translateX: bubble2X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: bubbleMedium,
-              height: bubbleMedium,
-              top: '50%',
-              left: '10%',
-              backgroundColor: 'rgba(167,139,250,0.13)', // purple
-              transform: [
-                { translateY: bubble3Y },
-                { translateX: bubble3X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: bubbleLarge * 0.78,
-              height: bubbleLarge * 0.78,
-              bottom: '15%',
-              right: '5%',
-              backgroundColor: 'rgba(184,168,230,0.22)', // light purple/blue
-              transform: [
-                { translateY: bubble4Y },
-                { translateX: bubble4X },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.bubble,
-            {
-              width: bubbleSmall,
-              height: bubbleSmall,
-              bottom: '30%',
-              left: '-5%',
-              backgroundColor: 'rgba(167,139,250,0.19)', // purple
-              transform: [
-                { translateY: bubble5Y },
-                { translateX: bubble5X },
-              ],
-            },
-          ]}
-        />
+        <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, top: '10%', left: '-10%', backgroundColor: 'rgba(167,139,250,0.15)', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: '25%', right: '-15%', backgroundColor: 'rgba(184,168,230,0.18)', transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, top: '50%', left: '10%', backgroundColor: 'rgba(167,139,250,0.13)', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleLarge * 0.78, height: bubbleLarge * 0.78, bottom: '15%', right: '5%', backgroundColor: 'rgba(184,168,230,0.22)', transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }]} />
+        <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, bottom: '30%', left: '-5%', backgroundColor: 'rgba(167,139,250,0.19)', transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }]} />
       </View>
 
       <StickyHeader
         scrollY={scrollY}
         firstWord="Journal"
         secondWord="Home"
-        onBackPress={() => router.back()}
+        onBackPress={() => router.push('./actions' as any)}
       />
 
       <Animated.View
-        style={[
-          styles.headerContainer,
-          {
-            backgroundColor: 'transparent',
-            paddingTop: headerTopPadding,
-            paddingHorizontal: pageInset,
-            paddingBottom: headerBottomPadding,
-            opacity: scrollY.interpolate({
-              inputRange: [0, 100, 150],
-              outputRange: [1, 0.5, 0],
-              extrapolate: 'clamp',
-            }),
-          },
-        ]}
+        style={[styles.headerContainer, {
+          backgroundColor: 'transparent',
+          paddingTop: headerTopPadding,
+          paddingHorizontal: pageInset,
+          paddingBottom: headerBottomPadding,
+          opacity: scrollY.interpolate({ inputRange: [0, 100, 150], outputRange: [1, 0.5, 0], extrapolate: 'clamp' }),
+        }]}
       >
-        <TouchableOpacity style={[styles.backButton, { left: pageInset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={[styles.backButton, { left: pageInset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]}
+          onPress={() => router.push('./actions' as any)}
+        >
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
 
@@ -571,30 +516,21 @@ export default function JournalList() {
           activeOpacity={1}
           onPress={() => setShowOrderingPicker(false)}
         >
-          <View
-            style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', width: orderingPickerWidth, borderRadius: newEntryRadius, padding: clamp(width * 0.018, 7, 8) }]}
-          >
-            <TouchableOpacity
-              style={[styles.orderingOption, ordering === '-created_at' && styles.orderingOptionActive, { paddingVertical: orderingOptionPaddingY, paddingHorizontal: orderingOptionPaddingX }]}
-              onPress={() => handleOrdering('-created_at')}
-            >
-              <Text style={[styles.orderingText, { color: themeStyle.text, fontSize: orderingTextSize }]}>Newest First</Text>
-              {ordering === '-created_at' && <Text style={[styles.checkIcon, { fontSize: pillChevronSize + 3 }]}>✓</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.orderingOption, ordering === 'created_at' && styles.orderingOptionActive, { paddingVertical: orderingOptionPaddingY, paddingHorizontal: orderingOptionPaddingX }]}
-              onPress={() => handleOrdering('created_at')}
-            >
-              <Text style={[styles.orderingText, { color: themeStyle.text, fontSize: orderingTextSize }]}>Oldest First</Text>
-              {ordering === 'created_at' && <Text style={[styles.checkIcon, { fontSize: pillChevronSize + 3 }]}>✓</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.orderingOption, ordering === '-updated_at' && styles.orderingOptionActive, { paddingVertical: orderingOptionPaddingY, paddingHorizontal: orderingOptionPaddingX }]}
-              onPress={() => handleOrdering('-updated_at')}
-            >
-              <Text style={[styles.orderingText, { color: themeStyle.text, fontSize: orderingTextSize }]}>Recently Updated</Text>
-              {ordering === '-updated_at' && <Text style={[styles.checkIcon, { fontSize: pillChevronSize + 3 }]}>✓</Text>}
-            </TouchableOpacity>
+          <View style={[styles.orderingPicker, { backgroundColor: '#473F5A', borderColor: 'rgba(255,255,255,0.1)', width: orderingPickerWidth, borderRadius: newEntryRadius, padding: clamp(width * 0.018, 7, 8) }]}>
+            {[
+              { value: '-created_at', label: 'Newest First' },
+              { value: 'created_at',  label: 'Oldest First' },
+              { value: '-updated_at', label: 'Recently Updated' },
+            ].map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.orderingOption, ordering === opt.value && styles.orderingOptionActive, { paddingVertical: orderingOptionPaddingY, paddingHorizontal: orderingOptionPaddingX }]}
+                onPress={() => handleOrdering(opt.value)}
+              >
+                <Text style={[styles.orderingText, { color: themeStyle.text, fontSize: orderingTextSize }]}>{opt.label}</Text>
+                {ordering === opt.value && <Text style={[styles.checkIcon, { fontSize: pillChevronSize + 3 }]}>✓</Text>}
+              </TouchableOpacity>
+            ))}
           </View>
         </TouchableOpacity>
       )}
@@ -610,7 +546,10 @@ export default function JournalList() {
             <FontAwesome5 name="book-open" size={emptyIconSize} color="#B8A8E6" style={styles.emptyEmoji} />
             <Text style={[styles.emptyText, { color: '#FFFFFF', fontSize: emptyTitleSize }]}>No journal entries yet</Text>
             <Text style={[styles.emptySubtext, { color: '#B8A8E6', fontSize: emptySubtitleSize }]}>Start journaling to track your thoughts</Text>
-            <TouchableOpacity style={[styles.emptyButton, { paddingVertical: emptyButtonPaddingY, paddingHorizontal: emptyButtonPaddingX, borderRadius: emptyButtonRadius }]} onPress={() => router.push('/patient/create-journal')}>
+            <TouchableOpacity
+              style={[styles.emptyButton, { paddingVertical: emptyButtonPaddingY, paddingHorizontal: emptyButtonPaddingX, borderRadius: emptyButtonRadius }]}
+              onPress={() => router.push('/patient/create-journal')}
+            >
               <Text style={[styles.emptyButtonText, { fontSize: emptyButtonTextSize }]}>✍️ Write First Entry</Text>
             </TouchableOpacity>
           </View>
@@ -621,9 +560,7 @@ export default function JournalList() {
           entries.length === 0 && styles.listContentEmpty,
         ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       />
@@ -632,398 +569,107 @@ export default function JournalList() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  screenGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  floatingBubbles: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-  },
-  bubble: {
-    position: 'absolute',
-    borderRadius: 1000,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  header: {
-    // kept for legacy but headerContainer used for main layout
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  container:        { flex: 1 },
+  screenGradient:   { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  floatingBubbles:  { position: 'absolute', width: '100%', height: '100%', overflow: 'hidden' },
+  bubble:           { position: 'absolute', borderRadius: 1000 },
+  centerContainer:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerContainer:  { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
   backButton: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    zIndex: 2,
+    position: 'absolute', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)', zIndex: 2,
   },
-  headerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 900,
-  },
-  backBtnCircle: {
-    position: 'absolute',
-    left: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  headerTitle: {
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  headerBlue: { color: '#FFFFFF' },
-  headerOrange: { color: '#FFB36B' },
-  headerWhite: { color: '#FFFFFF' },
-  headerPurple: { color: '#B8A8E6' },
   analyticsButton: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
+    position: 'absolute', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 4,
   },
-  createButton: {
-    backgroundColor: '#524f85',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+  headerTitle:  { fontWeight: '800', textAlign: 'center' },
+  headerWhite:  { color: '#FFFFFF' },
+  headerPurple: { color: '#B8A8E6' },
+
+  // ── Card ──────────────────────────────────────────────────────────────────
+  cardWrapper: { position: 'relative' },
+  card: {
+    borderWidth: 1,
+    shadowColor: '#120A24',
+    shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 7,
   },
-  createButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  cardHeader:     { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'flex-start' },
+  titleMetaWrap:  { flex: 1 },
+  titleInline:    { fontWeight: '700', flexShrink: 1 },
+  cardDateBelow:  {},
+  privacyIcon:    { marginTop: 2 },
+  favoritePinned: { position: 'absolute', zIndex: 2 },
+  content:        {},
+  contentMoreHint:{ fontWeight: '600' },
+  tagsContainer:  { flexDirection: 'row', flexWrap: 'wrap' },
+  tag:            { borderWidth: 1 },
+  tagText:        { fontWeight: '600' },
+  moreText:       { fontStyle: 'italic' },
+  cardFooter:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  wordCount:      {},
+  moodBadge:      {},
+  moodText:       { fontWeight: '600' },
+
+  // ── List / CTA / Search ───────────────────────────────────────────────────
+  listContent:      {},
+  listContentEmpty: { minHeight: '100%' },
+  ctaWrap:          {},
+  newEntryButton:   { alignItems: 'center', justifyContent: 'center', backgroundColor: '#A78BFA' },
+  newEntryText:     { color: '#fff', fontWeight: '700' },
+  filterSection:    {},
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    elevation: 3, shadowColor: '#000', shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, borderWidth: 1,
   },
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerRightIcon: {
-    backgroundColor: '#FF9FB3',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ctaWrap: {
-  },
-  newEntryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#A78BFA',
-  },
-  newEntryText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
+  searchIcon:  {},
+  searchInput: { flex: 1 },
+  filterRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  filterRowLeft:  { flexDirection: 'row', alignItems: 'center' },
+  filterRowRight: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#efe6f8',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    flexDirection: 'row', alignItems: 'center', borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  pillActive: {
-    backgroundColor: '#FFB36B',
-    borderColor: '#FFB36B',
-    shadowColor: '#FFB36B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  pillInactive: {
-    backgroundColor: '#5B5270',
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  pillText: {
-    fontWeight: '600',
-    color: '#616161',
-  },
-  pillIcon: {
-    color: '#FFFFFF',
-  },
+  pillActive:   { backgroundColor: '#FFB36B', borderColor: '#FFB36B', shadowColor: '#FFB36B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4 },
+  pillInactive: { backgroundColor: '#5B5270', borderColor: 'rgba(255,255,255,0.1)' },
+  pillText:     { fontWeight: '600', color: '#616161' },
+  pillIcon:     { color: '#FFFFFF' },
   pillAlt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#5B5270',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#5B5270', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   clearButtonActive: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#f44336',
-    backgroundColor: 'rgba(255,255,255,0.96)',
-  },
-  clearButton: {
-    marginLeft: 12,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
-  filterSection: {
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    borderWidth: 1,
-  },
-  searchIcon: {
-  },
-  searchInput: {
-    flex: 1,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    flex: 1,
-  },
-  orderingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    flex: 1,
-  },
-  filterIcon: {
-    fontSize: 18,
-    marginRight: 6,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#f44336', backgroundColor: 'rgba(255,255,255,0.96)',
   },
   orderingBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 9999,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 9999, alignItems: 'flex-end', justifyContent: 'flex-start',
   },
   orderingPicker: {
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    borderWidth: 1,
+    elevation: 10, shadowColor: '#000', shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 6 }, shadowRadius: 14, borderWidth: 1,
   },
-  orderingOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  orderingOptionActive: {
-    backgroundColor: '#5B5270',
-  },
-  orderingText: {
-    fontWeight: '500',
-  },
-  checkIcon: {
-    color: '#FFB36B',
-  },
-  listContent: {
-  },
-  listContentEmpty: {
-    minHeight: '100%',
-  },
-  cardWrapper: {
-    position: 'relative',
-  },
-  card: {
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    width: '100%',
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    alignItems: 'flex-start',
-    position: 'relative',
-  },
-  deleteIconButton: {
-    // kept for future use but hidden in this list view
-    display: 'none',
-  },
-  deleteIcon: {
-    fontSize: 18,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-  },
-  titleMetaWrap: {
-    flex: 1,
-  },
-  cardDateBelow: {
-  },
-  privacyIcon: {
-    fontSize: 18,
-  },
-  favoritePinned: {
-    position: 'absolute',
-    zIndex: 2,
-  },
-  headerRight: {
-    alignItems: 'flex-end',
-  },
-  dateText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  timeText: {
-    fontSize: 11,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  titleInline: {
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  
-  content: {
-  },
-  contentMoreHint: {
-    fontWeight: '600',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tag: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: '#5B5270',
-    paddingVertical: 4, // fallback default
-    paddingHorizontal: 8, // fallback default
-    borderRadius: 10, // fallback default
-  },
-  tagText: {
-    fontWeight: '600',
-    color: '#2e7d32',
-  },
-  moreText: {
-    fontStyle: 'italic',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  wordCount: {
-  },
-  moodBadge: {
-  },
-  moodText: {
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: '12%',
-  },
-  emptyEmoji: {
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: '#FFB36B',
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  orderingOption:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  orderingOptionActive: { backgroundColor: '#5B5270' },
+  orderingText:         { fontWeight: '500' },
+  checkIcon:            { color: '#FFB36B' },
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  emptyContainer:  { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: '12%' },
+  emptyEmoji:      { marginBottom: 16 },
+  emptyText:       { fontWeight: '600', marginBottom: 8 },
+  emptySubtext:    { textAlign: 'center', marginBottom: 24 },
+  emptyButton:     { backgroundColor: '#FFB36B' },
+  emptyButtonText: { color: '#fff', fontWeight: '600' },
 });

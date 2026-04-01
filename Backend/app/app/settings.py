@@ -31,14 +31,12 @@ def env_list(key: str, default: list[str] | None = None) -> list[str]:
         return [item.strip() for item in value.split(",") if item.strip()]
     return list(default or [])
 
+# Load environment variables from .env file (if it exists)
+# Make sure your .env file is in the same directory as manage.py
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-BACKEND_DIR = BASE_DIR.parent
-
-# Load environment variables from Backend/.env (preferred),
-# then fall back to Backend/app/.env for backward compatibility.
-load_dotenv(BACKEND_DIR / ".env")
-load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -84,10 +82,11 @@ INSTALLED_APPS = [
     "authenticator",           # Your custom authentication app (contains CustomUser)
     "users",          # User profiles (if separated from auth.CustomUser)
     "therapy_sessions",       # Therapy session management
+    "transcription",           # Transcription and emotion analysis
     "history",        # User history/logs
     "core",
     "patients",       # Patient wellness features (mood, journal, relaxation, goals)
-    # Removed: "transcription" and "soap" - migrated to FastAPI AI service
+    # Removed: "soap" - migrated to FastAPI AI service
 ]
 
 MIDDLEWARE = [
@@ -339,7 +338,7 @@ SESSION_REMINDER_WINDOW_MINUTES = int(os.environ.get('SESSION_REMINDER_WINDOW_MI
 
 # In-app reminder scheduler interval (seconds). Clamped to 10-60 in scheduler code.
 IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS = int(
-    os.environ.get('IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS', '30')
+    os.environ.get('IN_APP_REMINDER_SCHEDULER_INTERVAL_SECONDS', '10')
 )
 
 # AWS S3 Storage settings (using django-storages and boto3)

@@ -17,6 +17,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Reduce noise from third-party libraries
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 
 # Model cache for expensive models
 model_cache = {}

@@ -4,11 +4,76 @@
 export interface SessionTranscriptionSegment {
   id: string;
   speaker: string;
+  speaker_type?: string;
+  speaker_id?: string;
   text: string;
+  text_english?: string;
+  text_urdu?: string;
   start_time: number;
   end_time: number;
   confidence: number;
-  emotion?: string;
+  emotion?: AIEmotionPayload;
+}
+
+export type AIEmotionLabel =
+  | 'joy'
+  | 'sadness'
+  | 'anger'
+  | 'neutral'
+  | 'disgust'
+  | 'fear'
+  | 'surprise'
+  | 'unknown';
+
+export interface AIEmotionResult {
+  primary_emotion: AIEmotionLabel;
+  confidence: number;
+  all_scores: Record<string, number>;
+}
+export interface AISegmentEmotionResult {
+  // Flat strings — what AI Service actually returns
+  audio_emotion: AIEmotionLabel | null;
+  audio_confidence: number;
+  text_emotion: AIEmotionLabel | null;
+  text_confidence: number;
+  final_emotion: AIEmotionLabel;
+  final_confidence: number;
+  agreement: boolean | null;
+  analysis_type: 'combined' | 'text_only' | 'audio_only';
+}
+
+export interface AICombinedEmotionResult {
+  audio_emotion: AIEmotionResult;
+  text_emotion: AIEmotionResult;
+  final_emotion: AIEmotionLabel;
+  final_confidence: number;
+  agreement: boolean;
+}
+
+export interface AIBackendEmotionPayload {
+  primary_emotion?: string;
+  valence?: number;
+  arousal?: number;
+  confidence?: number;
+  emotion_scores?: Record<string, number>;
+}
+
+export type AIEmotionPayload = 
+  | AISegmentEmotionResult      // AI Service flat format (new)
+  | AICombinedEmotionResult     // legacy nested format
+  | AIBackendEmotionPayload     // Django backend format
+  | string;   
+
+export interface AILiveTranscriptionSegment {
+  id: string;
+  speaker: string;
+  start_time: number;
+  end_time: number;
+  duration?: number;
+  text?: string;
+  text_urdu?: string;
+  text_english?: string;
+  emotion?: AIEmotionPayload;
 }
 
 export interface SessionTranscription {
@@ -40,12 +105,21 @@ export interface SessionEmotionalAnalysis {
 }
 
 export interface SOAPNote {
+  session_id?: string;
   subjective: { content: string };
   objective: { content: string };
   assessment: { content: string };
   plan: { content: string };
+  emotional_summary?: string | null;
+  model_version?: string;
   key_themes?: string[];
   generated_at?: string;
+}
+
+export interface SOAPGenerateResponse {
+  soap_note: SOAPNote;
+  processing_time_ms: number;
+  message: string;
 }
 
 export interface AIAnalysisStatus {
@@ -61,7 +135,8 @@ export interface StartSessionResponse {
   status?: string; // From AI Service
   websocket_token?: string; // From AI Service
   message?: string; // From AI Service
-  ai_service_token?: string; // Legacy field for compatibility
+  ai_service_token?: string; // Bearer token for AI REST endpoints
+  ai_websocket_token?: string; // Token dedicated for AI WebSocket connection
   ai_service_url?: string;
   token_info?: {
     expires_in_hours: number;

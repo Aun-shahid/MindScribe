@@ -7,8 +7,11 @@ import {
   Image,
   useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const ONBOARDING_KEY = 'has_completed_onboarding';
 
 export default function PatientIntro3() {
   const router = useRouter();
@@ -24,7 +27,9 @@ export default function PatientIntro3() {
   const buttonWidth = Math.min(width * 0.68, 240);
   const btnFontSize = Math.max(15, Math.min(width * 0.044, 18));
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Mark onboarding done — Welcome will skip intros from now on
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     router.push('../auth/login');
   };
 
@@ -43,7 +48,7 @@ export default function PatientIntro3() {
         />
       </View>
 
-      {/* Bottom half — straight top edge */}
+      {/* Bottom half */}
       <View
         style={[
           styles.bottomContainer,
@@ -74,11 +79,7 @@ export default function PatientIntro3() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#d8c9ea',
-  },
-
+  container: { flex: 1, backgroundColor: '#d8c9ea' },
   heroSection: {
     width: '100%',
     alignItems: 'center',
@@ -86,20 +87,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#d8c9ea',
     overflow: 'hidden',
   },
-
-  bgImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 1,
-  },
-
-  mainImage: {
-    zIndex: 2,
-  },
-
+  bgImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 },
+  mainImage: { zIndex: 2 },
   bottomContainer: {
     width: '100%',
     alignItems: 'center',
@@ -107,35 +96,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#342949',
     paddingHorizontal: 22,
   },
-
-  description: {
-    textAlign: 'center',
-    fontWeight: '800',
-    paddingHorizontal: 14,
-    color: '#FFFFFF',
-  },
-
-  textAccent: {
-    color: '#4ec0c7',
-  },
-
-  progressContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-
-  dot: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-
-  dotActive: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-
+  description: { textAlign: 'center', fontWeight: '800', paddingHorizontal: 14, color: '#FFFFFF' },
+  textAccent: { color: '#4ec0c7' },
+  progressContainer: { flexDirection: 'row', gap: 8 },
+  dot: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+  dotActive: { height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
   nextButton: {
     borderRadius: 999,
     paddingVertical: 16,
@@ -148,9 +113,5 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 4,
   },
-
-  nextButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
+  nextButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
 });

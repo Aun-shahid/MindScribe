@@ -47,56 +47,56 @@ export default function PlayBreathingScreen() {
   const bubble5X = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const pageInset = clamp(width * 0.03, 12, 18);
-  const headerBackOffset = clamp(width * 0.018, 6, 8);
-  const headerTopPadding = insets.top + clamp(height * 0.014, 10, 18);
-  const headerBottomPadding = clamp(height * 0.02, 14, 22);
-  const headerButtonSize = clamp(width * 0.098, 34, 40);
-  const headerButtonRadius = headerButtonSize / 2;
-  const headerIconSize = clamp(width * 0.047, 16, 20);
-  const headerTitleSize = clamp(width * 0.072, 24, 30);
+  const pageInset            = clamp(width * 0.03,   12, 18);
+  const headerBackOffset     = clamp(width * 0.018,   6,  8);
+  const headerTopPadding     = insets.top + clamp(height * 0.014, 10, 18);
+  const headerBottomPadding  = clamp(height * 0.02,  14, 22);
+  const headerButtonSize     = clamp(width * 0.098,  34, 40);
+  const headerButtonRadius   = headerButtonSize / 2;
+  const headerIconSize       = clamp(width * 0.047,  16, 20);
+  const headerTitleSize      = clamp(width * 0.072,  24, 30);
   const headerTitleMarginTop = clamp(height * 0.046, 28, 44);
   const headerEstimatedHeight = headerTopPadding + headerTitleMarginTop + headerTitleSize + headerBottomPadding;
 
-  const contentTopPadding = headerEstimatedHeight + clamp(height * 0.014, 8, 12);
-  const contentBottomPadding = clamp(insets.bottom + height * 0.03, 28, 44);
-  const contentMaxWidth = clamp(width * 0.92, 320, 460);
+  const contentTopPadding   = headerEstimatedHeight + clamp(height * 0.014, 8, 12);
+  const contentBottomPadding= clamp(insets.bottom + height * 0.03, 28, 44);
+  const contentMaxWidth     = clamp(width * 0.92, 320, 460);
 
-  const bubbleLarge = clamp(width * 0.34, 100, 140);
-  const bubbleMedium = clamp(width * 0.29, 90, 120);
-  const bubbleSmall = clamp(width * 0.26, 82, 108);
+  const bubbleLarge  = clamp(width * 0.34, 100, 140);
+  const bubbleMedium = clamp(width * 0.29,  90, 120);
+  const bubbleSmall  = clamp(width * 0.26,  82, 108);
   const bubbleShiftY = clamp(height * 0.035, 16, 30);
-  const bubbleShiftX = clamp(width * 0.045, 14, 20);
+  const bubbleShiftX = clamp(width * 0.045,  14, 20);
 
-  const playerCardRadius = clamp(width * 0.05, 16, 22);
-  const playerCardPadding = clamp(width * 0.05, 16, 22);
-  const playerCardShadowOffsetY = clamp(height * 0.014, 6, 10);
-  const playerCardShadowRadius = clamp(width * 0.05, 12, 18);
-  const heroImageHeight = clamp(width * 0.62, 210, 290);
+  const playerCardRadius      = clamp(width * 0.05,   16, 22);
+  const playerCardPadding     = clamp(width * 0.05,   16, 22);
+  const playerCardShadowOffY  = clamp(height * 0.014,  6, 10);
+  const playerCardShadowR     = clamp(width * 0.05,   12, 18);
+  const heroImageHeight       = clamp(width * 0.62,  210, 290);
 
-  const titleSize = clamp(width * 0.065, 22, 30);
-  const titleMarginBottom = clamp(height * 0.012, 8, 14);
-  const subtitleSize = clamp(width * 0.034, 12, 14);
+  const titleSize         = clamp(width * 0.065,  22, 30);
+  const titleMarginBottom = clamp(height * 0.012,   8, 14);
+  const subtitleSize      = clamp(width * 0.034,  12, 14);
   const subtitleMarginBottom = clamp(height * 0.022, 14, 20);
 
   const progressMarginBottom = clamp(height * 0.026, 16, 28);
-  const progressGap = clamp(width * 0.03, 8, 12);
-  const progressBarHeight = clamp(height * 0.008, 5, 7);
-  const progressBarRadius = progressBarHeight / 2;
-  const timeTextSize = clamp(width * 0.034, 12, 14);
-  const timeTextMinWidth = clamp(width * 0.11, 38, 48);
+  const progressGap         = clamp(width * 0.03,    8, 12);
+  const progressBarHeight   = clamp(height * 0.008,  5,  7);
+  const progressBarRadius   = progressBarHeight / 2;
+  const timeTextSize        = clamp(width * 0.034,  12, 14);
+  const timeTextMinWidth    = clamp(width * 0.11,   38, 48);
 
-  const controlsMarginBottom = clamp(height * 0.035, 22, 38);
-  const controlGap = clamp(width * 0.065, 18, 30);
-  const skipBtnSize = clamp(width * 0.145, 48, 60);
-  const skipIconSize = clamp(width * 0.095, 28, 36);
-  const playBtnSize = clamp(width * 0.21, 72, 96);
-  const playBtnRadius = playBtnSize / 2;
-  const playIconSize = clamp(width * 0.13, 44, 60);
+  const controlsMarginBottom= clamp(height * 0.035, 22, 38);
+  const controlGap          = clamp(width * 0.065,  18, 30);
+  const skipBtnSize         = clamp(width * 0.145,  48, 60);
+  const skipIconSize        = clamp(width * 0.095,  28, 36);
+  const playBtnSize         = clamp(width * 0.21,   72, 96);
+  const playBtnRadius       = playBtnSize / 2;
+  const playIconSize        = clamp(width * 0.13,   44, 60);
 
-  const donePaddingV = clamp(height * 0.018, 12, 18);
-  const doneFontSize = clamp(width * 0.043, 15, 19);
-  const doneRadius = clamp(width * 0.065, 22, 30);
+  const donePaddingV  = clamp(height * 0.018, 12, 18);
+  const doneFontSize  = clamp(width * 0.043,  15, 19);
+  const doneRadius    = clamp(width * 0.065,  22, 30);
 
   const setupAudio = async () => {
     try {
@@ -112,7 +112,6 @@ export default function PlayBreathingScreen() {
     }
   };
 
-  // ── KEY FIX: reset position/duration/listenedMs on cleanup ────────────────
   const cleanupAudio = useCallback(async () => {
     if (isCleaningRef.current) return;
     isCleaningRef.current = true;
@@ -122,31 +121,23 @@ export default function PlayBreathingScreen() {
       const status = await currentSound.getStatusAsync();
       if (status.isLoaded) {
         try { await currentSound.pauseAsync(); } catch {}
-        try {
-          await currentSound.stopAsync();
-        } catch (err: any) {
-          const msg = String(err?.message || err || '');
-          if (!msg.toLowerCase().includes('seeking interrupted')) {
+        try { await currentSound.stopAsync(); } catch (err: any) {
+          if (!String(err?.message || '').toLowerCase().includes('seeking interrupted'))
             console.error('Error stopping audio:', err);
-          }
         }
-        try {
-          await currentSound.unloadAsync();
-        } catch (err: any) {
-          const msg = String(err?.message || err || '');
-          if (!msg.toLowerCase().includes('seeking interrupted')) {
+        try { await currentSound.unloadAsync(); } catch (err: any) {
+          if (!String(err?.message || '').toLowerCase().includes('seeking interrupted'))
             console.error('Error unloading audio:', err);
-          }
         }
       }
     } catch (err) {
       console.error('Error cleaning up audio:', err);
     } finally {
       soundRef.current = null;
-      listenedMsRef.current = 0; // reset listened time
+      listenedMsRef.current = 0;
       setIsPlaying(false);
-      setPosition(0);            // reset position to start
-      setDuration(0);            // reset duration
+      setPosition(0);
+      setDuration(0);
       isCleaningRef.current = false;
     }
   }, []);
@@ -182,9 +173,9 @@ export default function PlayBreathingScreen() {
             Animated.timing(translateY, { toValue: 0, duration: dur, useNativeDriver: true }),
           ]),
           Animated.sequence([
-            Animated.timing(translateX, { toValue: bubbleShiftX, duration: dur * 0.7, delay, useNativeDriver: true }),
-            Animated.timing(translateX, { toValue: -bubbleShiftX, duration: dur * 0.7, useNativeDriver: true }),
-            Animated.timing(translateX, { toValue: 0, duration: dur * 0.6, useNativeDriver: true }),
+            Animated.timing(translateX, { toValue:  bubbleShiftX, duration: dur * 0.7, delay, useNativeDriver: true }),
+            Animated.timing(translateX, { toValue: -bubbleShiftX, duration: dur * 0.7,       useNativeDriver: true }),
+            Animated.timing(translateX, { toValue: 0,             duration: dur * 0.6,        useNativeDriver: true }),
           ]),
         ])
       );
@@ -193,48 +184,38 @@ export default function PlayBreathingScreen() {
   );
 
   const startBubbleAnimations = useCallback(() => {
-    bubble1Y.setValue(0); bubble1X.setValue(0);
-    bubble2Y.setValue(0); bubble2X.setValue(0);
-    bubble3Y.setValue(0); bubble3X.setValue(0);
-    bubble4Y.setValue(0); bubble4X.setValue(0);
-    bubble5Y.setValue(0); bubble5X.setValue(0);
-
+    [bubble1Y,bubble1X,bubble2Y,bubble2X,bubble3Y,bubble3X,bubble4Y,bubble4X,bubble5Y,bubble5X]
+      .forEach(v => v.setValue(0));
     const animations = [
-      createFloatingAnimation(bubble1Y, bubble1X, 4000, 0),
-      createFloatingAnimation(bubble2Y, bubble2X, 5000, 500),
+      createFloatingAnimation(bubble1Y, bubble1X, 4000,    0),
+      createFloatingAnimation(bubble2Y, bubble2X, 5000,  500),
       createFloatingAnimation(bubble3Y, bubble3X, 4500, 1000),
       createFloatingAnimation(bubble4Y, bubble4X, 5500, 1500),
       createFloatingAnimation(bubble5Y, bubble5X, 4800, 2000),
     ];
-    animations.forEach(anim => anim.start());
+    animations.forEach(a => a.start());
     return animations;
-  }, [
-    bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X,
-    bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y,
-    createFloatingAnimation,
-  ]);
+  }, [bubble1X,bubble1Y,bubble2X,bubble2Y,bubble3X,bubble3Y,bubble4X,bubble4Y,bubble5X,bubble5Y,createFloatingAnimation]);
 
   useEffect(() => {
     loadContent();
     setupAudio();
     return () => {
-      runningBubbleAnimationsRef.current.forEach(anim => anim.stop());
+      runningBubbleAnimationsRef.current.forEach(a => a.stop());
       runningBubbleAnimationsRef.current = [];
       cleanupAudio();
     };
   }, [cleanupAudio, loadContent]);
 
-  // ── useFocusEffect: stops + resets audio when navigating away ─────────────
   useFocusEffect(
     useCallback(() => {
-      runningBubbleAnimationsRef.current.forEach(anim => anim.stop());
+      runningBubbleAnimationsRef.current.forEach(a => a.stop());
       const running = startBubbleAnimations();
       runningBubbleAnimationsRef.current = running;
-
       return () => {
-        running.forEach(anim => anim.stop());
+        running.forEach(a => a.stop());
         runningBubbleAnimationsRef.current = [];
-        cleanupAudio(); // stops audio + resets position to 0
+        cleanupAudio();
       };
     }, [startBubbleAnimations, cleanupAudio])
   );
@@ -244,12 +225,8 @@ export default function PlayBreathingScreen() {
     setPosition(status.positionMillis || 0);
     setDuration(status.durationMillis || 0);
     setIsPlaying(status.isPlaying);
-    if (status.isPlaying) {
-      listenedMsRef.current = status.positionMillis || listenedMsRef.current;
-    }
-    if (status.didJustFinish) {
-      setIsPlaying(false);
-    }
+    if (status.isPlaying) listenedMsRef.current = status.positionMillis || listenedMsRef.current;
+    if (status.didJustFinish) setIsPlaying(false);
   };
 
   const resolveLoadedSound = async () => {
@@ -259,9 +236,7 @@ export default function PlayBreathingScreen() {
       const status = await current.getStatusAsync();
       if (!status.isLoaded) return null;
       return { current, status };
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
 
   const handlePlay = async () => {
@@ -269,13 +244,8 @@ export default function PlayBreathingScreen() {
       if (!content) return;
       const loaded = await resolveLoadedSound();
       if (loaded) {
-        if (loaded.status.isPlaying) {
-          await loaded.current.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await loaded.current.playAsync();
-          setIsPlaying(true);
-        }
+        if (loaded.status.isPlaying) { await loaded.current.pauseAsync(); setIsPlaying(false); }
+        else                         { await loaded.current.playAsync();  setIsPlaying(true);  }
         return;
       }
       const { sound: newSound } = await Audio.Sound.createAsync(
@@ -285,10 +255,7 @@ export default function PlayBreathingScreen() {
       );
       await new Promise(resolve => setTimeout(resolve, 100));
       const status = await newSound.getStatusAsync();
-      if (!status.isLoaded) {
-        try { await newSound.unloadAsync(); } catch {}
-        throw new Error('Unable to load audio');
-      }
+      if (!status.isLoaded) { try { await newSound.unloadAsync(); } catch {} throw new Error('Unable to load audio'); }
       await newSound.setIsLoopingAsync(false);
       soundRef.current = newSound;
       listenedMsRef.current = 0;
@@ -306,14 +273,10 @@ export default function PlayBreathingScreen() {
     const loaded = await resolveLoadedSound();
     if (!loaded) { isSeekingRef.current = false; return; }
     try {
-      const currentPos = loaded.status.positionMillis || 0;
-      await loaded.current.setPositionAsync(Math.max(0, currentPos - 10000));
+      await loaded.current.setPositionAsync(Math.max(0, (loaded.status.positionMillis || 0) - 10000));
     } catch (err: any) {
-      const msg = String(err?.message || err || '');
-      if (!msg.toLowerCase().includes('seeking interrupted')) console.error('Skip backward error', err);
-    } finally {
-      isSeekingRef.current = false;
-    }
+      if (!String(err?.message || '').toLowerCase().includes('seeking interrupted')) console.error('Skip backward error', err);
+    } finally { isSeekingRef.current = false; }
   };
 
   const handleSkipForward = async () => {
@@ -322,16 +285,12 @@ export default function PlayBreathingScreen() {
     const loaded = await resolveLoadedSound();
     if (!loaded) { isSeekingRef.current = false; return; }
     try {
-      const currentPos = loaded.status.positionMillis || 0;
-      const maxDuration = loaded.status.durationMillis || duration || 0;
-      const nextPos = maxDuration > 0 ? Math.min(maxDuration, currentPos + 10000) : currentPos + 10000;
-      await loaded.current.setPositionAsync(nextPos);
+      const cur = loaded.status.positionMillis || 0;
+      const max = loaded.status.durationMillis || duration || 0;
+      await loaded.current.setPositionAsync(max > 0 ? Math.min(max, cur + 10000) : cur + 10000);
     } catch (err: any) {
-      const msg = String(err?.message || err || '');
-      if (!msg.toLowerCase().includes('seeking interrupted')) console.error('Skip forward error', err);
-    } finally {
-      isSeekingRef.current = false;
-    }
+      if (!String(err?.message || '').toLowerCase().includes('seeking interrupted')) console.error('Skip forward error', err);
+    } finally { isSeekingRef.current = false; }
   };
 
   const handleDone = async () => {
@@ -341,8 +300,8 @@ export default function PlayBreathingScreen() {
       router.push({
         pathname: './relaxation-sessions',
         params: {
-          contentId: content?.id.toString() || '',
-          contentTitle: content?.title || '',
+          contentId:       content?.id.toString() || '',
+          contentTitle:    content?.title || '',
           contentCategory: content?.category || 'breathing',
           durationListened: durationListened.toString(),
         },
@@ -354,28 +313,18 @@ export default function PlayBreathingScreen() {
   };
 
   const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const s = Math.floor(millis / 1000);
+    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   };
 
-  // ── Determine if body scan to show image instead of video ─────────────────
   const isBodyScanContent = () => {
-    const title = (content?.title || '').toLowerCase();
+    const title    = (content?.title    || '').toLowerCase();
     const category = String(content?.category || '').toLowerCase();
     return title.includes('body scan') || title.includes('body-scan') || category === 'body_scan';
   };
 
   if (loading) {
-    return (
-      <TabLoaderCard
-        fullScreen
-        title="Loading breathing session..."
-        subtitle="Preparing your guided audio"
-        spinnerColor="#A78BFA"
-      />
-    );
+    return <TabLoaderCard fullScreen title="Loading breathing session..." subtitle="Preparing your guided audio" spinnerColor="#A78BFA" />;
   }
 
   if (!content) {
@@ -386,29 +335,27 @@ export default function PlayBreathingScreen() {
     );
   }
 
-  const titleLower = (content.title || '').toLowerCase();
+  const titleLower    = (content.title    || '').toLowerCase();
   const categoryLower = (content.category || '').toLowerCase();
-  const isBodyScan = titleLower.includes('body scan') || titleLower.includes('body-scan') || categoryLower === 'body_scan';
+  const isBodyScan      = titleLower.includes('body scan') || titleLower.includes('body-scan') || categoryLower === 'body_scan';
   const isVisualization = titleLower.includes('visualization') || categoryLower === 'visualization' || categoryLower === 'guided_meditation';
-  const isBreathing = titleLower.includes('breath') || categoryLower === 'breathing';
-  const exactDurationSeconds = isBodyScan
-    ? GUIDED_DURATIONS_SECONDS.bodyScan
-    : isVisualization
-    ? GUIDED_DURATIONS_SECONDS.visualization
-    : isBreathing
-    ? GUIDED_DURATIONS_SECONDS.breathing
-    : (content.duration_seconds || Math.floor((duration || 0) / 1000) || 0);
-  const displayedTotalDurationMillis = exactDurationSeconds * 1000;
+  const isBreathing     = titleLower.includes('breath') || categoryLower === 'breathing';
+  const exactDurationSeconds = isBodyScan      ? GUIDED_DURATIONS_SECONDS.bodyScan
+                             : isVisualization ? GUIDED_DURATIONS_SECONDS.visualization
+                             : isBreathing     ? GUIDED_DURATIONS_SECONDS.breathing
+                             : (content.duration_seconds || Math.floor((duration || 0) / 1000) || 0);
+  const displayedTotalMs = exactDurationSeconds * 1000;
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#342949', '#342949', '#342949']} style={styles.screenGradient} />
 
-      <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, top: '10%', left: '10%', backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }]} />
+      {/* Bubbles — zIndex 0, BEHIND the scroll view and card */}
+      <Animated.View style={[styles.bubble, { width: bubbleSmall,  height: bubbleSmall,  top: '10%', left: '10%',  backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }]} />
       <Animated.View style={[styles.bubble, { width: bubbleMedium, height: bubbleMedium, top: '25%', right: '15%', backgroundColor: 'rgba(133,130,180,0.10)', transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }]} />
-      <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, top: '50%', left: '5%', backgroundColor: 'rgba(133,130,180,0.09)', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }]} />
-      <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: '70%', right: '10%', backgroundColor: 'rgba(133,130,180,0.10)', transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }]} />
-      <Animated.View style={[styles.bubble, { width: bubbleSmall - clamp(width * 0.07, 14, 22), height: bubbleSmall - clamp(width * 0.07, 14, 22), top: '85%', left: '20%', backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleSmall,  height: bubbleSmall,  top: '50%', left: '5%',   backgroundColor: 'rgba(133,130,180,0.09)', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleLarge,  height: bubbleLarge,  top: '70%', right: '10%', backgroundColor: 'rgba(133,130,180,0.10)', transform: [{ translateY: bubble4Y }, { translateX: bubble4X }] }]} />
+      <Animated.View style={[styles.bubble, { width: bubbleSmall - clamp(width*0.07,14,22), height: bubbleSmall - clamp(width*0.07,14,22), top: '85%', left: '20%', backgroundColor: 'rgba(133,130,180,0.08)', transform: [{ translateY: bubble5Y }, { translateX: bubble5X }] }]} />
 
       <StickyHeader
         scrollY={scrollY}
@@ -417,26 +364,26 @@ export default function PlayBreathingScreen() {
         onBackPress={() => router.push('./breathing-exercises')}
       />
 
+      {/* Fading header */}
       <Animated.View style={[styles.headerContainer, {
         paddingTop: headerTopPadding,
         paddingHorizontal: pageInset,
         paddingBottom: headerBottomPadding,
         opacity: scrollY.interpolate({ inputRange: [0, 100, 150], outputRange: [1, 0.5, 0], extrapolate: 'clamp' }),
       }]}>
+        {/* Back button — hitSlop so full circle always tappable */}
         <TouchableOpacity
           onPress={() => router.push('./breathing-exercises')}
-          style={[
-            styles.backBtnCircle,
-            {
-              left: pageInset + headerBackOffset,
-              top: headerTopPadding,
-              width: headerButtonSize,
-              height: headerButtonSize,
-              borderRadius: headerButtonRadius,
-              shadowOffset: { width: 0, height: clamp(height * 0.003, 1, 3) },
-              shadowRadius: clamp(width * 0.018, 5, 7),
-            },
-          ]}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={[styles.backBtnCircle, {
+            left: pageInset + headerBackOffset,
+            top: headerTopPadding,
+            width: headerButtonSize,
+            height: headerButtonSize,
+            borderRadius: headerButtonRadius,
+            shadowOffset: { width: 0, height: clamp(height * 0.003, 1, 3) },
+            shadowRadius: clamp(width * 0.018, 5, 7),
+          }]}
         >
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
@@ -447,6 +394,7 @@ export default function PlayBreathingScreen() {
         </Text>
       </Animated.View>
 
+      {/* Scroll view — zIndex 2, above bubbles */}
       <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
@@ -455,41 +403,25 @@ export default function PlayBreathingScreen() {
           paddingBottom: contentBottomPadding,
         }}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
       >
-        <View style={[
-          styles.playerCard,
-          {
-            maxWidth: contentMaxWidth,
-            borderRadius: playerCardRadius,
-            shadowOffset: { width: 0, height: playerCardShadowOffsetY },
-            shadowRadius: playerCardShadowRadius,
-          },
-        ]}>
-          {/* Hero — image for body scan, video for everything else */}
+        {/* Player card — solid background so bubbles cannot bleed through on APK */}
+        <View style={[styles.playerCard, {
+          maxWidth: contentMaxWidth,
+          borderRadius: playerCardRadius,
+          shadowOffset: { width: 0, height: playerCardShadowOffY },
+          shadowRadius: playerCardShadowR,
+        }]}>
+          {/* Hero */}
           <View style={[styles.playerHero, { height: heroImageHeight }]}>
             {isBodyScanContent() ? (
-              <Image
-                source={require('../../assets/images/purplebodyscan.png')}
-                style={styles.soundImage}
-                resizeMode="cover"
-              />
+              <Image source={require('../../assets/images/purplebodyscan.png')} style={styles.soundImage} resizeMode="cover" />
             ) : (
-              <Video
-                source={require('../../assets/images/breathingexcercisevid.mp4')}
-                style={styles.soundImage}
-                shouldPlay
-                isLooping
-                isMuted
-                resizeMode={ResizeMode.COVER}
-              />
+              <Video source={require('../../assets/images/breathingexcercisevid.mp4')} style={styles.soundImage} shouldPlay isLooping isMuted resizeMode={ResizeMode.COVER} />
             )}
             <LinearGradient
-              colors={['transparent', 'rgba(24, 15, 39, 0.12)', 'rgba(24, 15, 39, 0.55)']}
+              colors={['transparent', 'rgba(24,15,39,0.12)', 'rgba(24,15,39,0.55)']}
               style={styles.playerHeroOverlay}
               pointerEvents="none"
             />
@@ -509,47 +441,27 @@ export default function PlayBreathingScreen() {
                 {formatTime(position)}
               </Text>
               <View style={[styles.progressBar, { height: progressBarHeight, borderRadius: progressBarRadius }]}>
-                <View style={[
-                  styles.progressFill,
-                  {
-                    width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
-                    borderRadius: progressBarRadius,
-                  },
-                ]} />
+                <View style={[styles.progressFill, { width: `${duration > 0 ? (position / duration) * 100 : 0}%`, borderRadius: progressBarRadius }]} />
               </View>
               <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>
-                {displayedTotalDurationMillis > 0 ? formatTime(displayedTotalDurationMillis) : '--:--'}
+                {displayedTotalMs > 0 ? formatTime(displayedTotalMs) : '--:--'}
               </Text>
             </View>
 
             {/* Controls */}
             <View style={[styles.controls, { marginBottom: controlsMarginBottom, gap: controlGap }]}>
-              <TouchableOpacity
-                style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]}
-                onPress={handleSkipBackward}
-              >
+              <TouchableOpacity style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]} onPress={handleSkipBackward}>
                 <MaterialIcons name="replay-10" size={skipIconSize} color="#B8A8E6" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.playButton, { width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius }]}
-                onPress={handlePlay}
-              >
+              <TouchableOpacity style={[styles.playButton, { width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius }]} onPress={handlePlay}>
                 <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={playIconSize} color="#FFF" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]}
-                onPress={handleSkipForward}
-              >
+              <TouchableOpacity style={[styles.skipButton, { width: skipBtnSize, height: skipBtnSize, borderRadius: skipBtnSize / 2 }]} onPress={handleSkipForward}>
                 <MaterialIcons name="forward-10" size={skipIconSize} color="#B8A8E6" />
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.doneButton, { paddingVertical: donePaddingV, borderRadius: doneRadius }]}
-              onPress={handleDone}
-            >
+            <TouchableOpacity style={[styles.doneButton, { paddingVertical: donePaddingV, borderRadius: doneRadius }]} onPress={handleDone}>
               <Text style={[styles.doneButtonText, { fontSize: doneFontSize }]}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -560,29 +472,33 @@ export default function PlayBreathingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#342949' },
-  screenGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 0 },
-  bubble: { position: 'absolute', borderRadius: 999, zIndex: 1 },
+  container:     { flex: 1, backgroundColor: '#342949' },
+  screenGradient:{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 0 },
+
+  // zIndex 0 — bubbles stay BEHIND the scroll view and card
+  bubble: { position: 'absolute', borderRadius: 999, zIndex: 0 },
+
   headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },
   backBtnCircle: {
     position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
     backgroundColor: 'rgba(255,255,255,0.08)',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    elevation: 1,
+    shadowColor: '#000', shadowOpacity: 0.03, elevation: 1,
   },
-  headerTitle: { fontWeight: '800', textAlign: 'center' },
-  headerWhite: { color: '#FFFFFF' },
+  headerTitle:  { fontWeight: '800', textAlign: 'center' },
+  headerWhite:  { color: '#FFFFFF' },
   headerPurple: { color: '#B8A8E6' },
+
+  // zIndex 2 — scroll view above bubbles
   scrollView: { flex: 1, zIndex: 2 },
+
+  // Solid card background — #2E2448 matches the app dark purple but is opaque
+  // Previously rgba(255,255,255,0.08) was transparent, letting bubbles bleed through on APK
   playerCard: {
     width: '100%',
     alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#2E2448',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
     overflow: 'hidden',
@@ -590,39 +506,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     elevation: 3,
   },
-  playerHero: { width: '100%', position: 'relative' },
-  soundImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+
+  playerHero:        { width: '100%', position: 'relative' },
+  soundImage:        { width: '100%', height: '100%', resizeMode: 'cover' },
   playerHeroOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  playerBody: { width: '100%', alignItems: 'center' },
-  title: { fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
-  description: { color: 'rgba(255,255,255,0.72)', textAlign: 'center' },
-  progressSection: { width: '100%', flexDirection: 'row', alignItems: 'center' },
-  progressBar: { flex: 1, backgroundColor: '#473F5A', overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#B8A8E6' },
-  timeText: { color: '#FFFFFF' },
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  skipButton: { backgroundColor: '#473F5A', justifyContent: 'center', alignItems: 'center' },
+  playerBody:        { width: '100%', alignItems: 'center' },
+  title:             { fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
+  description:       { color: 'rgba(255,255,255,0.72)', textAlign: 'center' },
+  progressSection:   { width: '100%', flexDirection: 'row', alignItems: 'center' },
+  progressBar:       { flex: 1, backgroundColor: '#473F5A', overflow: 'hidden' },
+  progressFill:      { height: '100%', backgroundColor: '#B8A8E6' },
+  timeText:          { color: '#FFFFFF' },
+  controls:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  skipButton:        { backgroundColor: '#473F5A', justifyContent: 'center', alignItems: 'center' },
   playButton: {
-    backgroundColor: '#E91E63',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#E91E63',
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 12,
-    elevation: 10,
+    backgroundColor: '#E91E63', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#E91E63', shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 8 }, shadowRadius: 12, elevation: 10,
   },
   doneButton: {
-    width: '100%',
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    shadowColor: '#7C3AED',
-    shadowOpacity: 0.34,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 14,
-    elevation: 10,
+    width: '100%', backgroundColor: '#7C3AED', alignItems: 'center',
+    shadowColor: '#7C3AED', shadowOpacity: 0.34,
+    shadowOffset: { width: 0, height: 10 }, shadowRadius: 14, elevation: 10,
   },
   doneButtonText: { color: '#FFF', fontWeight: 'bold' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  errorText: { color: '#FFFFFF', textAlign: 'center' },
+  center:         { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText:      { color: '#FFFFFF', textAlign: 'center' },
 });

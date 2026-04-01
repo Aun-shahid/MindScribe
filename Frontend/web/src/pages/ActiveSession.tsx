@@ -17,6 +17,21 @@ import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useLiveSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 
+const EMOTION_UI_CONFIG: Record<
+  string,
+  { label: string; emoji: string; colorClass: string }
+> = {
+  joy: { label: 'Joy', emoji: '😊', colorClass: 'bg-emerald-500' },
+  sadness: { label: 'Sadness', emoji: '😢', colorClass: 'bg-blue-500' },
+  anger: { label: 'Anger', emoji: '😠', colorClass: 'bg-red-500' },
+  neutral: { label: 'Neutral', emoji: '😐', colorClass: 'bg-gray-500' },
+  disgust: { label: 'Disgust', emoji: '🤢', colorClass: 'bg-lime-600' },
+  fear: { label: 'Fear', emoji: '😨', colorClass: 'bg-amber-500' },
+  surprise: { label: 'Surprise', emoji: '😮', colorClass: 'bg-fuchsia-500' },
+};
+
+const EMOTION_ORDER = ['joy', 'sadness', 'anger', 'neutral', 'disgust', 'fear', 'surprise'];
+
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -26,7 +41,7 @@ const ActiveSession: React.FC = () => {
   const [sessionDuration, setSessionDuration] = useState('00:00');
   const [sessionStartTime] = useState(new Date());
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [aiServiceToken, setAiServiceToken] = useState<string | null>(null);
+  const [aiWebsocketToken, setAiWebsocketToken] = useState<string | null>(null);
   // const [websocketRoomId, setWebsocketRoomId] = useState<string | null>(null);
   
   const location = useLocation();
@@ -65,17 +80,49 @@ const ActiveSession: React.FC = () => {
     sendAudioChunk,
   } = useAIServiceWebSocket(
     sessionStarted ? id! : null,
-    aiServiceToken,
+    aiWebsocketToken,
     { autoConnect: false }
   );
+
+  const toDisplaySpeaker = useCallback((speaker: string) => {
+    if (!speaker) return 'Speaker';
+    if (speaker.startsWith('SPEAKER_')) {
+      const suffix = speaker.replace('SPEAKER_', '');
+      const index = Number.parseInt(suffix, 10);
+      if (!Number.isNaN(index)) {
+        return `Speaker ${index + 1}`;
+      }
+    }
+    return speaker;
+  }, []);
+
+  const getEmotionKey = useCallback((emotion: unknown): string => {
+    if (!emotion) return '';
+    if (typeof emotion === 'string') return emotion.toLowerCase();
+    if (
+      typeof emotion === 'object' &&
+      emotion !== null &&
+      'final_emotion' in emotion &&
+      typeof (emotion as { final_emotion?: string }).final_emotion === 'string'
+    ) {
+      return (emotion as { final_emotion: string }).final_emotion.toLowerCase();
+    }
+    return '';
+  }, []);
+
+  const toEmotionLabel = useCallback((emotion: unknown): string => {
+    const key = getEmotionKey(emotion);
+    if (!key) return '';
+    return EMOTION_UI_CONFIG[key]?.label || `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+  }, [getEmotionKey]);
 
   // Use live transcription from AI Service WebSocket if available
   const transcript = aiTranscriptionSegments.length > 0
     ? aiTranscriptionSegments.map((seg) => ({
-      speaker: seg.speaker,
-      text: seg.text || seg.text_urdu || seg.text_english || '',
+      speaker: toDisplaySpeaker(seg.speaker),
+      text: seg.text_english || seg.text || seg.text_urdu || '',
       time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
-      emotion: seg.emotion,
+      emotion: toEmotionLabel(seg.emotion),
     }))
     : [];
 
@@ -84,7 +131,10 @@ const ActiveSession: React.FC = () => {
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const pendingSamplesRef = useRef<number[]>([]);
-  const chunkSamplesRef = useRef<number>(32000); // 2s @ 16kHz
+  const chunkSamplesRef = useRef<number>(160000); // 2s @ 16kHz
+  const chunkQueueRef = useRef<Array<{ audioData: string | null; sampleRate: number; format: string; capturedAt: number }>>([]);
+  const [uploadDelayMs, setUploadDelayMs] = useState(0);
+  const [queuedChunkCount, setQueuedChunkCount] = useState(0);
 
   const encodeInt16ToBase64 = (samples: Int16Array): string => {
     const bytes = new Uint8Array(samples.buffer);
@@ -146,6 +196,8 @@ const ActiveSession: React.FC = () => {
     processorNodeRef.current = null;
     sourceNodeRef.current = null;
     pendingSamplesRef.current = [];
+    chunkQueueRef.current = [];
+    setQueuedChunkCount(0);
   }, []);
 
   const startAudioCapture = useCallback(async () => {
@@ -180,31 +232,107 @@ const ActiveSession: React.FC = () => {
 
       while (pending.length >= chunkSamplesRef.current) {
         const chunkSamples = pending.splice(0, chunkSamplesRef.current);
-        const chunk = new Int16Array(chunkSamples);
-        const base64 = encodeInt16ToBase64(chunk);
-        sendAudioChunk(base64, 16000, 'pcm16');
+        
+        // Calculate RMS to detect silence
+        let sumSquares = 0;
+        for (let i = 0; i < chunkSamples.length; i++) {
+          const normalized = chunkSamples[i] / 32768.0;
+          sumSquares += normalized * normalized;
+        }
+        const rms = Math.sqrt(sumSquares / chunkSamples.length);
+
+        if (rms > 0.005) { // Threshold for silence
+          const chunk = new Int16Array(chunkSamples);
+          const base64 = encodeInt16ToBase64(chunk);
+          chunkQueueRef.current.push({
+            audioData: base64,
+            sampleRate: 16000,
+            format: 'pcm16',
+            capturedAt: Date.now(),
+          });
+        } else {
+          // Queue silence markers too so chunk indexes remain aligned on backend
+          chunkQueueRef.current.push({
+            audioData: null,
+            sampleRate: 16000,
+            format: 'pcm16',
+            capturedAt: Date.now(),
+          });
+        }
+
+        setQueuedChunkCount(chunkQueueRef.current.length);
       }
     };
 
     sourceNode.connect(processorNode);
     processorNode.connect(audioContext.destination);
-  }, [sendAudioChunk]);
+  }, []);
 
-  // Helper to safely get the emotion string
-  const getEmotionString = (emotion: any) => {
-    if (!emotion) return '';
-    if (typeof emotion === 'string') return emotion.toLowerCase();
-    if (typeof emotion === 'object' && emotion.final_emotion) return String(emotion.final_emotion).toLowerCase();
-    return '';
-  };
+  // Smoothly flush queued chunks to reduce burstiness when browser/network lags.
+  useEffect(() => {
+    if (!isRecording || !aiConnected) return;
 
-  // Use analysis data if available
-  // For now, emotion data is mock until we aggregate from transcription segments
-  const emotionData = analysis?.mood_distribution || {
-    calm: transcript.filter(t => getEmotionString(t.emotion).includes('calm') || getEmotionString(t.emotion).includes('neutral') || getEmotionString(t.emotion).includes('joy')).length * 10,
-    anxious: transcript.filter(t => getEmotionString(t.emotion).includes('anxious') || getEmotionString(t.emotion).includes('fear')).length * 10,
-    angry: transcript.filter(t => getEmotionString(t.emotion).includes('angry') || getEmotionString(t.emotion).includes('anger')).length * 10,
-  };
+    const interval = window.setInterval(() => {
+      const queue = chunkQueueRef.current;
+      if (!queue.length) return;
+
+      // Adaptive burst: recover backlog faster if queue grows.
+      const burst = queue.length > 8 ? 3 : queue.length > 4 ? 2 : 1;
+
+      for (let i = 0; i < burst; i += 1) {
+        const packet = queue.shift();
+        if (!packet) break;
+
+        const delay = Date.now() - packet.capturedAt;
+        setUploadDelayMs((prev) => Math.round(prev * 0.75 + delay * 0.25));
+        sendAudioChunk(packet.audioData, packet.sampleRate, packet.format);
+      }
+
+      setQueuedChunkCount(queue.length);
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [isRecording, aiConnected, sendAudioChunk]);
+
+  // Build emotion percentages strictly from backend emotion keys.
+  // Prefer live WS segment emotions; fallback to analysis mood_distribution.
+  const emotionDistribution = (() => {
+    const liveCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = 0;
+      return acc;
+    }, {});
+
+    aiTranscriptionSegments.forEach((seg) => {
+      const key = getEmotionKey(seg.emotion);
+      if (key in liveCounts) {
+        liveCounts[key] += 1;
+      }
+    });
+
+    const liveTotal = Object.values(liveCounts).reduce((sum, n) => sum + n, 0);
+    if (liveTotal > 0) {
+      return EMOTION_ORDER.map((key) => ({
+        key,
+        percentage: Math.min(100, Math.max(0, Math.round((liveCounts[key] / liveTotal) * 100))),
+      }));
+    }
+
+    const fallback = analysis?.mood_distribution || {};
+    const fallbackCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = Number(fallback[key] || 0);
+      return acc;
+    }, {});
+
+    const fallbackTotal = Object.values(fallbackCounts).reduce((sum, n) => sum + n, 0);
+    if (fallbackTotal <= 0) {
+      return EMOTION_ORDER.map((key) => ({ key, percentage: 0 }));
+    }
+
+    return EMOTION_ORDER.map((key) => ({
+      key,
+      percentage: Math.min(100, Math.max(0, Math.round((fallbackCounts[key] / fallbackTotal) * 100))),
+    }));
+  })();
 
   // Check if session is already completed and redirect to detail page
   useEffect(() => {
@@ -233,8 +361,8 @@ const ActiveSession: React.FC = () => {
       if (currentSession.status === 'IN_PROGRESS') {
         console.log('ℹ️ Session already in progress, reconnecting...');
         setSessionStarted(true);
-        const storedToken = localStorage.getItem('ai_service_token');
-        if (storedToken) setAiServiceToken(storedToken);
+        const storedWsToken = localStorage.getItem('ai_websocket_token');
+        if (storedWsToken) setAiWebsocketToken(storedWsToken);
         return;
       }
 
@@ -245,8 +373,8 @@ const ActiveSession: React.FC = () => {
         if (latest.status === 'IN_PROGRESS') {
           console.warn('ℹ️ Session already IN_PROGRESS server-side, skipping /start/');
           setSessionStarted(true);
-          const storedToken = localStorage.getItem('ai_service_token');
-          if (storedToken) setAiServiceToken(storedToken);
+          const storedWsToken = localStorage.getItem('ai_websocket_token');
+          if (storedWsToken) setAiWebsocketToken(storedWsToken);
           return;
         }
 
@@ -260,7 +388,11 @@ const ActiveSession: React.FC = () => {
         console.log('🎯 startSession result:', JSON.stringify(result, null, 2));
         if (result) {
           setSessionStarted(true);
-          if (result.ai_service_token) setAiServiceToken(result.ai_service_token);
+          const wsToken = result.ai_websocket_token || result.websocket_token || null;
+          if (wsToken) {
+            setAiWebsocketToken(wsToken);
+            localStorage.setItem('ai_websocket_token', wsToken);
+          }
           // Re-fetch so session.websocket_room_id is up to date
           await fetchSession();
         } else {
@@ -286,11 +418,11 @@ const ActiveSession: React.FC = () => {
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
-    if (sessionStarted && aiServiceToken && id && !aiConnected) {
+    if (sessionStarted && aiWebsocketToken && id && !aiConnected) {
       console.log('🔌 AI Service token available, connecting WebSocket...');
       setTimeout(() => connectAIService(), 500);
     }
-  }, [sessionStarted, aiServiceToken, id, aiConnected, connectAIService]);
+  }, [sessionStarted, aiWebsocketToken, id, aiConnected, connectAIService]);
 
   // Cleanup WebSockets on unmount
   useEffect(() => {
@@ -342,6 +474,8 @@ const ActiveSession: React.FC = () => {
       sendControl('pause_session');
     }
     await stopAudioCapture();
+    chunkQueueRef.current = [];
+    setQueuedChunkCount(0);
     console.log('🎤 Recording stopped');
   }, [wsConnected, sendControl, stopAudioCapture]);
 
@@ -458,7 +592,7 @@ const ActiveSession: React.FC = () => {
             )}
 
             {/* AI Service WebSocket Status - show when we have the token */}
-            {aiServiceToken && (
+            {aiWebsocketToken && (
               <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${aiConnected
                 ? 'bg-blue-50 border-blue-200 text-blue-800'
                 : 'bg-yellow-50 border-yellow-200 text-yellow-800'
@@ -469,9 +603,14 @@ const ActiveSession: React.FC = () => {
                     {aiConnected ? '🤖 AI Transcription Service Connected' : '🟡 Connecting to AI transcription service...'}
                   </p>
                 </div>
-                <span className="text-sm font-medium">
-                  {aiTranscriptionSegments.length} segments
-                </span>
+                <div className="text-right text-sm font-medium">
+                  <p>{aiTranscriptionSegments.length} segments</p>
+                  {aiConnected && isRecording && (
+                    <p className={`${uploadDelayMs > 3000 ? 'text-amber-700' : 'text-blue-700'} text-xs`}>
+                      Delay: {uploadDelayMs}ms • Queue: {queuedChunkCount}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -525,7 +664,7 @@ const ActiveSession: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleStopRecording}
-                      className="flex items-center bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      className="flex items-center bg-[#431657] hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
                     >
                       <Square size={20} className="mr-2" />
                       Stop Recording
@@ -544,88 +683,59 @@ const ActiveSession: React.FC = () => {
               <p className="text-gray-600 text-sm mb-6">Analyzing emotional trends during session</p>
 
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😌</span>
-                  <span className="font-medium text-gray-900 w-16">Calm</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-green-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.calm}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.calm}%</span>
-                </div>
+                {emotionDistribution.map(({ key, percentage }) => {
+                  const config = EMOTION_UI_CONFIG[key];
+                  if (!config) return null;
 
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😰</span>
-                  <span className="font-medium text-gray-900 w-16">Anxious</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-orange-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.anxious}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.anxious}%</span>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl">😠</span>
-                  <span className="font-medium text-gray-900 w-16">Angry</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-red-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${emotionData.angry}%` }}
-                    />
-                  </div>
-                  <span className="text-purple-600 font-bold w-12">{emotionData.angry}%</span>
-                </div>
+                  return (
+                    <div key={key} className="flex items-center space-x-4">
+                      <span className="text-2xl">{config.emoji}</span>
+                      <span className="font-medium text-gray-900 w-20">{config.label}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`${config.colorClass} h-3 rounded-full transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-purple-600 font-bold w-12">{percentage}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Live Transcript */}
+            {/* Recording Status */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex items-center mb-4">
                 <FileText className="text-purple-600 mr-2" size={24} />
-                <h2 className="text-xl font-semibold text-gray-900">Live Transcript</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Session Recording</h2>
               </div>
-              <p className="text-gray-600 text-sm mb-6">Real-time conversation transcription</p>
 
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {transcript.length === 0 && (
-                  <div className="text-center py-8 text-gray-400">
-                    <FileText size={48} className="mx-auto mb-2 opacity-50" />
-                    <p>Waiting for transcription...</p>
-                    <p className="text-sm mt-1">Start recording to see live transcript</p>
-                    {!aiConnected && aiServiceToken && (
-                      <p className="text-xs mt-2 text-yellow-600">Connecting to AI service...</p>
+              <div className="text-center py-8">
+                {isRecording ? (
+                  <div className="space-y-4">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                      <div className="w-8 h-8 bg-red-500 rounded-full animate-pulse" />
+                    </div>
+                    <p className="text-gray-700 font-medium">Recording in progress...</p>
+                    <p className="text-gray-500 text-sm">Audio is being captured and sent to the AI service.</p>
+                    <p className="text-gray-400 text-xs">Transcript will be generated when the session ends.</p>
+                    {aiConnected && (
+                      <p className="text-blue-600 text-xs">
+                        🤖 AI Service connected — {queuedChunkCount > 0 ? `${queuedChunkCount} chunks queued` : 'streaming'}
+                      </p>
                     )}
                   </div>
-                )}
-                {transcript.map((item, index) => (
-                  <div key={index} className="flex flex-col">
-                    <div
-                      className={`p-4 rounded-lg max-w-[85%] ${item.speaker === 'Therapist'
-                        ? 'bg-purple-600 text-white self-end ml-8'
-                        : 'bg-gray-100 text-gray-900 self-start mr-8'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-semibold uppercase tracking-wide ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-600'
-                          }`}>
-                          {item.speaker}
-                        </span>
-                        <span className={`text-xs ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'
-                          }`}>
-                          {item.time}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed">{item.text}</p>
-                    </div>
+                ) : (
+                  <div className="space-y-3 text-gray-400">
+                    <FileText size={48} className="mx-auto opacity-30" />
+                    <p>Press Start Recording to begin the session.</p>
+                    <p className="text-sm">The full transcript will be available after the session ends.</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

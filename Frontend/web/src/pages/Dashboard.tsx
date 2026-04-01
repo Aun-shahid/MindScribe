@@ -160,9 +160,9 @@ const Dashboard = () => {
         )}
 
         {/* Header */}
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Good Evening, {user?.username}</h1>
-          <p className="text-gray-600">Here's what's happening with your practice today</p>
+        <div className="flex flex-col space-y-3">
+          <h1 className="text-3xl font-serif font-semibold text-[#431657] ">Good Evening, {user?.username}</h1>
+          <p className="text-gray-600 font-serif">Here's what's happening with your practice today</p>
         </div>
 
         {/* Stats Cards - Colorful Grid */}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import patientService from '../services/patient.service';
 import { emitAppEvent } from '../utils/events';
 import type {
@@ -208,23 +209,27 @@ export const useCreatePatient = () => {
 
       // Sanitize and map data to backend requirements
       // Backend expects profile fields at top-level (not nested in patient_profile).
+      const normalizedEmail = (patientData.email || '').trim().toLowerCase();
+      const normalizedPhone = (patientData.phone_number || '').replace(/\s+/g, '').trim();
+      const normalizedEmergencyPhone = (patientData.emergency_contact_phone || '').replace(/\s+/g, '').trim();
+
       const sanitizedData: CreatePatientData = {
-        first_name: patientData.first_name,
-        last_name: patientData.last_name,
-        email: patientData.email || '',
-        phone_number: patientData.phone_number || '',
-        date_of_birth: patientData.date_of_birth || '',
+        first_name: (patientData.first_name || '').trim(),
+        last_name: (patientData.last_name || '').trim(),
+        email: normalizedEmail,
+        phone_number: normalizedPhone,
         gender: patientData.gender || '',
-        primary_concern: patientData.primary_concern || '',
-        therapy_start_date: patientData.therapy_start_date || '',
+        primary_concern: (patientData.primary_concern || '').trim(),
         session_frequency: patientData.session_frequency || 'weekly',
         preferred_session_days: patientData.preferred_session_days?.map(mapDayToBackendFormat) || [],
-        emergency_contact_name: patientData.emergency_contact_name || '',
-        emergency_contact_phone: patientData.emergency_contact_phone || '',
-        address: patientData.address || '',
-        medical_history: patientData.medical_history || '',
-        current_medications: patientData.current_medications || '',
+        emergency_contact_name: (patientData.emergency_contact_name || '').trim(),
+        emergency_contact_phone: normalizedEmergencyPhone,
+        address: (patientData.address || '').trim(),
+        medical_history: (patientData.medical_history || '').trim(),
+        current_medications: (patientData.current_medications || '').trim(),
         preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
+        ...(patientData.date_of_birth ? { date_of_birth: patientData.date_of_birth } : {}),
+        ...(patientData.therapy_start_date ? { therapy_start_date: patientData.therapy_start_date } : {}),
       };
 
       // Use the correct endpoint for patient creation
@@ -236,9 +241,36 @@ export const useCreatePatient = () => {
       // Return the created patient data with ID
       return response;
     } catch (err) {
-      const error = err as TherapistError;
-      setError(error);
-      throw error;
+      let normalizedError: TherapistError = {
+        message: 'Failed to create patient. Please check your input and try again.',
+      };
+
+      if (axios.isAxiosError(err)) {
+        const responseData = err.response?.data;
+        const rawErrors = responseData?.errors;
+        const details: Record<string, string[]> = {};
+
+        if (rawErrors && typeof rawErrors === 'object') {
+          Object.entries(rawErrors).forEach(([field, value]) => {
+            if (Array.isArray(value)) {
+              details[field] = value.map((item) => String(item));
+            } else if (value != null) {
+              details[field] = [String(value)];
+            }
+          });
+        }
+
+        normalizedError = {
+          message: responseData?.detail || err.message || normalizedError.message,
+          code: err.code,
+          details: Object.keys(details).length > 0 ? details : undefined,
+        };
+      } else if (err instanceof Error) {
+        normalizedError = { message: err.message };
+      }
+
+      setError(normalizedError);
+      throw normalizedError;
     } finally {
       setLoading(false);
     }

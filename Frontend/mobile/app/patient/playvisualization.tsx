@@ -53,65 +53,62 @@ export default function PlayVisualizationScreen() {
   const bubble5X = useRef(new Animated.Value(0)).current;
 
   // Responsive sizing
-  const backBtnTop = insets.top + clamp(height * 0.012, 8, 14);
-  const backBtnLeft = clamp(width * 0.04, 14, 22);
-  const backBtnSize = clamp(width * 0.098, 34, 42);
-  const backBtnRadius = backBtnSize / 2;
-  const backIconSize = clamp(width * 0.047, 16, 20);
-  const contentPaddingTop = insets.top + clamp(height * 0.078, 48, 72);
-  const contentHPad = clamp(width * 0.058, 18, 28);
-  const contentMaxWidth = clamp(width * 0.92, 320, 460);
-  const heroImageHeight = clamp(width * 0.62, 210, 290);
-  const playerCardRadius = clamp(width * 0.05, 16, 22);
-  const playerCardPadding = clamp(width * 0.05, 16, 22);
+  const backBtnTop              = insets.top + clamp(height * 0.012, 8, 14);
+  const backBtnLeft             = clamp(width * 0.04, 14, 22);
+  const backBtnSize             = clamp(width * 0.098, 34, 42);
+  const backBtnRadius           = backBtnSize / 2;
+  const backIconSize            = clamp(width * 0.047, 16, 20);
+  const contentPaddingTop       = insets.top + clamp(height * 0.078, 48, 72);
+  const contentHPad             = clamp(width * 0.058, 18, 28);
+  const contentMaxWidth         = clamp(width * 0.92, 320, 460);
+  const heroImageHeight         = clamp(width * 0.62, 210, 290);
+  const playerCardRadius        = clamp(width * 0.05, 16, 22);
+  const playerCardPadding       = clamp(width * 0.05, 16, 22);
   const playerCardShadowOffsetY = clamp(height * 0.014, 6, 10);
-  const playerCardShadowRadius = clamp(width * 0.05, 12, 18);
-  const titleSize = clamp(width * 0.065, 22, 30);
-  const titleMarginBottom = clamp(height * 0.012, 8, 14);
-  const badgePaddingH = clamp(width * 0.038, 12, 18);
-  const badgePaddingV = clamp(height * 0.006, 4, 7);
-  const badgeMarginBottom = clamp(height * 0.034, 22, 38);
-  const categoryTextSize = clamp(width * 0.034, 12, 14);
-  const progressMarginBottom = clamp(height * 0.026, 16, 28);
-  const progressGap = clamp(width * 0.03, 8, 12);
-  const progressBarHeight = clamp(height * 0.008, 5, 7);
-  const progressBarRadius = progressBarHeight / 2;
-  const timeTextSize = clamp(width * 0.034, 12, 14);
-  const timeTextMinWidth = clamp(width * 0.11, 38, 48);
-  const controlGap = clamp(width * 0.07, 22, 36);
-  const controlIconSize = clamp(width * 0.11, 34, 44);
-  const playBtnSize = clamp(width * 0.21, 72, 96);
-  const playBtnRadius = playBtnSize / 2;
-  const playIconSize = clamp(width * 0.13, 44, 60);
-  const controlsMarginBottom = clamp(height * 0.035, 22, 38);
-  const controlTouchSize = clamp(width * 0.15, 48, 62);
-  const donePaddingV = clamp(height * 0.018, 12, 18);
-  const doneFontSize = clamp(width * 0.043, 15, 19);
-  const doneRadius = clamp(width * 0.065, 22, 30);
-  const doneMarginTop = clamp(height * 0.01, 6, 10);
-  const bubbleLarge = clamp(width * 0.52, 150, 220);
-  const bubbleMedium = clamp(width * 0.42, 120, 180);
-  const bubbleSmall = clamp(width * 0.34, 100, 150);
-  const fallbackPad = clamp(width * 0.05, 16, 24);
+  const playerCardShadowRadius  = clamp(width * 0.05, 12, 18);
+  const titleSize               = clamp(width * 0.065, 22, 30);
+  const titleMarginBottom       = clamp(height * 0.012, 8, 14);
+  const badgePaddingH           = clamp(width * 0.038, 12, 18);
+  const badgePaddingV           = clamp(height * 0.006, 4, 7);
+  const badgeMarginBottom       = clamp(height * 0.034, 22, 38);
+  const categoryTextSize        = clamp(width * 0.034, 12, 14);
+  const progressMarginBottom    = clamp(height * 0.026, 16, 28);
+  const progressGap             = clamp(width * 0.03, 8, 12);
+  const progressBarHeight       = clamp(height * 0.008, 5, 7);
+  const progressBarRadius       = progressBarHeight / 2;
+  const timeTextSize            = clamp(width * 0.034, 12, 14);
+  const timeTextMinWidth        = clamp(width * 0.11, 38, 48);
+  const controlGap              = clamp(width * 0.07, 22, 36);
+  const controlIconSize         = clamp(width * 0.11, 34, 44);
+  const playBtnSize             = clamp(width * 0.21, 72, 96);
+  const playBtnRadius           = playBtnSize / 2;
+  const playIconSize            = clamp(width * 0.13, 44, 60);
+  const controlsMarginBottom    = clamp(height * 0.035, 22, 38);
+  const controlTouchSize        = clamp(width * 0.15, 48, 62);
+  const donePaddingV            = clamp(height * 0.018, 12, 18);
+  const doneFontSize            = clamp(width * 0.043, 15, 19);
+  const doneRadius              = clamp(width * 0.065, 22, 30);
+  const doneMarginTop           = clamp(height * 0.01, 6, 10);
+  const bubbleLarge             = clamp(width * 0.52, 150, 220);
+  const bubbleMedium            = clamp(width * 0.42, 120, 180);
+  const bubbleSmall             = clamp(width * 0.34, 100, 150);
+  const fallbackPad             = clamp(width * 0.05, 16, 24);
 
-  // ── KEY FIX: full reset in cleanupAudio ───────────────────────────────────
   const cleanupAudio = useCallback(async () => {
     const currentSound = soundRef.current;
     if (!currentSound) return;
     try {
       const status = await currentSound.getStatusAsync();
-      if (status.isLoaded) {
-        await currentSound.unloadAsync();
-      }
+      if (status.isLoaded) await currentSound.unloadAsync();
     } catch (e) {
       console.warn('[PlayVisualization] Error cleaning up audio:', e);
     } finally {
       soundRef.current = null;
       setIsPlaying(false);
-      setPosition(0);              // reset to start
-      setDuration(0);              // reset duration
-      listenedMsRef.current = 0;   // reset listened time
-      lastPositionRef.current = 0; // reset last position
+      setPosition(0);
+      setDuration(0);
+      listenedMsRef.current = 0;
+      lastPositionRef.current = 0;
     }
   }, []);
 
@@ -192,12 +189,9 @@ export default function PlayVisualizationScreen() {
   }, [id, bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y,
       bubble4X, bubble4Y, bubble5X, bubble5Y, cleanupAudio, loadContent]);
 
-  // ── Stop audio + reset when navigating away ───────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      return () => {
-        cleanupAudio();
-      };
+      return () => { cleanupAudio(); };
     }, [cleanupAudio])
   );
 
@@ -215,21 +209,16 @@ export default function PlayVisualizationScreen() {
 
   const onPlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
-
     setPosition(status.positionMillis);
     setDuration(status.durationMillis || 0);
     setIsPlaying(status.isPlaying);
-
     if (status.isPlaying) {
       const lastPos = lastPositionRef.current || 0;
       const delta = Math.max(0, (status.positionMillis || 0) - lastPos);
       listenedMsRef.current += delta;
       lastPositionRef.current = status.positionMillis || 0;
     }
-
-    if (status.didJustFinish) {
-      setIsPlaying(false);
-    }
+    if (status.didJustFinish) setIsPlaying(false);
   };
 
   const handlePlay = async () => {
@@ -341,21 +330,13 @@ export default function PlayVisualizationScreen() {
   };
 
   if (loading) return (
-    <TabLoaderCard
-      fullScreen
-      title="Loading visualization..."
-      subtitle="Preparing your calm journey"
-      spinnerColor="#A78BFA"
-    />
+    <TabLoaderCard fullScreen title="Loading visualization..." subtitle="Preparing your calm journey" spinnerColor="#A78BFA" />
   );
 
   if (error || !content) return (
     <View style={[styles.center, { backgroundColor: '#342949', padding: fallbackPad }]}>
       <Text style={{ color: '#FFFFFF' }}>{error || 'Content not found'}</Text>
-      <TouchableOpacity
-        style={[styles.doneBtn, { backgroundColor: '#B8A8E6' }]}
-        onPress={() => router.push('./take-a-break')}
-      >
+      <TouchableOpacity style={[styles.doneBtn, { backgroundColor: '#B8A8E6' }]} onPress={() => router.push('./take-a-break')}>
         <Text style={{ color: '#FFFFFF' }}>Go back</Text>
       </TouchableOpacity>
     </View>
@@ -380,7 +361,7 @@ export default function PlayVisualizationScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#342949', '#342949', '#342949']} style={styles.screenGradient} />
 
-      {/* Bubbles */}
+      {/* Bubbles — zIndex: 0 prevents bounding-box bleed-through on Android APK */}
       <Animated.View style={[styles.bubble, { width: bubbleLarge, height: bubbleLarge, top: '8%', right: '-12%', backgroundColor: 'rgba(133,130,180,0.25)', transform: [{ translateY: bubble1Y }, { translateX: bubble1X }] }]} />
       <Animated.View style={[styles.bubble, { width: bubbleLarge + 20, height: bubbleLarge + 20, top: '-6%', left: '-14%', backgroundColor: 'rgba(133,130,180,0.20)', transform: [{ translateY: bubble2Y }, { translateX: bubble2X }] }]} />
       <Animated.View style={[styles.bubble, { width: bubbleSmall, height: bubbleSmall, bottom: '22%', left: '-8%', backgroundColor: 'rgba(133,130,180,0.22)', transform: [{ translateY: bubble3Y }, { translateX: bubble3X }] }]} />
@@ -390,10 +371,7 @@ export default function PlayVisualizationScreen() {
       {/* Back Button */}
       <TouchableOpacity
         onPress={() => router.push('./take-a-break')}
-        style={[styles.backButton, {
-          top: backBtnTop, left: backBtnLeft,
-          width: backBtnSize, height: backBtnSize, borderRadius: backBtnRadius,
-        }]}
+        style={[styles.backButton, { top: backBtnTop, left: backBtnLeft, width: backBtnSize, height: backBtnSize, borderRadius: backBtnRadius }]}
       >
         <FontAwesome name="chevron-left" size={backIconSize} color="#FFFFFF" />
       </TouchableOpacity>
@@ -405,89 +383,40 @@ export default function PlayVisualizationScreen() {
           shadowOffset: { width: 0, height: playerCardShadowOffsetY },
           shadowRadius: playerCardShadowRadius,
         }]}>
-          {/* Hero */}
           <View style={[styles.playerHero, { height: heroImageHeight }]}>
-            <Image
-              source={require('../../assets/images/vis-journey.png')}
-              style={styles.visualizationImage}
-            />
-            <LinearGradient
-              colors={['transparent', 'rgba(24,15,39,0.12)', 'rgba(24,15,39,0.55)']}
-              style={styles.playerHeroOverlay}
-              pointerEvents="none"
-            />
+            <Image source={require('../../assets/images/vis-journey.png')} style={styles.visualizationImage} />
+            <LinearGradient colors={['transparent', 'rgba(24,15,39,0.12)', 'rgba(24,15,39,0.55)']} style={styles.playerHeroOverlay} pointerEvents="none" />
           </View>
 
           <View style={[styles.playerCardBody, { padding: playerCardPadding }]}>
-            <Text style={[styles.title, { fontSize: titleSize, marginBottom: titleMarginBottom }]}>
-              {content.title}
-            </Text>
-            <View style={[styles.categoryBadge, {
-              backgroundColor: categoryColor,
-              paddingHorizontal: badgePaddingH,
-              paddingVertical: badgePaddingV,
-              marginBottom: badgeMarginBottom,
-            }]}>
-              <Text style={[styles.categoryText, { fontSize: categoryTextSize }]}>
-                {content.category_display || content.category}
-              </Text>
+            <Text style={[styles.title, { fontSize: titleSize, marginBottom: titleMarginBottom }]}>{content.title}</Text>
+            <View style={[styles.categoryBadge, { backgroundColor: categoryColor, paddingHorizontal: badgePaddingH, paddingVertical: badgePaddingV, marginBottom: badgeMarginBottom }]}>
+              <Text style={[styles.categoryText, { fontSize: categoryTextSize }]}>{content.category_display || content.category}</Text>
             </View>
 
-            {/* Progress */}
             <View style={[styles.progressSection, { marginBottom: progressMarginBottom, gap: progressGap }]}>
-              <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>
-                {formatTime(position)}
-              </Text>
+              <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>{formatTime(position)}</Text>
               <View style={[styles.progressBar, { height: progressBarHeight, borderRadius: progressBarRadius }]}>
-                <View style={[styles.progressFill, {
-                  width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
-                  borderRadius: progressBarRadius,
-                }]} />
+                <View style={[styles.progressFill, { width: `${duration > 0 ? (position / duration) * 100 : 0}%`, borderRadius: progressBarRadius }]} />
               </View>
               <Text style={[styles.timeText, { fontSize: timeTextSize, minWidth: timeTextMinWidth }]}>
                 {displayedTotalDurationMillis > 0 ? formatTime(displayedTotalDurationMillis) : '--:--'}
               </Text>
             </View>
 
-            {/* Controls */}
             <View style={[styles.controls, { gap: controlGap, marginBottom: controlsMarginBottom }]}>
-              <TouchableOpacity
-                onPress={handleSkipBackward}
-                style={[styles.controlBtn, {
-                  width: controlTouchSize, height: controlTouchSize,
-                  borderRadius: controlTouchSize / 2,
-                }]}
-              >
+              <TouchableOpacity onPress={handleSkipBackward} style={[styles.controlBtn, { width: controlTouchSize, height: controlTouchSize, borderRadius: controlTouchSize / 2 }]}>
                 <MaterialIcons name="replay-10" size={controlIconSize} color="#E91E63" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handlePlay}
-                style={[styles.playButton, {
-                  width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius,
-                }]}
-              >
+              <TouchableOpacity onPress={handlePlay} style={[styles.playButton, { width: playBtnSize, height: playBtnSize, borderRadius: playBtnRadius }]}>
                 <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={playIconSize} color="#FFFFFF" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSkipForward}
-                style={[styles.controlBtn, {
-                  width: controlTouchSize, height: controlTouchSize,
-                  borderRadius: controlTouchSize / 2,
-                }]}
-              >
+              <TouchableOpacity onPress={handleSkipForward} style={[styles.controlBtn, { width: controlTouchSize, height: controlTouchSize, borderRadius: controlTouchSize / 2 }]}>
                 <MaterialIcons name="forward-10" size={controlIconSize} color="#E91E63" />
               </TouchableOpacity>
             </View>
 
-            {/* Done */}
-            <TouchableOpacity
-              style={[styles.doneBtn, {
-                paddingVertical: donePaddingV, borderRadius: doneRadius, marginTop: doneMarginTop,
-              }]}
-              onPress={handleDone}
-            >
+            <TouchableOpacity style={[styles.doneBtn, { paddingVertical: donePaddingV, borderRadius: doneRadius, marginTop: doneMarginTop }]} onPress={handleDone}>
               <Text style={[styles.doneBtnText, { fontSize: doneFontSize }]}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -498,9 +427,10 @@ export default function PlayVisualizationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#342949' },
+  container:      { flex: 1, backgroundColor: '#342949' },
   screenGradient: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 0 },
-  bubble: { position: 'absolute', borderRadius: 1000, zIndex: 1 },
+  // ── FIX 1: zIndex 0 — bubbles behind everything, bounding box never bleeds through cards ──
+  bubble: { position: 'absolute', borderRadius: 1000, zIndex: 0 },
   backButton: {
     position: 'absolute',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -509,29 +439,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 5,
   },
   content: { flex: 1, alignItems: 'center', zIndex: 2 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  // ── FIX 2: solid hex bg — low-alpha rgba causes purple rectangular boxes on Android APK ──
   playerCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#2E2448',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.28, elevation: 9,
   },
-  playerHero: { width: '100%', overflow: 'hidden' },
+  playerHero:         { width: '100%', overflow: 'hidden' },
   visualizationImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  playerHeroOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  playerCardBody: { width: '100%', alignItems: 'center' },
-  title: { fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
-  categoryBadge: { borderRadius: 16 },
-  categoryText: { color: '#FFFFFF', fontWeight: '600' },
-  progressSection: { width: '100%', flexDirection: 'row', alignItems: 'center' },
-  progressBar: { flex: 1, backgroundColor: '#473F5A', overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#E91E63' },
-  timeText: { color: '#FFFFFF' },
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  controlBtn: {
-    justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
+  playerHeroOverlay:  { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  playerCardBody:     { width: '100%', alignItems: 'center' },
+  title:              { fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
+  categoryBadge:      { borderRadius: 16 },
+  categoryText:       { color: '#FFFFFF', fontWeight: '600' },
+  progressSection:    { width: '100%', flexDirection: 'row', alignItems: 'center' },
+  progressBar:        { flex: 1, backgroundColor: '#473F5A', overflow: 'hidden' },
+  progressFill:       { height: '100%', backgroundColor: '#E91E63' },
+  timeText:           { color: '#FFFFFF' },
+  controls:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  controlBtn:         { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
   playButton: {
     backgroundColor: '#E91E63', justifyContent: 'center', alignItems: 'center',
     shadowColor: '#E91E63', shadowOpacity: 0.35,

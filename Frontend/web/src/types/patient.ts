@@ -220,7 +220,7 @@ export interface CreatePatientData {
   date_of_birth?: string;
   gender: string;
   primary_concern?: string;
-  therapy_start_date: string;
+  therapy_start_date?: string;
   session_frequency: string;
   preferred_session_days: string[];
   emergency_contact_name?: string;

@@ -437,8 +437,9 @@ const Sessions = () => {
                     <span className={`px-4 py-1.5 text-xs font-bold rounded-full shadow-sm ${getStatusColor(session.status)}`}>
                       {session.status}
                     </span>
+                    
                     <Link
-                      to={`/sessions/${session.id}`}
+                      to={`/sessions/${session.id}?tab=overview`}
                       className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                     >
                       <span>View Details</span>
