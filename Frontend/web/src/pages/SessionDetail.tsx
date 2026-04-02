@@ -82,6 +82,7 @@ const SessionDetailPage: React.FC = () => {
   const [soapGenerating, setSoapGenerating] = useState(false);
   const [soapError, setSoapError] = useState<string | null>(null);
   const [soapFetchAttempted, setSoapFetchAttempted] = useState(false);
+  const [insightsFetchAttempted, setInsightsFetchAttempted] = useState(false);
 
   const { session, loading, error, updateSessionNotes, fetchSession } = useSessionDetail(id!);
 
@@ -176,6 +177,7 @@ const SessionDetailPage: React.FC = () => {
 
   const handleGenerateInsights = async () => {
     if (!id) return;
+    setInsightsFetchAttempted(true);
     await generateInsights(true);
   };
 
@@ -186,15 +188,32 @@ const SessionDetailPage: React.FC = () => {
   }, [activeTab, isCompletedSession, soapNote, soapLoading, soapFetchAttempted]);
 
   React.useEffect(() => {
-    if (activeTab === 'ai-insights' && isCompletedSession && !sessionInsight && !insightsLoading) {
+    if (
+      activeTab === 'ai-insights' &&
+      isCompletedSession &&
+      !sessionInsight &&
+      !insightsLoading &&
+      !insightsFetchAttempted &&
+      !insightsError
+    ) {
+      setInsightsFetchAttempted(true);
       fetchInsights();
     }
-  }, [activeTab, isCompletedSession, sessionInsight, insightsLoading, fetchInsights]);
+  }, [
+    activeTab,
+    isCompletedSession,
+    sessionInsight,
+    insightsLoading,
+    insightsFetchAttempted,
+    insightsError,
+    fetchInsights,
+  ]);
 
   React.useEffect(() => {
     setSoapFetchAttempted(false);
     setSoapError(null);
     setSoapNote(null);
+    setInsightsFetchAttempted(false);
     clearInsightsError();
   }, [id]);
 
