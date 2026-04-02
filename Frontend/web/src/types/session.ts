@@ -490,7 +490,7 @@ export interface SessionInsight {
   overall_mood: string | null;
   mood_score: number | null;
   key_themes: string[];
-  emotional_patterns: Record<string, unknown>;
+  emotional_patterns: string[] | string | Record<string, unknown>;
   recommendations: string | null;
   generated_at: string;
 }

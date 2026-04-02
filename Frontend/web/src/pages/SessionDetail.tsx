@@ -47,6 +47,48 @@ const markdownComponents = {
   strong: (props: any) => <strong className="font-semibold text-gray-900" {...props} />,
 };
 
+const normalizeEmotionalPatterns = (
+  emotionalPatterns: string[] | string | Record<string, unknown> | null | undefined
+): string[] => {
+  if (!emotionalPatterns) {
+    return [];
+  }
+
+  if (Array.isArray(emotionalPatterns)) {
+    return emotionalPatterns.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof emotionalPatterns === 'string') {
+    return emotionalPatterns
+      .replace(/;/g, ',')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const obj = emotionalPatterns as Record<string, unknown>;
+  const listFromKey = obj.high_level_patterns;
+  if (Array.isArray(listFromKey)) {
+    return listFromKey.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  const summary = obj.patterns_summary;
+  if (typeof summary === 'string' && summary.trim()) {
+    return summary
+      .replace(/;/g, ',')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const fallback: string[] = [];
+  if (typeof obj.dominant_emotion === 'string' && obj.dominant_emotion.trim()) {
+    fallback.push(`${obj.dominant_emotion.trim()}-dominant response pattern`);
+  }
+
+  return fallback;
+};
+
 const SessionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -421,6 +463,11 @@ const SessionDetailPage: React.FC = () => {
     const dominantEmotion = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
     return { averageValence, averageArousal, dominantEmotion };
   }, [emotionEvents, emotionTimeline]);
+
+  const emotionalPatternsList = React.useMemo(
+    () => normalizeEmotionalPatterns(sessionInsight?.emotional_patterns),
+    [sessionInsight?.emotional_patterns]
+  );
 
   // ── Emotion source summary ─────────────────────────────────────────────────
   const emotionSourceSummary = React.useMemo(() => {
@@ -1241,9 +1288,13 @@ const SessionDetailPage: React.FC = () => {
 
                   <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Emotional Patterns</p>
-                    <pre className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 overflow-x-auto">
-                      {JSON.stringify(sessionInsight.emotional_patterns || {}, null, 2)}
-                    </pre>
+                    {emotionalPatternsList.length ? (
+                      <p className="text-sm text-gray-800 leading-relaxed">
+                        {emotionalPatternsList.join(', ')}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">No emotional patterns available.</p>
+                    )}
                   </div>
                 </div>
               ) : (

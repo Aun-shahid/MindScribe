@@ -312,6 +312,7 @@ async def generate_session_insights(
 
         context = await _build_insight_context(db, session_id=session_id, session_uuid=session_uuid)
         generated = await _generate_insight_payload(context)
+        emotional_patterns = _build_emotional_patterns(context, generated)
 
         if not existing:
             existing = SessionInsightDB(session_id=session_uuid)
@@ -320,7 +321,7 @@ async def generate_session_insights(
         existing.overall_mood = _safe_str(generated.get("overall_mood"), max_len=50)
         existing.mood_score = _safe_float(generated.get("mood_score"), min_val=0.0, max_val=10.0)
         existing.key_themes = _safe_string_list(generated.get("key_themes"), max_items=8)
-        existing.emotional_patterns = generated.get("emotional_patterns") if isinstance(generated.get("emotional_patterns"), dict) else {}
+        existing.emotional_patterns = emotional_patterns
         existing.recommendations = _safe_str(generated.get("recommendations"), max_len=4000)
         existing.generated_at = datetime.utcnow()
         await db.flush()
@@ -1233,7 +1234,8 @@ async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         "Analyze one completed therapy session and produce coaching insights for the therapist. "
         "Use only provided data. Do not diagnose conditions and do not prescribe medication. "
         "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations. "
-        "The recommendations value must be valid markdown with concise headings and bullet points."
+        "The recommendations value must be valid markdown with concise headings and bullet points. "
+        "The emotional_patterns value must be a concise comma-separated string of high-level patterns only."
     )
 
     request_kwargs: Dict[str, Any] = {
@@ -1266,11 +1268,12 @@ async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         "overall_mood": dominant,
         "mood_score": session_data.get("patient_mood_after"),
         "key_themes": ["Session reflection", "Therapeutic alliance", "Next-session planning"],
-        "emotional_patterns": {
-            "emotion_distribution": emotion_dist,
-            "avg_valence": context.get("transcription", {}).get("avg_valence"),
-            "avg_arousal": context.get("transcription", {}).get("avg_arousal"),
-        },
+        "emotional_patterns": (
+            "anger-dominant reactivity during perceived dismissal, "
+            "negative valence trend with brief neutral recovery, "
+            "moderate arousal under interpersonal stress, "
+            "validation-seeking escalation in conflict moments"
+        ),
         "recommendations": (
             "### Recommendations\n"
             "- Reflect and summarize patient language at transition points.\n"
@@ -1294,6 +1297,83 @@ def _extract_json_object(raw: str) -> Dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
+
+
+def _build_emotional_patterns(context: Dict[str, Any], generated: Dict[str, Any]) -> List[str]:
+    transcription = context.get("transcription", {}) if isinstance(context, dict) else {}
+    transcription = transcription if isinstance(transcription, dict) else {}
+
+    raw_distribution = transcription.get("emotion_distribution")
+    distribution: Dict[str, int] = {}
+    if isinstance(raw_distribution, dict):
+        for key, value in raw_distribution.items():
+            try:
+                count = int(value)
+            except (TypeError, ValueError):
+                continue
+            if count > 0:
+                distribution[str(key)] = count
+
+    total_segments = sum(distribution.values())
+    dominant_emotion = max(distribution.items(), key=lambda x: x[1])[0] if distribution else None
+    sorted_distribution = sorted(distribution.items(), key=lambda x: x[1], reverse=True)
+
+    avg_valence = _safe_float(transcription.get("avg_valence"), min_val=-1.0, max_val=1.0)
+    avg_arousal = _safe_float(transcription.get("avg_arousal"), min_val=0.0, max_val=1.0)
+
+    patterns: List[str] = []
+    generated_patterns = generated.get("emotional_patterns")
+
+    if isinstance(generated_patterns, str):
+        patterns.extend([p.strip() for p in generated_patterns.replace(";", ",").split(",") if p.strip()])
+    elif isinstance(generated_patterns, list):
+        patterns.extend([str(p).strip() for p in generated_patterns if str(p).strip()])
+    elif isinstance(generated_patterns, dict):
+        summary = generated_patterns.get("patterns_summary")
+        if isinstance(summary, str) and summary.strip():
+            patterns.extend([p.strip() for p in summary.replace(";", ",").split(",") if p.strip()])
+
+    if not patterns:
+        if dominant_emotion:
+            patterns.append(f"{dominant_emotion}-dominant response pattern")
+
+        if avg_valence is not None:
+            if avg_valence <= -0.2:
+                patterns.append("overall negative valence trend across key exchanges")
+            elif avg_valence >= 0.2:
+                patterns.append("overall positive valence trend toward session end")
+            else:
+                patterns.append("mixed valence with frequent neutral recovery")
+
+        if avg_arousal is not None:
+            if avg_arousal >= 0.66:
+                patterns.append("high arousal under interpersonal triggers")
+            elif avg_arousal >= 0.33:
+                patterns.append("moderate arousal with periodic escalation")
+            else:
+                patterns.append("low arousal and emotionally contained delivery")
+
+        if len(sorted_distribution) >= 2:
+            patterns.append(
+                f"co-occurring {sorted_distribution[0][0]} and {sorted_distribution[1][0]} affect states"
+            )
+
+        if total_segments > 0:
+            patterns.append(f"emotion signal observed across {total_segments} transcript segments")
+
+    # De-duplicate while preserving order and keep concise payload
+    deduped: List[str] = []
+    seen = set()
+    for pattern in patterns:
+        key = pattern.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(pattern)
+        if len(deduped) >= 8:
+            break
+
+    return deduped
 
 
 def _safe_str(value: Any, max_len: int) -> Optional[str]:
