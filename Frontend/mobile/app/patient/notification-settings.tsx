@@ -9,6 +9,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +17,9 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StickyHeader from '../components/StickyHeader';
+
+const PUSH_TOKEN_STORAGE_KEY = 'mindscribe_push_token';
+const PUSH_ENABLED_STORAGE_KEY = 'mindscribe_push_enabled';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -597,15 +601,33 @@ export default function NotificationSettings() {
               value={pushEnabled}
               onValueChange={async (v: boolean) => {
                 if (v) {
+                  setPushEnabled(true);
+                  await AsyncStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
+
                   const token = await registerForPush();
-                  if (token) {
+                  if (!token) {
+                    Alert.alert(
+                      'Enabled',
+                      'Notifications stay enabled. If device token registration is delayed, background push may start after a short while.'
+                    );
+                    return;
+                  }
+
+                  try {
                     await PatientService.registerDevicePushToken({
                       push_token: token, platform: getDevicePlatform(), device_id: token,
                     });
                     setRegisteredPushToken(token);
-                    setPushEnabled(true);
+                    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
                     Alert.alert('Enabled', 'Push notifications are enabled for this device.');
-                    return;
+                  } catch (error) {
+                    console.warn('[NotifySettings] register push token failed', error);
+                    setRegisteredPushToken(token);
+                    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+                    Alert.alert(
+                      'Enabled with warning',
+                      'Notifications are enabled, but server sync is pending. It will retry automatically.'
+                    );
                   }
                   setPushEnabled(false); setRegisteredPushToken(null); return;
                 }

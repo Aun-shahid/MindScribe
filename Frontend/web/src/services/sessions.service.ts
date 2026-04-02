@@ -24,6 +24,22 @@ import type {
 import type { TherapistError } from '../types/therapist';
 
 class SessionsService {
+  private getAiCandidateTokens(): string[] {
+    const tokens = [
+      localStorage.getItem('ai_service_token'),
+      localStorage.getItem('access_token'),
+    ].filter((token): token is string => Boolean(token && token !== 'null' && token !== 'undefined'));
+
+    return [...new Set(tokens)];
+  }
+
+  private getHttpStatus(error: unknown): number | undefined {
+    if (axios.isAxiosError(error)) {
+      return error.response?.status;
+    }
+    return undefined;
+  }
+
   private decodeJwtUserId(token: string): string | null {
     try {
       const parts = token.split('.');
@@ -181,82 +197,53 @@ class SessionsService {
    * Fetch generated SOAP note for a session.
    */
   async getSessionSOAP(sessionId: string): Promise<SOAPNote> {
-    try {
-      const authToken = localStorage.getItem('ai_service_token');
-      if (!authToken) {
-        throw new Error('AI session token is missing. Start and complete the session flow to generate or load SOAP notes.');
-      }
-
-      const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+  try {
+    // Use ai_service_token if available, fall back to access_token (therapist JWT)
+    const authToken = localStorage.getItem('access_token');;
+    
+    const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
   }
+}
 
-  /**
-   * Generate SOAP note for a session.
-   */
-  async generateSessionSOAP(
-    sessionId: string,
-    payload: { include_emotions?: boolean; additional_context?: string } = {}
-  ): Promise<SOAPGenerateResponse> {
-    try {
-      const authToken = localStorage.getItem('ai_service_token');
-      if (!authToken) {
-        throw new Error('AI session token is missing. Start and complete the session flow before generating SOAP notes.');
-      }
-
-      const response = await aiApi.post<SOAPGenerateResponse>(
-        `/soap/${sessionId}/generate`,
-        {
-          include_emotions: payload.include_emotions ?? true,
-          additional_context: payload.additional_context ?? '',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+async generateSessionSOAP(
+  sessionId: string,
+  payload: { include_emotions?: boolean; additional_context?: string } = {}
+): Promise<SOAPGenerateResponse> {
+  try {
+    const authToken = localStorage.getItem('access_token')
+    const response = await aiApi.post<SOAPGenerateResponse>(
+      `/soap/${sessionId}/generate`,
+      {
+        include_emotions: payload.include_emotions ?? true,
+        additional_context: payload.additional_context ?? '',
+      },
+      { headers: { Authorization: `Bearer ${authToken}` } }
+    );
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
   }
+}
 
-  /**
-   * Update therapist-edited SOAP sections.
-   */
-  async updateSessionSOAP(
-    sessionId: string,
-    payload: {
-      subjective?: string;
-      objective?: string;
-      assessment?: string;
-      plan?: string;
-    }
-  ): Promise<SOAPNote> {
-    try {
-      const authToken = localStorage.getItem('ai_service_token');
-      if (!authToken) {
-        throw new Error('AI session token is missing. Re-open this session through the active session flow before saving SOAP notes.');
-      }
-
-      const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+async updateSessionSOAP(
+  sessionId: string,
+  payload: { subjective?: string; objective?: string; assessment?: string; plan?: string; }
+): Promise<SOAPNote> {
+  try {
+    const authToken = localStorage.getItem('access_token');
+    const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
   }
+}
 
   /**
    * End a therapy session — triggers background AI analysis if consent given
@@ -310,6 +297,72 @@ class SessionsService {
       throw this.handleError(error);
     }
   }
+  /**
+ * Get full transcript with dual-source emotion from AI Service
+ * Falls back to Django transcription if AI Service unavailable
+ */
+/**
+ * Get full transcript with dual-source emotion from AI Service
+ * Falls back to Django transcription if AI Service unavailable
+ */
+async getAITranscription(sessionId: string): Promise<SessionTranscription> {
+  const AI_URL =
+    (import.meta as any).env?.VITE_AI_SERVICE_URL || "http://localhost:8001";
+
+  // ✅ ALWAYS use access_token (FIXED)
+  const token = localStorage.getItem("access_token");
+
+  if (token) {
+    try {
+      const res = await fetch(
+        `${AI_URL}/api/v1/session/${sessionId}/transcript`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+
+      const segments = (data.segments || []).map((seg: any) => ({
+        id: seg.id,
+        speaker: seg.speaker,
+        speaker_type:
+          seg.speaker?.toLowerCase() === "therapist"
+            ? "therapist"
+            : "patient",
+        speaker_id: seg.speaker,
+        text: seg.text_english || seg.text_urdu || "",
+        text_english: seg.text_english || "",
+        text_urdu: seg.text_urdu || "",
+        start_time: seg.start_time,
+        end_time: seg.end_time,
+        confidence: 1.0,
+
+        // ✅ IMPORTANT: keep full emotion object
+        emotion: seg.emotion || null,
+      }));
+
+      return {
+        session_id: data.session_id || sessionId,
+        segments,
+        total_duration: data.total_duration || 0,
+        speaker_count: data.speaker_count || 0,
+      };
+    } catch (err) {
+      console.warn(
+        "[SessionsService] AI transcript failed → fallback to Django:",
+        err
+      );
+    }
+  }
+
+  // fallback
+  return this.getTranscription(sessionId);
+}
 
   /**
    * Update the therapist-written session summary (visible to patient)
@@ -577,15 +630,71 @@ class SessionsService {
    * Get session insights generated by AI
    */
   async getSessionInsights(sessionId: string): Promise<SessionInsight | null> {
-    try {
-      const response = await api.get<SessionInsight>(
-        `/therapy_sessions/sessions/${sessionId}/analysis/`
-      );
-      return response.data;
-    } catch {
-      // Insights may not be generated yet
-      return null;
+    const tokens = this.getAiCandidateTokens();
+    const attempts = tokens.length ? tokens : [null];
+
+    for (let index = 0; index < attempts.length; index++) {
+      const authToken = attempts[index];
+      const requestConfig = authToken
+        ? { headers: { Authorization: `Bearer ${authToken}` } }
+        : undefined;
+
+      try {
+        const response = await aiApi.get<{ insight: SessionInsight | null }>(
+          `/session/${sessionId}/insights`,
+          requestConfig
+        );
+        return response.data?.insight || null;
+      } catch (error) {
+        const status = this.getHttpStatus(error);
+        if (status === 404) {
+          return null;
+        }
+
+        const hasAnotherToken = index < attempts.length - 1;
+        if ((status === 401 || status === 403) && hasAnotherToken) {
+          continue;
+        }
+
+        throw this.handleError(error);
+      }
     }
+
+    return null;
+  }
+
+  /**
+   * Generate AI insights for a completed session.
+   */
+  async generateSessionInsights(sessionId: string, force: boolean = true): Promise<SessionInsight | null> {
+    const tokens = this.getAiCandidateTokens();
+    const attempts = tokens.length ? tokens : [null];
+
+    for (let index = 0; index < attempts.length; index++) {
+      const authToken = attempts[index];
+      const requestConfig = authToken
+        ? { headers: { Authorization: `Bearer ${authToken}` } }
+        : undefined;
+
+      try {
+        const response = await aiApi.post<{ insight: SessionInsight | null }>(
+          `/session/${sessionId}/insights`,
+          { force },
+          requestConfig
+        );
+        return response.data?.insight || null;
+      } catch (error) {
+        const status = this.getHttpStatus(error);
+        const hasAnotherToken = index < attempts.length - 1;
+        if ((status === 401 || status === 403) && hasAnotherToken) {
+          continue;
+        }
+
+        throw this.handleError(error);
+      }
+    }
+
+    return null;
   }
 
   /**

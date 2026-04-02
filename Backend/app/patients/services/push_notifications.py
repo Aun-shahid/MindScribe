@@ -77,10 +77,6 @@ def _send_single_expo_push(token, title, message, data=None):
         'sound': 'default',
         'priority': 'high',
         'channelId': EXPO_ANDROID_CHANNEL_ID,
-        'badge': 1,
-        'color': '#FF6B9D',
-        'mutableContent': True,
-        'categoryId': 'notification',
         'data': data or {},
     }
 

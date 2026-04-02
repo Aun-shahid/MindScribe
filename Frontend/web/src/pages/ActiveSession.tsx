@@ -14,7 +14,7 @@ import {
   StopCircle
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
-import { useStartSession, useLiveSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
+import { useStartSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 
 const EMOTION_UI_CONFIG: Record<
@@ -54,20 +54,6 @@ const ActiveSession: React.FC = () => {
   const { analysis } = useSessionAnalysis(sessionStarted ? id! : '');
   // Note: transcription from analysis endpoint is loaded after session completes
   // We use AI Service WebSocket for live transcription instead
-  const websocketRoomId = session?.websocket_room_id ?? null;
-  // Django WebSocket connection for session control (start/stop/pause)
-  const {
-    connected: wsConnected,
-    sessionStatus: wsSessionStatus,
-    participants,
-    error: wsError,
-    connect: connectWebSocket,
-    disconnect: disconnectWebSocket,
-    sendControl,
-  } = useLiveSession(websocketRoomId, {
-    autoConnect: false,
-    heartbeatIntervalMs: 30000,
-  });
 
   // AI Service WebSocket connection for real-time transcription
   // aiServiceUrl is imported from config.ts in the service layer
@@ -84,18 +70,6 @@ const ActiveSession: React.FC = () => {
     { autoConnect: false }
   );
 
-  const toDisplaySpeaker = useCallback((speaker: string) => {
-    if (!speaker) return 'Speaker';
-    if (speaker.startsWith('SPEAKER_')) {
-      const suffix = speaker.replace('SPEAKER_', '');
-      const index = Number.parseInt(suffix, 10);
-      if (!Number.isNaN(index)) {
-        return `Speaker ${index + 1}`;
-      }
-    }
-    return speaker;
-  }, []);
-
   const getEmotionKey = useCallback((emotion: unknown): string => {
     if (!emotion) return '';
     if (typeof emotion === 'string') return emotion.toLowerCase();
@@ -109,22 +83,6 @@ const ActiveSession: React.FC = () => {
     }
     return '';
   }, []);
-
-  const toEmotionLabel = useCallback((emotion: unknown): string => {
-    const key = getEmotionKey(emotion);
-    if (!key) return '';
-    return EMOTION_UI_CONFIG[key]?.label || `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-  }, [getEmotionKey]);
-
-  // Use live transcription from AI Service WebSocket if available
-  const transcript = aiTranscriptionSegments.length > 0
-    ? aiTranscriptionSegments.map((seg) => ({
-      speaker: toDisplaySpeaker(seg.speaker),
-      text: seg.text_english || seg.text || seg.text_urdu || '',
-      time: `${Math.floor(seg.start_time / 60)}:${String(Math.floor(seg.start_time % 60)).padStart(2, '0')}`,
-      emotion: toEmotionLabel(seg.emotion),
-    }))
-    : [];
 
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -407,14 +365,6 @@ const ActiveSession: React.FC = () => {
 
   initializeSession();
 }, [id, session]); 
-  // Connect Django session-control WebSocket when room ID becomes available.
-  useEffect(() => {
-    if (sessionStarted && websocketRoomId && !wsConnected) {
-      console.log('🔌 Connecting Django WS with roomId:', websocketRoomId);
-      console.log('🔌 session.websocket_room_id:', session?.websocket_room_id);
-      connectWebSocket();
-    }
-  }, [sessionStarted, websocketRoomId, wsConnected, connectWebSocket, session]);
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
@@ -428,10 +378,9 @@ const ActiveSession: React.FC = () => {
   useEffect(() => {
     return () => {
       stopAudioCapture();
-      disconnectWebSocket();
       disconnectAIService();
     };
-  }, [disconnectWebSocket, disconnectAIService, stopAudioCapture]);
+  }, [disconnectAIService, stopAudioCapture]);
 
   // Timer effect
   useEffect(() => {
@@ -449,13 +398,7 @@ const ActiveSession: React.FC = () => {
   }, [isRecording, sessionStartTime]);
 
   const handleStartRecording = useCallback(async () => {
-    
-
     setIsRecording(true);
-    // Send control message to Django WebSocket
-    if (wsConnected) {
-      sendControl('start_session');
-    }
 
     try {
       await startAudioCapture();
@@ -465,19 +408,15 @@ const ActiveSession: React.FC = () => {
       setIsRecording(false);
       alert('Unable to access microphone. Please allow microphone access and try again.');
     }
-  }, [ wsConnected, sendControl, startAudioCapture]);
+  }, [startAudioCapture]);
 
   const handleStopRecording = useCallback(async () => {
     setIsRecording(false);
-    // Send pause control to Django WebSocket
-    if (wsConnected) {
-      sendControl('pause_session');
-    }
     await stopAudioCapture();
     chunkQueueRef.current = [];
     setQueuedChunkCount(0);
     console.log('🎤 Recording stopped');
-  }, [wsConnected, sendControl, stopAudioCapture]);
+  }, [stopAudioCapture]);
 
   const handleEndSession = useCallback(() => {
     if (window.confirm('Are you sure you want to end this session? You will be taken to the completion form.')) {
@@ -560,37 +499,13 @@ const ActiveSession: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* WebSocket Connection Status */}
-        {(wsError || aiError) && (
+        {aiError && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-            {wsError && <p className="font-medium">Django WebSocket Error: {wsError}</p>}
             {aiError && <p className="font-medium">AI Service Error: {aiError}</p>}
           </div>
         )}
         {sessionStarted && (
           <div className="mb-4 space-y-2">
-            {/* Django WebSocket Status - only show if websocket_room_id exists */}
-            {websocketRoomId && (
-              <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${wsConnected
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                }`}>
-                <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-2 ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500 animate-pulse'}`}></div>
-                  <p className="font-medium">
-                    {wsConnected ? '🟢 Session Control Connected' : '🟡 Connecting to session control...'}
-                  </p>
-                  {participants.length > 0 && (
-                    <span className="ml-4 text-sm">
-                      👥 {participants.length} participant{participants.length > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                {wsSessionStatus && (
-                  <span className="text-sm font-medium">Status: {wsSessionStatus}</span>
-                )}
-              </div>
-            )}
-
             {/* AI Service WebSocket Status - show when we have the token */}
             {aiWebsocketToken && (
               <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${aiConnected
@@ -707,52 +622,35 @@ const ActiveSession: React.FC = () => {
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Live Transcript */}
+            {/* Recording Status */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex items-center mb-4">
                 <FileText className="text-purple-600 mr-2" size={24} />
-                <h2 className="text-xl font-semibold text-gray-900">Live Transcript</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Session Recording</h2>
               </div>
-              <p className="text-gray-600 text-sm mb-6">Real-time conversation transcription</p>
 
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {transcript.length === 0 && (
-                  <div className="text-center py-8 text-gray-400">
-                    <FileText size={48} className="mx-auto mb-2 opacity-50" />
-                    <p>Waiting for transcription...</p>
-                    <p className="text-sm mt-1">Start recording to see live transcript</p>
-                    {!aiConnected && aiWebsocketToken && (
-                      <p className="text-xs mt-2 text-yellow-600">Connecting to AI service...</p>
+              <div className="text-center py-8">
+                {isRecording ? (
+                  <div className="space-y-4">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                      <div className="w-8 h-8 bg-red-500 rounded-full animate-pulse" />
+                    </div>
+                    <p className="text-gray-700 font-medium">Recording in progress...</p>
+                    <p className="text-gray-500 text-sm">Audio is being captured and sent to the AI service.</p>
+                    <p className="text-gray-400 text-xs">Transcript will be generated when the session ends.</p>
+                    {aiConnected && (
+                      <p className="text-blue-600 text-xs">
+                        🤖 AI Service connected — {queuedChunkCount > 0 ? `${queuedChunkCount} chunks queued` : 'streaming'}
+                      </p>
                     )}
                   </div>
-                )}
-                {transcript.map((item, index) => (
-                  <div key={index} className="flex flex-col">
-                    <div
-                      className={`p-4 rounded-lg max-w-[85%] ${item.speaker === 'Therapist'
-                        ? 'bg-purple-600 text-white self-end ml-8'
-                        : 'bg-gray-100 text-gray-900 self-start mr-8'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-semibold uppercase tracking-wide ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-600'
-                          }`}>
-                          {item.speaker}
-                        </span>
-                        <span className={`text-xs ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'
-                          }`}>
-                          {item.time}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed">{item.text}</p>
-                      {item.emotion && (
-                        <p className={`text-xs mt-2 ${item.speaker === 'Therapist' ? 'text-purple-200' : 'text-gray-500'}`}>
-                          Emotion: {item.emotion}
-                        </p>
-                      )}
-                    </div>
+                ) : (
+                  <div className="space-y-3 text-gray-400">
+                    <FileText size={48} className="mx-auto opacity-30" />
+                    <p>Press Start Recording to begin the session.</p>
+                    <p className="text-sm">The full transcript will be available after the session ends.</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

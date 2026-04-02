@@ -1,15 +1,18 @@
 """
-Transcription Service - Audio transcription using OpenAI transcription models (gpt-4o-transcribe).
+Transcription Service - Audio transcription using OpenAI and ElevenLabs models.
 Handles audio processing and transcription for therapy sessions.
 """
 import asyncio
 import io
 import tempfile
 import os
+import json
+from pathlib import Path
 from typing import Dict, Optional, Any, List
 import logging
 
 from openai import AsyncOpenAI
+import requests
 import soundfile as sf
 import numpy as np
 
@@ -19,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 openai_client: Optional[AsyncOpenAI] = None
+
+MAX_DIARIZATION_UPLOAD_BYTES = 3 * 1024 * 1024 * 1024
+ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
+ELEVENLABS_MODEL_ID = "scribe_v2"
+SENTENCE_END_CHARS = {".", "!", "?", "۔", "؟"}
+DEFAULT_KEYTERMS = ["therapy", "session", "patient", "therapist", "mindscribe"]
 
 
 def _get_value(obj: Any, key: str, default: Any = None) -> Any:
@@ -34,6 +43,158 @@ def get_openai_client() -> AsyncOpenAI:
     if openai_client is None:
         openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
     return openai_client
+
+
+def _bool_to_api(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _token_ends_sentence(token_text: str) -> bool:
+    token = token_text.rstrip()
+    return bool(token) and token[-1] in SENTENCE_END_CHARS
+
+
+def _flush_segment(segments: List[Dict[str, Any]], current: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if current is None:
+        return None
+
+    text = str(current.get("text", "")).strip()
+    if not text:
+        return None
+
+    segments.append(
+        {
+            "start": float(current["start"]),
+            "end": float(current["end"]),
+            "speaker": str(current["speaker"]),
+            "text": text,
+        }
+    )
+    return None
+
+
+def _build_sentence_segments_from_words(words: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    segments: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+
+    for word in words:
+        if not isinstance(word, dict):
+            continue
+
+        token = str(word.get("text", ""))
+        if not token:
+            continue
+
+        token_type = str(word.get("type") or "word")
+        speaker = str(word.get("speaker_id") or "unknown")
+        start = float(word.get("start") or 0.0)
+        end = float(word.get("end") or start)
+
+        if current is not None and current["speaker"] != speaker:
+            current = _flush_segment(segments, current)
+
+        if current is None:
+            if token_type == "spacing":
+                continue
+            current = {
+                "start": start,
+                "end": end,
+                "speaker": speaker,
+                "text": token,
+            }
+        else:
+            current["end"] = end
+            current["text"] += token
+
+        if token_type != "spacing" and _token_ends_sentence(token):
+            current = _flush_segment(segments, current)
+
+    _flush_segment(segments, current)
+    return segments
+
+
+def _request_elevenlabs_transcription_sync(
+    api_key: str,
+    audio_path: str,
+    language: str,
+    num_speakers: Optional[int],
+) -> Dict[str, Any]:
+    if num_speakers is not None:
+        num_speakers = max(1, min(32, num_speakers))
+
+    payload: Dict[str, Any] = {
+        "model_id": ELEVENLABS_MODEL_ID,
+        "language_code": language,
+        "tag_audio_events": True,
+        "num_speakers": num_speakers,
+        "timestamps_granularity": "word",
+        "diarize": True,
+        "diarization_threshold": 0.22 if num_speakers is None else None,
+        "additional_formats": [],
+        "file_format": "other",
+        "webhook": False,
+        "webhook_id": None,
+        "temperature": 0.0,
+        "seed": 42,
+        "use_multi_channel": False,
+        "webhook_metadata": {"source": "ai_service", "pipeline": "session"},
+        "entity_detection": "all",
+        "no_verbatim": False,
+        "entity_redaction": "pii",
+        "entity_redaction_mode": "enumerated_entity_type",
+        "keyterms": DEFAULT_KEYTERMS,
+    }
+
+    data_items: List[tuple[str, str]] = []
+    for key, value in payload.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            data_items.append((key, _bool_to_api(value)))
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, (dict, list)):
+                    data_items.append((key, json.dumps(item, ensure_ascii=False)))
+                else:
+                    data_items.append((key, str(item)))
+        elif isinstance(value, dict):
+            data_items.append((key, json.dumps(value, ensure_ascii=False)))
+        else:
+            data_items.append((key, str(value)))
+
+    headers = {"xi-api-key": api_key}
+    params = {"enable_logging": _bool_to_api(True)}
+
+    with open(audio_path, "rb") as audio_file:
+        files = {"file": (Path(audio_path).name, audio_file, "application/octet-stream")}
+        response = requests.post(
+            ELEVENLABS_STT_URL,
+            headers=headers,
+            params=params,
+            data=data_items,
+            files=files,
+            timeout=900,
+        )
+
+    parsed_payload: Optional[Dict[str, Any]]
+    try:
+        raw_payload = response.json()
+        parsed_payload = raw_payload if isinstance(raw_payload, dict) else None
+    except Exception:
+        parsed_payload = None
+
+    if response.status_code >= 400:
+        if parsed_payload is not None:
+            raise RuntimeError(
+                f"ElevenLabs transcription failed ({response.status_code}): "
+                f"{json.dumps(parsed_payload, ensure_ascii=False)}"
+            )
+        raise RuntimeError(f"ElevenLabs transcription failed ({response.status_code}): {response.text}")
+
+    if parsed_payload is None:
+        raise RuntimeError("ElevenLabs transcription returned an unexpected response format.")
+
+    return parsed_payload
 
 
 async def transcribe_audio_chunk(
@@ -202,50 +363,74 @@ async def transcribe_full_audio(
 
 async def transcribe_full_audio_diarized(
     audio_path: str,
-    language: str = "ur"
+    language: str = "ur",
+    known_speakers: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Transcribe complete audio with speaker diarization using OpenAI diarization model.
+    Transcribe complete audio with speaker diarization using ElevenLabs Scribe.
 
     Returns:
         Dict containing transcript text and diarized segments.
     """
     try:
-        client = get_openai_client()
+        if not settings.elevenlabs_api_key:
+            return {"text": "", "segments": [], "error": "ELEVENLABS_API_KEY is not configured"}
 
-        with open(audio_path, "rb") as audio_file:
-            transcript = await client.audio.transcriptions.create(
-                model="gpt-4o-transcribe-diarize",
-                file=audio_file,
-                response_format="diarized_json",
-                language=language,
-                chunking_strategy="auto"
+        source_path = Path(audio_path)
+        if not source_path.exists() or not source_path.is_file():
+            return {"text": "", "segments": [], "error": f"Audio file not found: {audio_path}"}
+
+        file_size = source_path.stat().st_size
+        if file_size > MAX_DIARIZATION_UPLOAD_BYTES:
+            logger.warning(
+                "Diarized transcription input is %.2f MB (> 3 GB API limit)",
+                file_size / (1024 * 1024),
             )
 
-        raw_segments = _get_value(transcript, "segments", []) or []
+        num_speakers: Optional[int] = None
+        if known_speakers:
+            num_speakers = len([s for s in known_speakers if str(s).strip()])
+
+        transcript = await asyncio.to_thread(
+            _request_elevenlabs_transcription_sync,
+            settings.elevenlabs_api_key,
+            str(source_path),
+            language,
+            num_speakers,
+        )
+
+        words = transcript.get("words", []) if isinstance(transcript.get("words"), list) else []
+        sentence_segments = _build_sentence_segments_from_words(words)
+
         segments: List[Dict[str, Any]] = []
+        for idx, seg in enumerate(sentence_segments):
+            start = float(seg.get("start", 0.0) or 0.0)
+            end = float(seg.get("end", 0.0) or 0.0)
+            text = str(seg.get("text", "") or "").strip()
+            speaker = str(seg.get("speaker", "unknown") or "unknown")
+            seg_id = f"seg_{idx:04d}"
 
-        for idx, seg in enumerate(raw_segments):
-            start = float(_get_value(seg, "start", 0.0) or 0.0)
-            end = float(_get_value(seg, "end", 0.0) or 0.0)
-            text = str(_get_value(seg, "text", "") or "").strip()
-            speaker = str(_get_value(seg, "speaker", "UNKNOWN") or "UNKNOWN")
-            seg_id = str(_get_value(seg, "id", f"seg_{idx:04d}") or f"seg_{idx:04d}")
+            if not text:
+                continue
 
-            segments.append({
-                "id": seg_id,
-                "start": start,
-                "end": end,
-                "duration": max(0.0, end - start),
-                "speaker": speaker,
-                "text": text,
-            })
+            segments.append(
+                {
+                    "id": seg_id,
+                    "start": start,
+                    "end": end,
+                    "duration": max(0.0, end - start),
+                    "speaker": speaker,
+                    "text": text,
+                }
+            )
+
+        duration = max((s["end"] for s in segments), default=0.0)
 
         return {
-            "text": str(_get_value(transcript, "text", "") or ""),
-            "duration": _get_value(transcript, "duration", None),
+            "text": str(transcript.get("text", "") or ""),
+            "duration": duration,
             "segments": segments,
-            "language": language,
+            "language": str(transcript.get("language_code", language) or language),
         }
 
     except Exception as e:

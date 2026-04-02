@@ -136,3 +136,45 @@ async def init_db():
 async def close_db():
     """Close database connection pool."""
     await engine.dispose()
+class SOAPNoteDB(Base):
+    __tablename__ = "soap_notes_ai"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True, nullable=False)
+
+    subjective = Column(Text)
+    objective = Column(Text)
+    assessment = Column(Text)
+    plan = Column(Text)
+
+    raw_json = Column(JSON)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SessionDB(Base):
+    __tablename__ = "sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
+    status = Column(String(20), nullable=False)
+    session_notes = Column(Text)
+    session_summary = Column(Text)
+    patient_goals = Column(Text)
+    homework_assigned = Column(Text)
+    next_session_goals = Column(Text)
+    therapist_observations = Column(Text)
+    patient_mood_before = Column(Integer)
+    patient_mood_after = Column(Integer)
+    session_effectiveness = Column(Integer)
+
+
+class SessionInsightDB(Base):
+    __tablename__ = "session_insights"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    overall_mood = Column(String(50))
+    mood_score = Column(Float)
+    key_themes = Column(JSON, default=list)
+    emotional_patterns = Column(JSON, default=dict)
+    recommendations = Column(Text)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())

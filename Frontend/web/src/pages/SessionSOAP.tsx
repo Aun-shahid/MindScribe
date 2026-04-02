@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, FileText, Save, Sparkles } from 'lucide-react';
+import { ChevronLeft, FileText, Save, Sparkles, Clock } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
 
@@ -45,6 +46,25 @@ const SOAP_TAB_CONFIG: Array<{
   },
 ];
 
+// ─── Transcript polling ────────────────────────────────────────────────────
+
+const AI_SERVICE_URL = 'http://localhost:8001';
+const POLL_INTERVAL_MS = 5000;   // check every 5 seconds
+const POLL_MAX_ATTEMPTS = 24;    // give up after 2 minutes
+
+async function pollForTranscript(sessionId: string): Promise<boolean> {
+  const token = localStorage.getItem('access_token');
+  const res = await fetch(
+    `${AI_SERVICE_URL}/api/v1/session/${sessionId}/transcript`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) return false;
+  const data = await res.json();
+  return Array.isArray(data.segments) && data.segments.length > 0;
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
+
 const SessionSOAP: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -56,61 +76,32 @@ const SessionSOAP: React.FC = () => {
     assessment: '',
     plan: '',
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SOAPTab>('subjective');
+  const [polling, setPolling]       = useState(false);
+  const [pollAttempt, setPollAttempt] = useState(0);
+  const [error, setError]           = useState<string | null>(null);
+  const [message, setMessage]       = useState<string | null>(null);
+  const [activeTab, setActiveTab]   = useState<SOAPTab>('subjective');
 
   const syncForm = useCallback((note: SOAPNote) => {
     setForm({
       subjective: note.subjective?.content || '',
-      objective: note.objective?.content || '',
+      objective:  note.objective?.content  || '',
       assessment: note.assessment?.content || '',
-      plan: note.plan?.content || '',
+      plan:       note.plan?.content       || '',
     });
   }, []);
 
-  const loadSOAP = useCallback(async () => {
-    if (!id) return;
-
-    const aiToken = localStorage.getItem('ai_service_token');
-    if (!aiToken) {
-      setLoading(false);
-      setError('AI session token is missing. Start and end the session flow to obtain a valid token for SOAP access.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const note = await sessionsService.getSessionSOAP(id);
-      setSoap(note);
-      syncForm(note);
-    } catch (err: any) {
-      if (err?.code === '404') {
-        setError('No SOAP note found for this session yet. Click Generate SOAP to create one.');
-      } else {
-        setError(err?.message || 'Failed to load SOAP note');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [id, syncForm]);
-
-  useEffect(() => {
-    loadSOAP();
-  }, [loadSOAP]);
-
+  // ── Generate SOAP (called automatically once transcript is ready) ──────
   const generateSOAP = useCallback(async () => {
     if (!id) return;
 
     const aiToken = localStorage.getItem('ai_service_token');
     if (!aiToken) {
-      setError('AI session token is missing. Generate SOAP after completing session flow with a valid token.');
+      setError('AI session token is missing. Start and end the session flow to obtain a valid token.');
       return;
     }
 
@@ -123,7 +114,6 @@ const SessionSOAP: React.FC = () => {
         include_emotions: true,
         additional_context: '',
       });
-
       setSoap(response.soap_note);
       syncForm(response.soap_note);
       setMessage(`SOAP generated successfully in ${response.processing_time_ms} ms.`);
@@ -134,14 +124,81 @@ const SessionSOAP: React.FC = () => {
     }
   }, [id, syncForm]);
 
-  const saveSOAP = useCallback(async () => {
+  // ── Poll until transcript exists, then auto-generate ──────────────────
+  const waitForTranscriptThenGenerate = useCallback(async () => {
+    if (!id) return;
+
+    setPolling(true);
+    setError(null);
+    setMessage('Waiting for AI pipeline to finish processing the recording...');
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      setPollAttempt(attempts);
+
+      try {
+        const ready = await pollForTranscript(id);
+        if (ready) {
+          clearInterval(interval);
+          setPolling(false);
+          setMessage('Transcript ready — generating SOAP notes...');
+          await generateSOAP();
+        } else if (attempts >= POLL_MAX_ATTEMPTS) {
+          clearInterval(interval);
+          setPolling(false);
+          setError(
+            'Pipeline is taking longer than expected. ' +
+            'You can click "Generate SOAP" manually once the AI service finishes.'
+          );
+          setMessage(null);
+        }
+      } catch {
+        // network blip — keep trying
+      }
+    }, POLL_INTERVAL_MS);
+  }, [id, generateSOAP]);
+
+  // ── Load existing SOAP or start polling ───────────────────────────────
+  const loadSOAP = useCallback(async () => {
     if (!id) return;
 
     const aiToken = localStorage.getItem('ai_service_token');
     if (!aiToken) {
-      setError('AI session token is missing. Re-open from an authenticated session flow before saving SOAP.');
+      setLoading(false);
+      setError('AI session token is missing. Start and end the session flow to obtain a valid token.');
       return;
     }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const note = await sessionsService.getSessionSOAP(id);
+      setSoap(note);
+      syncForm(note);
+    } catch (err: any) {
+      // 404 = not generated yet — poll for transcript then auto-generate
+      if (err?.code === '404' || err?.status === 404 || String(err?.message).includes('404')) {
+        setLoading(false);
+        await waitForTranscriptThenGenerate();
+        return;
+      }
+      setError(err?.message || 'Failed to load SOAP note');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, syncForm, waitForTranscriptThenGenerate]);
+
+  useEffect(() => {
+    loadSOAP();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Save ──────────────────────────────────────────────────────────────
+  const saveSOAP = useCallback(async () => {
+    if (!id) return;
 
     setSaving(true);
     setError(null);
@@ -150,42 +207,54 @@ const SessionSOAP: React.FC = () => {
     try {
       const updated = await sessionsService.updateSessionSOAP(id, {
         subjective: form.subjective,
-        objective: form.objective,
+        objective:  form.objective,
         assessment: form.assessment,
-        plan: form.plan,
+        plan:       form.plan,
       });
-
       setSoap(updated);
       syncForm(updated);
       setMessage('SOAP note updated successfully. Returning to sessions...');
-
-      setTimeout(() => {
-        navigate('/sessions');
-      }, 1000);
+      setTimeout(() => navigate('/sessions'), 1000);
     } catch (err: any) {
       setError(err?.message || 'Failed to update SOAP note');
     } finally {
       setSaving(false);
     }
-  }, [id, form, syncForm]);
+  }, [id, form, syncForm, navigate]);
 
   const setField = (field: keyof SOAPFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  if (loading) {
+  // ── Loading / polling screen ───────────────────────────────────────────
+  if (loading || polling) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Loading SOAP note...</p>
+        <div className="text-center max-w-md px-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4" />
+          {polling ? (
+            <>
+              <p className="text-gray-700 font-medium mb-2">Processing recording...</p>
+              <p className="text-gray-500 text-sm mb-1">
+                The AI pipeline is transcribing, diarizing, and translating your session.
+              </p>
+              <p className="text-gray-400 text-xs flex items-center justify-center gap-1">
+                <Clock size={12} />
+                Check {pollAttempt} of {POLL_MAX_ATTEMPTS} — this usually takes 30–90 seconds.
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-600">Loading SOAP note...</p>
+          )}
         </div>
       </div>
     );
   }
 
+  // ── Main UI ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="bg-purple-700 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between gap-3">
           <div className="flex items-center">
@@ -204,7 +273,7 @@ const SessionSOAP: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={generateSOAP}
-              disabled={generating}
+              disabled={generating || polling}
               className="flex items-center px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-60"
             >
               <Sparkles size={18} className="mr-2" />
@@ -222,6 +291,7 @@ const SessionSOAP: React.FC = () => {
         </div>
       </div>
 
+      {/* Body */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
@@ -230,7 +300,10 @@ const SessionSOAP: React.FC = () => {
         )}
 
         {message && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            {(generating || polling) && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 flex-shrink-0" />
+            )}
             {message}
           </div>
         )}
@@ -242,23 +315,20 @@ const SessionSOAP: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-            {SOAP_TAB_CONFIG.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+            {SOAP_TAB_CONFIG.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {SOAP_TAB_CONFIG.filter((tab) => tab.key === activeTab).map((tab) => (
@@ -278,7 +348,11 @@ const SessionSOAP: React.FC = () => {
         {soap?.emotional_summary && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
             <h3 className="font-semibold text-indigo-900 mb-2">Emotional Summary</h3>
-            <p className="text-indigo-800">{soap.emotional_summary}</p>
+            <div className="text-indigo-800 text-sm leading-relaxed">
+              <ReactMarkdown>
+                {soap.emotional_summary}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </div>

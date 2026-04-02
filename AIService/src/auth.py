@@ -66,7 +66,7 @@ def verify_token(token: str) -> TokenPayload:
         if token_type == "access":
             # Access token structure: {user_id, email, type: "access"}
             return TokenPayload(
-                session_id=payload.get("session_id", ""),  # May not exist in access tokens
+                session_id=payload.get("session_id") or None,  # May not exist in access tokens
                 therapist_id=str(payload.get("user_id", "")),
                 iat=datetime.fromtimestamp(payload["iat"]),
                 exp=datetime.fromtimestamp(payload["exp"]),
@@ -184,7 +184,9 @@ def validate_session_access(
     Raises:
         HTTPException: If session IDs don't match
     """
-    if session.session_id != requested_session_id:
+    # Therapist-level tokens may not be bound to one session.
+    # Only enforce strict matching when token actually carries a session_id.
+    if session.session_id is not None and session.session_id != requested_session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: token session ID does not match requested session"

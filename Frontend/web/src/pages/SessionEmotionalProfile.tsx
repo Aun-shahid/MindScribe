@@ -45,12 +45,19 @@ const SessionEmotionalProfile: React.FC = () => {
     const rawTimeline = (analysis as any).emotional_timeline || (analysis as any).mood_timeline || [];
     if (!Array.isArray(rawTimeline)) return [];
 
-    return rawTimeline.map((item: any, index: number) => {
-      const timestamp = Number(item.timestamp ?? index * 60);
-      const emotion = String(item.emotion || item.mood || 'unknown').toLowerCase();
-      const score = clamp01(Number(item.confidence ?? item.score ?? 0));
-      return { timestamp, emotion, score };
-    });
+    // NEW — filter to PATIENT speaker only
+return rawTimeline
+  .filter((item: any) => {
+    const speaker = String(item.speaker || item.role || '').toUpperCase();
+    // If speaker info exists, keep only PATIENT. If absent (old data), keep all.
+    return !speaker || speaker === 'PATIENT';
+  })
+  .map((item: any, index: number) => {
+    const timestamp = Number(item.timestamp ?? index * 60);
+    const emotion = String(item.emotion || item.mood || 'unknown').toLowerCase();
+    const score = clamp01(Number(item.confidence ?? item.score ?? 0));
+    return { timestamp, emotion, score };
+  });
   }, [analysis]);
 
   const seriesByEmotion = useMemo(() => {
