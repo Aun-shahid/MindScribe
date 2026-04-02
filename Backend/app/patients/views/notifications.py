@@ -1,9 +1,13 @@
+import logging
+import os
+
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from ..models import NotificationPreference, Notification, NotificationDevice
+from therapy_sessions.models import Session
 from ..serializers import (
     NotificationPreferenceSerializer,
     NotificationSerializer,
@@ -17,6 +21,9 @@ from ..services.notification_categories import (
 )
 from ..services.notification_center import create_notification
 from .permissions import IsPatient, IsTherapist
+
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=['Patient Notifications'])
@@ -520,3 +527,84 @@ class TherapistDeleteNotificationView(generics.DestroyAPIView):
     )
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
+
+
+@extend_schema(tags=['Therapist Notifications'])
+class InternalSessionAiReadyNotificationView(APIView):
+    """Internal endpoint used by AI service to create therapist AI-ready notifications."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        summary="Internal: create session AI-ready notification",
+        description="Called by AI service after pipeline completion to create therapist notification.",
+        request={
+            'type': 'object',
+            'properties': {
+                'session_id': {'type': 'string'},
+                'ready_items': {'type': 'array', 'items': {'type': 'string'}},
+            },
+            'required': ['session_id'],
+        },
+        responses={
+            200: OpenApiResponse(description='Notification created or already exists'),
+            400: OpenApiResponse(description='Invalid payload'),
+            403: OpenApiResponse(description='Forbidden'),
+            404: OpenApiResponse(description='Session not found'),
+        },
+    )
+    def post(self, request):
+        provided_key = request.headers.get('X-AI-Service-Key', '')
+        expected_key = os.environ.get('AI_SERVICE_SECRET_KEY', '')
+
+        if not expected_key or provided_key != expected_key:
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({'detail': 'session_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            session = Session.objects.select_related('patient', 'therapist').get(id=session_id)
+        except Session.DoesNotExist:
+            return Response({'detail': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        therapist = session.therapist
+        already_notified = Notification.objects.filter(
+            patient=therapist,
+            notification_type='session_ai_ready',
+            session_id=session.id,
+        ).exists()
+        if already_notified:
+            return Response({'created': False, 'detail': 'Notification already exists'})
+
+        ready_items = request.data.get('ready_items') or ['soap', 'emotional_profile', 'ai_insights']
+        patient_name = getattr(session.patient, 'full_name', 'Patient')
+
+        result = create_notification(
+            recipient=therapist,
+            notification_type='session_ai_ready',
+            title='AI Session Outputs Ready',
+            message=(
+                f"AI outputs for {patient_name}'s session are ready. "
+                "SOAP Notes, Emotional Profile, and AI Insights can now be reviewed."
+            ),
+            action_url=f"/sessions/{session.id}?tab=soap",
+            session_id=session.id,
+            source_event='session.ai_results_ready',
+            metadata={
+                'session_id': str(session.id),
+                'patient_id': str(session.patient_id),
+                'patient_name': patient_name,
+                'ready_items': ready_items,
+            },
+        )
+
+        logger.info(
+            '[NOTIFICATIONS] Created session_ai_ready notification for therapist=%s session=%s delivered=%s',
+            therapist.id,
+            session.id,
+            result.get('websocket_delivered', False),
+        )
+
+        return Response({'created': True, 'detail': 'Notification created'})

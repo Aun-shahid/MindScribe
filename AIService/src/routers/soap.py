@@ -9,6 +9,7 @@ from typing import Optional
 import logging
 import asyncio
 from datetime import datetime
+from sqlalchemy import select
 
 from ..auth import get_current_session, validate_session_access, AuthenticatedSession
 from ..schemas import (
@@ -214,10 +215,42 @@ async def get_soap_notes(
 
     soap_note = soap_notes_store.get(session_id)
     if not soap_note:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SOAP notes not found for this session. Please generate them first."
-        )
+        # Fallback to persisted DB record so SOAP remains available across service restarts.
+        async with async_session_maker() as db:
+            result = await db.execute(
+                select(SOAPNoteDB)
+                .where(SOAPNoteDB.session_id == session_id)
+                .order_by(SOAPNoteDB.created_at.desc())
+                .limit(1)
+            )
+            db_note = result.scalar_one_or_none()
+
+        if not db_note:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="SOAP notes not found for this session. Please generate them first."
+            )
+
+        if isinstance(db_note.raw_json, dict):
+            try:
+                soap_note = SOAPNote.model_validate(db_note.raw_json)
+            except Exception:
+                soap_note = None
+
+        if not soap_note:
+            soap_note = SOAPNote(
+                session_id=session_id,
+                subjective=SOAPNoteSection(content=db_note.subjective or ""),
+                objective=SOAPNoteSection(content=db_note.objective or ""),
+                assessment=SOAPNoteSection(content=db_note.assessment or ""),
+                plan=SOAPNoteSection(content=db_note.plan or ""),
+                emotional_summary=None,
+                generated_at=db_note.created_at or datetime.utcnow(),
+                model_version="gpt-4o-mini",
+            )
+
+        # Warm in-memory cache for subsequent requests.
+        soap_notes_store[session_id] = soap_note
 
     return soap_note
 

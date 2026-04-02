@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime
 import base64
 import os
+import requests
 
 from ..auth import (
     get_current_session, get_websocket_session, validate_session_access,
@@ -318,7 +319,7 @@ async def generate_session_insights(
             existing = SessionInsightDB(session_id=session_uuid)
             db.add(existing)
 
-        existing.overall_mood = _safe_str(generated.get("overall_mood"), max_len=50)
+        existing.overall_mood = _safe_short_label(generated.get("overall_mood"), max_len=50)
         existing.mood_score = _safe_float(generated.get("mood_score"), min_val=0.0, max_val=10.0)
         existing.key_themes = _safe_string_list(generated.get("key_themes"), max_items=8)
         existing.emotional_patterns = emotional_patterns
@@ -678,6 +679,8 @@ async def _run_full_pipeline(
         if save_to_db and django_session_id:
             await save_transcript_to_db(full_transcript, django_session_id)
             logger.info(f"[PIPELINE] Step 10 — saved to DB")
+            await _notify_backend_ai_outputs_ready(django_session_id)
+            logger.info("[PIPELINE] Step 11 — backend notified for therapist notification")
 
         logger.info(f"[PIPELINE] ═══ COMPLETE: {len(final_segments)} segments ═══")
 
@@ -1121,6 +1124,35 @@ async def _load_transcript_from_db(session_id: str) -> FullTranscript:
         )
 
 
+async def _notify_backend_ai_outputs_ready(session_id: str) -> None:
+    """Notify Django backend that AI outputs are ready so therapist notifications can be created."""
+    endpoint = f"{settings.backend_url.rstrip('/')}/api/patients/internal/session-ai-ready/"
+    payload = {
+        "session_id": session_id,
+        "ready_items": ["soap", "emotional_profile", "ai_insights"],
+    }
+    headers = {
+        "X-AI-Service-Key": settings.ai_service_secret_key,
+        "Content-Type": "application/json",
+    }
+
+    def _post():
+        return requests.post(endpoint, json=payload, headers=headers, timeout=10)
+
+    try:
+        response = await asyncio.to_thread(_post)
+        if response.status_code >= 400:
+            logger.warning(
+                "[PIPELINE] Backend notification callback failed (%s): %s",
+                response.status_code,
+                response.text,
+            )
+        else:
+            logger.info("[PIPELINE] Backend notification callback succeeded for session %s", session_id)
+    except Exception as exc:
+        logger.warning("[PIPELINE] Backend notification callback error for session %s: %s", session_id, exc)
+
+
 def _serialize_session_insight(insight: SessionInsightDB) -> Dict[str, Any]:
     return {
         "id": str(insight.id),
@@ -1383,6 +1415,24 @@ def _safe_str(value: Any, max_len: int) -> Optional[str]:
     if not text:
         return None
     return text[:max_len]
+
+
+def _safe_short_label(value: Any, max_len: int) -> Optional[str]:
+    """Return a compact label without mid-word clipping, keeping DB-safe length."""
+    base = _safe_str(value, max_len=2000)
+    if not base:
+        return None
+    if len(base) <= max_len:
+        return base
+
+    # Reserve room for ellipsis and trim at the last whole word when possible.
+    limit = max(1, max_len - 3)
+    candidate = base[:limit]
+    last_space = candidate.rfind(" ")
+    if last_space >= max(10, limit // 2):
+        candidate = candidate[:last_space]
+
+    return f"{candidate.strip()}..."
 
 
 def _safe_float(value: Any, min_val: float, max_val: float) -> Optional[float]:

@@ -7,6 +7,7 @@ export interface TherapistNotification {
   notification_type:
     | 'session_reminder'
     | 'session_summary'
+    | 'session_ai_ready'
     | 'session_approved'
     | 'session_cancelled'
     | 'goal_reminder'

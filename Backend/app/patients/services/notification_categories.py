@@ -13,6 +13,7 @@ VALID_NOTIFICATION_CATEGORIES = {
 _SESSION_NOTIFICATION_TYPES = {
     'session_reminder',
     'session_summary',
+    'session_ai_ready',
     'session_approved',
     'session_cancelled',
 }

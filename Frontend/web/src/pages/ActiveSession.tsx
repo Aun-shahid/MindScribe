@@ -9,28 +9,12 @@ import {
   Square,
   User,
   Clock,
-  Activity,
   FileText,
   StopCircle
 } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
-import { useStartSession, useSessionAnalysis, useAIServiceWebSocket } from '../hooks/useSessions';
+import { useStartSession, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
-
-const EMOTION_UI_CONFIG: Record<
-  string,
-  { label: string; emoji: string; colorClass: string }
-> = {
-  joy: { label: 'Joy', emoji: '😊', colorClass: 'bg-emerald-500' },
-  sadness: { label: 'Sadness', emoji: '😢', colorClass: 'bg-blue-500' },
-  anger: { label: 'Anger', emoji: '😠', colorClass: 'bg-red-500' },
-  neutral: { label: 'Neutral', emoji: '😐', colorClass: 'bg-gray-500' },
-  disgust: { label: 'Disgust', emoji: '🤢', colorClass: 'bg-lime-600' },
-  fear: { label: 'Fear', emoji: '😨', colorClass: 'bg-amber-500' },
-  surprise: { label: 'Surprise', emoji: '😮', colorClass: 'bg-fuchsia-500' },
-};
-
-const EMOTION_ORDER = ['joy', 'sadness', 'anger', 'neutral', 'disgust', 'fear', 'surprise'];
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -51,7 +35,6 @@ const ActiveSession: React.FC = () => {
   // const { session, loading, error } = useSessionDetail(id!);
   const { session, loading, error, fetchSession } = useSessionDetail(id!);
   const { startSession, loading: startingSession, error: startError } = useStartSession();
-  const { analysis } = useSessionAnalysis(sessionStarted ? id! : '');
   // Note: transcription from analysis endpoint is loaded after session completes
   // We use AI Service WebSocket for live transcription instead
 
@@ -69,20 +52,6 @@ const ActiveSession: React.FC = () => {
     aiWebsocketToken,
     { autoConnect: false }
   );
-
-  const getEmotionKey = useCallback((emotion: unknown): string => {
-    if (!emotion) return '';
-    if (typeof emotion === 'string') return emotion.toLowerCase();
-    if (
-      typeof emotion === 'object' &&
-      emotion !== null &&
-      'final_emotion' in emotion &&
-      typeof (emotion as { final_emotion?: string }).final_emotion === 'string'
-    ) {
-      return (emotion as { final_emotion: string }).final_emotion.toLowerCase();
-    }
-    return '';
-  }, []);
 
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -251,46 +220,6 @@ const ActiveSession: React.FC = () => {
 
     return () => window.clearInterval(interval);
   }, [isRecording, aiConnected, sendAudioChunk]);
-
-  // Build emotion percentages strictly from backend emotion keys.
-  // Prefer live WS segment emotions; fallback to analysis mood_distribution.
-  const emotionDistribution = (() => {
-    const liveCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
-      acc[key] = 0;
-      return acc;
-    }, {});
-
-    aiTranscriptionSegments.forEach((seg) => {
-      const key = getEmotionKey(seg.emotion);
-      if (key in liveCounts) {
-        liveCounts[key] += 1;
-      }
-    });
-
-    const liveTotal = Object.values(liveCounts).reduce((sum, n) => sum + n, 0);
-    if (liveTotal > 0) {
-      return EMOTION_ORDER.map((key) => ({
-        key,
-        percentage: Math.min(100, Math.max(0, Math.round((liveCounts[key] / liveTotal) * 100))),
-      }));
-    }
-
-    const fallback = analysis?.mood_distribution || {};
-    const fallbackCounts = EMOTION_ORDER.reduce<Record<string, number>>((acc, key) => {
-      acc[key] = Number(fallback[key] || 0);
-      return acc;
-    }, {});
-
-    const fallbackTotal = Object.values(fallbackCounts).reduce((sum, n) => sum + n, 0);
-    if (fallbackTotal <= 0) {
-      return EMOTION_ORDER.map((key) => ({ key, percentage: 0 }));
-    }
-
-    return EMOTION_ORDER.map((key) => ({
-      key,
-      percentage: Math.min(100, Math.max(0, Math.round((fallbackCounts[key] / fallbackTotal) * 100))),
-    }));
-  })();
 
   // Check if session is already completed and redirect to detail page
   useEffect(() => {
@@ -589,35 +518,6 @@ const ActiveSession: React.FC = () => {
               </div>
             </div>
 
-            {/* Real-time Emotion Analysis */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center mb-4">
-                <Activity className="text-purple-600 mr-2" size={24} />
-                <h2 className="text-xl font-semibold text-gray-900">Real-time Emotion Analysis</h2>
-              </div>
-              <p className="text-gray-600 text-sm mb-6">Analyzing emotional trends during session</p>
-
-              <div className="space-y-4">
-                {emotionDistribution.map(({ key, percentage }) => {
-                  const config = EMOTION_UI_CONFIG[key];
-                  if (!config) return null;
-
-                  return (
-                    <div key={key} className="flex items-center space-x-4">
-                      <span className="text-2xl">{config.emoji}</span>
-                      <span className="font-medium text-gray-900 w-20">{config.label}</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className={`${config.colorClass} h-3 rounded-full transition-all duration-500`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                      <span className="text-purple-600 font-bold w-12">{percentage}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Right Column */}

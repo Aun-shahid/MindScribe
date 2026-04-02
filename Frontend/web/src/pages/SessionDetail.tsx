@@ -441,28 +441,25 @@ const SessionDetailPage: React.FC = () => {
     return points.sort((a, b) => a.time - b.time);
   }, [transcription]);
 
-  const emotionTimeline = React.useMemo(
-    () => emotionEvents.filter((p) => p.valence !== null && p.arousal !== null),
-    [emotionEvents]
-  );
-
   const emotionSummary = React.useMemo(() => {
     if (!emotionEvents.length) {
-      return { averageValence: null as number | null, averageArousal: null as number | null, dominantEmotion: null as string | null };
+      return { dominantEmotion: null as string | null };
     }
-    const valencePoints = emotionTimeline.filter((p) => p.valence !== null);
-    const arousalPoints = emotionTimeline.filter((p) => p.arousal !== null);
-    const averageValence = valencePoints.length
-      ? valencePoints.reduce((s, p) => s + (p.valence as number), 0) / valencePoints.length
-      : null;
-    const averageArousal = arousalPoints.length
-      ? arousalPoints.reduce((s, p) => s + (p.arousal as number), 0) / arousalPoints.length
-      : null;
+    const patientEmotionEvents = emotionEvents.filter((p) => {
+      const speaker = String(p.speaker || '').toUpperCase();
+      return (
+        speaker === 'PATIENT' ||
+        speaker === 'PATIENT_1' ||
+        speaker === 'PATIENT_2' ||
+        speaker.includes('PATIENT')
+      );
+    });
+
     const counts: Record<string, number> = {};
-    emotionEvents.forEach((p) => { counts[p.emotion] = (counts[p.emotion] || 0) + 1; });
+    patientEmotionEvents.forEach((p) => { counts[p.emotion] = (counts[p.emotion] || 0) + 1; });
     const dominantEmotion = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    return { averageValence, averageArousal, dominantEmotion };
-  }, [emotionEvents, emotionTimeline]);
+    return { dominantEmotion };
+  }, [emotionEvents]);
 
   const emotionalPatternsList = React.useMemo(
     () => normalizeEmotionalPatterns(sessionInsight?.emotional_patterns),
@@ -484,9 +481,16 @@ const SessionDetailPage: React.FC = () => {
 
   // ── Three-line emotion chart (audio / text / GPT fused) ───────────────────
   const emotionLineChart = React.useMemo(() => {
-    const emotionPoints = emotionEvents.filter((p) =>
-      EMOTION_VISUAL_ORDER.includes(p.emotion as any)
-    );
+    const emotionPoints = emotionEvents.filter((p) => {
+      const speaker = String(p.speaker || '').toUpperCase();
+      const isPatient =
+        speaker === 'PATIENT' ||
+        speaker === 'PATIENT_1' ||
+        speaker === 'PATIENT_2' ||
+        speaker.includes('PATIENT');
+
+      return isPatient && EMOTION_VISUAL_ORDER.includes(p.emotion as any);
+    });
     if (emotionPoints.length < 2) return null;
 
     const width = 920;
@@ -989,44 +993,12 @@ const SessionDetailPage: React.FC = () => {
                   <div className="space-y-6">
 
                     {/* Summary cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Dominant Emotion</p>
                         <p className="text-xl font-bold text-gray-900 mt-2 capitalize">
                           {emotionSummary.dominantEmotion || analysis?.overall_mood || 'Unavailable'}
                         </p>
-                      </div>
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Average Valence</p>
-                        <p className="text-xl font-bold text-gray-900 mt-2">
-                          {emotionSummary.averageValence !== null
-                            ? emotionSummary.averageValence.toFixed(2)
-                            : <span className="text-gray-400 text-base font-normal">Not computed</span>}
-                        </p>
-                        {emotionSummary.averageValence !== null && (
-                          <div className="mt-3">
-                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-2 rounded-full bg-gradient-to-r from-red-500 via-gray-400 to-emerald-500" style={{ width: `${Math.max(0, Math.min(100, ((emotionSummary.averageValence + 1) / 2) * 100))}%` }} />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">Negative to Positive</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Average Arousal</p>
-                        <p className="text-xl font-bold text-gray-900 mt-2">
-                          {emotionSummary.averageArousal !== null
-                            ? emotionSummary.averageArousal.toFixed(2)
-                            : <span className="text-gray-400 text-base font-normal">Not computed</span>}
-                        </p>
-                        {emotionSummary.averageArousal !== null && (
-                          <div className="mt-3">
-                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-2 rounded-full bg-gradient-to-r from-blue-300 to-blue-700" style={{ width: `${Math.max(0, Math.min(100, emotionSummary.averageArousal * 100))}%` }} />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">Calm to Intense</p>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -1135,38 +1107,6 @@ const SessionDetailPage: React.FC = () => {
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500">Insufficient emotion event data for timeline chart.</p>
-                      )}
-                    </div>
-
-                    {/* Mood Distribution */}
-                    <div className="rounded-xl border border-gray-200 p-4">
-                      <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Mood Distribution</p>
-                      {analysis?.mood_distribution && Object.keys(analysis.mood_distribution).length > 0 ? (
-                        <div className="space-y-3">
-                          {(Array.isArray(analysis.mood_distribution)
-                            ? analysis.mood_distribution
-                            : Object.entries(analysis.mood_distribution).map(([emotion, percentage]) => ({
-                                emotion, percentage
-                              }))
-                          ).map((item: any) => {
-                            const emotion = item.emotion ?? item[0];
-                            const pct = Number(item.percentage ?? item[1] ?? 0);
-                            return (
-                              <div key={emotion}>
-                                <div className="flex justify-between mb-1">
-                                  <span className="text-sm text-gray-700 capitalize">{emotion}</span>
-                                  <span className="text-sm font-semibold text-gray-900">{pct.toFixed(1)}%</span>
-                                </div>
-                                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                                  <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600"
-                                    style={{ width: `${Math.min(100, pct)}%` }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">No mood distribution data found.</p>
                       )}
                     </div>
 

@@ -13,6 +13,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const THERAPIST_NOTIFICATION_TYPES = new Set([
   'session_reminder',
   'session_summary',
+  'session_ai_ready',
   'session_approved',
   'session_cancelled',
   'therapist_message',

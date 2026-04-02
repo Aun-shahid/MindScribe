@@ -1,17 +1,9 @@
 // src/pages/EndSession.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle, Loader } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
 import { useEndSession } from '../hooks/useSessions';
-
-const PIPELINE_STATUS_LABELS: Record<string, string> = {
-  idle: '',
-  stopping: 'Saving session...',
-  processing: 'AI is processing the transcript (this may take up to 2 minutes)...',
-  ready: 'Transcript ready! Opening SOAP notes...',
-  timeout: 'Taking longer than expected — opening SOAP notes anyway...',
-};
 
 const EndSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,17 +16,44 @@ const EndSession: React.FC = () => {
   const [homeworkAssigned, setHomeworkAssigned] = useState('');
   const [nextSessionGoals, setNextSessionGoals] = useState('');
   const [sessionEffectiveness, setSessionEffectiveness] = useState('8');
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [completionPopupMessage, setCompletionPopupMessage] = useState<string | null>(null);
 
   // Use hooks
   const { session } = useSessionDetail(id!);
   const {
     endSession,
-    endSessionAndGoToSOAP,
-    pipelineStatus,
     loading,
     error: endSessionError,
   } = useEndSession();
+
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+
+    const previousTitle = document.title;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handlePopState = () => {
+      window.history.pushState(null, document.title, window.location.href);
+    };
+
+    // Keep user on page while save + AI stop request is in progress.
+    window.history.pushState(null, document.title, window.location.href);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    document.title = 'Saving session...';
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      document.title = previousTitle;
+    };
+  }, [loading]);
 
   const handleCompleteSession = async (navigateToSOAP = false) => {
     if (!id) {
@@ -71,11 +90,11 @@ const EndSession: React.FC = () => {
     };
 
     if (navigateToSOAP) {
-      // Use the pipeline-aware version that waits for AI to finish
-      const { success } = await endSessionAndGoToSOAP(id, sessionData);
-      if (success) {
-        setSuccessMessage('Session completed! Redirecting to SOAP Notes...');
-        setTimeout(() => navigate(`/sessions/${id}/soap`), 1000);
+      const response = await endSession(id, sessionData);
+      if (response) {
+        setCompletionPopupMessage(
+          'Session saved successfully. AI processing is now running in the background. You will be notified when your SOAP Notes, Emotional Profile, and AI Insights are ready.'
+        );
       } else if (endSessionError) {
         alert(endSessionError.message || 'Failed to complete session. Please try again.');
       }
@@ -83,8 +102,7 @@ const EndSession: React.FC = () => {
       // Normal complete without SOAP — no need to wait for pipeline
       const response = await endSession(id, sessionData);
       if (response) {
-        setSuccessMessage('Session completed successfully!');
-        setTimeout(() => navigate('/sessions'), 2200);
+        setCompletionPopupMessage('Session saved successfully. You can now continue using the app.');
       } else if (endSessionError) {
         alert(endSessionError.message || 'Failed to complete session. Please try again.');
       }
@@ -101,27 +119,49 @@ const EndSession: React.FC = () => {
   const isUpcoming = session?.status === 'UPCOMING';
   const canEndSession = session?.status === 'IN_PROGRESS' || session?.status === 'COMPLETED';
 
-  // Show pipeline processing overlay when waiting for AI
-  const isProcessingPipeline = loading && (pipelineStatus === 'processing' || pipelineStatus === 'stopping');
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Pipeline processing overlay */}
-      {isProcessingPipeline && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-xl p-8 max-w-sm w-full mx-4 text-center">
-            <Loader className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {pipelineStatus === 'stopping' ? 'Saving Session' : 'Processing Transcript'}
-            </h3>
-            <p className="text-gray-600 text-sm">
-              {PIPELINE_STATUS_LABELS[pipelineStatus]}
+      {/* Blocking processing modal */}
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center border border-gray-100">
+            <Loader size={34} className="mx-auto mb-4 text-purple-700 animate-spin" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Saving Session</h3>
+            <p className="text-sm text-gray-600">
+              Please wait while your transcript and session details are being saved and processing is started.
             </p>
-            {pipelineStatus === 'processing' && (
-              <p className="text-gray-400 text-xs mt-3">
-                Please keep this window open while the AI processes your session audio.
-              </p>
-            )}
+            <p className="text-xs text-gray-500 mt-3">
+              Do not navigate away yet.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Non-blocking completion popup */}
+      {!loading && completionPopupMessage && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-green-100">
+            <div className="flex items-start">
+              <CheckCircle className="h-6 w-6 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Session Saved</h3>
+                <p className="text-sm text-gray-700 mt-1">{completionPopupMessage}</p>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => setCompletionPopupMessage(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Stay Here
+                  </button>
+                  <button
+                    onClick={() => navigate('/sessions')}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-700 rounded-lg hover:bg-purple-800 transition-colors"
+                  >
+                    Go to Sessions
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -184,16 +224,6 @@ const EndSession: React.FC = () => {
                     This session has already been completed. You can update the session notes and details below.
                   </p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Success message */}
-          {successMessage && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
-                <p className="text-green-800 text-sm font-medium">{successMessage}</p>
               </div>
             </div>
           )}
@@ -351,14 +381,12 @@ const EndSession: React.FC = () => {
               className="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || !canEndSession}
             >
-              {loading && pipelineStatus !== 'idle' ? (
+              {loading ? (
                 <Loader size={20} className="mr-2 animate-spin" />
               ) : (
                 <FileText size={20} className="mr-2" />
               )}
-              {loading && pipelineStatus !== 'idle'
-                ? PIPELINE_STATUS_LABELS[pipelineStatus] || 'Processing...'
-                : 'Complete & Open SOAP'}
+              {loading ? 'Saving...' : 'Complete & Notify Me'}
             </button>
 
             <button
@@ -366,14 +394,12 @@ const EndSession: React.FC = () => {
               className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || !canEndSession}
             >
-              {loading && pipelineStatus === 'idle' ? (
+              {loading ? (
                 <Loader size={20} className="mr-2 animate-spin" />
               ) : (
                 <CheckCircle size={20} className="mr-2" />
               )}
-              {loading && pipelineStatus === 'idle'
-                ? 'Saving...'
-                : isAlreadyCompleted ? 'Update Notes' : 'Complete Session'}
+              {loading ? 'Saving...' : isAlreadyCompleted ? 'Update Notes' : 'Complete Session'}
             </button>
           </div>
         </div>

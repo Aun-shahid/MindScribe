@@ -33,6 +33,31 @@ class SessionsService {
     return [...new Set(tokens)];
   }
 
+  private async runWithAiTokenFallback<T>(
+    operation: (token: string) => Promise<T>
+  ): Promise<T> {
+    const tokens = this.getAiCandidateTokens();
+    if (!tokens.length) {
+      throw new Error('No authentication token available for AI service calls');
+    }
+
+    let lastError: unknown;
+    for (const token of tokens) {
+      try {
+        return await operation(token);
+      } catch (error) {
+        const status = this.getHttpStatus(error);
+        if (status === 401 || status === 403) {
+          lastError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw this.handleError(lastError);
+  }
+
   private getHttpStatus(error: unknown): number | undefined {
     if (axios.isAxiosError(error)) {
       return error.response?.status;
@@ -197,53 +222,54 @@ class SessionsService {
    * Fetch generated SOAP note for a session.
    */
   async getSessionSOAP(sessionId: string): Promise<SOAPNote> {
-  try {
-    // Use ai_service_token if available, fall back to access_token (therapist JWT)
-    const authToken = localStorage.getItem('access_token');;
-    
-    const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`, {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+    try {
+      return await this.runWithAiTokenFallback(async (authToken) => {
+        const response = await aiApi.get<SOAPNote>(`/soap/${sessionId}`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        return response.data;
+      });
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-async generateSessionSOAP(
-  sessionId: string,
-  payload: { include_emotions?: boolean; additional_context?: string } = {}
-): Promise<SOAPGenerateResponse> {
-  try {
-    const authToken = localStorage.getItem('access_token')
-    const response = await aiApi.post<SOAPGenerateResponse>(
-      `/soap/${sessionId}/generate`,
-      {
-        include_emotions: payload.include_emotions ?? true,
-        additional_context: payload.additional_context ?? '',
-      },
-      { headers: { Authorization: `Bearer ${authToken}` } }
-    );
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async generateSessionSOAP(
+    sessionId: string,
+    payload: { include_emotions?: boolean; additional_context?: string } = {}
+  ): Promise<SOAPGenerateResponse> {
+    try {
+      return await this.runWithAiTokenFallback(async (authToken) => {
+        const response = await aiApi.post<SOAPGenerateResponse>(
+          `/soap/${sessionId}/generate`,
+          {
+            include_emotions: payload.include_emotions ?? true,
+            additional_context: payload.additional_context ?? '',
+          },
+          { headers: { Authorization: `Bearer ${authToken}` } }
+        );
+        return response.data;
+      });
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-async updateSessionSOAP(
-  sessionId: string,
-  payload: { subjective?: string; objective?: string; assessment?: string; plan?: string; }
-): Promise<SOAPNote> {
-  try {
-    const authToken = localStorage.getItem('access_token');
-    const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload, {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async updateSessionSOAP(
+    sessionId: string,
+    payload: { subjective?: string; objective?: string; assessment?: string; plan?: string; }
+  ): Promise<SOAPNote> {
+    try {
+      return await this.runWithAiTokenFallback(async (authToken) => {
+        const response = await aiApi.put<SOAPNote>(`/soap/${sessionId}`, payload, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        return response.data;
+      });
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
   /**
    * End a therapy session — triggers background AI analysis if consent given
@@ -309,11 +335,8 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
   const AI_URL =
     (import.meta as any).env?.VITE_AI_SERVICE_URL || "http://localhost:8001";
 
-  // ✅ ALWAYS use access_token (FIXED)
-  const token = localStorage.getItem("access_token");
-
-  if (token) {
-    try {
+  try {
+    return await this.runWithAiTokenFallback(async (token) => {
       const res = await fetch(
         `${AI_URL}/api/v1/session/${sessionId}/transcript`,
         {
@@ -323,7 +346,9 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
         }
       );
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
       const data = await res.json();
 
@@ -341,8 +366,6 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
         start_time: seg.start_time,
         end_time: seg.end_time,
         confidence: 1.0,
-
-        // ✅ IMPORTANT: keep full emotion object
         emotion: seg.emotion || null,
       }));
 
@@ -352,12 +375,12 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
         total_duration: data.total_duration || 0,
         speaker_count: data.speaker_count || 0,
       };
-    } catch (err) {
-      console.warn(
-        "[SessionsService] AI transcript failed → fallback to Django:",
-        err
-      );
-    }
+    });
+  } catch (err) {
+    console.warn(
+      "[SessionsService] AI transcript failed -> fallback to Django:",
+      err
+    );
   }
 
   // fallback

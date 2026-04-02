@@ -102,6 +102,7 @@ class Notification(models.Model):
     NOTIFICATION_TYPES = [
         ('session_reminder', 'Session Reminder'),
         ('session_summary', 'Session Summary Available'),
+        ('session_ai_ready', 'Session AI Outputs Ready'),
         ('session_approved', 'Session Request Approved'),
         ('session_cancelled', 'Session Cancelled'),
         ('goal_reminder', 'Goal Reminder'),

@@ -33,7 +33,8 @@ from .views import (
     DevicePushTokenView, PushDiagnosticsView,
     TherapistNotificationListView, TherapistUnreadNotificationCountView,
     TherapistMarkNotificationReadView, TherapistMarkAllNotificationsReadView,
-    TherapistDeleteNotificationView, TherapistNotificationSummaryView
+    TherapistDeleteNotificationView, TherapistNotificationSummaryView,
+    InternalSessionAiReadyNotificationView
 )
 
 
@@ -101,4 +102,7 @@ urlpatterns = [
     path('therapist/notifications/<uuid:notification_id>/read/', TherapistMarkNotificationReadView.as_view(), name='therapist-notification-mark-read'),
     path('therapist/notifications/<uuid:pk>/', TherapistDeleteNotificationView.as_view(), name='therapist-notification-delete'),
     path('therapist/notifications/', TherapistNotificationListView.as_view(), name='therapist-notification-list'),
+
+    # Internal AI callbacks
+    path('internal/session-ai-ready/', InternalSessionAiReadyNotificationView.as_view(), name='internal-session-ai-ready'),
 ]
