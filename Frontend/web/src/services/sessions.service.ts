@@ -615,10 +615,13 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
    */
   async getSessionInsights(sessionId: string): Promise<SessionInsight | null> {
     try {
-      const authToken = localStorage.getItem('access_token');
+      const authToken = localStorage.getItem('ai_service_token') || localStorage.getItem('access_token');
+      const requestConfig = authToken
+        ? { headers: { Authorization: `Bearer ${authToken}` } }
+        : undefined;
       const response = await aiApi.get<{ insight: SessionInsight | null }>(
         `/session/${sessionId}/insights`,
-        { headers: { Authorization: `Bearer ${authToken}` } }
+        requestConfig
       );
       return response.data?.insight || null;
     } catch {
@@ -632,11 +635,14 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
    */
   async generateSessionInsights(sessionId: string, force: boolean = true): Promise<SessionInsight | null> {
     try {
-      const authToken = localStorage.getItem('access_token');
+      const authToken = localStorage.getItem('ai_service_token') || localStorage.getItem('access_token');
+      const requestConfig = authToken
+        ? { headers: { Authorization: `Bearer ${authToken}` } }
+        : undefined;
       const response = await aiApi.post<{ insight: SessionInsight | null }>(
         `/session/${sessionId}/insights`,
         { force },
-        { headers: { Authorization: `Bearer ${authToken}` } }
+        requestConfig
       );
       return response.data?.insight || null;
     } catch (error) {

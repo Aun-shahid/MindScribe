@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, FileText, Save, Sparkles, Clock } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
 
@@ -347,7 +348,11 @@ const SessionSOAP: React.FC = () => {
         {soap?.emotional_summary && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
             <h3 className="font-semibold text-indigo-900 mb-2">Emotional Summary</h3>
-            <p className="text-indigo-800">{soap.emotional_summary}</p>
+            <div className="text-indigo-800 text-sm leading-relaxed">
+              <ReactMarkdown>
+                {soap.emotional_summary}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </div>

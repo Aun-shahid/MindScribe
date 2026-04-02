@@ -1232,7 +1232,8 @@ async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         "You are an expert clinical supervision assistant. "
         "Analyze one completed therapy session and produce coaching insights for the therapist. "
         "Use only provided data. Do not diagnose conditions and do not prescribe medication. "
-        "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations."
+        "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations. "
+        "The recommendations value must be valid markdown with concise headings and bullet points."
     )
 
     request_kwargs: Dict[str, Any] = {
@@ -1271,6 +1272,7 @@ async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "avg_arousal": context.get("transcription", {}).get("avg_arousal"),
         },
         "recommendations": (
+            "### Recommendations\n"
             "- Reflect and summarize patient language at transition points.\n"
             "- Set one measurable between-session behavior target.\n"
             "- Start next session by reviewing adherence and barriers."

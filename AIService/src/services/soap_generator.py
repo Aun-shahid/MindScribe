@@ -2,7 +2,8 @@
 SOAP Notes Generator Service - Generate structured SOAP notes using GPT-4o-mini.
 """
 import asyncio
-from typing import Optional, List
+import json
+from typing import Optional, List, Dict
 import logging
 from datetime import datetime
 
@@ -39,22 +40,18 @@ async def generate_soap_notes(
     valence, arousal = _compute_valence_arousal(transcript)
 
     # ── CALL 1: Standard SOAP structure ─────────────────────────────────────
-    system_prompt = """You are an expert therapy session analyst specializing in creating SOAP notes.
-Generate accurate, professional SOAP notes from therapy session transcripts.
+    system_prompt = """You are an expert therapy session analyst specializing in SOAP notes.
+Generate accurate, professional SOAP notes from therapy transcripts.
 
-SOAP notes structure:
-- Subjective (S): Patient's reported symptoms, feelings, concerns in their own words
-- Objective (O): Observable behaviors, affect, speech patterns, notable themes
-- Assessment (A): Clinical interpretation, progress, diagnostic considerations,
-  personality/relational patterns observed, defense mechanisms noted
-- Plan (P): Interventions, homework, follow-up recommendations
+Return STRICT JSON with exactly these keys:
+- subjective
+- objective
+- assessment
+- plan
 
-Guidelines:
-- Use professional clinical language
-- In Assessment, explicitly note any interpersonal patterns (e.g. blame-shifting,
-  grandiosity, lack of empathy, emotional dysregulation, avoidance)
-- Include relevant direct quotes
-- Be specific, not generic"""
+Each value must be a markdown-formatted string (not HTML), using concise headings/bullets where useful.
+Do not wrap the JSON in markdown code fences.
+Use professional clinical language and cite concrete evidence from the transcript when possible."""
 
     user_prompt = f"""Generate SOAP notes for this therapy session.
 
@@ -66,18 +63,7 @@ SESSION TRANSCRIPT:
 
 {f"ADDITIONAL CONTEXT: {additional_context}" if additional_context else ""}
 
-Format your response as:
-SUBJECTIVE:
-[content]
-
-OBJECTIVE:
-[content]
-
-ASSESSMENT:
-[content]
-
-PLAN:
-[content]"""
+Return only the strict JSON object."""
 
     # ── CALL 2: Clinical pattern analysis (runs in parallel with CALL 1) ────
     pattern_prompt = f"""You are a clinical psychologist analyzing a therapy session transcript.
@@ -130,13 +116,14 @@ Rules:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
+        response_format={"type": "json_object"},
         temperature=0.3,
         max_tokens=2000
     )
     pattern_task = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a clinical psychologist. Respond with structured clinical analysis."},
+            {"role": "system", "content": "You are a clinical psychologist. Respond in concise markdown with clear headings and bullet points."},
             {"role": "user", "content": pattern_prompt}
         ],
         temperature=0.2,
@@ -145,16 +132,18 @@ Rules:
 
     soap_response, pattern_response = await asyncio.gather(soap_task, pattern_task)
 
-    soap_text = soap_response.choices[0].message.content
-    pattern_text = pattern_response.choices[0].message.content
+    soap_text = (soap_response.choices[0].message.content or "").strip()
+    pattern_text = (pattern_response.choices[0].message.content or "").strip()
 
-    sections = _parse_soap_response(soap_text)
+    sections = _parse_soap_json_response(soap_text)
+    if not any(sections.values()):
+        sections = _parse_soap_response(soap_text)
 
     # Append clinical pattern analysis to Assessment
     if pattern_text:
         sections["assessment"] = (
             sections.get("assessment", "") +
-            "\n\n--- CLINICAL PATTERN ANALYSIS ---\n" +
+            "\n\n### Clinical Pattern Analysis\n" +
             pattern_text
         )
 
@@ -288,6 +277,37 @@ def _generate_emotion_summary(transcript: FullTranscript) -> str:
         parts.append(f"{emotion} ({percentage:.0f}%)")
 
     return f"Primary emotions detected: {', '.join(parts)}"
+
+
+def _parse_soap_json_response(response: str) -> Dict[str, str]:
+    sections = {
+        "subjective": "",
+        "objective": "",
+        "assessment": "",
+        "plan": "",
+    }
+
+    text = (response or "").strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            candidate = parts[1]
+            if candidate.lower().startswith("json"):
+                candidate = candidate[4:].strip()
+            text = candidate.strip()
+
+    try:
+        payload = json.loads(text)
+        if not isinstance(payload, dict):
+            return sections
+
+        for key in sections:
+            value = payload.get(key)
+            if isinstance(value, str):
+                sections[key] = value.strip()
+        return sections
+    except Exception:
+        return sections
 
 
 def _parse_soap_response(response: str) -> dict:

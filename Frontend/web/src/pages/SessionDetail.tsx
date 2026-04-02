@@ -1,6 +1,7 @@
 // src/pages/SessionDetail.tsx
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import {
   ChevronLeft,
   User,
@@ -30,6 +31,20 @@ const EMOTION_COLORS: Record<string, string> = {
   anger: '#ef4444',
   disgust: '#84cc16',
   unknown: '#a855f7',
+};
+
+const markdownComponents = {
+  h1: (props: any) => <h3 className="text-base font-semibold text-gray-900 mb-2" {...props} />,
+  h2: (props: any) => <h4 className="text-sm font-semibold text-gray-900 mb-2" {...props} />,
+  h3: (props: any) => <h5 className="text-sm font-semibold text-gray-900 mb-2" {...props} />,
+  p: (props: any) => <p className="text-sm text-gray-800 leading-relaxed mb-2 last:mb-0" {...props} />,
+  ul: (props: any) => <ul className="list-disc pl-5 text-sm text-gray-800 space-y-1 mb-2" {...props} />,
+  ol: (props: any) => <ol className="list-decimal pl-5 text-sm text-gray-800 space-y-1 mb-2" {...props} />,
+  li: (props: any) => <li className="leading-relaxed" {...props} />,
+  blockquote: (props: any) => (
+    <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-700 mb-2" {...props} />
+  ),
+  strong: (props: any) => <strong className="font-semibold text-gray-900" {...props} />,
 };
 
 const SessionDetailPage: React.FC = () => {
@@ -866,7 +881,11 @@ const SessionDetailPage: React.FC = () => {
                       <div className="w-full bg-[#dbb4eb] px-4 py-2">
                         <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold">{key}</p>
                       </div>
-                      <p className="text-gray-800 whitespace-pre-wrap p-4">{soapNote[key]?.content || 'Not available.'}</p>
+                      <div className="p-4">
+                        <ReactMarkdown components={markdownComponents}>
+                          {soapNote[key]?.content || 'Not available.'}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1196,9 +1215,9 @@ const SessionDetailPage: React.FC = () => {
 
                   <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Recommendations</p>
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                    <ReactMarkdown components={markdownComponents}>
                       {sessionInsight.recommendations || 'No recommendations available.'}
-                    </p>
+                    </ReactMarkdown>
                   </div>
 
                   <div className="rounded-xl border border-gray-200 bg-white p-4">
