@@ -57,9 +57,9 @@ const Login = () => {
       if (!success) {
         setError('Invalid email or password');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('Login failed. Please try again.');
+      setError(err?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

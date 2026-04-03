@@ -45,6 +45,8 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const THERAPIST_ACCOUNT_REQUIRED_MESSAGE = 'You do not have a valid therapist account.';
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,14 +78,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authService.login({ email, password });
       if (response.user) {
+        if (response.user.user_type !== 'therapist') {
+          await authService.logout();
+          setUser(null);
+
+          const therapistError = new Error(THERAPIST_ACCOUNT_REQUIRED_MESSAGE) as Error & { code?: string };
+          therapistError.code = 'THERAPIST_ACCOUNT_REQUIRED';
+          setError({
+            message: THERAPIST_ACCOUNT_REQUIRED_MESSAGE,
+            code: therapistError.code,
+          });
+          throw therapistError;
+        }
+
         setUser(response.user);
         return true;
       }
       return false;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
+
+      const message = error?.message || 'Login failed. Please try again.';
+      const code = error?.code;
+      setError({ message, code });
+
+      if (message === THERAPIST_ACCOUNT_REQUIRED_MESSAGE || code === 'THERAPIST_ACCOUNT_REQUIRED') {
+        throw error;
+      }
+
       return false;
     } finally {
       setLoading(false);

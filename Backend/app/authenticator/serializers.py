@@ -8,6 +8,10 @@ User = get_user_model()
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True)
+    role = serializers.ChoiceField(
+        choices=[('patient', 'Patient'), ('therapist', 'Therapist')],
+        required=False
+    )
 
 
 # class RegisterSerializer(serializers.ModelSerializer):
