@@ -332,8 +332,7 @@ class SessionsService {
  * Falls back to Django transcription if AI Service unavailable
  */
 async getAITranscription(sessionId: string): Promise<SessionTranscription> {
-  const AI_URL =
-    (import.meta as any).env?.VITE_AI_SERVICE_URL || "http://localhost:8001";
+  const AI_URL = aiServiceUrl;
 
   try {
     return await this.runWithAiTokenFallback(async (token) => {

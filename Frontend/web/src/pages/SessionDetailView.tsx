@@ -8,9 +8,8 @@ import {
   ChevronLeft, User, Calendar, Clock, FileText,
   RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star, Edit3
 } from 'lucide-react';
+import { aiServiceUrl } from '../config';
 import { useSessionDetail } from '../hooks/useSessions';
-
-const AI_SERVICE_URL = 'http://localhost:8001';
 
 // ─── Emotion colours for the badge ──────────────────────────────────────────
 const EMOTION_COLOR: Record<string, string> = {
@@ -273,7 +272,7 @@ export const TranscriptSection: React.FC<{ sessionId: string }> = ({ sessionId }
       try {
         const token = localStorage.getItem('access_token');
         const res = await fetch(
-          `${AI_SERVICE_URL}/api/v1/session/${sessionId}/transcript`,
+          `${aiServiceUrl}/api/v1/session/${sessionId}/transcript`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) { setStatus('processing'); return; }
@@ -768,7 +767,7 @@ const EmotionalProfileSection: React.FC<{ sessionId: string }> = ({ sessionId })
     const check = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await fetch(`${AI_SERVICE_URL}/api/v1/session/${sessionId}/transcript`,
+        const res = await fetch(`${aiServiceUrl}/api/v1/session/${sessionId}/transcript`,
           { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) { setStatus('processing'); return; }
         const data = await res.json();

@@ -2,6 +2,7 @@
 // Session-specific hooks for live sessions, analysis, and transcription
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { aiServiceUrl } from '../config';
 import sessionsService from '../services/sessions.service';
 import type {
   SessionTranscription,
@@ -76,7 +77,6 @@ const waitForPipeline = async (
   maxWaitMs = 120_000,
   intervalMs = 4_000
 ): Promise<boolean> => {
-  const aiServiceUrl = (import.meta as any).env?.VITE_AI_SERVICE_URL || 'http://localhost:8001';
   const deadline = Date.now() + maxWaitMs;
 
   while (Date.now() < deadline) {
@@ -273,7 +273,7 @@ export const useEndSession = () => {
 /**
  * Hook for fetching session emotional analysis
  */
-const AI_SERVICE_URL = (import.meta as any).env?.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+const AI_SERVICE_URL = aiServiceUrl;
 
 /**
  * Hook for fetching session emotional analysis.

@@ -23,8 +23,7 @@ const getApiBaseUrl = (): string => {
 const apiBaseUrl = getApiBaseUrl();
 
 const api = axios.create({
-  baseURL: `${backendUrl}/api`,
-  //baseURL:'https://mindscribe-backend-production-ca1e.up.railway.app/api',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },

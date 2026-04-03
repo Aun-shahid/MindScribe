@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, FileText, Save, Sparkles, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { aiServiceUrl } from '../config';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
 
@@ -48,14 +49,13 @@ const SOAP_TAB_CONFIG: Array<{
 
 // ─── Transcript polling ────────────────────────────────────────────────────
 
-const AI_SERVICE_URL = 'http://localhost:8001';
 const POLL_INTERVAL_MS = 5000;   // check every 5 seconds
 const POLL_MAX_ATTEMPTS = 24;    // give up after 2 minutes
 
 async function pollForTranscript(sessionId: string): Promise<boolean> {
   const token = localStorage.getItem('access_token');
   const res = await fetch(
-    `${AI_SERVICE_URL}/api/v1/session/${sessionId}/transcript`,
+    `${aiServiceUrl}/api/v1/session/${sessionId}/transcript`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   if (!res.ok) return false;
