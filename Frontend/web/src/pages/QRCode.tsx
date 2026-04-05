@@ -1,5 +1,6 @@
 // src/pages/QRCode.tsx
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTherapistQRCode } from '../hooks/useTherapist';
 import TherapistQRCode from '../components/TherapistQRCode';
 import therapistService from '../services/therapist.service';
@@ -7,6 +8,7 @@ import type { ConnectionRequest } from '../types/therapist';
 import { Check, X, UserPlus, Clock, Mail, Phone } from 'lucide-react';
 
 const QRCode = () => {
+  const location = useLocation();
   const { loading, error, therapistInfo, handleShare, handleRefresh } = useTherapistQRCode();
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -15,6 +17,20 @@ const QRCode = () => {
   useEffect(() => {
     fetchConnectionRequests();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const isNotificationSource = params.get('source') === 'notification';
+    if (!isNotificationSource) return;
+
+    // Notification click can arrive before backend list updates; do a quick retry.
+    fetchConnectionRequests();
+    const retryTimer = window.setTimeout(() => {
+      fetchConnectionRequests();
+    }, 1200);
+
+    return () => window.clearTimeout(retryTimer);
+  }, [location.key, location.search]);
 
   const fetchConnectionRequests = async () => {
     try {

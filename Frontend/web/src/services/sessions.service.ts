@@ -56,11 +56,36 @@ class SessionsService {
     return [...new Set(tokens)];
   }
 
+  private async requestFreshAiServiceToken(sessionId: string): Promise<string | null> {
+    try {
+      const response = await api.post<{ ai_service_token?: string }>(
+        `/therapy_sessions/sessions/${sessionId}/ai-token/`
+      );
+
+      const freshToken = response.data?.ai_service_token;
+      if (freshToken) {
+        localStorage.setItem('ai_service_token', freshToken);
+        return freshToken;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   private async runWithAiTokenFallback<T>(
-    operation: (token: string) => Promise<T>
+    operation: (token: string) => Promise<T>,
+    sessionId?: string
   ): Promise<T> {
     const tokens = this.getAiCandidateTokens();
     if (!tokens.length) {
+      if (sessionId) {
+        const freshToken = await this.requestFreshAiServiceToken(sessionId);
+        if (freshToken) {
+          return await operation(freshToken);
+        }
+      }
       throw new Error('No authentication token available for AI service calls');
     }
 
@@ -75,6 +100,17 @@ class SessionsService {
           continue;
         }
         throw error;
+      }
+    }
+
+    if (sessionId) {
+      const freshToken = await this.requestFreshAiServiceToken(sessionId);
+      if (freshToken && !tokens.includes(freshToken)) {
+        try {
+          return await operation(freshToken);
+        } catch (error) {
+          lastError = error;
+        }
       }
     }
 
@@ -251,7 +287,7 @@ class SessionsService {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         return response.data;
-      });
+      }, sessionId);
     } catch (error) {
       throw this.handleError(error);
     }
@@ -272,7 +308,7 @@ class SessionsService {
           { headers: { Authorization: `Bearer ${authToken}` } }
         );
         return response.data;
-      });
+      }, sessionId);
     } catch (error) {
       throw this.handleError(error);
     }
@@ -288,7 +324,7 @@ class SessionsService {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         return response.data;
-      });
+      }, sessionId);
     } catch (error) {
       throw this.handleError(error);
     }
@@ -347,67 +383,63 @@ class SessionsService {
     }
   }
   /**
- * Get full transcript with dual-source emotion from AI Service
- * Falls back to Django transcription if AI Service unavailable
- */
-/**
- * Get full transcript with dual-source emotion from AI Service
- * Falls back to Django transcription if AI Service unavailable
- */
-async getAITranscription(sessionId: string): Promise<SessionTranscription> {
-  const AI_URL = aiServiceUrl;
+   * Get full transcript with dual-source emotion from AI Service
+   * Falls back to Django transcription if AI Service unavailable
+   */
+  async getAITranscription(sessionId: string): Promise<SessionTranscription> {
+    const AI_URL = aiServiceUrl;
 
-  try {
-    return await this.runWithAiTokenFallback(async (token) => {
-      const res = await fetch(
-        `${AI_URL}/api/v1/session/${sessionId}/transcript`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+    try {
+      return await this.runWithAiTokenFallback(async (token) => {
+        const res = await fetch(
+          `${AI_URL}/api/v1/session/${sessionId}/transcript`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
         }
+
+        const data = await res.json();
+
+        const segments = (data.segments || []).map((seg: any) => ({
+          id: seg.id,
+          speaker: seg.speaker,
+          speaker_type:
+            seg.speaker?.toLowerCase() === 'therapist'
+              ? 'therapist'
+              : 'patient',
+          speaker_id: seg.speaker,
+          text: seg.text_english || seg.text_urdu || '',
+          text_english: seg.text_english || '',
+          text_urdu: seg.text_urdu || '',
+          start_time: seg.start_time,
+          end_time: seg.end_time,
+          confidence: 1.0,
+          emotion: seg.emotion || null,
+        }));
+
+        return {
+          session_id: data.session_id || sessionId,
+          segments,
+          total_duration: data.total_duration || 0,
+          speaker_count: data.speaker_count || 0,
+        };
+      }, sessionId);
+    } catch (err) {
+      console.warn(
+        '[SessionsService] AI transcript failed -> fallback to Django:',
+        err
       );
+    }
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      const segments = (data.segments || []).map((seg: any) => ({
-        id: seg.id,
-        speaker: seg.speaker,
-        speaker_type:
-          seg.speaker?.toLowerCase() === "therapist"
-            ? "therapist"
-            : "patient",
-        speaker_id: seg.speaker,
-        text: seg.text_english || seg.text_urdu || "",
-        text_english: seg.text_english || "",
-        text_urdu: seg.text_urdu || "",
-        start_time: seg.start_time,
-        end_time: seg.end_time,
-        confidence: 1.0,
-        emotion: seg.emotion || null,
-      }));
-
-      return {
-        session_id: data.session_id || sessionId,
-        segments,
-        total_duration: data.total_duration || 0,
-        speaker_count: data.speaker_count || 0,
-      };
-    });
-  } catch (err) {
-    console.warn(
-      "[SessionsService] AI transcript failed -> fallback to Django:",
-      err
-    );
+    // fallback
+    return this.getTranscription(sessionId);
   }
-
-  // fallback
-  return this.getTranscription(sessionId);
-}
 
   /**
    * Update the therapist-written session summary (visible to patient)
@@ -674,71 +706,39 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
    * Get session insights generated by AI
    */
   async getSessionInsights(sessionId: string): Promise<SessionInsight | null> {
-    const tokens = this.getAiCandidateTokens();
-    const attempts = tokens.length ? tokens : [null];
-
-    for (let index = 0; index < attempts.length; index++) {
-      const authToken = attempts[index];
-      const requestConfig = authToken
-        ? { headers: { Authorization: `Bearer ${authToken}` } }
-        : undefined;
-
-      try {
+    try {
+      return await this.runWithAiTokenFallback(async (authToken) => {
         const response = await aiApi.get<{ insight: SessionInsight | null }>(
           `/session/${sessionId}/insights`,
-          requestConfig
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
         return response.data?.insight || null;
-      } catch (error) {
-        const status = this.getHttpStatus(error);
-        if (status === 404) {
-          return null;
-        }
-
-        const hasAnotherToken = index < attempts.length - 1;
-        if ((status === 401 || status === 403) && hasAnotherToken) {
-          continue;
-        }
-
-        throw this.handleError(error);
+      }, sessionId);
+    } catch (error) {
+      const status = this.getHttpStatus(error);
+      if (status === 404) {
+        return null;
       }
+      throw this.handleError(error);
     }
-
-    return null;
   }
 
   /**
    * Generate AI insights for a completed session.
    */
   async generateSessionInsights(sessionId: string, force: boolean = true): Promise<SessionInsight | null> {
-    const tokens = this.getAiCandidateTokens();
-    const attempts = tokens.length ? tokens : [null];
-
-    for (let index = 0; index < attempts.length; index++) {
-      const authToken = attempts[index];
-      const requestConfig = authToken
-        ? { headers: { Authorization: `Bearer ${authToken}` } }
-        : undefined;
-
-      try {
+    try {
+      return await this.runWithAiTokenFallback(async (authToken) => {
         const response = await aiApi.post<{ insight: SessionInsight | null }>(
           `/session/${sessionId}/insights`,
           { force },
-          requestConfig
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
         return response.data?.insight || null;
-      } catch (error) {
-        const status = this.getHttpStatus(error);
-        const hasAnotherToken = index < attempts.length - 1;
-        if ((status === 401 || status === 403) && hasAnotherToken) {
-          continue;
-        }
-
-        throw this.handleError(error);
-      }
+      }, sessionId);
+    } catch (error) {
+      throw this.handleError(error);
     }
-
-    return null;
   }
 
   /**

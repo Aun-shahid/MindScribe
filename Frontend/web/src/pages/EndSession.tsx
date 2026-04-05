@@ -55,7 +55,7 @@ const EndSession: React.FC = () => {
     };
   }, [loading]);
 
-  const handleCompleteSession = async (navigateToSOAP = false) => {
+  const handleCompleteSession = async () => {
     if (!id) {
       alert('No session ID found');
       return;
@@ -89,23 +89,13 @@ const EndSession: React.FC = () => {
       session_effectiveness: parseInt(sessionEffectiveness) || 8,
     };
 
-    if (navigateToSOAP) {
-      const response = await endSession(id, sessionData);
-      if (response) {
-        setCompletionPopupMessage(
-          'Session saved successfully. AI processing is now running in the background. You will be notified when your SOAP Notes, Emotional Profile, and AI Insights are ready.'
-        );
-      } else if (endSessionError) {
-        alert(endSessionError.message || 'Failed to complete session. Please try again.');
-      }
-    } else {
-      // Normal complete without SOAP — no need to wait for pipeline
-      const response = await endSession(id, sessionData);
-      if (response) {
-        setCompletionPopupMessage('Session saved successfully. You can now continue using the app.');
-      } else if (endSessionError) {
-        alert(endSessionError.message || 'Failed to complete session. Please try again.');
-      }
+    const response = await endSession(id, sessionData);
+    if (response) {
+      setCompletionPopupMessage(
+        'Session saved successfully. AI processing is now running in the background. You will be notified when your SOAP Notes, Emotional Profile, and AI Insights are ready.'
+      );
+    } else if (endSessionError) {
+      alert(endSessionError.message || 'Failed to complete session. Please try again.');
     }
   };
 
@@ -377,8 +367,8 @@ const EndSession: React.FC = () => {
             </button>
 
             <button
-              onClick={() => handleCompleteSession(true)}
-              className="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleCompleteSession}
+              className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || !canEndSession}
             >
               {loading ? (
@@ -387,19 +377,6 @@ const EndSession: React.FC = () => {
                 <FileText size={20} className="mr-2" />
               )}
               {loading ? 'Saving...' : 'Complete & Notify Me'}
-            </button>
-
-            <button
-              onClick={() => handleCompleteSession(false)}
-              className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || !canEndSession}
-            >
-              {loading ? (
-                <Loader size={20} className="mr-2 animate-spin" />
-              ) : (
-                <CheckCircle size={20} className="mr-2" />
-              )}
-              {loading ? 'Saving...' : isAlreadyCompleted ? 'Update Notes' : 'Complete Session'}
             </button>
           </div>
         </div>

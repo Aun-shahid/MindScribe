@@ -823,16 +823,16 @@ const PatientDetail = () => {
           </div>
 
           {/* Clinical Information */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-rose-600 to-orange-500 px-6 py-4">
-              <h3 className="text-xl font-bold text-white flex items-center">
-                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m8-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Clinical Information
               </h3>
             </div>
-            <div className="p-6 grid grid-cols-1 gap-6">
+            <div className="p-4 grid grid-cols-1 gap-3">
               <InfoField
                 label="Complete Address"
                 value={patient.patient_profile?.address}
@@ -874,10 +874,10 @@ const PatientDetail = () => {
           </div> */}
 
           {/* Session History */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white flex items-center">
-                <svg className="w-5 h-5 mr-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Session History
@@ -885,13 +885,13 @@ const PatientDetail = () => {
               {pastSessions.length > 5 && (
                 <button
                   onClick={() => setShowAllSessions(!showAllSessions)}
-                  className="text-sm text-white bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors font-medium"
+                  className="text-sm text-purple-700 bg-purple-100 hover:bg-purple-200 px-3 py-1.5 rounded-lg transition-colors font-medium"
                 >
                   {showAllSessions ? 'Show Less' : `Show All (${pastSessions.length})`}
                 </button>
               )}
             </div>
-            <div className="p-5">
+            <div className="p-4">
               {loadingPastSessions ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>

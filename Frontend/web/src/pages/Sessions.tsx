@@ -148,28 +148,28 @@ const Sessions = () => {
   }
 
   return (
-    <div className="sessions-page bg-gradient-to-br from-gray-50 to-purple-50 min-h-screen -mt-6 -mx-8 px-6 pt-5">
+    <div className="sessions-page bg-gradient-to-br from-gray-50 to-purple-50 min-h-screen -mt-4 sm:-mt-6 -mx-3 sm:-mx-8 px-3 sm:px-6 pt-4 sm:pt-5 overflow-x-hidden">
       {/* Purple Gradient Header with Image */}
-      <div className="relative w-full h-44 bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-xl shadow-lg overflow-hidden mb-6">
+      <div className="relative w-full bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-xl shadow-lg overflow-hidden mb-6">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/30"></div>
         <div className="absolute inset-0 backdrop-blur-[2px]">
           <div className="absolute inset-0 bg-[url('/images/heroo.png')] bg-cover bg-center opacity-20"></div>
         </div>
 
         {/* Header Content */}
-        <div className="relative h-full flex items-center justify-between px-6">
+        <div className="relative h-full flex flex-col sm:flex-row sm:items-center sm:justify-between justify-center gap-4 px-4 sm:px-6 py-5 sm:py-6">
           <div className="text-white">
-            <h1 className="text-3xl font-semibold mb-1 drop-shadow-md">Therapy Sessions</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold mb-1 drop-shadow-md">Therapy Sessions</h1>
             <p className="text-sm text-purple-100 drop-shadow-sm">Manage and organize your therapy appointments</p>
           </div>
 
           {/* Action Buttons on Header */}
-          <div className="flex space-x-2.5">
+          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
             {selectedSessions.length > 0 ? (
               <>
                 <button
                   onClick={() => handleBulkAction('cancel')}
-                  className="bg-red-600/90 backdrop-blur-sm hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+                  className="bg-red-600/90 backdrop-blur-sm hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -178,7 +178,7 @@ const Sessions = () => {
                 </button>
                 <button
                   onClick={() => handleBulkAction('reschedule')}
-                  className="bg-yellow-600/90 backdrop-blur-sm hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+                  className="bg-yellow-600/90 backdrop-blur-sm hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -187,7 +187,7 @@ const Sessions = () => {
                 </button>
                 <button
                   onClick={() => handleBulkAction('update')}
-                  className="bg-blue-600/90 backdrop-blur-sm hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+                  className="bg-blue-600/90 backdrop-blur-sm hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -199,7 +199,7 @@ const Sessions = () => {
               <>
                 <Link
                   to="/sessions/calendar"
-                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center space-x-2"
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -208,7 +208,7 @@ const Sessions = () => {
                 </Link>
                 <Link
                   to="/sessions/new"
-                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-purple-700 px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg"
+                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-purple-700 px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center flex-1 sm:flex-none min-w-[140px]"
                 >
                   + New Session
                 </Link>
@@ -232,7 +232,7 @@ const Sessions = () => {
 
       {/* Enhanced Filters Section */}
       <div className="bg-white rounded-xl shadow-md p-4 border border-purple-100">
-        <div className="flex items-start justify-between mb-4 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-3">
           <div className="flex items-center space-x-3">
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-1.5 rounded-md">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +242,7 @@ const Sessions = () => {
             <h2 className="text-lg font-semibold text-gray-900">Filter Sessions</h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             {Object.keys(activeFilter).length > 0 && (
               <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
                 {Object.keys(activeFilter).length} active
@@ -317,7 +317,7 @@ const Sessions = () => {
 
       {/* Enhanced Sessions List */}
       <div className="bg-white rounded-xl shadow-md p-4 border border-purple-100 mt-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div className="flex items-center space-x-3">
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-1.5 rounded-md">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,15 +355,15 @@ const Sessions = () => {
           ) : displaySessions.length > 0 ? (
             displaySessions.map((session) => (
               <div key={session.id} className="group relative border border-gray-200 hover:border-purple-300 rounded-lg p-3.5 hover:bg-gradient-to-r hover:from-purple-50/40 hover:to-pink-50/40 transition-all duration-200 hover:shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3 flex-1">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div className="flex items-start sm:items-center space-x-3 flex-1 min-w-0">
                     <input
                       type="checkbox"
                       checked={selectedSessions.includes(session.id)}
                       onChange={() => toggleSessionSelection(session.id)}
                       className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-all"
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-start space-x-3">
                         {/* Session Icon */}
                         <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-md shadow-sm group-hover:shadow-md transition-shadow">
@@ -372,11 +372,11 @@ const Sessions = () => {
                           </svg>
                         </div>
 
-                        <div>
-                          <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-700 transition-colors">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-700 transition-colors break-words">
                             {session.patient_name || (session as any).patient?.full_name || 'Unknown Patient'}
                           </h3>
-                          <div className="flex items-center space-x-2.5 mt-1.5">
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             <div className="flex items-center text-xs text-gray-600">
                               <svg className="w-4 h-4 mr-1.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -388,7 +388,7 @@ const Sessions = () => {
                               {session.session_type}
                             </span>
                           </div>
-                          <div className="flex items-center space-x-2.5 mt-1.5 text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-gray-500">
                             <div className="flex items-center">
                               <svg className="w-3.5 h-3.5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -401,7 +401,7 @@ const Sessions = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
-                              <span>{session.location}</span>
+                              <span className="break-all">{session.location}</span>
                               {session.is_online && <span className="ml-1 text-green-600 font-medium">(Online)</span>}
                             </div>
                           </div>
@@ -410,14 +410,14 @@ const Sessions = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2.5">
-                    <span className={`px-3 py-1 text-[11px] font-semibold rounded-full shadow-sm ${getStatusColor(session.status)}`}>
+                  <div className="flex w-full lg:w-auto items-center justify-between sm:justify-end gap-2.5 pl-7 sm:pl-0">
+                    <span className={`px-3 py-1 text-[11px] font-semibold rounded-full shadow-sm whitespace-nowrap ${getStatusColor(session.status)}`}>
                       {session.status}
                     </span>
                     
                     <Link
                       to={`/sessions/${session.id}?tab=overview`}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center space-x-1.5"
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-1.5 w-full sm:w-auto"
                     >
                       <span>View Details</span>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -474,7 +474,7 @@ const Sessions = () => {
       {/* Bulk Action Modal */}
       {showBulkModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               {bulkAction === 'cancel' ? 'Cancel Sessions' : bulkAction === 'reschedule' ? 'Reschedule Sessions' : 'Update Sessions'}
             </h3>
@@ -559,7 +559,7 @@ const Sessions = () => {
                   />
                 </div>
 
-                <div className="flex justify-end space-x-3">
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                   <button
                     onClick={() => {
                       setShowBulkModal(false);
@@ -569,7 +569,7 @@ const Sessions = () => {
                       setNewLocation('');
                       setNewDuration('');
                     }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 w-full sm:w-auto"
                     disabled={bulkLoading}
                   >
                     Cancel
@@ -581,7 +581,7 @@ const Sessions = () => {
                       (bulkAction === 'reschedule' && !newDate) ||
                       (bulkAction === 'update' && !newLocation && !newDuration)
                     }
-                    className={`px-4 py-2 text-white rounded-lg ${bulkAction === 'cancel'
+                    className={`px-4 py-2 text-white rounded-lg w-full sm:w-auto ${bulkAction === 'cancel'
                       ? 'bg-red-600 hover:bg-red-700'
                       : bulkAction === 'reschedule'
                         ? 'bg-yellow-600 hover:bg-yellow-700'
