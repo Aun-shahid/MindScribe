@@ -294,10 +294,11 @@ export default function RegisterScreen() {
           <Text style={[styles.label, { fontSize: labelFontSize, width: fieldWidth }]}>Phone Number</Text>
           <TextInput
             style={[styles.input, { fontSize: inputFontSize, maxWidth: fieldWidth }, validationErrors.phone_number && styles.inputError]}
-            placeholder="03xx-xxxxxxx"
+            placeholder="03xxxxxxxxx"
             placeholderTextColor="#8D8BA7"
-            keyboardType="phone-pad"
-            onChangeText={(text) => handleChange('phone_number', text)}
+            keyboardType="number-pad"
+            maxLength={11}
+            onChangeText={(text) => handleChange('phone_number', text.replace(/\D/g, '').slice(0, 11))}
             value={form.phone_number}
             editable={!isLoading}
           />

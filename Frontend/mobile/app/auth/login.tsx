@@ -105,7 +105,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}
       style={styles.wrapper}
     >
@@ -225,7 +225,7 @@ export default function LoginScreen() {
               style={{ marginRight: clamp(width * 0.016, 5, 8) }}
             />
             <Text style={[styles.pillLinkText, { fontSize: linkFontSize }]}>
-              Don't have an account? Register
+              Don&apos;t have an account? Register
             </Text>
           </TouchableOpacity>
 
@@ -248,6 +248,9 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
         </View>
+
+        {/* Tiny test links for QA/dev flow checks */}
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -316,4 +319,21 @@ const styles = StyleSheet.create({
   },
   pillLinkText:          { color: '#A78BFA', fontWeight: '700', letterSpacing: 0.2 },
   pillLinkTextSecondary: { color: '#BFB4E2' },
+
+  testLinksRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testLinkText: {
+    color: 'rgba(191,180,226,0.72)',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+  testLinkDivider: {
+    color: 'rgba(191,180,226,0.45)',
+    marginHorizontal: 8,
+    fontWeight: '600',
+  },
 });

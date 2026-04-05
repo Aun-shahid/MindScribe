@@ -36,6 +36,16 @@ const formatDate = (d?: string | null) => {
   try { return new Date(d).toLocaleDateString(); } catch { return d; }
 };
 
+const isPastDue = (targetDate?: string | null) => {
+  if (!targetDate) return false;
+  const parsed = new Date(targetDate);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed < today;
+};
+
 const GoalsScreen: React.FC = () => {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -158,7 +168,7 @@ const GoalsScreen: React.FC = () => {
         fly(b5y, b5x, 9500,  8000, 2000, 1500),
       ];
       return () => anims.forEach(a => a.stop());
-    }, [bubbleShift])
+    }, [b1x, b1y, b2x, b2y, b3x, b3y, b4x, b4y, b5x, b5y, bubbleShift])
   );
 
   useEffect(() => {
@@ -213,6 +223,7 @@ const GoalsScreen: React.FC = () => {
   // ── Active goal card (unchanged) ──────────────────────────────────────────
   const renderGoal = ({ item }: { item: PatientGoal }) => {
     const pct        = item.progress_percentage || 0;
+    const isOverdue  = isPastDue(item.target_date) && item.status !== 'completed';
     const accent     = PRIORITY_COLORS[item.priority] ?? '#A78BFA';
     const isExpanded = expandedGoalIds.includes(item.id);
     const accentFaint= hexWithAlpha(accent, 0.12);
@@ -230,7 +241,17 @@ const GoalsScreen: React.FC = () => {
           style={[StyleSheet.absoluteFillObject, { borderRadius: cardRadius }]}
           pointerEvents="none"
         />
-        <View style={{ height: 3, backgroundColor: accent, position: 'absolute', top: 0, left: 0, right: 0 }} />
+        {isOverdue ? (
+          <View
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              borderRadius: cardRadius,
+              backgroundColor: 'rgba(239,68,68,0.12)',
+            }}
+            pointerEvents="none"
+          />
+        ) : null}
+        <View style={{ height: 3, backgroundColor: isOverdue ? '#EF4444' : accent, position: 'absolute', top: 0, left: 0, right: 0 }} />
 
         <View style={{ padding: cardPad, paddingTop: cardPad + 3 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: clamp(height * 0.014, 8, 12) }}>
@@ -247,10 +268,20 @@ const GoalsScreen: React.FC = () => {
                 {(item.priority_display || item.priority).charAt(0).toUpperCase() + (item.priority_display || item.priority).slice(1).toLowerCase()}
               </Text>
             </View>
+            {isOverdue ? (
+              <View style={[styles.chip, { backgroundColor: 'rgba(239,68,68,0.14)', borderColor: 'rgba(239,68,68,0.4)', borderRadius: chipRadius }]}>
+                <FontAwesome name="exclamation-circle" size={metaTxtSz - 1} color="#EF4444" style={{ marginRight: 5 }} />
+                <Text style={[styles.chipText, { color: '#EF4444', fontSize: metaTxtSz }]}>Overdue</Text>
+              </View>
+            ) : null}
             {item.target_date ? (
-              <View style={[styles.chip, { backgroundColor: 'rgba(255,179,107,0.10)', borderColor: 'rgba(255,179,107,0.30)', borderRadius: chipRadius }]}>
-                <FontAwesome name="calendar-o" size={metaTxtSz - 1} color="#FFB36B" style={{ marginRight: 5 }} />
-                <Text style={[styles.chipText, { color: '#FFB36B', fontSize: metaTxtSz }]}>{item.target_date}</Text>
+              <View style={[styles.chip, {
+                backgroundColor: isOverdue ? 'rgba(239,68,68,0.12)' : 'rgba(255,179,107,0.10)',
+                borderColor: isOverdue ? 'rgba(239,68,68,0.35)' : 'rgba(255,179,107,0.30)',
+                borderRadius: chipRadius,
+              }]}>
+                <FontAwesome name="calendar-o" size={metaTxtSz - 1} color={isOverdue ? '#F87171' : '#FFB36B'} style={{ marginRight: 5 }} />
+                <Text style={[styles.chipText, { color: isOverdue ? '#FCA5A5' : '#FFB36B', fontSize: metaTxtSz }]}>{item.target_date}</Text>
               </View>
             ) : null}
           </View>

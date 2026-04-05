@@ -613,17 +613,8 @@ class PatientService {
     // strip surrounding double or single quotes that sometimes appear when copying
     sanitizedPin = sanitizedPin.replace(/^['"]+|['"]+$/g, '');
     const body = { therapist_pin: sanitizedPin, message };
-    try {
-      console.log('[PatientService] connectTherapist original pin:', therapist_pin);
-      console.log('[PatientService] connectTherapist sanitized pin:', sanitizedPin);
-      console.log('[PatientService] connectTherapist request body:', body);
-      const response = await api.post('/users/connect-therapist/', body);
-      console.log('[PatientService] connectTherapist response:', response.status, response.data);
-      return response.data;
-    } catch (err: any) {
-      console.error('[PatientService] connectTherapist error:', err?.response?.status, err?.response?.data || err.message);
-      throw err;
-    }
+    const response = await api.post('/users/connect-therapist/', body);
+    return response.data;
   }
 
   /**

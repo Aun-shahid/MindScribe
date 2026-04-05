@@ -30,7 +30,7 @@ export default function RequestResetScreen() {
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens (all clamp — zero fixed px) ─────────────────────────
-  const topPad        = insets.top + clamp(height * 0.002, 1, 3);    // heading moved up further
+  const topPad        = insets.top + clamp(height * 0.02, 12, 24);
   const bottomPad     = clamp(insets.bottom + height * 0.06, 40, 58);
   const hPad          = clamp(width * 0.06, 20, 28);
   const kvOffset      = Platform.OS === 'ios' ? insets.top + 8 : 0;
@@ -48,7 +48,7 @@ export default function RequestResetScreen() {
   const subtitleMB    = clamp(height * 0.022, 14, 22);
 
   const labelSize     = clamp(width * 0.038, 13, 16);
-  const labelMB       = clamp(height * 0.007, 4, 7);
+  const labelMB       = clamp(height * 0.014, 10, 14);
   const labelMT       = clamp(height * 0.012, 7, 12);
   const fieldW        = clamp(width * 0.84, 260, 340);
   const inputH        = clamp(height * 0.062, 42, 52);
@@ -142,7 +142,7 @@ export default function RequestResetScreen() {
 
           {/* Subtitle */}
           <Text style={[styles.subtitle, { fontSize: subtitleSize, marginBottom: subtitleMB }]}>
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address and we&apos;ll send you a link to reset your password.
           </Text>
 
           {/* Error */}

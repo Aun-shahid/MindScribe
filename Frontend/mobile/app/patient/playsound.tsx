@@ -132,42 +132,54 @@ export default function PlaySoundScreen() {
 
   const loopRotate = loopRotateAnim.interpolate({ inputRange:[0,1], outputRange:['0deg','360deg'] });
 
-  useEffect(() => { timedMinutesRef.current = timedMinutes; }, [timedMinutes]);
-  useEffect(() => { contentRef.current = content; }, [content]);
-
-  // ── Kill audio synchronously — no await, so navigation is never delayed ──
-  const killAudioNow = useCallback(() => {
-    isLeavingRef.current    = true;
-    isRestartingRef.current = true;
-    const s = soundRef.current;
-    soundRef.current = null; // null FIRST — no callback can reuse it
-    if (s) {
-      s.stopAsync().catch(() => {}).finally(() => s.unloadAsync().catch(() => {}));
-    }
+  const resetPlaybackState = useCallback((resetLoopSelection: boolean) => {
     listenedMsRef.current   = 0;
     lastPositionRef.current = 0;
-    timedMinutesRef.current = null;
+    if (resetLoopSelection) {
+      timedMinutesRef.current = null;
+      setTimedMinutes(null);
+    }
+    if (!isLeavingRef.current) {
+      setIsPlaying(false);
+      setPosition(0);
+      setDuration(0);
+    }
   }, []);
 
-  // ── Full async reset — for timed loop end only, not navigation ────────────
-  const fullReset = useCallback(async () => {
+  const releaseSound = useCallback(async (resetLoopSelection: boolean) => {
     isRestartingRef.current = true;
     const s = soundRef.current;
     soundRef.current = null;
+
     if (s) {
+      try { s.setOnPlaybackStatusUpdate(null); } catch {}
       try {
         const st = await s.getStatusAsync();
-        if (st.isLoaded) { try { await s.stopAsync(); } catch {} await s.unloadAsync(); }
+        if (st.isLoaded) {
+          try { await s.setIsLoopingAsync(false); } catch {}
+          try { await s.stopAsync(); } catch {}
+          try { await s.setPositionAsync(0); } catch {}
+          try { await s.unloadAsync(); } catch {}
+        }
       } catch {}
     }
+
+    resetPlaybackState(resetLoopSelection);
     isRestartingRef.current = false;
-    listenedMsRef.current   = 0;
-    lastPositionRef.current = 0;
-    timedMinutesRef.current = null;
-    if (!isLeavingRef.current) {
-      setIsPlaying(false); setPosition(0); setDuration(0); setTimedMinutes(null);
-    }
-  }, []);
+  }, [resetPlaybackState]);
+
+  useEffect(() => { timedMinutesRef.current = timedMinutes; }, [timedMinutes]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+
+  const killAudioNow = useCallback(async () => {
+    isLeavingRef.current = true;
+    await releaseSound(true);
+  }, [releaseSound]);
+
+  // ── Full async reset — for timed loop end only, not navigation ────────────
+  const fullReset = useCallback(async () => {
+    await releaseSound(true);
+  }, [releaseSound]);
 
   const loadContent = useCallback(async () => {
     try {
@@ -205,8 +217,11 @@ export default function PlaySoundScreen() {
       ]));
     const anims = [fly(b1y,b1x,8000,7000,0),fly(b2y,b2x,10000,9000,500),fly(b3y,b3x,7000,8000,1000),fly(b4y,b4x,9000,7500,1500),fly(b5y,b5x,8500,8500,2000)];
     anims.forEach(a => a.start());
-    return () => { fullReset(); anims.forEach(a => a.stop()); };
-  }, [id, b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y, fullReset, loadContent]);
+    return () => {
+      releaseSound(true).catch(() => {});
+      anims.forEach(a => a.stop());
+    };
+  }, [id, b1x,b1y,b2x,b2y,b3x,b3y,b4x,b4y,b5x,b5y, releaseSound, loadContent]);
 
   // ── useFocusEffect ────────────────────────────────────────────────────────
   // ENTRY: reset ALL visual state so returning always shows a clean slate
@@ -224,8 +239,8 @@ export default function PlaySoundScreen() {
       listenedMsRef.current   = 0;
       lastPositionRef.current = 0;
 
-      return () => { killAudioNow(); };
-    }, [killAudioNow])
+      return () => { releaseSound(true).catch(() => {}); };
+    }, [releaseSound])
   );
 
   const onPlaybackStatusUpdate = useCallback((status: any) => {
@@ -282,8 +297,7 @@ export default function PlaySoundScreen() {
           else                  { await s.playAsync();  setIsPlaying(true);  }
           return;
         }
-        try { await s.unloadAsync(); } catch {}
-        soundRef.current = null;
+        await releaseSound(false);
       }
       const {sound:ns} = await Audio.Sound.createAsync({uri:content.audio_url},{shouldPlay:false,volume:1.0},onPlaybackStatusUpdate);
       await new Promise(r => setTimeout(r, 100));
@@ -315,8 +329,10 @@ export default function PlaySoundScreen() {
   };
 
   const handleBack = useCallback(() => {
-    killAudioNow();
-    requestAnimationFrame(() => router.push('./relaxation-sounds'));
+    (async () => {
+      await killAudioNow();
+      router.push('./relaxation-sounds');
+    })();
   }, [killAudioNow, router]);
 
   const handleDone = useCallback(() => {
@@ -324,8 +340,10 @@ export default function PlaySoundScreen() {
     const listenedMs       = Math.max(0, listenedMsRef.current||0);
     const durationListened = Math.floor(listenedMs/1000) || Math.floor((position||0)/1000) || 0;
     const params = { contentId:content.id, contentTitle:content.title, contentCategory:content.category_display||content.category, durationListened:durationListened.toString() };
-    killAudioNow();
-    requestAnimationFrame(() => router.push({pathname:'./relaxation-sessions',params}));
+    (async () => {
+      await killAudioNow();
+      router.push({pathname:'./relaxation-sessions',params});
+    })();
   }, [content, position, killAudioNow, router]);
 
   if (loading) return <TabLoaderCard fullScreen title="Loading sound session..." subtitle="Preparing your relaxation audio" spinnerColor="#A78BFA" />;

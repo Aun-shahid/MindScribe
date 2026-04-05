@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   AppState,
   View,
@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 // FIX 3: Use SafeAreaView from react-native-safe-area-context, not react-native
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,7 +31,6 @@ import { LineChart } from 'react-native-chart-kit';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import TabLoaderCard from '../components/TabLoaderCard';
@@ -184,9 +183,8 @@ export default function Dashboard() {
   const chartAnimMaxWidth = chartWidth + chartLeftNudge + chartHInset;
   const plotWidth         = Math.max(220, chartWidth - chartHInset * 2);
 
-  const chartRevealStyle = useAnimatedStyle(() => ({
-    width: chartRevealProgress.value * chartAnimMaxWidth,
-    overflow: 'hidden',
+  const chartMaskStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: chartRevealProgress.value * (chartAnimMaxWidth + 24) }],
   }));
 
   useEffect(() => {
@@ -198,11 +196,11 @@ export default function Dashboard() {
     if (Array.isArray(weekly) && weekly.length > 0) {
       chartRevealProgress.value = 0;
       chartRevealProgress.value = withTiming(1, {
-        duration: 4500,
+        duration: 2400,
         easing: ReanimatedEasing.out(ReanimatedEasing.quad),
       });
     }
-  }, [dashboardData, weeklyTrendData, chartAnimMaxWidth]);
+  }, [dashboardData, weeklyTrendData, chartAnimMaxWidth, chartRevealProgress]);
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const loadUnreadCount = useCallback(async () => {
@@ -415,7 +413,7 @@ export default function Dashboard() {
             plotWidth={plotWidth}
             chartData={chartData}
             chartConfig={chartConfig}
-            chartRevealStyle={chartRevealStyle}
+            chartMaskStyle={chartMaskStyle}
             hasTrend={hasTrend}
             tooltipVisible={tooltipVisible}
             tooltipIndex={tooltipIndex}
@@ -598,7 +596,7 @@ function DashboardHeader(p: any) {
       {!p.hasWeekly ? (
         <View style={[styles.glassCard, { marginHorizontal: p.graphCardInset, marginBottom: clampLocal(height * 0.025, 16, 22), padding: p.graphCardPadding }]}>
           <LinearGradient colors={CARD_GRADIENT_COLORS} start={{ x:0,y:0 }} end={{ x:1,y:1 }} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} pointerEvents="none" />
-          <Text style={[styles.graphTitle, { fontSize: p.graphTitleSize }]}>This Week's Mood</Text>
+          <Text style={[styles.graphTitle, { fontSize: p.graphTitleSize }]}>This Week&apos;s Mood</Text>
           <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#B8A8E6' }}>No mood data yet</Text>
           </View>
@@ -609,7 +607,7 @@ function DashboardHeader(p: any) {
           <View style={{ padding: p.graphCardPadding }}>
             <View style={styles.graphHeaderRow}>
               <View>
-                <Text style={[styles.graphTitle, { fontSize: p.graphTitleSize }]}>This Week's Mood</Text>
+                <Text style={[styles.graphTitle, { fontSize: p.graphTitleSize }]}>This Week&apos;s Mood</Text>
                 <Text style={[styles.graphSubtitle, { fontSize: p.graphSubtitleSize }]}>Your emotional journey</Text>
               </View>
               <TouchableOpacity onPress={() => router.push('./mood?tab=weekly' as any)}>
@@ -623,7 +621,7 @@ function DashboardHeader(p: any) {
               <View style={styles.graphChartWrapper} onTouchStart={() => p.setTooltipVisible(false)}>
                 <View style={{ position: 'relative', alignItems: 'center' }}>
                   <View style={{ width: p.chartWidth, overflow: 'hidden' }}>
-                    <Animated.View style={p.chartRevealStyle}>
+                    <View style={{ position: 'relative' }}>
                       <View style={{ paddingHorizontal: p.chartHInset, borderRadius: 12, overflow: 'hidden' }}>
                         <LineChart
                           data={p.chartData}
@@ -647,7 +645,15 @@ function DashboardHeader(p: any) {
                           }}
                         />
                       </View>
-                    </Animated.View>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.chartRevealMask,
+                          { width: p.chartWidth + 24 },
+                          p.chartMaskStyle,
+                        ]}
+                      />
+                    </View>
                   </View>
 
                   {p.hasTrend && p.tooltipVisible && p.tooltipIndex !== null && p.tooltipIndex >= 0 && p.tooltipIndex < p.chartValues.length && p.chartValues[p.tooltipIndex] > 0 && (
@@ -801,6 +807,7 @@ const styles = StyleSheet.create({
   journalTitle:          { fontWeight: '700', color: '#FFFFFF', flex: 1 },
   journalDate:           { color: '#B8A8E6' },
   journalContent:        { lineHeight: 18, color: '#CEC2EE' },
+  chartRevealMask:       { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: CARD_BG, opacity: 0.98 },
   tooltip: {
     position: 'absolute', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: 14, alignItems: 'center', minWidth: 92,

@@ -19,6 +19,7 @@ import PatientService from '../services/patient.service';
 import type { CreateJournalEntryData, JournalEntry } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
+import { validateMeaningfulTextField } from '../utils/validation';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
@@ -186,14 +187,18 @@ export default function JournalEdit() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.title?.trim()) {
-      Alert.alert('Required Field', 'Please add a title to your journal entry');
+    const titleValidation = validateMeaningfulTextField(formData.title || '', 'Title', 2, false);
+    if (!titleValidation.isValid) {
+      Alert.alert('Invalid Title', titleValidation.message || 'Please add a valid title to your journal entry');
       return;
     }
-    if (!formData.content?.trim()) {
-      Alert.alert('Required Field', 'Please write some content');
+
+    const contentValidation = validateMeaningfulTextField(formData.content || '', 'Content', 5, false);
+    if (!contentValidation.isValid) {
+      Alert.alert('Invalid Content', contentValidation.message || 'Please write meaningful content.');
       return;
     }
+
     setSubmitting(true);
     try {
       // Remove is_private from payload

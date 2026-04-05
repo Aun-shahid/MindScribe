@@ -11,8 +11,6 @@ import { router } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const ONBOARDING_KEY = 'has_completed_onboarding';
-
 export default function Welcome() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -25,14 +23,7 @@ export default function Welcome() {
 
   const handleGetStarted = async () => {
     await AsyncStorage.setItem('selected_role', 'patient');
-    const done = await AsyncStorage.getItem(ONBOARDING_KEY);
-    if (done === 'true') {
-      // Already seen the intro slides — go straight to login
-      router.push('../auth/login');
-    } else {
-      // First time — show the intro slides
-      router.push('../onboarding/patientintro1');
-    }
+    router.push('../onboarding/patientintro1');
   };
 
   return (

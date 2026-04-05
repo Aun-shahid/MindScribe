@@ -97,6 +97,7 @@ export default function SessionsScreen() {
   const pillPadY            = clamp(height * 0.006, 4, 5);
   const pillRadius          = clamp(width * 0.025, 8, 10);
   const modalWidth          = clamp(width * 0.9, 320, 420);
+  const modalMaxHeight      = clamp(height * 0.78, 420, 620);
   const modalRadius         = clamp(width * 0.05, 18, 22);
   const modalPadding        = clamp(width * 0.05, 16, 22);
   const modalTitleSize      = clamp(width * 0.06, 20, 24);
@@ -360,8 +361,8 @@ export default function SessionsScreen() {
         <Modal visible={sessionModalVisible} transparent animationType="fade" onRequestClose={closeSessionModal}>
           <View style={styles.modalBackdrop}>
             <TouchableOpacity style={styles.modalDismissLayer} activeOpacity={1} onPress={closeSessionModal} />
-            <View style={[styles.modalShell, { width: modalWidth, borderRadius: modalRadius }]}>
-              <LinearGradient colors={['#40345D', '#2E2545']} start={[0,0]} end={[1,1]} style={[styles.modalCard, { borderRadius: modalRadius, padding: modalPadding }]}>
+            <View style={[styles.modalShell, { width: modalWidth, maxHeight: modalMaxHeight, borderRadius: modalRadius }]}>
+              <LinearGradient colors={['#40345D', '#2E2545']} start={[0,0]} end={[1,1]} style={[styles.modalCard, { borderRadius: modalRadius, padding: modalPadding, maxHeight: modalMaxHeight }]}>
                 <View style={styles.modalAccentBar} />
                 <View style={styles.modalHeaderRow}>
                   <View style={styles.modalHeaderTextWrap}>
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
   sessionArrowBubble:   { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   modalBackdrop:      { flex: 1, backgroundColor: 'rgba(13,10,24,0.62)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   modalDismissLayer:  { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
-  modalShell:         { maxWidth: 420 },
+  modalShell:         { maxWidth: 420, width: '100%' },
   modalCard:          { borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', overflow: 'hidden', shadowColor: '#140E24', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 12 }, shadowRadius: 20, elevation: 8 },
   modalAccentBar:     { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: '#A78BFA' },
   modalHeaderRow:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -494,6 +495,6 @@ const styles = StyleSheet.create({
   modalIconWarm:         { backgroundColor: 'rgba(255,179,107,0.14)' },
   modalInfoLabel:        { color: '#9D8EC7', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700', marginBottom: 5 },
   modalInfoValue:        { color: '#FFFFFF', fontWeight: '700', lineHeight: 21 },
-  modalFooterNoteWrap:   { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
-  modalFooterNote:       { color: '#B8A8E6', fontSize: 12, lineHeight: 18 },
+  modalFooterNoteWrap:   { marginTop: 16, paddingTop: 14, paddingBottom: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  modalFooterNote:       { color: '#B8A8E6', fontSize: 12, lineHeight: 18, textAlign: 'center' },
 });

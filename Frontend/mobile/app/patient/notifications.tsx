@@ -76,7 +76,7 @@ function DetailSheet({ item, onClose, onDelete }: {
         Animated.timing(fadeOv,  { toValue: 0, duration: 220, useNativeDriver: true }),
       ]).start();
     }
-  }, [item]);
+  }, [item, fadeOv, height, slideY]);
 
   if (!item) return null;
 
@@ -85,7 +85,14 @@ function DetailSheet({ item, onClose, onDelete }: {
   const cPad   = clamp(width * 0.055, 18, 26);
 
   return (
-    <Modal transparent visible={!!item} animationType="none" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={!!item}
+      animationType="none"
+      statusBarTranslucent
+      hardwareAccelerated
+      onRequestClose={onClose}
+    >
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,6,20,0.72)', opacity: fadeOv }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
       </Animated.View>
@@ -260,7 +267,6 @@ export default function NotificationsScreen() {
   const hTitleSz   = clamp(width * 0.074,  24, 30);
   const hMTop      = clamp(height * 0.024, 18, 24);
   const hBotPad    = clamp(height * 0.004,  2,  6);
-  const hBotMargin = clamp(height * 0.018, 10, 16);
   // Row1=hBtnSz, gap=hMTop, Row2=hTitleSz*1.3, bottom=hBotPad — all relative
   const hEst       = hTop + hBtnSz + hMTop * 0.5 + hTitleSz * 1.3 + hBotPad;
   const contTopPad = hEst + clamp(height * 0.016, 10, 16);
@@ -405,6 +411,14 @@ export default function NotificationsScreen() {
     }
   };
 
+  const closeDetailSheet = useCallback(() => {
+    setSelected(null);
+    // Force a lightweight rerender to avoid Android modal compositing artifacts.
+    requestAnimationFrame(() => {
+      setNotifications((prev) => [...prev]);
+    });
+  }, []);
+
   // Opening a card marks it read automatically — no button needed in sheet
   const handleCardPress = (item: any) => {
     setSelected(item);
@@ -531,7 +545,7 @@ export default function NotificationsScreen() {
                 All caught up
               </Text>
               <Text style={{ color: '#6B6482', fontSize: clamp(width * 0.035, 12, 14), textAlign: 'center' }}>
-                No notifications yet.{'\n'}We'll let you know when something happens.
+                No notifications yet.{"\n"}We&apos;ll let you know when something happens.
               </Text>
             </View>
           ) : (
@@ -554,7 +568,7 @@ export default function NotificationsScreen() {
 
       <DetailSheet
         item={selected}
-        onClose={() => setSelected(null)}
+        onClose={closeDetailSheet}
         onDelete={handleDelete}
       />
     </View>

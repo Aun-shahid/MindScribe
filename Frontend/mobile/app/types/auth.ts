@@ -3,9 +3,12 @@
 export interface User {
   id: string;
   email: string;
+  username?: string;
   user_type: 'therapist' | 'patient';
   first_name: string;
   last_name: string;
+  phone_number?: string;
+  date_of_birth?: string;
   is_verified: boolean;
 }
 

@@ -41,6 +41,7 @@ export default function JournalAnalyticsScreen() {
   const bubble5X = useRef(new Animated.Value(0)).current;
 
   const pageInset             = clamp(width * 0.03, 12, 18);
+  const backButtonLeftOffset  = pageInset + clamp(width * 0.012, 4, 7);
   const sectionInset          = clamp(width * 0.05, 16, 22);
   const headerTopPadding      = insets.top + clamp(height * 0.014, 10, 18);
   const headerBottomPadding   = clamp(height * 0.02, 14, 22);
@@ -130,7 +131,7 @@ export default function JournalAnalyticsScreen() {
     const w = useRef(new Animated.Value(0)).current;
     useEffect(() => {
       Animated.timing(w, { toValue: pct, duration: 900, useNativeDriver: false }).start();
-    }, [pct]);
+    }, [pct, w]);
     return (
       <View style={{ height: h, borderRadius: h / 2, backgroundColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
         <Animated.View style={{ height: '100%', width: w.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }), overflow: 'hidden' }}>
@@ -151,20 +152,17 @@ export default function JournalAnalyticsScreen() {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: barMaxH }}>
         {vals.map((v, i) => {
-          const barH   = useRef(new Animated.Value(0)).current;
           const isLast = i === vals.length - 1;
-          useEffect(() => {
-            Animated.timing(barH, { toValue: (v / maxBar) * barMaxH, duration: 700, delay: i * 80, useNativeDriver: false }).start();
-          }, [v]);
+          const barHeight = (v / maxBar) * barMaxH;
           return (
             <View key={i} style={{ flex: 1, height: barMaxH, justifyContent: 'flex-end' }}>
-              <Animated.View style={{ height: barH, borderRadius: 3, overflow: 'hidden', opacity: isLast ? 1 : 0.45 + i * 0.07 }}>
+              <View style={{ height: barHeight, borderRadius: 3, overflow: 'hidden', opacity: isLast ? 1 : 0.45 + i * 0.07 }}>
                 <LinearGradient
                   colors={isLast ? ['#FFB36B', '#FF7A3D'] : ['#A78BFA', '#7C5FC0']}
                   start={[0, 0]} end={[0, 1]}
                   style={{ flex: 1 }}
                 />
-              </Animated.View>
+              </View>
             </View>
           );
         })}
@@ -230,7 +228,7 @@ export default function JournalAnalyticsScreen() {
         opacity: scrollY.interpolate({ inputRange: [0, 100, 150], outputRange: [1, 0.5, 0], extrapolate: 'clamp' }),
       }]}>
         <TouchableOpacity
-          style={[styles.backButton, { left: pageInset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]}
+          style={[styles.backButton, { left: backButtonLeftOffset, top: headerTopPadding, width: headerButtonSize, height: headerButtonSize, borderRadius: headerButtonRadius }]}
           onPress={goBack}
         >
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />

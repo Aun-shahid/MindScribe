@@ -12,7 +12,7 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StickyHeader from '../components/StickyHeader';
@@ -74,7 +74,7 @@ export default function JournalList() {
 
   const filterSectionBottom = clamp(height * 0.02, 14, 18);
   const searchPaddingX = clamp(width * 0.04, 14, 18);
-  const searchPaddingY = clamp(height * 0.015, 10, 13);
+  const searchPaddingY = clamp(height * 0.012, 8, 11);
   const searchRadius = clamp(width * 0.055, 18, 24);
   const searchIconSize = clamp(width * 0.044, 15, 18);
   const searchIconGap = clamp(width * 0.02, 6, 8);
@@ -115,7 +115,6 @@ export default function JournalList() {
   const metaSize = clamp(width * 0.031, 11, 12);
   const metaLineHeight = Math.round(metaSize * 1.3);
   const titleToDateGap = clamp(height * 0.006, 4, 6);
-  const dateToContentGap = clamp(height * 0.012, 8, 10);
   const titleIconGap = clamp(width * 0.02, 6, 8);
   const titleRightReserve = clamp(width * 0.09, 30, 38);
   const leftIconSize = headerIconSize * 0.9;
@@ -195,6 +194,18 @@ export default function JournalList() {
     createFloatingAnimation(bubble4Y, bubble4X, 8500, 10000, 1500, 1000);
     createFloatingAnimation(bubble5Y, bubble5X, 9500, 8000, 0, 2000);
   }, [bubble1X, bubble1Y, bubble2X, bubble2Y, bubble3X, bubble3Y, bubble4X, bubble4Y, bubble5X, bubble5Y, bubbleShiftX, bubbleShiftY]);
+
+  // Keep list context fresh when returning from other journal screens.
+  useFocusEffect(
+    useCallback(() => {
+      setSearchQuery('');
+      setShowOrderingPicker(false);
+      setFilters((prev) => {
+        if (!prev.search) return prev;
+        return { ...prev, search: undefined };
+      });
+    }, [])
+  );
 
   const onRefresh = () => { setRefreshing(true); loadEntries(); };
 

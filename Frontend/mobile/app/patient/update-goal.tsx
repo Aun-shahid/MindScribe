@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Animated, useWindowDimensions, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +9,7 @@ import PatientService, { UpdatePatientGoalData } from '../services/patient.servi
 import eventBus from '../utils/eventBus';
 import StickyHeader from '../components/StickyHeader';
 import TabLoaderCard from '../components/TabLoaderCard';
+import { validateMeaningfulTextField } from '../utils/validation';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
@@ -15,6 +17,38 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 const CARD_GRADIENT_COLORS = ['rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)'] as const;
 const CARD_BG     = '#3F3752';
 const CARD_BORDER = 'rgba(255,255,255,0.16)';
+
+const getTodayStart = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const formatDisplayDate = (date: Date) => {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+const formatApiDate = (date: Date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const parseApiDate = (value?: string | null): Date | null => {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const date = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 export default function UpdateGoalPage() {
   const { id } = useLocalSearchParams() as { id?: string };
@@ -26,6 +60,8 @@ export default function UpdateGoalPage() {
   const [description, setDescription] = useState('');
   const [priority,    setPriority]    = useState<'low'|'medium'|'high'>('medium');
   const [targetDate,  setTargetDate]  = useState('');
+  const [dateObj,     setDateObj]     = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [progress,    setProgress]    = useState('0');
   const [goalId,      setGoalId]      = useState<string | null>(null);
 
@@ -40,6 +76,7 @@ export default function UpdateGoalPage() {
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
   const pageInset             = clamp(width * 0.03, 12, 18);
+  const headerBackOffset      = clamp(width * 0.018, 6, 8);
   const sectionInset          = clamp(width * 0.04, 14, 20);
   const headerTopPadding      = insets.top + clamp(height * 0.014, 10, 18);
   const headerBottomPadding   = clamp(height * 0.02, 14, 22);
@@ -67,7 +104,6 @@ export default function UpdateGoalPage() {
   const noteTextSize         = clamp(width * 0.033,  12, 13);
   const progressBarHeight    = clamp(height * 0.013,   8, 10);
   const priorityPadY         = clamp(height * 0.011,   7,  9);
-  const priorityPadX         = clamp(width * 0.038,   14, 18);
   const priorityTextSize     = clamp(width * 0.036,   13, 14);
   const savePadY             = clamp(height * 0.018,  12, 16);
   const saveRadius           = clamp(width * 0.038,   13, 16);
@@ -75,7 +111,6 @@ export default function UpdateGoalPage() {
   const iconBadgeSz          = clamp(width * 0.076,   26, 32);
   const iconBadgeR           = iconBadgeSz / 2;
   const iconSz               = clamp(width * 0.032,   11, 13);
-  const inputPad             = clamp(width * 0.03,    10, 12);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -90,7 +125,9 @@ export default function UpdateGoalPage() {
         setTitle(g.title || '');
         setDescription(g.description || '');
         setPriority((g.priority as any) || 'medium');
-        setTargetDate(g.target_date || '');
+        const parsedTargetDate = parseApiDate(g.target_date);
+        setDateObj(parsedTargetDate);
+        setTargetDate(parsedTargetDate ? formatDisplayDate(parsedTargetDate) : '');
         setProgress(String(g.progress_percentage || 0));
       } catch { Alert.alert('Error', 'Could not load goal'); router.back(); }
       finally { setLoading(false); }
@@ -116,21 +153,64 @@ export default function UpdateGoalPage() {
     fly(b5y, b5x, 9500,  8000, 2000, 1500);
   }, [b1x, b1y, b2x, b2y, b3x, b3y, b4x, b4y, b5x, b5y, bubbleShift]);
 
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event?.type === 'dismissed' || !selectedDate) return;
+    }
+
+    if (selectedDate) {
+      setDateObj(selectedDate);
+      setTargetDate(formatDisplayDate(selectedDate));
+    }
+  };
+
   const submit = async () => {
     if (!goalId) return;
-    if (!title.trim()) return Alert.alert('Validation', 'Title is required');
+
+    const titleValidation = validateMeaningfulTextField(title, 'Goal title', 2, false);
+    if (!titleValidation.isValid) {
+      return Alert.alert('Validation', titleValidation.message || 'Goal title is required');
+    }
+
+    const descriptionValidation = validateMeaningfulTextField(description, 'Goal description', 3, false);
+    if (!descriptionValidation.isValid) {
+      return Alert.alert('Validation', descriptionValidation.message || 'Goal description cannot be empty. Please add a description.');
+    }
+
+    const todayStart = getTodayStart();
+    if (!dateObj) {
+      return Alert.alert('Validation', 'Target date is required. Please select a target date.');
+    }
+
+    const selectedDate = new Date(dateObj);
+    selectedDate.setHours(0, 0, 0, 0);
+    if (selectedDate < todayStart) {
+      return Alert.alert('Validation', 'Target date cannot be in the past. Please select today or a future date.');
+    }
+
     const payload: UpdatePatientGoalData = {
       title: title.trim(),
       description: description.trim(),
       priority,
-      target_date: targetDate || null,
+      target_date: formatApiDate(selectedDate),
     };
     try {
       setLoading(true);
       await PatientService.partialUpdateGoal(goalId, payload);
       try { eventBus.emit('refreshGoals'); } catch {}
       router.push('/patient/goals');
-    } catch { Alert.alert('Error', 'Could not update goal'); }
+    } catch (e: any) {
+      const descriptionError = e?.response?.data?.description;
+      const targetDateError = e?.response?.data?.target_date;
+      if (descriptionError) {
+        Alert.alert('Validation', Array.isArray(descriptionError) ? descriptionError[0] : String(descriptionError));
+      } else if (targetDateError) {
+        Alert.alert('Validation', Array.isArray(targetDateError) ? targetDateError[0] : String(targetDateError));
+      } else {
+        Alert.alert('Error', 'Could not update goal');
+      }
+    }
     finally { setLoading(false); }
   };
 
@@ -157,7 +237,7 @@ export default function UpdateGoalPage() {
       }]}>
         <TouchableOpacity
           onPress={() => router.push('/patient/goals')}
-          style={[styles.backBtnCircle, { left:pageInset, top:headerTopPadding, width:headerButtonSize, height:headerButtonSize, borderRadius:headerButtonRadius }]}
+          style={[styles.backBtnCircle, { left:pageInset + headerBackOffset, top:headerTopPadding, width:headerButtonSize, height:headerButtonSize, borderRadius:headerButtonRadius }]}
         >
           <FontAwesome name="chevron-left" size={headerIconSize} color="#FFFFFF" />
         </TouchableOpacity>
@@ -242,16 +322,40 @@ export default function UpdateGoalPage() {
                   </View>
                   <View>
                     <Text style={[styles.cardLabel, { fontSize:labelSize }]}>Target Date</Text>
-                    <Text style={{ fontSize:clamp(width*0.028,10,11), color:'#9D8EC7', letterSpacing:1.2, marginTop:1 }}>OPTIONAL</Text>
+                    <Text style={{ fontSize:clamp(width*0.028,10,11), color:'#9D8EC7', letterSpacing:1.2, marginTop:1 }}>REQUIRED</Text>
                   </View>
                 </View>
                 <View style={{ borderBottomWidth:1.5, borderBottomColor:'rgba(139,92,246,0.45)', paddingBottom:4 }}>
-                  <TextInput
-                    value={targetDate} onChangeText={setTargetDate}
-                    placeholder="dd/mm/yyyy"
-                    placeholderTextColor="rgba(184,168,230,0.45)"
-                    style={{ color:'#FFFFFF', fontSize:inputSize, fontWeight:'600', paddingVertical:clamp(height*0.009,6,9), paddingHorizontal:2, backgroundColor:'transparent', height:clamp(height*0.056,38,46) }}
-                  />
+                  <TouchableOpacity
+                    onPress={() => setShowDatePicker(true)}
+                    activeOpacity={0.8}
+                    style={styles.dateTrigger}
+                  >
+                    <Text style={{ color: targetDate ? '#FFFFFF' : 'rgba(184,168,230,0.75)', fontWeight: '600' }}>
+                      {targetDate || 'Select target date'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <View style={styles.datePickerWrap}>
+                      <DateTimePicker
+                        value={dateObj || getTodayStart()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                        onChange={onChangeDate}
+                        minimumDate={getTodayStart()}
+                      />
+                      {Platform.OS === 'ios' && (
+                        <View style={styles.dateActionsRow}>
+                          <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.dateActionBtn}>
+                            <Text style={styles.dateActionText}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowDatePicker(false)} style={[styles.dateActionBtn, styles.dateActionBtnPrimary]}>
+                            <Text style={[styles.dateActionText, styles.dateActionTextPrimary]}>Done ✓</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -385,6 +489,48 @@ const styles = StyleSheet.create({
   iconBadge:     { alignItems:'center', justifyContent:'center', borderWidth:1 },
   cardLabel:     { fontWeight:'800', color:'#FFFFFF', letterSpacing:0.3 },
   noteText:      { color:'#9D8EC7', fontStyle:'italic' },
+  dateTrigger: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#4A4160',
+  },
+  datePickerWrap: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#5B5270',
+  },
+  dateActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  dateActionBtn: {
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  dateActionBtnPrimary: {
+    backgroundColor: '#A78BFA',
+    borderColor: '#A78BFA',
+  },
+  dateActionText: {
+    color: '#E7DDF8',
+    fontWeight: '700',
+  },
+  dateActionTextPrimary: {
+    color: '#FFFFFF',
+  },
 
   saveBtn:  { width:'100%', alignItems:'center', justifyContent:'center', shadowColor:'#1F103D', shadowOpacity:0.24, shadowOffset:{width:0,height:8}, shadowRadius:16, elevation:6 },
   saveText: { color:'#fff', fontWeight:'800' },

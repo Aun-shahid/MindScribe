@@ -7,11 +7,8 @@ import {
   Image,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const ONBOARDING_KEY = 'has_completed_onboarding';
 
 export default function PatientIntro3() {
   const router = useRouter();
@@ -27,9 +24,7 @@ export default function PatientIntro3() {
   const buttonWidth = Math.min(width * 0.68, 240);
   const btnFontSize = Math.max(15, Math.min(width * 0.044, 18));
 
-  const handleNext = async () => {
-    // Mark onboarding done — Welcome will skip intros from now on
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+  const handleNext = () => {
     router.push('../auth/login');
   };
 

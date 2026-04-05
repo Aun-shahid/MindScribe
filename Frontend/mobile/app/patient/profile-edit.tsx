@@ -11,12 +11,14 @@ import {
   Alert,
   useWindowDimensions,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuthContext } from '../contexts/AuthContext';
 import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StickyHeader from '../components/StickyHeader';
+import { validateDateOfBirthField, validateNameField, validatePhoneField, validateUsernameField } from '../utils/validation';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
@@ -37,18 +39,37 @@ const FIELDS = [
 
 type FieldKey = typeof FIELDS[number]['key'];
 
+const normalizeDob = (raw?: string): string => {
+  const value = (raw || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? '' : value;
+};
+
 export default function ProfileEdit() {
   const { profile, updateProfile } = useAuthContext();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const profileData = (profile ?? {}) as {
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    phone_number?: string;
+    date_of_birth?: string;
+  };
 
   const [values, setValues] = useState<Record<FieldKey, string>>({
-    first_name:    profile?.first_name    || '',
-    last_name:     profile?.last_name     || '',
-    username:      profile?.username      || '',
-    phone_number:  profile?.phone_number  || '',
-    date_of_birth: profile?.date_of_birth || '',
+    first_name:    profileData.first_name    || '',
+    last_name:     profileData.last_name     || '',
+    username:      profileData.username      || '',
+    phone_number:  (profileData.phone_number || '').replace(/\D/g, '').slice(0, 11),
+    date_of_birth: normalizeDob(profileData.date_of_birth),
   });
+  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateObj, setDateObj] = useState<Date | null>(
+    values.date_of_birth ? new Date(`${values.date_of_birth}T00:00:00`) : null
+  );
   const [loading, setLoading] = useState(false);
 
   // ── Bubble refs ───────────────────────────────────────────────────────────
@@ -92,6 +113,34 @@ export default function ProfileEdit() {
   const btnPadY  = clamp(height * 0.018, 14, 18);
   const btnTxtSz = clamp(width * 0.044,  15, 18);
 
+  const maxDobDate = new Date();
+  maxDobDate.setFullYear(maxDobDate.getFullYear() - 13);
+
+  const openDatePicker = () => {
+    const current = values.date_of_birth
+      ? new Date(`${values.date_of_birth}T00:00:00`)
+      : new Date(2000, 0, 1);
+    setDateObj(current);
+    setShowDatePicker(true);
+  };
+
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event?.type === 'dismissed' || !selectedDate) return;
+    }
+
+    if (selectedDate) {
+      const yyyy = selectedDate.getFullYear();
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const formatted = `${yyyy}-${mm}-${dd}`;
+      setDateObj(selectedDate);
+      setValues((prev) => ({ ...prev, date_of_birth: formatted }));
+      setErrors((prev) => ({ ...prev, date_of_birth: undefined }));
+    }
+  };
+
   // ── Navigation ────────────────────────────────────────────────────────────
   const goBack = () => router.push('/patient/profile');
 
@@ -129,15 +178,39 @@ export default function ProfileEdit() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
+    const nextErrors: Partial<Record<FieldKey, string>> = {};
+
+    const firstNameValidation = validateNameField(values.first_name, 'First name');
+    if (!firstNameValidation.isValid) nextErrors.first_name = firstNameValidation.message;
+
+    const lastNameValidation = validateNameField(values.last_name, 'Last name');
+    if (!lastNameValidation.isValid) nextErrors.last_name = lastNameValidation.message;
+
+    const usernameValidation = validateUsernameField(values.username);
+    if (!usernameValidation.isValid) nextErrors.username = usernameValidation.message;
+
+    const phoneValidation = validatePhoneField(values.phone_number);
+    if (!phoneValidation.isValid) nextErrors.phone_number = phoneValidation.message;
+
+    const dobValidation = validateDateOfBirthField(values.date_of_birth);
+    if (!dobValidation.isValid) nextErrors.date_of_birth = dobValidation.message;
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      Alert.alert('Validation Error', Object.values(nextErrors)[0] || 'Please fix highlighted fields.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await updateProfile({
+      const payload = {
         first_name:    values.first_name,
         last_name:     values.last_name,
         username:      values.username,
         phone_number:  values.phone_number,
         date_of_birth: values.date_of_birth,
-      });
+      };
+      await updateProfile(payload as any);
       Alert.alert('Profile updated!', 'Your profile has been saved successfully.');
       goBack();
     } catch (e: any) {
@@ -309,33 +382,88 @@ export default function ProfileEdit() {
                   {/* Underline input */}
                   <View style={{
                     borderBottomWidth: 1.5,
-                    borderBottomColor: field.accentBorder,
+                    borderBottomColor: errors[field.key] ? '#f44336' : field.accentBorder,
                     paddingBottom: 4,
                   }}>
-                    <TextInput
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: inputSz,
-                        fontWeight: '600',
-                        letterSpacing: 0.2,
-                        paddingVertical: clamp(height * 0.009, 6, 9),
-                        paddingHorizontal: 2,
-                        backgroundColor: 'transparent',
-                        height: clamp(height * 0.056, 38, 46),
-                      }}
-                      value={values[field.key]}
-                      onChangeText={(t) => setValues((prev) => ({ ...prev, [field.key]: t }))}
-                      placeholder={field.placeholder}
-                      placeholderTextColor="rgba(184,168,230,0.45)"
-                      keyboardType={field.keyboard}
-                      autoCapitalize={field.cap}
-                    />
+                    {field.key === 'date_of_birth' ? (
+                      <TouchableOpacity
+                        onPress={openDatePicker}
+                        activeOpacity={0.8}
+                        style={{
+                          paddingVertical: clamp(height * 0.009, 6, 9),
+                          paddingHorizontal: 2,
+                          minHeight: clamp(height * 0.056, 38, 46),
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{
+                          color: values.date_of_birth ? '#FFFFFF' : 'rgba(184,168,230,0.45)',
+                          fontSize: inputSz,
+                          fontWeight: '600',
+                          letterSpacing: 0.2,
+                        }}>
+                          {values.date_of_birth || field.placeholder}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TextInput
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: inputSz,
+                          fontWeight: '600',
+                          letterSpacing: 0.2,
+                          paddingVertical: clamp(height * 0.009, 6, 9),
+                          paddingHorizontal: 2,
+                          backgroundColor: 'transparent',
+                          height: clamp(height * 0.056, 38, 46),
+                        }}
+                        value={values[field.key]}
+                        onChangeText={(t) => {
+                          const nextValue = field.key === 'phone_number'
+                            ? t.replace(/\D/g, '').slice(0, 11)
+                            : t;
+                          setValues((prev) => ({ ...prev, [field.key]: nextValue }));
+                          setErrors((prev) => ({ ...prev, [field.key]: undefined }));
+                        }}
+                        placeholder={field.placeholder}
+                        placeholderTextColor="rgba(184,168,230,0.45)"
+                        keyboardType={field.key === 'phone_number' ? 'number-pad' : field.keyboard}
+                        autoCapitalize={field.cap}
+                        maxLength={field.key === 'phone_number' ? 11 : undefined}
+                      />
+                    )}
                   </View>
+
+                  {errors[field.key] ? (
+                    <Text style={styles.fieldErrorText}>{errors[field.key]}</Text>
+                  ) : null}
 
                 </View>
               </View>
             </View>
           ))}
+
+          {showDatePicker && (
+            <View style={styles.datePickerWrap}>
+              <DateTimePicker
+                value={dateObj || new Date(2000, 0, 1)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                onChange={onChangeDate}
+                maximumDate={maxDobDate}
+              />
+              {Platform.OS === 'ios' && (
+                <View style={styles.dateActionsRow}>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.dateActionBtn}>
+                    <Text style={styles.dateActionText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)} style={[styles.dateActionBtn, styles.dateActionBtnPrimary]}>
+                    <Text style={[styles.dateActionText, styles.dateActionTextPrimary]}>Done ✓</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* ── Save button ── */}
           <TouchableOpacity
@@ -412,5 +540,46 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 16,
     elevation: 8,
+  },
+  fieldErrorText: {
+    color: '#f44336',
+    fontSize: 12,
+    marginTop: 6,
+    marginLeft: 2,
+  },
+  datePickerWrap: {
+    marginTop: 8,
+    marginBottom: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  dateActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  dateActionBtn: {
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  dateActionBtnPrimary: {
+    backgroundColor: '#A78BFA',
+    borderColor: '#A78BFA',
+  },
+  dateActionText: {
+    color: '#E7DDF8',
+    fontWeight: '700',
+  },
+  dateActionTextPrimary: {
+    color: '#FFFFFF',
   },
 });

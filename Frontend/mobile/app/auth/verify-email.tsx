@@ -25,46 +25,46 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi
 export default function VerifyEmailScreen() {
   const [digits, setDigits]           = useState(['', '', '', '', '', '']);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const inputRefs = useRef<Array<TextInput | null>>([null, null, null, null, null, null]);
+  const inputRefs = useRef<(TextInput | null)[]>([null, null, null, null, null, null]);
 
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
-  const topPad           = insets.top + clamp(height * 0.01, 4, 10);
-  const bottomPad        = clamp(insets.bottom + height * 0.06, 40, 60);
+  const topPad           = insets.top + clamp(height * 0.02, 12, 24);
+  const bottomPad        = clamp(insets.bottom + height * 0.06, 40, 58);
   const hPad             = clamp(width * 0.06, 20, 28);
 
-  const headingSize      = clamp(width * 0.082, 26, 36);
-  const headingLineH     = Math.round(headingSize * 1.1);
-  const headingMB        = clamp(height * 0.01, 2, 5);
+  const headingSize      = clamp(width * 0.088, 28, 38);
+  const headingLineH     = Math.round(headingSize * 1.08);
+  const headingMB        = clamp(height * 0.018, 10, 18);
 
-  const imageW           = Math.min(width * 1.08, 420);
-  const imageH           = Math.min(height * 0.42, 360);
-  const imageMT          = clamp(height * 0.002, 1, 3);
-  const imageMB          = clamp(height * 0.016, 10, 14);
+  const imageW           = clamp(width * 0.88, 240, 320);
+  const imageH           = clamp(height * 0.28, 170, 240);
+  const imageMT          = clamp(height * 0.004, 2, 5);
+  const imageMB          = clamp(height * 0.016, 9, 14);
 
   const subtitleSize     = clamp(width * 0.038, 13, 15);
-  const subtitleMB       = clamp(height * 0.022, 14, 20);
+  const subtitleMB       = clamp(height * 0.022, 14, 22);
 
-  const boxGap           = clamp(width * 0.022, 7, 11);
-  const boxSize          = clamp((width - hPad * 2 - boxGap * 5) / 6, 36, 48);
-  const boxFontSize      = clamp(boxSize * 0.46, 16, 22);
+  const boxGap           = clamp(width * 0.02, 6, 9);
+  const boxSize          = clamp((width - hPad * 2 - boxGap * 5) / 6, 34, 40);
+  const boxFontSize      = clamp(boxSize * 0.44, 15, 20);
   const boxRadius        = clamp(boxSize * 0.22, 8, 12);
-  const otpMT            = clamp(height * 0.012, 6, 10);
-  const otpMB            = clamp(height * 0.028, 16, 24);
+  const otpMT            = clamp(height * 0.01, 5, 8);
+  const otpMB            = clamp(height * 0.022, 14, 20);
 
-  const btnW             = clamp(width * 0.82, 260, 360);
+  const btnW             = clamp(width * 0.8, 240, 320);
   const btnPadY          = clamp(height * 0.016, 12, 16);
   const btnTextSize      = clamp(width * 0.047, 16, 20);
   const btnRadius        = clamp(width * 0.04, 12, 16);
   const btnMT            = clamp(height * 0.022, 14, 20);
-  const linkMT           = clamp(height * 0.018, 12, 16);
+  const linkMT           = clamp(height * 0.022, 14, 20);
   const linkSize         = clamp(width * 0.035, 12, 14);
   const arrowSize        = clamp(width * 0.042, 14, 17);
 
-  const circleOneSize    = clamp(width * 0.28, 90, 120);
-  const circleTwoSize    = clamp(width * 0.33, 110, 140);
+  const circleOneSize    = clamp(width * 0.3, 90, 120);
+  const circleTwoSize    = clamp(width * 0.35, 110, 140);
   const kvOffset         = Platform.OS === 'ios' ? insets.top + 8 : 0;
 
   const { verifyEmail, isLoading, error, clearError } = useAuth();
@@ -105,7 +105,7 @@ export default function VerifyEmailScreen() {
       return;
     }
     try {
-      await verifyEmail({ code });
+      await verifyEmail({ token: code });
       router.push('./email-verified');
     } catch {
       Alert.alert(
@@ -253,15 +253,15 @@ const styles = StyleSheet.create({
   safe:             { flex: 1, backgroundColor: '#342949' },
   flex:             { flex: 1 },
   scrollView:       { backgroundColor: '#342949' },
-  container:        { alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
+  container:        { alignItems: 'center', justifyContent: 'flex-start', flexGrow: 1 },
   circleContainer:  { position: 'absolute', zIndex: 1 },
   circle1:          { backgroundColor: 'rgba(133,130,180,0.2)', opacity: 0.8, position: 'absolute', top: 0, right: 0 },
   circle2:          { backgroundColor: 'rgba(133,130,180,0.25)', opacity: 0.6, position: 'absolute' },
   title:            { fontWeight: '700', textAlign: 'center' },
   titleWhite:       { color: '#FFFFFF' },
   titlePurple:      { color: '#B8A8E6' },
-  image:            {},
-  subtitle:         { textAlign: 'center', paddingHorizontal: 5, color: '#8D8BA7' },
+  image:            { alignSelf: 'center' },
+  subtitle:         { textAlign: 'center', paddingHorizontal: 10, color: '#8D8BA7' },
   errorContainer:   {
     backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
     borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 14, width: '100%',

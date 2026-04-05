@@ -21,6 +21,31 @@ export const validateTextField = (value: string, fieldName: string, minLength = 
   return { isValid: true };
 };
 
+// Allows expressive text (numbers/punctuation/emojis) but prevents symbol-only or number-only content.
+export const validateMeaningfulTextField = (
+  value: string,
+  fieldName: string,
+  minLength = 1,
+  optional = false
+): ValidationResult => {
+  const trimmed = (value || '').trim();
+
+  if (!trimmed) {
+    if (optional) return { isValid: true };
+    return { isValid: false, message: `${fieldName} is required.` };
+  }
+
+  if (trimmed.length < minLength) {
+    return { isValid: false, message: `${fieldName} must be at least ${minLength} character${minLength > 1 ? 's' : ''}.` };
+  }
+
+  if (!/\p{L}/u.test(trimmed)) {
+    return { isValid: false, message: `${fieldName} must include at least one letter.` };
+  }
+
+  return { isValid: true };
+};
+
 // Optional: Notes field validation (allow empty, but limit length)
 export const validateOptionalNotesField = (value: string, maxLength = 1000): ValidationResult => {
   if (value && value.length > maxLength) {
@@ -93,8 +118,12 @@ export const validateNameField = (name: string, fieldName: string): ValidationRe
   if (!validateRequired(name)) {
     return { isValid: false, message: `${fieldName} is required.` };
   }
-  if (name.trim().length < 2) {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) {
     return { isValid: false, message: `${fieldName} must be at least 2 characters long.` };
+  }
+  if (!/^[\p{L}\s]+$/u.test(trimmed)) {
+    return { isValid: false, message: `${fieldName} can only contain letters and spaces.` };
   }
   return { isValid: true };
 };
@@ -103,10 +132,9 @@ export const validatePhoneField = (phone: string): ValidationResult => {
   if (!validateRequired(phone)) {
     return { isValid: false, message: 'Phone number is required.' };
   }
-  // Basic phone validation - adjust regex based on your requirements
-  const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+  const phoneRegex = /^\d{11}$/;
   if (!phoneRegex.test(phone)) {
-    return { isValid: false, message: 'Please enter a valid phone number.' };
+    return { isValid: false, message: 'Please enter an 11-digit phone number.' };
   }
   return { isValid: true };
 };
@@ -115,10 +143,24 @@ export const validateDateOfBirthField = (date: string): ValidationResult => {
   if (!validateRequired(date)) {
     return { isValid: false, message: 'Date of birth is required.' };
   }
-  const birthDate = new Date(date);
+
+  const dobRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dobRegex.test(date.trim())) {
+    return { isValid: false, message: 'Please enter date of birth in YYYY-MM-DD format.' };
+  }
+
+  const birthDate = new Date(`${date.trim()}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime())) {
+    return { isValid: false, message: 'Please enter a valid date of birth.' };
+  }
+
   const today = new Date();
+  if (birthDate > today) {
+    return { isValid: false, message: 'Date of birth cannot be in the future.' };
+  }
+
   const age = today.getFullYear() - birthDate.getFullYear();
-  
+
   if (age < 13) {
     return { isValid: false, message: 'You must be at least 13 years old to register.' };
   }
