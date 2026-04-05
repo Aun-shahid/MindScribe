@@ -58,7 +58,7 @@ export default function ResetConfirmScreen() {
       Alert.alert(
         '✅ Success',
         AUTH_MESSAGES.PASSWORD_RESET_SUCCESS,
-        [{ text: 'OK', onPress: () => router.push('./login') }]
+        [{ text: 'OK' }]
       );
     } catch (err) {
       Alert.alert('❌ Error', error?.message || 'Error resetting password');
