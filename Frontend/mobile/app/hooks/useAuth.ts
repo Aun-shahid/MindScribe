@@ -235,7 +235,9 @@ export const useAuth = (): AuthState & AuthActions => {
       
       updateState({ isLoading: false });
     } catch (error) {
-      setError(error as AuthError);
+      const authError = error as AuthError;
+      setError(authError);
+      throw authError;
     }
   };
 
@@ -250,11 +252,10 @@ export const useAuth = (): AuthState & AuthActions => {
       await authService.confirmPasswordReset(data);
       
       updateState({ isLoading: false });
-      
-      // Navigate to login after successful reset
-      router.push('./login');
     } catch (error) {
-      setError(error as AuthError);
+      const authError = error as AuthError;
+      setError(authError);
+      throw authError;
     }
   };
 

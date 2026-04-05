@@ -14,7 +14,7 @@ export const AUTH_MESSAGES = {
   UNKNOWN_ERROR: 'An unexpected error occurred. Please try again.',
   INVALID_EMAIL: 'Please enter a valid email address.',
   INVALID_TOKEN: 'Please enter the verification token.',
-  PASSWORD_RESET_SUCCESS: 'Password reset successful! You can now log in with your new password.',
+  PASSWORD_RESET_SUCCESS: 'Password set successfully. Try logging in to the app with your new password.',
 } as const;
 
 export const VALIDATION_MESSAGES = {

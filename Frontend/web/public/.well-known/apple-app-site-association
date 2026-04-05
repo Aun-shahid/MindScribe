@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_WITH_APPLE_TEAM_ID.com.mindscribe.mobile",
+        "paths": [
+          "/patient/reset-password",
+          "/patient/verify-email"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "REPLACE_WITH_APPLE_TEAM_ID.com.mindscribe.mobile"
+    ]
+  }
+}

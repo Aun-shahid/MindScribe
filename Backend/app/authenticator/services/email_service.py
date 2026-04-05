@@ -68,7 +68,8 @@ class ResendEmailService:
 
 	@classmethod
 	def send_password_reset_email(cls, user, token):
-		reset_link = f"{settings.FRONTEND_URL}/ResetConfirm?token={token}"
+		# Enforce a single canonical patient deep link for reset emails.
+		reset_link = f"https://www.mindscribe.live/patient/reset-password?token={token}"
 		subject = "🔐 Reset Your MindScribe Password"
 		text = (
 			f"Hi {user.first_name or user.username},\n\n"

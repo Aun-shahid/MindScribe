@@ -56,7 +56,8 @@ class AuthService {
       console.log('[AuthService] POST /authenticator/password-reset-confirm/', data);
       await api.post('/authenticator/password-reset-confirm/', {
         token: data.token,
-        new_password: data.new_password,
+        password: data.new_password,
+        password_confirm: data.new_password,
       });
     } catch (error: any) {
       throw this.handleError(error);
