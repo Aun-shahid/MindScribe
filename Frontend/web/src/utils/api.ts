@@ -22,6 +22,22 @@ const getApiBaseUrl = (): string => {
 
 const apiBaseUrl = getApiBaseUrl();
 
+const refreshAccessToken = async (): Promise<string> => {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) {
+    throw new Error('No refresh token');
+  }
+
+  const response = await axios.post(
+    `${apiBaseUrl}/authenticator/token/refresh/`,
+    { refresh: refreshToken }
+  );
+
+  const { access } = response.data;
+  localStorage.setItem('access_token', access);
+  return access;
+};
+
 const api = axios.create({
   baseURL: apiBaseUrl,
   headers: {
@@ -64,20 +80,8 @@ api.interceptors.response.use(
       console.warn('[API] 401 Unauthorized - Attempting token refresh');
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) {
-          console.error('[API] No refresh token available');
-          throw new Error('No refresh token');
-        }
-
         console.log('[API] Refreshing access token...');
-        const response = await axios.post(
-          `${apiBaseUrl}/authenticator/token/refresh/`,
-          { refresh: refreshToken }
-        );
-
-        const { access } = response.data;
-        localStorage.setItem('access_token', access);
+        const access = await refreshAccessToken();
         console.log('[API] Token refreshed successfully');
 
         originalRequest.headers.Authorization = `Bearer ${access}`;
@@ -121,6 +125,12 @@ aiApi.interceptors.request.use(
   (error) => {
     return Promise.reject(error);
   }
+);
+
+// AI response errors are handled at feature/service level (token fallback per session).
+aiApi.interceptors.response.use(
+  (response) => response,
+  (error) => Promise.reject(error)
 );
 
 export default api;

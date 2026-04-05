@@ -67,6 +67,7 @@ const NewPatient: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [backendErrors, setBackendErrors] = useState<Record<string, string>>({});
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState<boolean>(true);
+  const [formErrorMessage, setFormErrorMessage] = useState<string>('');
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -152,8 +153,10 @@ const NewPatient: React.FC = () => {
       }
     }
 
-    // Therapy start date validation if provided
-    if (patientData.therapy_start_date) {
+    // Therapy start date is required
+    if (!patientData.therapy_start_date) {
+      errors.therapy_start_date = 'Therapy start date is required';
+    } else {
       const startDate = new Date(patientData.therapy_start_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -168,6 +171,11 @@ const NewPatient: React.FC = () => {
       if (startDate > maxFutureDate) {
         errors.therapy_start_date = 'Therapy start date cannot be more than 1 year in the future';
       }
+    }
+
+    // Session frequency is required
+    if (!patientData.session_frequency) {
+      errors.session_frequency = 'Session frequency is required';
     }
 
     // Primary concern validation if provided
@@ -185,11 +193,16 @@ const NewPatient: React.FC = () => {
     }
 
     setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    const hasErrors = Object.keys(errors).length > 0;
+    setFormErrorMessage(hasErrors ? 'Please fill in all required fields before saving.' : '');
+    return !hasErrors;
   };
 
   const handleInputChange = (field: keyof NewPatientData, value: string) => {
     setPatientData(prev => ({ ...prev, [field]: value }));
+    if (formErrorMessage) {
+      setFormErrorMessage('');
+    }
     if (validationErrors[field]) {
       setValidationErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -324,6 +337,15 @@ const NewPatient: React.FC = () => {
               >
                 Retry
               </button>
+            </div>
+          </div>
+        )}
+
+        {formErrorMessage && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <AlertCircle className="text-red-600 mr-2 mt-0.5 flex-shrink-0" size={20} />
+              <p className="text-red-700 text-sm font-medium">{formErrorMessage}</p>
             </div>
           </div>
         )}
@@ -508,11 +530,12 @@ const NewPatient: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Therapy Start Date <span className="text-gray-500 text-xs font-normal">(optional)</span>
+                    Therapy Start Date *
                   </label>
                   <input
                     type="date"
                     name="therapy_start_date"
+                    required
                     value={patientData.therapy_start_date}
                     onChange={(e) => handleInputChange('therapy_start_date', e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
@@ -530,12 +553,15 @@ const NewPatient: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Frequency <span className="text-gray-500 text-xs font-normal">(optional)</span>
+                    Session Frequency *
                   </label>
                   <select
+                    name="session_frequency"
+                    required
                     value={patientData.session_frequency}
                     onChange={(e) => handleInputChange('session_frequency', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.session_frequency || backendErrors.session_frequency ? 'border-red-500' : 'border-gray-300'
+                      }`}
                   >
                     <option value="">Select frequency</option>
                     {SESSION_FREQUENCY_OPTIONS.map((option) => (
@@ -544,6 +570,12 @@ const NewPatient: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  {validationErrors.session_frequency && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.session_frequency}</p>
+                  )}
+                  {backendErrors.session_frequency && (
+                    <p className="text-red-500 text-sm mt-1">{backendErrors.session_frequency}</p>
+                  )}
                 </div>
               </div>
 

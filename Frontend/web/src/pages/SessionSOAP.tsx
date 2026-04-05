@@ -99,12 +99,6 @@ const SessionSOAP: React.FC = () => {
   const generateSOAP = useCallback(async () => {
     if (!id) return;
 
-    const aiToken = localStorage.getItem('ai_service_token');
-    if (!aiToken) {
-      setError('AI session token is missing. Start and end the session flow to obtain a valid token.');
-      return;
-    }
-
     setGenerating(true);
     setError(null);
     setMessage(null);
@@ -162,13 +156,6 @@ const SessionSOAP: React.FC = () => {
   // ── Load existing SOAP or start polling ───────────────────────────────
   const loadSOAP = useCallback(async () => {
     if (!id) return;
-
-    const aiToken = localStorage.getItem('ai_service_token');
-    if (!aiToken) {
-      setLoading(false);
-      setError('AI session token is missing. Start and end the session flow to obtain a valid token.');
-      return;
-    }
 
     setLoading(true);
     setError(null);

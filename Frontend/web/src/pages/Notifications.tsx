@@ -13,7 +13,7 @@ import {
 import notificationService from '../services/notification.service';
 import {
   getNotificationActionLabel,
-  normalizeNotificationActionUrl,
+  resolveNotificationActionUrl,
 } from '../utils/notificationNavigation';
 import { emitNotificationEvent } from '../utils/events';
 import type {
@@ -199,8 +199,9 @@ const Notifications = () => {
 
   const handleNavigate = (notification: TherapistNotification) => {
     if (!notification.is_read) handleMarkRead(notification.id);
-    if (!notification.action_url) return;
-    navigate(normalizeNotificationActionUrl(notification.action_url));
+    const target = resolveNotificationActionUrl(notification);
+    if (!target) return;
+    navigate(target);
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────

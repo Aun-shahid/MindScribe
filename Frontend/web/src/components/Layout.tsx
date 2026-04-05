@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Bell } from 'lucide-react';
+import { Bell, Menu, X } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBrain } from '@fortawesome/free-solid-svg-icons';
 import { useNotifications } from '../hooks/useNotifications';
+import { resolveNotificationActionUrl } from '../utils/notificationNavigation';
 import NotificationToast from './NotificationToast';
 
 const formatDateHeader = (isoDate?: string) => {
@@ -35,6 +36,7 @@ const Layout = () => {
   const location = useLocation();
   const { unreadCount, notifications, markAsRead, markAllAsRead, toasts, dismissToast } = useNotifications();
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
 
   const previewNotifications = useMemo(() => notifications.slice(0, 14), [notifications]);
@@ -69,6 +71,7 @@ const Layout = () => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsNotificationMenuOpen(false);
+        setIsMobileMenuOpen(false);
       }
     };
 
@@ -80,6 +83,10 @@ const Layout = () => {
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path);
@@ -93,12 +100,21 @@ const Layout = () => {
     }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 overflow-x-hidden">
       {/* Enhanced Professional Navbar with Purple Theme */}
       <nav className="bg-gradient-to-r from-purple-900 via-purple-900 to-purple-900 shadow-xl border-b border-purple-500/20">
-        <div className="w-[96%] lg:w-[94%] mx-auto px-[1%]">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
+              <button
+                type="button"
+                aria-label="Open navigation menu"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden mr-2 p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              >
+                <Menu size={20} />
+              </button>
+
               {/* Logo Section */}
               <Link to="/dashboard" className="flex-shrink-0 group">
                 <div className="flex items-center space-x-2">
@@ -149,13 +165,13 @@ const Layout = () => {
             </div>
 
             {/* Right Side Actions */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-1 sm:space-x-3">
               <div className="relative" ref={notificationMenuRef}>
                 <button
                   type="button"
                   aria-label="Open notifications"
                   onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
-                  className={`relative text-white/90 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all ${
+                  className={`relative text-white/90 hover:text-white hover:bg-white/10 px-2 sm:px-3 py-2 rounded-lg transition-all ${
                     isNotificationMenuOpen ? 'bg-white/15 text-white' : ''
                   }`}
                 >
@@ -168,7 +184,7 @@ const Layout = () => {
                 </button>
 
                 {isNotificationMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-[28rem] max-w-[95vw] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                  <div className="fixed left-3 right-3 top-16 w-auto md:absolute md:left-auto md:right-0 md:top-auto md:mt-2 md:w-[28rem] md:max-w-[95vw] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/70">
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
@@ -193,7 +209,7 @@ const Layout = () => {
                       </div>
                     </div>
 
-                    <div className="max-h-[26rem] overflow-y-auto bg-gray-50/30">
+                    <div className="max-h-[calc(100vh-6.5rem)] md:max-h-[26rem] overflow-y-auto bg-gray-50/30">
                       {previewNotifications.length === 0 ? (
                         <div className="px-4 py-8 text-center text-sm text-gray-500">
                           No notifications yet.
@@ -210,7 +226,7 @@ const Layout = () => {
                                 {group.items.map((notification) => (
                                   <li key={notification.id}>
                                     <Link
-                                      to={notification.action_url || '/notifications'}
+                                      to={resolveNotificationActionUrl(notification)}
                                       onClick={() => {
                                         if (!notification.is_read) {
                                           markAsRead(notification.id);
@@ -251,29 +267,95 @@ const Layout = () => {
 
               <Link
                 to="/profile"
-                className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span>Profile</span>
+                <span className="hidden sm:inline">Profile</span>
               </Link>
               <button
                 onClick={logout}
-                className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
+                className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>Logout</span>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
         </div>
       </nav>
 
+      {/* Mobile slide-out navigation */}
+      <div
+        className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <button
+          type="button"
+          aria-label="Close mobile navigation"
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="absolute inset-0 bg-black/45"
+        />
+
+        <aside
+          className={`absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-purple-900 border-r border-purple-500/30 shadow-2xl transform transition-transform duration-300 ease-out ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex items-center justify-between px-4 h-16 border-b border-purple-500/20">
+            <div className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faBrain} className="text-purple-400 text-[24px]" />
+              <span className="text-lg text-purple-200 font-bold">MindScribe</span>
+            </div>
+            <button
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="px-3 py-4 flex flex-col gap-2">
+            <Link to="/dashboard" className={navLinkClass('/dashboard')}>
+              <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </Link>
+
+            <Link to="/sessions" className={navLinkClass('/sessions')}>
+              <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Sessions
+            </Link>
+
+            <Link to="/patients" className={navLinkClass('/patients')}>
+              <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Patients
+            </Link>
+
+            <Link to="/tools" className={navLinkClass('/tools')}>
+              <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317a1.724 1.724 0 013.35 0 1.724 1.724 0 002.573 1.066 1.724 1.724 0 012.898 1.669 1.724 1.724 0 001.066 2.573 1.724 1.724 0 010 3.35 1.724 1.724 0 00-1.066 2.573 1.724 1.724 0 01-2.898 1.669 1.724 1.724 0 00-2.573 1.066 1.724 1.724 0 01-3.35 0 1.724 1.724 0 00-2.573-1.066 1.724 1.724 0 01-2.898-1.669 1.724 1.724 0 00-1.066-2.573 1.724 1.724 0 010-3.35 1.724 1.724 0 001.066-2.573 1.724 1.724 0 012.898-1.669 1.724 1.724 0 002.573-1.066z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Tools
+            </Link>
+          </div>
+        </aside>
+      </div>
+
       <main className="flex-1">
-        <div className="w-[96%] lg:w-[94%] mx-auto py-6 px-[1%]">
+        <div className="w-full max-w-[1600px] mx-auto py-4 sm:py-6 px-3 sm:px-4 lg:px-6">
           <Outlet />
         </div>
       </main>
