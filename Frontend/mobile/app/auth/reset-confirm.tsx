@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { validatePasswordField } from '../utils/validation';
 import { AUTH_MESSAGES } from '../constants/messages';
+import { AuthError } from '../types/auth';
 
 export default function ResetConfirmScreen() {
   const { token } = useLocalSearchParams();
@@ -61,7 +62,8 @@ export default function ResetConfirmScreen() {
         [{ text: 'OK' }]
       );
     } catch (err) {
-      Alert.alert('❌ Error', error?.message || 'Error resetting password');
+      const authError = err as AuthError;
+      Alert.alert('❌ Error', authError?.message || error?.message || 'Error resetting password');
     }
   };
 
