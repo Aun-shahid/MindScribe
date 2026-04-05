@@ -11,9 +11,7 @@ import {
   formatPhoneNumber,
   formatGender,
   formatPreferredDays,
-  shouldShowTherapyInfo,
-  shouldShowEmergencyContact,
-  shouldShowPreferredDays,
+  formatPreferredLanguage,
 } from '../utils/patientDetails';
 
 
@@ -747,72 +745,58 @@ const PatientDetail = () => {
               <InfoField label="Phone Number" value={formatPhoneNumber(patient.phone_number)} />
               <InfoField label="Date of Birth" value={formatDate(patient.date_of_birth)} />
               <InfoField label="Gender" value={formatGender(patient.gender)} />
-              <InfoField label="Patient ID" value={patient.id} />
+              <InfoField label="Patient ID" value={patient.patient_profile?.patient_id || patient.id} />
             </div>
           </div>
 
           {/* Therapy Information */}
-          {shouldShowTherapyInfo(patient) && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
-                <h3 className="text-base font-semibold text-gray-800 flex items-center">
-                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Therapy Information
-                </h3>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {patient.patient_profile?.primary_concern && (
-                  <InfoField
-                    label="Primary Concern"
-                    value={patient.patient_profile.primary_concern}
-                    className="md:col-span-2"
-                  />
-                )}
-                {patient.patient_profile?.therapy_start_date && (
-                  <InfoField
-                    label="Therapy Start Date"
-                    value={formatDate(patient.patient_profile.therapy_start_date)}
-                  />
-                )}
-                {patient.patient_profile?.session_frequency && (
-                  <InfoField
-                    label="Session Frequency"
-                    value={patient.patient_profile.session_frequency}
-                  />
-                )}
-              </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Therapy Information
+              </h3>
             </div>
-          )}
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <InfoField
+                label="Primary Concern"
+                value={patient.patient_profile?.primary_concern}
+                className="md:col-span-2"
+              />
+              <InfoField
+                label="Therapy Start Date"
+                value={formatDate(patient.patient_profile?.therapy_start_date || null)}
+              />
+              <InfoField
+                label="Session Frequency"
+                value={patient.patient_profile?.session_frequency || null}
+              />
+            </div>
+          </div>
 
           {/* Emergency Contact */}
-          {shouldShowEmergencyContact(patient) && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
-                <h3 className="text-base font-semibold text-gray-800 flex items-center">
-                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  Emergency Contact
-                </h3>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {patient.patient_profile?.emergency_contact_name && (
-                  <InfoField
-                    label="Contact Name"
-                    value={patient.patient_profile.emergency_contact_name}
-                  />
-                )}
-                {patient.patient_profile?.emergency_contact_phone && (
-                  <InfoField
-                    label="Contact Phone"
-                    value={formatPhoneNumber(patient.patient_profile.emergency_contact_phone)}
-                  />
-                )}
-              </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                Emergency Contact
+              </h3>
             </div>
-          )}
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <InfoField
+                label="Contact Name"
+                value={patient.patient_profile?.emergency_contact_name || null}
+              />
+              <InfoField
+                label="Contact Phone"
+                value={formatPhoneNumber(patient.patient_profile?.emergency_contact_phone || null)}
+              />
+            </div>
+          </div>
 
           {/* Additional Information */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -825,14 +809,16 @@ const PatientDetail = () => {
               </h3>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {shouldShowPreferredDays(patient) && (
-                <InfoField
-                  label="Preferred Session Days"
-                  value={formatPreferredDays(patient.patient_profile?.preferred_session_days)}
-                  isColumn={true}
-                  className="md:col-span-2"
-                />
-              )}
+              <InfoField
+                label="Preferred Language"
+                value={formatPreferredLanguage(patient.patient_profile?.preferred_language)}
+              />
+              <InfoField
+                label="Preferred Session Days"
+                value={formatPreferredDays(patient.patient_profile?.preferred_session_days)}
+                isColumn={true}
+                className="md:col-span-2"
+              />
               <InfoField
                 label="Total Sessions"
                 value={patient.total_sessions || '0'}
@@ -840,6 +826,35 @@ const PatientDetail = () => {
               <InfoField
                 label="Member Since"
                 value={formatDate(patient.created_at)}
+              />
+            </div>
+          </div>
+
+          {/* Clinical Information */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-rose-600 to-orange-500 px-6 py-4">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m8-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Clinical Information
+              </h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 gap-6">
+              <InfoField
+                label="Complete Address"
+                value={patient.patient_profile?.address}
+                isColumn={true}
+              />
+              <InfoField
+                label="Medical History"
+                value={patient.patient_profile?.medical_history}
+                isColumn={true}
+              />
+              <InfoField
+                label="Current Medications"
+                value={patient.patient_profile?.current_medications}
+                isColumn={true}
               />
             </div>
           </div>

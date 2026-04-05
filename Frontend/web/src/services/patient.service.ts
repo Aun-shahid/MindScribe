@@ -213,6 +213,9 @@ export const patientService = {
           preferred_session_days: Array.isArray(patient.patient_profile.preferred_session_days) ? patient.patient_profile.preferred_session_days : [],
           emergency_contact_name: typeof patient.patient_profile.emergency_contact_name === 'string' ? patient.patient_profile.emergency_contact_name : '',
           emergency_contact_phone: typeof patient.patient_profile.emergency_contact_phone === 'string' ? patient.patient_profile.emergency_contact_phone : '',
+          address: typeof patient.patient_profile.address === 'string' ? patient.patient_profile.address : '',
+          medical_history: typeof patient.patient_profile.medical_history === 'string' ? patient.patient_profile.medical_history : '',
+          current_medications: typeof patient.patient_profile.current_medications === 'string' ? patient.patient_profile.current_medications : '',
           preferred_language: typeof patient.patient_profile.preferred_language === 'string' ? patient.patient_profile.preferred_language : '',
           connected_at: typeof patient.patient_profile.connected_at === 'string' ? patient.patient_profile.connected_at : ''
         } : null,

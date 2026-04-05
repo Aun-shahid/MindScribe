@@ -15,6 +15,9 @@ export interface Patient {
     preferred_session_days: string[];
     emergency_contact_name: string;
     emergency_contact_phone: string;
+    address: string;
+    medical_history: string;
+    current_medications: string;
     preferred_language: string;
     connected_at: string;
   } | null;
@@ -32,6 +35,9 @@ export interface PatientProfile {
   preferred_session_days: string[];
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  address: string;
+  medical_history: string;
+  current_medications: string;
   preferred_language: string;
   connected_at: string;
 }
@@ -95,6 +101,9 @@ export interface PatientProfileFormData {
   preferred_session_days: string[];
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  address?: string;
+  medical_history?: string;
+  current_medications?: string;
   preferred_language: string;
 }
 
@@ -180,6 +189,9 @@ export interface StartNewSessionPatient {
     preferred_session_days: string[];
     emergency_contact_name: string;
     emergency_contact_phone: string;
+    address: string;
+    medical_history: string;
+    current_medications: string;
     preferred_language: string;
     connected_at: string;
   } | null;

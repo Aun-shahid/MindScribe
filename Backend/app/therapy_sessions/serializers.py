@@ -316,6 +316,9 @@ class PatientListSerializer(serializers.ModelSerializer):
                 'preferred_session_days': profile.get_preferred_days_list(),
                 'emergency_contact_name': profile.emergency_contact_name,
                 'emergency_contact_phone': profile.emergency_contact_phone,
+                'address': profile.address,
+                'medical_history': profile.medical_history,
+                'current_medications': profile.current_medications,
                 'preferred_language': profile.preferred_language,
                 'connected_at': profile.connected_at,
             }
