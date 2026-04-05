@@ -28,6 +28,7 @@ export default function PlayBreathingScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
 
   const listenedMsRef = useRef(0);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -417,8 +418,22 @@ export default function PlayBreathingScreen() {
           <View style={[styles.playerHero, { height: heroImageHeight }]}>
             {isBodyScanContent() ? (
               <Image source={require('../../assets/images/purplebodyscan.png')} style={styles.soundImage} resizeMode="cover" />
+            ) : videoLoadFailed ? (
+              <Image source={require('../../assets/images/purplebreathing.png')} style={styles.soundImage} resizeMode="cover" />
             ) : (
-              <Video source={require('../../assets/images/breathingexcercisevid.mp4')} style={styles.soundImage} shouldPlay isLooping isMuted resizeMode={ResizeMode.COVER} />
+              <Video
+                source={require('../../assets/images/breathingexcercisevid_android.mp4')}
+                style={styles.soundImage}
+                shouldPlay
+                isLooping
+                isMuted
+                resizeMode={ResizeMode.COVER}
+                onLoadStart={() => setVideoLoadFailed(false)}
+                onError={(error) => {
+                  console.error('Breathing hero video failed to load:', error);
+                  setVideoLoadFailed(true);
+                }}
+              />
             )}
             <LinearGradient
               colors={['transparent', 'rgba(24,15,39,0.12)', 'rgba(24,15,39,0.55)']}
