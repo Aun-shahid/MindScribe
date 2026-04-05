@@ -1037,7 +1037,6 @@ class SessionScheduleSerializer(serializers.Serializer):
     patient_id = serializers.UUIDField(required=True)
     scheduled_date = serializers.DateTimeField(required=True)
     duration_minutes = serializers.IntegerField(default=60, min_value=15, max_value=480)
-    session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, default='individual')
     location = serializers.CharField(max_length=200, required=False, allow_blank=True)
     is_online = serializers.BooleanField(default=False)
     patient_goals = serializers.CharField(required=False, allow_blank=True)
@@ -1072,7 +1071,6 @@ class RecurringSessionScheduleSerializer(serializers.Serializer):
     number_of_sessions = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=52)
     session_time = serializers.TimeField(required=True)
     duration_minutes = serializers.IntegerField(default=60, min_value=15, max_value=480)
-    session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, default='individual')
     location = serializers.CharField(max_length=200, required=False, allow_blank=True)
     is_online = serializers.BooleanField(default=False)
     fee_charged = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
@@ -1143,14 +1141,12 @@ class BulkSessionUpdateSerializer(serializers.Serializer):
         ('cancel', 'Cancel'),
         ('reschedule', 'Reschedule'),
         ('update_location', 'Update Location'),
-        ('update_type', 'Update Type'),
         ('update_duration', 'Update Duration')
     ])
     
     # Optional fields based on action
     new_date = serializers.DateTimeField(required=False, allow_null=True)
     new_location = serializers.CharField(max_length=200, required=False, allow_blank=True)
-    new_session_type = serializers.ChoiceField(choices=Session.SESSION_TYPES, required=False, allow_null=True)
     new_duration = serializers.IntegerField(min_value=15, max_value=480, required=False, allow_null=True)
     reason = serializers.CharField(required=False, allow_blank=True)
     
@@ -1163,9 +1159,6 @@ class BulkSessionUpdateSerializer(serializers.Serializer):
         
         if action == 'update_location' and not attrs.get('new_location'):
             raise serializers.ValidationError("new_location is required for update_location action.")
-        
-        if action == 'update_type' and not attrs.get('new_session_type'):
-            raise serializers.ValidationError("new_session_type is required for update_type action.")
         
         if action == 'update_duration' and not attrs.get('new_duration'):
             raise serializers.ValidationError("new_duration is required for update_duration action.")

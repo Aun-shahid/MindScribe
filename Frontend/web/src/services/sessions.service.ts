@@ -434,7 +434,6 @@ async getAITranscription(sessionId: string): Promise<SessionTranscription> {
       if (filter.date) params.append('date', filter.date);
       if (filter.status && filter.status !== 'ALL') params.append('status', filter.status);
       if (filter.patient_id) params.append('patient_id', filter.patient_id);
-      if (filter.session_type) params.append('session_type', filter.session_type);
 
       const queryString = params.toString();
       if (queryString) {

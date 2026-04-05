@@ -25,7 +25,6 @@ const NewSession = () => {
   const [sessionTiming, setSessionTiming] = useState<'now' | 'scheduled'>('scheduled');
 
   const [formData, setFormData] = useState({
-    session_type: 'individual',
     duration_minutes: 60,
     location: '',
     is_online: false,
@@ -76,7 +75,6 @@ const NewSession = () => {
         patient_id: selectedPatient,
         scheduled_date: scheduledDate,
         duration_minutes: Number(formData.duration_minutes),
-        session_type: formData.session_type,
         location: formData.location || 'Office',
         is_online: formData.is_online,
         patient_goals: formData.patient_goals || '',
@@ -179,26 +177,6 @@ const NewSession = () => {
                   {patient.full_name} - {patient.email}
                 </option>
               ))}
-            </select>
-          </div>
-
-          {/* Session Type */}
-          <div>
-            <label htmlFor="session_type" className="form-label">
-              Session Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="session_type"
-              required
-              className="form-input"
-              value={formData.session_type}
-              onChange={(e) => updateField('session_type', e.target.value)}
-              disabled={loading}
-            >
-              <option value="individual">Individual</option>
-              <option value="group">Group</option>
-              <option value="family">Family</option>
-              <option value="couples">Couples</option>
             </select>
           </div>
 

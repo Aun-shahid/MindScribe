@@ -897,11 +897,6 @@ class SessionsListView(generics.ListAPIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # Filter by session type
-        session_type_filter = self.request.query_params.get('session_type')
-        if session_type_filter:
-            queryset = queryset.filter(session_type=session_type_filter)
-        
         # Filter by patient ID (for therapists viewing specific patient's sessions)
         patient_id_filter = self.request.query_params.get('patient_id')
         if patient_id_filter and user.user_type == 'therapist':
@@ -2085,7 +2080,10 @@ class SessionScheduleView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = SessionScheduleSerializer(data=request.data, context={'request': request})
+        request_data = request.data.copy()
+        request_data.pop('session_type', None)
+
+        serializer = SessionScheduleSerializer(data=request_data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -2096,7 +2094,7 @@ class SessionScheduleView(APIView):
             'therapist': request.user,
             'scheduled_date': serializer.validated_data['scheduled_date'],
             'duration_minutes': serializer.validated_data['duration_minutes'],
-            'session_type': serializer.validated_data['session_type'],
+            'session_type': 'individual',
             'location': serializer.validated_data.get('location', ''),
             'is_online': serializer.validated_data['is_online'],
             'patient_goals': serializer.validated_data.get('patient_goals', ''),
@@ -2135,7 +2133,10 @@ class RecurringSessionScheduleView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = RecurringSessionScheduleSerializer(data=request.data, context={'request': request})
+        request_data = request.data.copy()
+        request_data.pop('session_type', None)
+
+        serializer = RecurringSessionScheduleSerializer(data=request_data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -2164,7 +2165,7 @@ class RecurringSessionScheduleView(APIView):
             preferred_days=preferred_days,
             session_data={
                 'duration_minutes': serializer.validated_data['duration_minutes'],
-                'session_type': serializer.validated_data['session_type'],
+                'session_type': 'individual',
                 'location': serializer.validated_data.get('location', ''),
                 'is_online': serializer.validated_data['is_online'],
                 'fee_charged': serializer.validated_data.get('fee_charged'),
@@ -2371,11 +2372,6 @@ class BulkSessionUpdateView(APIView):
             
             elif action == 'update_location':
                 session.location = serializer.validated_data['new_location']
-                session.save()
-                updated_sessions.append(session)
-            
-            elif action == 'update_type':
-                session.session_type = serializer.validated_data['new_session_type']
                 session.save()
                 updated_sessions.append(session)
             

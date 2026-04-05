@@ -101,13 +101,11 @@ const SessionDetailPage: React.FC = () => {
     duration_minutes: number;
     location: string;
     is_online: boolean;
-    session_type: 'individual' | 'group' | 'family' | 'couples';
   }>({
     scheduled_date: '',
     duration_minutes: 60,
     location: '',
     is_online: false,
-    session_type: 'individual',
   });
   const [savingDetails, setSavingDetails] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -174,7 +172,6 @@ const SessionDetailPage: React.FC = () => {
         duration_minutes: session.duration_minutes || session.actual_duration_minutes || 60,
         location: session.location || '',
         is_online: session.is_online || false,
-        session_type: (session.session_type as 'individual' | 'group' | 'family' | 'couples') || 'individual',
       });
     }
   }, [session]);
@@ -269,7 +266,6 @@ const SessionDetailPage: React.FC = () => {
         duration_minutes: detailsData.duration_minutes,
         location: detailsData.location,
         is_online: detailsData.is_online,
-        session_type: detailsData.session_type,
       });
       await fetchSession();
       setIsEditingDetails(false);
@@ -673,12 +669,6 @@ const SessionDetailPage: React.FC = () => {
                       <div>
                         <label className="block text-sm font-semibold text-gray-900 mb-2">Location</label>
                         <input type="text" value={detailsData.location} onChange={(e) => setDetailsData({ ...detailsData, location: e.target.value })} placeholder="e.g., Clinic Room 1" className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-900 mb-2">Session Type</label>
-                        <select value={detailsData.session_type} onChange={(e) => setDetailsData({ ...detailsData, session_type: e.target.value as any })} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                          {['individual', 'couples', 'group', 'family'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                        </select>
                       </div>
                       <div className="md:col-span-2">
                         <label className="flex items-center space-x-2 cursor-pointer">

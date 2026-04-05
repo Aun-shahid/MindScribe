@@ -279,7 +279,6 @@ export interface SessionDetail {
 export type SessionDetailData = SessionDetail;
 
 export interface SessionConsentData {
-  session_type: string;
   duration_minutes: number | string;
   location: string;
   patient_goals: string;
@@ -297,7 +296,6 @@ export interface SessionConsentParams {
 
 export interface CreateSessionData {
   patient_id: string;
-  session_type: string;
   scheduled_date: string;
   duration_minutes: number;
   location: string;
@@ -386,7 +384,6 @@ export interface SessionFormData {
   patient_id: string;
   scheduled_date: string;
   duration_minutes: number;
-  session_type: string;
   location: string;
   is_online: boolean;
   patient_goals?: string;
@@ -399,7 +396,6 @@ export interface SessionFilter {
   status?: SessionStatus;
   date?: string;
   patient_id?: string;
-  session_type?: string;
 }
 
 export interface SessionsResponse {
@@ -439,7 +435,6 @@ export interface SessionUpdate {
   scheduled_date?: string;
   duration_minutes?: number;
   location?: string;
-  session_type?: 'individual' | 'group' | 'family' | 'couples';
   is_online?: boolean;
   actual_duration_minutes?: number;
   session_notes?: string;
@@ -504,10 +499,9 @@ export interface SessionSummaryUpdate {
 
 export interface BulkUpdateRequest {
   session_ids: string[];
-  action: 'cancel' | 'reschedule' | 'update_location' | 'update_type' | 'update_duration';
+  action: 'cancel' | 'reschedule' | 'update_location' | 'update_duration';
   new_date?: string;
   new_location?: string;
-  new_session_type?: string;
   new_duration?: number;
   reason?: string;
 }

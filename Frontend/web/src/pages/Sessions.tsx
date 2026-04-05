@@ -17,7 +17,6 @@ const Sessions = () => {
   const [newDate, setNewDate] = useState('');
   const [newLocation, setNewLocation] = useState('');
   const [newDuration, setNewDuration] = useState('');
-  const [newSessionType, setNewSessionType] = useState('');
   const [bulkResult, setBulkResult] = useState<any>(null);
 
   // Sort sessions in ascending order by scheduled/session date
@@ -68,11 +67,9 @@ const Sessions = () => {
       let actualAction: string = bulkAction;
 
       if (bulkAction === 'update') {
-        // Priority: location > type > duration (if multiple fields filled, use first one)
+        // Priority: location > duration (if multiple fields filled, use first one)
         if (newLocation) {
           actualAction = 'update_location';
-        } else if (newSessionType) {
-          actualAction = 'update_type';
         } else if (newDuration) {
           actualAction = 'update_duration';
         } else {
@@ -97,7 +94,6 @@ const Sessions = () => {
       if (bulkAction === 'update') {
         if (newLocation) data.new_location = newLocation;
         if (newDuration) data.new_duration = parseInt(newDuration);
-        if (newSessionType) data.new_session_type = newSessionType;
       }
 
       const result = await sessionsService.bulkUpdateSessions(data);
@@ -112,7 +108,6 @@ const Sessions = () => {
       setNewDate('');
       setNewLocation('');
       setNewDuration('');
-      setNewSessionType('');
 
       // Refresh sessions list
       updateFilter(activeFilter);
@@ -288,24 +283,6 @@ const Sessions = () => {
               <option value="CANCELLED">Cancelled</option>
               <option value="RESCHEDULED">Rescheduled</option>
               <option value="NO_SHOW">No Show</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="session_type" className="form-label text-xs">
-              Session Type
-            </label>
-            <select
-              id="session_type"
-              className="form-input text-sm py-2"
-              value={activeFilter.session_type || ''}
-              onChange={(e) => handleFilterChange({ ...activeFilter, session_type: e.target.value || undefined })}
-            >
-              <option value="">All Types</option>
-              <option value="individual">Individual</option>
-              <option value="group">Group</option>
-              <option value="family">Family</option>
-              <option value="couples">Couples</option>
             </select>
           </div>
 
@@ -568,21 +545,6 @@ const Sessions = () => {
                     </div>
 
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        New Session Type (optional)
-                      </label>
-                      <select
-                        value={newSessionType}
-                        onChange={(e) => setNewSessionType(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Keep current type</option>
-                        <option value="individual">Individual</option>
-                        <option value="group">Group</option>
-                        <option value="family">Family</option>
-                        <option value="couples">Couples</option>
-                      </select>
-                    </div>
                   </>
                 )}
 
@@ -608,7 +570,6 @@ const Sessions = () => {
                       setNewDate('');
                       setNewLocation('');
                       setNewDuration('');
-                      setNewSessionType('');
                     }}
                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                     disabled={bulkLoading}
@@ -620,7 +581,7 @@ const Sessions = () => {
                     disabled={
                       bulkLoading ||
                       (bulkAction === 'reschedule' && !newDate) ||
-                      (bulkAction === 'update' && !newLocation && !newDuration && !newSessionType)
+                      (bulkAction === 'update' && !newLocation && !newDuration)
                     }
                     className={`px-4 py-2 text-white rounded-lg ${bulkAction === 'cancel'
                       ? 'bg-red-600 hover:bg-red-700'

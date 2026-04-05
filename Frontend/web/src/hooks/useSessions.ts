@@ -679,7 +679,6 @@ export const useSessionCalendar = () => {
  */
 export const useSessionConsent = (params: SessionConsentParams) => {
   const [formData, setFormData] = useState<SessionConsentData>({
-    session_type: 'individual',
     duration_minutes: 60,
     location: '',
     patient_goals: '',
@@ -708,7 +707,6 @@ export const useSessionConsent = (params: SessionConsentParams) => {
         patient_id: params.patientId,
         scheduled_date: scheduledDate.toISOString(),
         duration_minutes: Number(formData.duration_minutes),
-        session_type: formData.session_type,
         location: formData.location || 'Office',
         is_online: formData.is_online,
         patient_goals: formData.patient_goals || '',

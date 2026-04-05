@@ -40,10 +40,9 @@ const PatientDetail = () => {
 
   // Bulk update states
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
-  const [bulkAction, setBulkAction] = useState<'cancel' | 'update_location' | 'update_type' | 'update_duration' | ''>('');
+  const [bulkAction, setBulkAction] = useState<'cancel' | 'update_location' | 'update_duration' | ''>('');
   const [bulkUpdateData, setBulkUpdateData] = useState({
     new_location: '',
-    new_session_type: 'individual' as 'individual' | 'group' | 'family' | 'couples',
     new_duration: 60,
     reason: '',
   });
@@ -59,7 +58,6 @@ const PatientDetail = () => {
     number_of_sessions: '',
     session_time: '09:00',
     duration_minutes: '60',
-    session_type: 'individual',
     location: '',
     is_online: false,
     fee_charged: '',
@@ -147,8 +145,6 @@ const PatientDetail = () => {
         payload.reason = bulkUpdateData.reason || 'Bulk cancelled';
       } else if (bulkAction === 'update_location') {
         payload.new_location = bulkUpdateData.new_location;
-      } else if (bulkAction === 'update_type') {
-        payload.new_session_type = bulkUpdateData.new_session_type;
       } else if (bulkAction === 'update_duration') {
         payload.new_duration = bulkUpdateData.new_duration;
       }
@@ -230,7 +226,6 @@ const PatientDetail = () => {
         number_of_sessions: '10', // Default 10 sessions
         session_time: preferences.preferences?.preferred_session_time || '09:00',
         duration_minutes: preferences.preferences?.session_duration?.toString() || '60',
-        session_type: 'individual',
         location: preferences.preferences?.preferred_location || '',
         is_online: false,
         fee_charged: preferences.preferences?.session_fee?.toString() || '',
@@ -245,7 +240,6 @@ const PatientDetail = () => {
         number_of_sessions: '',
         session_time: '09:00',
         duration_minutes: '60',
-        session_type: 'individual',
         location: '',
         is_online: false,
         fee_charged: '',
@@ -405,7 +399,6 @@ const PatientDetail = () => {
         start_date: recurringFormData.start_date,
         session_time: recurringFormData.session_time,
         duration_minutes: parseInt(recurringFormData.duration_minutes),
-        session_type: recurringFormData.session_type,
         is_online: recurringFormData.is_online,
       };
 
@@ -442,7 +435,6 @@ const PatientDetail = () => {
         number_of_sessions: '',
         session_time: '09:00',
         duration_minutes: '60',
-        session_type: 'individual',
         location: '',
         is_online: false,
         fee_charged: '',
@@ -1205,7 +1197,6 @@ const PatientDetail = () => {
                             >
                               <option value="">Select action...</option>
                               <option value="update_location">Update Location</option>
-                              <option value="update_type">Update Session Type</option>
                               <option value="update_duration">Update Duration</option>
                               <option value="cancel">Cancel Sessions</option>
                             </select>
@@ -1220,18 +1211,6 @@ const PatientDetail = () => {
                               onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, new_location: e.target.value })}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                             />
-                          )}
-                          {bulkAction === 'update_type' && (
-                            <select
-                              value={bulkUpdateData.new_session_type}
-                              onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, new_session_type: e.target.value as any })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            >
-                              <option value="individual">Individual</option>
-                              <option value="couples">Couples</option>
-                              <option value="family">Family</option>
-                              <option value="group">Group</option>
-                            </select>
                           )}
                           {bulkAction === 'update_duration' && (
                             <select
@@ -1507,36 +1486,18 @@ const PatientDetail = () => {
                     </div>
                   </div>
 
-                  {/* Session Type and Location */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Session Type
-                      </label>
-                      <select
-                        value={recurringFormData.session_type}
-                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, session_type: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="individual">Individual</option>
-                        <option value="group">Group</option>
-                        <option value="family">Family</option>
-                        <option value="couples">Couples</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        value={recurringFormData.location}
-                        onChange={(e) => setRecurringFormData(prev => ({ ...prev, location: e.target.value }))}
-                        placeholder="e.g., home, office, clinic"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
+                  {/* Location */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={recurringFormData.location}
+                      onChange={(e) => setRecurringFormData(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="e.g., home, office, clinic"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
                   </div>
 
                   {/* Online and Fee */}
