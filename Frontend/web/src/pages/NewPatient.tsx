@@ -328,6 +328,10 @@ const NewPatient: React.FC = () => {
           </div>
         )}
 
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-900">
+          <span className="font-semibold">* Required fields.</span> All fields labeled "(optional)" can be left blank.
+        </div>
+
         <div className="space-y-8">
           {/* Basic Information */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -344,6 +348,7 @@ const NewPatient: React.FC = () => {
                 <input
                   type="text"
                   name="first_name"
+                  required
                   value={patientData.first_name}
                   onChange={(e) => handleInputChange('first_name', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.first_name || backendErrors.first_name ? 'border-red-500' : 'border-gray-300'
@@ -365,6 +370,7 @@ const NewPatient: React.FC = () => {
                 <input
                   type="text"
                   name="last_name"
+                  required
                   value={patientData.last_name}
                   onChange={(e) => handleInputChange('last_name', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.last_name || backendErrors.last_name ? 'border-red-500' : 'border-gray-300'
@@ -381,7 +387,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Email <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <input
                   type="email"
@@ -407,6 +413,7 @@ const NewPatient: React.FC = () => {
                 <input
                   type="tel"
                   name="phone_number"
+                  required
                   value={patientData.phone_number}
                   onChange={(e) => handleInputChange('phone_number', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.phone_number || backendErrors.phone_number ? 'border-red-500' : 'border-gray-300'
@@ -423,7 +430,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
+                  Date of Birth <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <input
                   type="date"
@@ -444,7 +451,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender
+                  Gender <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <div className="flex space-x-4">
                   {GENDER_OPTIONS.map((option) => (
@@ -475,7 +482,7 @@ const NewPatient: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Primary Concern 
+                  Primary Concern <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <textarea
                   name="primary_concern"
@@ -501,7 +508,7 @@ const NewPatient: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Therapy Start Date
+                    Therapy Start Date <span className="text-gray-500 text-xs font-normal">(optional)</span>
                   </label>
                   <input
                     type="date"
@@ -523,7 +530,7 @@ const NewPatient: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Frequency
+                    Session Frequency <span className="text-gray-500 text-xs font-normal">(optional)</span>
                   </label>
                   <select
                     value={patientData.session_frequency}
@@ -542,7 +549,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Preferred Session Days
+                  Preferred Session Days <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {WEEK_DAYS.map((day) => (
@@ -592,7 +599,7 @@ const NewPatient: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Name
+                  Emergency Contact Name <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -614,7 +621,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Phone <span className="text-gray-500 text-xs font-normal">(digits only)</span>
+                  Emergency Contact Phone <span className="text-gray-500 text-xs font-normal">(optional, digits only)</span>
                 </label>
                 <input
                   type="tel"
@@ -645,7 +652,7 @@ const NewPatient: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Complete Address 
+                  Complete Address <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <textarea
                   name="address"
@@ -670,7 +677,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Medical History
+                  Medical History <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <textarea
                   value={patientData.medical_history}
@@ -683,7 +690,7 @@ const NewPatient: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Medications
+                  Current Medications <span className="text-gray-500 text-xs font-normal">(optional)</span>
                 </label>
                 <textarea
                   value={patientData.current_medications}
