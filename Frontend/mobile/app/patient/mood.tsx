@@ -950,7 +950,6 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, textAlign: 'center' },
   tabLoaderScreen: { flex: 1, justifyContent: 'center' },
   tabLoaderViewport: { width: '100%', justifyContent: 'center', flex: 1 },
-  successModalOverlay: {
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', borderRadius: 20, padding: 20, maxHeight: '70%' },
   filtersModalContent: { width: '88%', maxHeight: '78%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
