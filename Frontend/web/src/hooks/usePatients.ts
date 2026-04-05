@@ -195,18 +195,6 @@ export const useCreatePatient = () => {
         return day.toLowerCase();
       };
 
-      // Map frontend language to backend format
-      const mapLanguageToBackendFormat = (lang: string) => {
-        const langMap: { [key: string]: string } = {
-          'english': 'en',
-          'urdu': 'ur',
-          'spanish': 'en', // Fallback to English
-          'french': 'en',  // Fallback to English
-          'other': 'en'    // Fallback to English
-        };
-        return langMap[lang] || 'en';
-      };
-
       // Sanitize and map data to backend requirements
       // Backend expects profile fields at top-level (not nested in patient_profile).
       const normalizedEmail = (patientData.email || '').trim().toLowerCase();
@@ -227,7 +215,6 @@ export const useCreatePatient = () => {
         address: (patientData.address || '').trim(),
         medical_history: (patientData.medical_history || '').trim(),
         current_medications: (patientData.current_medications || '').trim(),
-        preferred_language: mapLanguageToBackendFormat(patientData.preferred_language || 'english'),
         ...(patientData.date_of_birth ? { date_of_birth: patientData.date_of_birth } : {}),
         ...(patientData.therapy_start_date ? { therapy_start_date: patientData.therapy_start_date } : {}),
       };

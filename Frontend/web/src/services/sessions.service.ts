@@ -24,6 +24,29 @@ import type {
 import type { TherapistError } from '../types/therapist';
 
 class SessionsService {
+  private resolveAiServiceUrl(candidateUrl?: string | null): string {
+    if (!candidateUrl) {
+      return aiServiceUrl;
+    }
+
+    try {
+      const parsed = new URL(candidateUrl);
+      const host = parsed.hostname.toLowerCase();
+      const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+      const isLocalDomain = host.endsWith('.local');
+
+      // In production builds, never trust localhost/local domains from backend response.
+      if (isLocalHost || isLocalDomain) {
+        return aiServiceUrl;
+      }
+
+      return candidateUrl;
+    } catch {
+      // Malformed backend URL should not break the session flow.
+      return aiServiceUrl;
+    }
+  }
+
   private getAiCandidateTokens(): string[] {
     const tokens = [
       localStorage.getItem('ai_service_token'),
@@ -107,7 +130,7 @@ class SessionsService {
         console.log('[SessionsService] ✅ Backend session started:', backendResponse.data);
 
         backendSession = (backendResponse.data?.session || backendResponse.data) as SessionDetail;
-        effectiveAiServiceUrl = backendResponse.data?.ai_service_url || aiServiceUrl;
+        effectiveAiServiceUrl = this.resolveAiServiceUrl(backendResponse.data?.ai_service_url);
         backendAiServiceToken = backendResponse.data?.ai_service_token || null;
       } catch (backendStartError) {
         if (!this.isAlreadyInProgressStartError(backendStartError)) {

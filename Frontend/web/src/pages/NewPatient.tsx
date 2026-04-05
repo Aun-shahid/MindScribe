@@ -7,7 +7,6 @@ import {
   MapPin,
   Heart,
   AlertCircle,
-  Languages,
   Save,
   X
 } from 'lucide-react';
@@ -30,7 +29,6 @@ interface NewPatientData {
   address: string;
   medical_history: string;
   current_medications: string;
-  preferred_language: 'english' | 'spanish' | 'french' | 'other' | '';
 }
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -44,14 +42,6 @@ const SESSION_FREQUENCY_OPTIONS = [
   { value: 'biweekly', label: 'Bi-weekly' },
   { value: 'monthly', label: 'Monthly' }
 ];
-const LANGUAGE_OPTIONS = [
-  { value: 'english', label: 'English' },
-  { value: 'urdu', label: 'Urdu' },
-  { value: 'spanish', label: 'Spanish' },
-  { value: 'french', label: 'French' },
-  { value: 'other', label: 'Other' }
-];
-
 const NewPatient: React.FC = () => {
   const navigate = useNavigate();
   const { createPatient, loading, error } = useCreatePatient();
@@ -71,8 +61,7 @@ const NewPatient: React.FC = () => {
     emergency_contact_phone: '',
     address: '',
     medical_history: '',
-    current_medications: '',
-    preferred_language: ''
+    current_medications: ''
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -183,18 +172,14 @@ const NewPatient: React.FC = () => {
 
     // Primary concern validation if provided
     if (patientData.primary_concern && patientData.primary_concern.trim()) {
-      if (patientData.primary_concern.trim().length < 10) {
-        errors.primary_concern = 'Primary concern must be at least 10 characters';
-      } else if (patientData.primary_concern.trim().length > 1000) {
+      if (patientData.primary_concern.trim().length > 1000) {
         errors.primary_concern = 'Primary concern must not exceed 1000 characters';
       }
     }
 
     // Address validation if provided
     if (patientData.address && patientData.address.trim()) {
-      if (patientData.address.trim().length < 10) {
-        errors.address = 'Address must be at least 10 characters';
-      } else if (patientData.address.trim().length > 500) {
+      if (patientData.address.trim().length > 500) {
         errors.address = 'Address must not exceed 500 characters';
       }
     }
@@ -490,7 +475,7 @@ const NewPatient: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Primary Concern <span className="text-gray-500 text-xs font-normal">(optional, min 10 chars)</span>
+                  Primary Concern 
                 </label>
                 <textarea
                   name="primary_concern"
@@ -500,7 +485,7 @@ const NewPatient: React.FC = () => {
                   maxLength={1000}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.primary_concern || backendErrors.primary_concern ? 'border-red-500' : 'border-gray-300'
                     }`}
-                  placeholder="Describe the primary concern or reason for therapy (at least 10 characters)"
+                  placeholder="Describe the primary concern or reason for therapy"
                 />
                 {patientData.primary_concern && (
                   <p className="text-xs text-gray-500 mt-1">{patientData.primary_concern.length}/1000 characters</p>
@@ -660,7 +645,7 @@ const NewPatient: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Complete Address <span className="text-gray-500 text-xs font-normal">(optional, min 10 chars)</span>
+                  Complete Address 
                 </label>
                 <textarea
                   name="address"
@@ -670,7 +655,7 @@ const NewPatient: React.FC = () => {
                   maxLength={500}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${validationErrors.address || backendErrors.address ? 'border-red-500' : 'border-gray-300'
                     }`}
-                  placeholder="Enter complete address (at least 10 characters)"
+                  placeholder="Enter complete address"
                 />
                 {patientData.address && (
                   <p className="text-xs text-gray-500 mt-1">{patientData.address.length}/500 characters</p>
@@ -709,24 +694,6 @@ const NewPatient: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Languages className="inline mr-1" size={16} />
-                  Preferred Language
-                </label>
-                <select
-                  value={patientData.preferred_language}
-                  onChange={(e) => handleInputChange('preferred_language', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select language</option>
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </div>
         </div>

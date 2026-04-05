@@ -85,9 +85,9 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       {/* Purple Gradient Header with Therapist Info */}
-      <div className="relative bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 text-white shadow-2xl overflow-hidden">
+      <div className="relative bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 text-white shadow-lg overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
@@ -96,26 +96,26 @@ const Profile = () => {
           }}></div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             {/* Therapist Info Section */}
-            <div className="flex items-start gap-6 flex-1">
+            <div className="flex items-start gap-4 flex-1">
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-24 h-24 lg:w-32 lg:h-32 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl lg:text-5xl font-bold shadow-xl border-4 border-white/30">
+                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
                   {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
                 </div>
                 {/* Online Status Indicator */}
-                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
+                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
               </div>
 
               {/* Therapist Details */}
-              <div className="flex-1 space-y-4">
+              <div className="flex-1 space-y-3">
                 <div>
-                  <h1 className="text-3xl lg:text-4xl font-bold mb-2">{fullName}</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold mb-2">{fullName}</h1>
                   <div className="flex flex-wrap items-center gap-3">
                     {(profile as any)?.specialization && (
-                      <span className="inline-flex items-center px-3 py-1.5 bg-white/20 backdrop-blur-sm rounded-lg text-sm font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-xs font-medium">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
@@ -123,7 +123,7 @@ const Profile = () => {
                       </span>
                     )}
                     {(profile as any)?.therapist_pin && (
-                      <span className="inline-flex items-center px-3 py-1.5 bg-white/20 backdrop-blur-sm rounded-lg text-sm font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-xs font-medium">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
@@ -136,8 +136,8 @@ const Profile = () => {
                 {/* Contact Info */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {userInfo?.email && (
-                    <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3">
-                      <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
+                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                       <div>
@@ -147,8 +147,8 @@ const Profile = () => {
                     </div>
                   )}
                   {(profile as any)?.clinic_name && (
-                    <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3">
-                      <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
+                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       <div>
@@ -160,15 +160,15 @@ const Profile = () => {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="flex flex-wrap gap-4 pt-2">
+                <div className="flex flex-wrap gap-3 pt-1">
                   {(profile as any)?.years_of_experience && (
-                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
                       <p className="text-xs text-white/70 mb-1">Experience</p>
                       <p className="font-semibold">{(profile as any)?.years_of_experience} years</p>
                     </div>
                   )}
                   {(profile as any)?.education && (
-                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
                       <p className="text-xs text-white/70 mb-1">Education</p>
                       <p className="font-semibold text-sm">{(profile as any)?.education.substring(0, 20)}{(profile as any)?.education.length > 20 ? '...' : ''}</p>
                     </div>
@@ -178,10 +178,10 @@ const Profile = () => {
             </div>
 
             {/* Action Button */}
-            <div className="flex flex-col gap-3 lg:self-start">
+            <div className="flex flex-col gap-2 lg:self-start">
               <button
                 onClick={handleLogout}
-                className="px-6 py-3 bg-white hover:bg-gray-50 text-purple-700 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+                className="px-4 py-2.5 bg-white hover:bg-gray-50 text-purple-700 rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg"
               >
                 Logout
               </button>
@@ -190,7 +190,7 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
         {/* Success/Error Notifications */}
       {saveSuccess && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center">
@@ -206,18 +206,18 @@ const Profile = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left Column - Account & Basic Info */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-5">
           {/* Account Information */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               Account Information
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <InfoField label="Username" value={userInfo?.username} />
               <InfoField label="Email" value={userInfo?.email} />
               <InfoField label="Phone" value={userInfo?.phone_number} />
@@ -226,37 +226,37 @@ const Profile = () => {
           </div>
 
           {/* Quick Stats */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               Practice Statistics
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Patients</span>
-                <span className="text-2xl font-bold text-purple-600">{(profile as any)?.patient_count ?? 0}</span>
+                <span className="text-xl font-bold text-purple-600">{(profile as any)?.patient_count ?? 0}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Years of Experience</span>
-                <span className="text-2xl font-bold text-purple-600">{(profile as any)?.years_of_experience ?? 0}</span>
+                <span className="text-xl font-bold text-purple-600">{(profile as any)?.years_of_experience ?? 0}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right Column - Professional Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5">
           {/* Professional Information */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-              <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               Professional Information
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EditableField
                 label="Specialization"
                 value={(profile as any)?.specialization}
@@ -286,7 +286,7 @@ const Profile = () => {
               <InfoField label="Therapist PIN" value={(profile as any)?.therapist_pin} readOnly mono />
             </div>
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-5 space-y-5">
               <EditableField
                 label="Education"
                 value={(profile as any)?.education}
@@ -317,14 +317,14 @@ const Profile = () => {
           </div>
 
           {/* Clinic Information */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-              <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               Clinic Information
             </h2>
-            <div className="space-y-6">
+            <div className="space-y-5">
               <EditableField
                 label="Clinic Name"
                 value={(profile as any)?.clinic_name}
@@ -362,8 +362,8 @@ const Profile = () => {
 // Helper component for read-only info fields
 const InfoField = ({ label, value, readOnly = false, mono = false }: any) => (
   <div>
-    <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
-    <p className={`text-gray-900 ${mono ? 'font-mono text-lg' : ''} ${readOnly ? 'bg-gray-50 px-3 py-2 rounded' : ''}`}>
+    <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+    <p className={`text-sm text-gray-900 ${mono ? 'font-mono text-base' : ''} ${readOnly ? 'bg-gray-50 px-3 py-2 rounded' : ''}`}>
       {value || 'Not provided'}
     </p>
   </div>
@@ -387,7 +387,7 @@ const EditableField = ({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-600 mb-2">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 mb-2">{label}</label>
       {editing ? (
         <div className="space-y-2">
           {multiline ? (
@@ -395,7 +395,7 @@ const EditableField = ({
               value={formData || ''}
               onChange={(e) => onChange(e.target.value)}
               onKeyPress={onKeyPress}
-              className="w-full px-4 py-2 border border-purple-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-purple-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               rows={3}
               autoFocus
             />
@@ -405,20 +405,20 @@ const EditableField = ({
               value={formData || ''}
               onChange={(e) => onChange(e.target.value)}
               onKeyPress={onKeyPress}
-              className="w-full px-4 py-2 border border-purple-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-purple-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               autoFocus
             />
           )}
           <div className="flex gap-2">
             <button
               onClick={onSave}
-              className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
             >
               Save
             </button>
             <button
               onClick={onCancel}
-              className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
             >
               Cancel
             </button>
@@ -427,18 +427,18 @@ const EditableField = ({
       ) : isEmpty ? (
         <button
           onClick={onEdit}
-          className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-500 hover:bg-purple-50 transition-all group"
+          className="w-full border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-purple-500 hover:bg-purple-50 transition-all group"
         >
           <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-purple-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <span className="font-medium">Add {label}</span>
+            <span className="text-sm font-medium">Add {label}</span>
           </div>
         </button>
       ) : (
-        <div className="group relative bg-gray-50 rounded-lg p-4 hover:bg-purple-50 transition-colors">
-          <p className="text-gray-900 whitespace-pre-wrap">{value}</p>
+        <div className="group relative bg-gray-50 rounded-lg p-3 hover:bg-purple-50 transition-colors">
+          <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
           <button
             onClick={onEdit}
             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 transition-all"

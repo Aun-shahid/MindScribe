@@ -1,14 +1,85 @@
 // src/components/Layout.tsx
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Bell, Brain } from 'lucide-react';
+import { Bell } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBrain } from '@fortawesome/free-solid-svg-icons';
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationToast from './NotificationToast';
+
+const formatDateHeader = (isoDate?: string) => {
+  if (!isoDate) return 'Recent';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return 'Recent';
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).toUpperCase();
+};
+
+const formatTimestamp = (isoDate?: string) => {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
 
 const Layout = () => {
   const { logout } = useAuth();
   const location = useLocation();
-  const { unreadCount, toasts, dismissToast } = useNotifications();
+  const { unreadCount, notifications, markAsRead, markAllAsRead, toasts, dismissToast } = useNotifications();
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const previewNotifications = useMemo(() => notifications.slice(0, 14), [notifications]);
+
+  const groupedNotifications = useMemo(() => {
+    const groups: Array<{
+      header: string;
+      items: typeof previewNotifications;
+    }> = [];
+
+    for (const notification of previewNotifications) {
+      const header = formatDateHeader(notification.sent_at);
+      const lastGroup = groups[groups.length - 1];
+
+      if (lastGroup && lastGroup.header === header) {
+        lastGroup.items.push(notification);
+      } else {
+        groups.push({ header, items: [notification] });
+      }
+    }
+
+    return groups;
+  }, [previewNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) {
+        setIsNotificationMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsNotificationMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path);
@@ -32,7 +103,7 @@ const Layout = () => {
               <Link to="/dashboard" className="flex-shrink-0 group">
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center gap-2">
-              <Brain className="text-purple-400" size={32} />
+              <FontAwesomeIcon icon={faBrain} className="text-purple-400 text-[32px]" />
               <span className="text-2xl text-purple-200 font-bold">MindScribe</span>
             </div>
                 </div>
@@ -73,32 +144,111 @@ const Layout = () => {
                     </svg>
                     QR Code
                   </Link> */}
-                  <Link
-                    to="/notifications"
-                    className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      isActive('/notifications')
-                        ? 'bg-white/20 backdrop-blur-sm text-white shadow-lg'
-                        : 'text-purple-100 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Bell size={18} />
-                        {unreadCount > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg leading-none">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </span>
-                        )}
-                      </div>
-                      <span>Notifications</span>
-                    </div>
-                  </Link>
                 </div>
               </div>
             </div>
 
             {/* Right Side Actions */}
             <div className="flex items-center space-x-3">
+              <div className="relative" ref={notificationMenuRef}>
+                <button
+                  type="button"
+                  aria-label="Open notifications"
+                  onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+                  className={`relative text-white/90 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all ${
+                    isNotificationMenuOpen ? 'bg-white/15 text-white' : ''
+                  }`}
+                >
+                  <Bell size={19} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center shadow-lg leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotificationMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-[28rem] max-w-[95vw] bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/70">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                        <div className="flex items-center gap-3">
+                          {unreadCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => markAllAsRead()}
+                              className="text-xs text-purple-700 hover:text-purple-900 font-medium"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                          <Link
+                            to="/notifications"
+                            onClick={() => setIsNotificationMenuOpen(false)}
+                            className="text-xs text-purple-700 hover:text-purple-900 font-medium"
+                          >
+                            View all
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="max-h-[26rem] overflow-y-auto bg-gray-50/30">
+                      {previewNotifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-gray-500">
+                          No notifications yet.
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {groupedNotifications.map((group) => (
+                            <section key={group.header} className="mb-2">
+                              <div className="px-4 py-2 bg-gray-100/90 border-y border-gray-200">
+                                <p className="text-[11px] font-semibold tracking-wide text-gray-500">{group.header}</p>
+                              </div>
+
+                              <ul className="divide-y divide-gray-100">
+                                {group.items.map((notification) => (
+                                  <li key={notification.id}>
+                                    <Link
+                                      to={notification.action_url || '/notifications'}
+                                      onClick={() => {
+                                        if (!notification.is_read) {
+                                          markAsRead(notification.id);
+                                        }
+                                        setIsNotificationMenuOpen(false);
+                                      }}
+                                      className={`block px-4 py-3 transition-colors hover:bg-gray-50 ${
+                                        notification.is_read ? 'bg-white' : 'bg-purple-50/35'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <p className="text-[15px] font-semibold text-gray-900 leading-5">{notification.title}</p>
+                                        {!notification.is_read && (
+                                          <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-purple-600" />
+                                        )}
+                                      </div>
+
+                                      <p className="mt-2 text-sm text-gray-700 leading-5 whitespace-pre-wrap break-words">
+                                        {notification.message}
+                                      </p>
+
+                                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+                                        <span>{notification.patient_name || 'MindScribe'}</span>
+                                        <span>{formatTimestamp(notification.sent_at) || notification.time_ago}</span>
+                                      </div>
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <Link
                 to="/profile"
                 className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-all"

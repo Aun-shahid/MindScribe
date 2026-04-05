@@ -228,6 +228,6 @@ export interface CreatePatientData {
   address?: string;
   medical_history?: string;
   current_medications?: string;
-  preferred_language: string;
+  preferred_language?: string | null;
 }
 

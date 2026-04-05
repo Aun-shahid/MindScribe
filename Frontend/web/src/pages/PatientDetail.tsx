@@ -11,7 +11,6 @@ import {
   formatPhoneNumber,
   formatGender,
   formatPreferredDays,
-  formatPreferredLanguage,
   shouldShowTherapyInfo,
   shouldShowEmergencyContact,
   shouldShowPreferredDays,
@@ -528,11 +527,11 @@ const PatientDetail = () => {
           }}></div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Back Button */}
           <button
             onClick={() => navigate('/patients')}
-            className="mb-6 flex items-center space-x-2 text-white/90 hover:text-white transition-colors group"
+            className="mb-4 flex items-center space-x-2 text-white/90 hover:text-white transition-colors group text-sm"
           >
             <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -540,25 +539,25 @@ const PatientDetail = () => {
             <span className="font-medium">Back to Patients</span>
           </button>
 
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             {/* Patient Info Section */}
-            <div className="flex items-start gap-6 flex-1">
+            <div className="flex items-start gap-4 flex-1">
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-24 h-24 lg:w-32 lg:h-32 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl lg:text-5xl font-bold shadow-xl border-4 border-white/30">
+                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
                   {patient.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                 </div>
                 {/* Online Status Indicator */}
-                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
+                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
               </div>
 
               {/* Patient Details */}
-              <div className="flex-1 space-y-4">
+              <div className="flex-1 space-y-3">
                 <div>
-                  <h1 className="text-3xl lg:text-4xl font-bold mb-2">{patient.full_name}</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold mb-2">{patient.full_name}</h1>
                   <div className="flex flex-wrap items-center gap-3">
                     {patient.date_of_birth && (
-                      <span className="inline-flex items-center px-3 py-1.5 bg-white/20 backdrop-blur-sm rounded-lg text-sm font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-xs font-medium">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
@@ -589,19 +588,19 @@ const PatientDetail = () => {
                 {/* Contact Info */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {patient.phone_number && (
-                    <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3">
-                      <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
+                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
                       <div>
                         <p className="text-xs text-white/70">Phone</p>
-                        <p className="font-medium">{formatPhoneNumber(patient.phone_number)}</p>
+                        <p className="font-medium text-sm">{formatPhoneNumber(patient.phone_number)}</p>
                       </div>
                     </div>
                   )}
                   {patient.email && (
-                    <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3">
-                      <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
+                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                       <div>
@@ -641,20 +640,20 @@ const PatientDetail = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col gap-3 lg:self-start">
+            <div className="flex flex-col gap-2.5 lg:self-start">
               <button
                 onClick={() => {
                   openScheduleModal();
                   setUsePatientPreferences(true);
                 }}
-                className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-900 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 group"
+                className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-900 rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 group"
               >
                 <span className="text-xl">📅</span>
                 <span>Schedule Sessions</span>
               </button>
               <button
                 onClick={handleStartSession}
-                className="px-6 py-3 bg-white hover:bg-gray-50 text-purple-700 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+                className="px-4 py-2.5 bg-white hover:bg-gray-50 text-purple-700 rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl"
               >
                 Start Session
               </button>
@@ -676,32 +675,32 @@ const PatientDetail = () => {
       )}
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="space-y-5">
           {/* Schedule Preferences Card */}
           {preferences && (
-            <div className="bg-white rounded-2xl shadow-lg border border-purple-100 p-6 lg:p-8">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-md">
+            <div className="bg-white rounded-xl shadow-md border border-purple-100 p-5 lg:p-6">
+              <div className="flex items-center space-x-3 mb-5">
+                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-md">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">Schedule Preferences</h3>
+                <h3 className="text-xl font-bold text-gray-900">Schedule Preferences</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200 hover:shadow-md transition-shadow">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-gray-600">Session Frequency</p>
                     <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-2xl font-bold text-purple-700 capitalize">
+                  <p className="text-xl font-bold text-purple-700 capitalize">
                     {preferences.preferences.session_frequency?.replace('_', ' ')}
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border border-blue-200 hover:shadow-md transition-shadow">
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-gray-600">Preferred Days</p>
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -714,14 +713,14 @@ const PatientDetail = () => {
                       : 'Not set'}
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200 hover:shadow-md transition-shadow">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-gray-600">Upcoming Sessions</p>
                     <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-2xl font-bold text-green-700">
+                  <p className="text-xl font-bold text-green-700">
                     {preferences.upcoming_sessions_count} scheduled
                   </p>
                 </div>
@@ -733,16 +732,16 @@ const PatientDetail = () => {
           <PatientMoodTrend patientId={patient.id} patientName={patient.full_name} />
 
           {/* Basic Information */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
-              <h3 className="text-xl font-bold text-white flex items-center">
-                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Basic Information
               </h3>
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               <InfoField label="Full Name" value={patient.full_name} />
               <InfoField label="Email" value={patient.email} />
               <InfoField label="Phone Number" value={formatPhoneNumber(patient.phone_number)} />
@@ -754,16 +753,16 @@ const PatientDetail = () => {
 
           {/* Therapy Information */}
           {shouldShowTherapyInfo(patient) && (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4">
-                <h3 className="text-xl font-bold text-white flex items-center">
-                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+                <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Therapy Information
                 </h3>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 {patient.patient_profile?.primary_concern && (
                   <InfoField
                     label="Primary Concern"
@@ -789,16 +788,16 @@ const PatientDetail = () => {
 
           {/* Emergency Contact */}
           {shouldShowEmergencyContact(patient) && (
-            <div className="bg-white rounded-2xl shadow-lg border border-red-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4">
-                <h3 className="text-xl font-bold text-white flex items-center">
-                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+                <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                   Emergency Contact
                 </h3>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 {patient.patient_profile?.emergency_contact_name && (
                   <InfoField
                     label="Contact Name"
@@ -816,20 +815,16 @@ const PatientDetail = () => {
           )}
 
           {/* Additional Information */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4">
-              <h3 className="text-xl font-bold text-white flex items-center">
-                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold text-gray-800 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Additional Information
               </h3>
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoField
-                label="Preferred Language"
-                value={formatPreferredLanguage(patient.patient_profile?.preferred_language)}
-              />
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               {shouldShowPreferredDays(patient) && (
                 <InfoField
                   label="Preferred Session Days"
@@ -872,10 +867,10 @@ const PatientDetail = () => {
           </div> */}
 
           {/* Session History */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white flex items-center">
-                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center">
+                <svg className="w-5 h-5 mr-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Session History
@@ -889,23 +884,23 @@ const PatientDetail = () => {
                 </button>
               )}
             </div>
-            <div className="p-6">
+            <div className="p-5">
               {loadingPastSessions ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                   <span className="ml-3 text-gray-500">Loading sessions...</span>
                 </div>
               ) : pastSessions.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {(showAllSessions ? pastSessions : pastSessions.slice(0, 5)).map((session) => (
                     <Link
                       key={session.id}
                       to={`/sessions/${session.id}`}
-                      className="block p-5 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all group"
+                      className="block p-4 border border-gray-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all group"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="font-semibold text-gray-900 text-lg group-hover:text-purple-700 transition-colors">
+                          <p className="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors">
                             {new Date((session as any).scheduled_date || session.session_date).toLocaleDateString('en-US', {
                               weekday: 'short',
                               month: 'short',
@@ -938,7 +933,7 @@ const PatientDetail = () => {
                           </p>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <span className={`px-4 py-2 text-xs font-semibold rounded-full ${session.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' :
+                          <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${session.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' :
                             session.status === 'CANCELLED' ? 'bg-red-100 text-red-700 border border-red-200' :
                               session.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                                 'bg-gray-100 text-gray-700 border border-gray-200'
@@ -976,9 +971,9 @@ const PatientDetail = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-md mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="text-center py-12 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg">
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-full shadow-md mb-3">
+                    <svg className="w-7 h-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
@@ -1031,7 +1026,7 @@ const PatientDetail = () => {
               </p>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-5 space-y-5">
               {/* Choose Mode - Show options */}
               {scheduleMode === 'choose' && (
                 <>
@@ -1043,10 +1038,10 @@ const PatientDetail = () => {
                   ) : (
                     <>
                       {/* Summary Card */}
-                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-100">
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">Current Status</h3>
+                            <h3 className="text-base font-semibold text-gray-900">Current Status</h3>
                             <p className="text-sm text-gray-600 mt-1">
                               {upcomingSessions.length > 0
                                 ? `${upcomingSessions.length} upcoming session(s) scheduled`
@@ -1054,7 +1049,7 @@ const PatientDetail = () => {
                               }
                             </p>
                           </div>
-                          <div className="text-3xl font-bold text-indigo-600">
+                          <div className="text-2xl font-bold text-indigo-600">
                             {upcomingSessions.length}
                           </div>
                         </div>
@@ -1065,7 +1060,7 @@ const PatientDetail = () => {
                         {upcomingSessions.length > 0 && (
                           <button
                             onClick={() => setScheduleMode('manage')}
-                            className="flex items-center justify-between p-5 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all group"
                           >
                             <div className="flex items-center gap-4">
                               <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
@@ -1086,7 +1081,7 @@ const PatientDetail = () => {
 
                         <button
                           onClick={() => setScheduleMode('add')}
-                          className="flex items-center justify-between p-5 bg-white border-2 border-gray-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all group"
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all group"
                         >
                           <div className="flex items-center gap-4">
                             <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">

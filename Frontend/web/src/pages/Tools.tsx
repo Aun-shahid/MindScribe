@@ -17,7 +17,19 @@ const Tools: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
   const patientSelectionRef = useRef<HTMLDivElement | null>(null);
 
-  const { patients, loading: patientsLoading } = useTherapistPatients({ search: searchQuery });
+  const { patients, loading: patientsLoading } = useTherapistPatients({});
+
+  const filteredPatients = useMemo(() => {
+    if (!searchQuery.trim()) return patients;
+
+    const query = searchQuery.toLowerCase().trim();
+    return patients.filter((patient) => {
+      const fullName = patient.full_name?.toLowerCase() || '';
+      const email = patient.email?.toLowerCase() || '';
+      const patientId = patient.id?.toLowerCase() || '';
+      return fullName.includes(query) || email.includes(query) || patientId.includes(query);
+    });
+  }, [patients, searchQuery]);
 
   useEffect(() => {
     setShowBanner(localStorage.getItem(TOOLS_BANNER_DISMISSED_KEY) !== 'true');
@@ -222,10 +234,10 @@ const Tools: React.FC = () => {
           <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {patientsLoading ? (
               <div className="col-span-full text-sm text-gray-500">Loading patients...</div>
-            ) : patients.length === 0 ? (
+            ) : filteredPatients.length === 0 ? (
               <div className="col-span-full text-sm text-gray-500">No patients found.</div>
             ) : (
-              patients.map((patient) => (
+              filteredPatients.map((patient) => (
                 <button
                   key={patient.id}
                   onClick={() => handleSelectPatient(patient.id)}
