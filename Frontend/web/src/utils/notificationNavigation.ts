@@ -26,6 +26,11 @@ const buildPathWithParams = (pathname: string, params: URLSearchParams) => {
   return query ? `${pathname}?${query}` : pathname;
 };
 
+const extractPatientIdFromPath = (path: string) => {
+  const match = path.match(/^\/patients\/([^/?#]+)/i);
+  return match?.[1] || '';
+};
+
 export const normalizeNotificationActionUrl = (actionUrl: string) => {
   const { pathname, search } = parsePathAndQuery(actionUrl);
   const match = pathname.match(THERAPIST_PATIENT_ACTION_RE);
@@ -58,14 +63,16 @@ export const resolveNotificationActionUrl = (notification: NotificationRouteCont
   const normalized = actionUrl ? normalizeNotificationActionUrl(actionUrl) : '';
 
   if (normalized === '/qr-code') {
-    return normalized;
+    return '/qr-code?view=pending&source=notification';
   }
 
   const titleLower = (notification.title || '').toLowerCase();
   const messageLower = (notification.message || '').toLowerCase();
   const typeLower = (notification.notification_type || '').toLowerCase();
   const combinedText = `${titleLower} ${messageLower}`;
-  const patientId = notification.patient || '';
+  const normalizedPatientId = extractPatientIdFromPath(normalized);
+  // Prefer action-url patient id; notification.patient can occasionally be recipient id.
+  const patientId = normalizedPatientId || notification.patient || '';
 
   const isConnectionRequest =
     actionUrl.includes('/users/connection-requests') ||
@@ -73,13 +80,21 @@ export const resolveNotificationActionUrl = (notification: NotificationRouteCont
     typeLower.includes('connection');
 
   if (isConnectionRequest) {
-    return '/qr-code';
+    return '/qr-code?view=pending&source=notification';
   }
 
   const isMoodRelated =
     normalized.includes('/mood') ||
     typeLower.includes('mood') ||
     combinedText.includes('mood');
+
+  const isUrgentMoodAlert =
+    isMoodRelated &&
+    (combinedText.includes('urgent') || combinedText.includes('alert') || combinedText.includes('immediate'));
+
+  if (isUrgentMoodAlert && patientId) {
+    return `/patients/${patientId}`;
+  }
 
   if (isMoodRelated && patientId) {
     return `/patients/${patientId}/mood`;

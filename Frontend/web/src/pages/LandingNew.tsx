@@ -113,12 +113,12 @@ const LandingNew = () => {
       {/* SECTION 1 - Therapist Hero */}
       <section
         ref={heroRef}
-        className="relative h-screen overflow-hidden px-4 md:px-8"
+        className="relative min-h-[100svh] overflow-hidden px-3 sm:px-4 md:px-8"
         style={{
           background: 'linear-gradient(135deg, #F6F2FF 0%, #E9E1FF 100%)'
         }}
       >
-        <div className="absolute inset-y-0 right-0 w-[42%] overflow-hidden">
+        <div className="absolute inset-y-0 right-0 hidden w-[42%] overflow-hidden md:block">
   <svg
     width="100%"
     height="100%"
@@ -163,7 +163,7 @@ const LandingNew = () => {
         </motion.div>
 
         <motion.div
-          className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-6 py-6 md:px-8 md:py-8"
+          className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-3 py-5 sm:px-6 md:px-8 md:py-8"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -176,25 +176,25 @@ const LandingNew = () => {
             </div>
           </div>
 
-          <div className="grid flex-1 items-center gap-8 lg:grid-cols-[60%_40%]">
+          <div className="grid flex-1 items-center gap-6 pb-4 lg:grid-cols-[60%_40%] lg:gap-8 lg:pb-0">
             <motion.div
               style={{ opacity: heroOpacity, y: heroTextY }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="max-w-xl lg:pr-8"
+              className="max-w-xl pt-1 lg:pr-8"
             >
               <p className="mb-5 text-sm tracking-[0.25em] text-[#6E5F9E] uppercase">Your AI Therapy Assistant</p>
               <h1
-                className="text-4xl font-semibold leading-[1.1] text-[#5A45A5] md:text-6xl"
+                className="text-3xl font-semibold leading-[1.08] text-[#5A45A5] sm:text-4xl md:text-6xl"
                 style={{ fontFamily: 'serif' }}
               >
                 MindScribe
               </h1>
-              <p className="mt-5 max-w-xl text-2xl font-serif leading-tight text-[#4E3D88] md:text-4xl">
+              <p className="mt-4 max-w-xl text-xl font-serif leading-tight text-[#4E3D88] sm:text-2xl md:mt-5 md:text-4xl">
                 Clarity for every therapy session, every note you write.
               </p>
-              <p className="mt-6 text-base font-serif leading-relaxed text-[#6E5F9E] md:text-lg">
+              <p className="mt-5 text-sm font-serif leading-relaxed text-[#6E5F9E] sm:text-base md:mt-6 md:text-lg">
                 Supporting therapists with real-time transcription, structured SOAP notes, and AI-powered insights so you can focus on patient care.
               </p>
 
@@ -212,7 +212,7 @@ const LandingNew = () => {
                 </Link>
               </div>
 
-              <div className="mt-10 flex items-center gap-4">
+              <div className="mt-8 flex items-center gap-4 md:mt-10">
                 <div className="flex -space-x-2">
                   <div className="h-9 w-9 rounded-full border-2 border-white bg-[#b399c9]" />
                   <div className="h-9 w-9 rounded-full border-2 border-white bg-[#5b446f]" />
@@ -223,7 +223,7 @@ const LandingNew = () => {
             </motion.div>
 
             <motion.div
-              className="image-container relative mx-auto h-[23rem] w-full max-w-[34rem] overflow-visible md:h-[25rem] lg:h-[78vh]"
+              className="image-container relative mx-auto h-64 w-full max-w-[28rem] overflow-hidden sm:h-80 sm:max-w-[32rem] md:h-[25rem] md:max-w-[34rem] md:overflow-visible lg:h-[78vh]"
               style={{ scale: heroScale }}
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -234,7 +234,7 @@ const LandingNew = () => {
               <img
                 src="/images/profff.png"
                 alt="Therapist portrait"
-                className="therapist-image absolute left-1/5 top-1/2 z-10 m-0 h-[120%] w-max max-w-none -translate-x-1/2 -translate-y-1/2 object-contain p-0"
+                className="therapist-image absolute left-1/2 top-1/2 z-10 m-0 h-[108%] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 object-contain p-0 sm:h-[118%] md:left-1/5 md:h-[120%]"
               />
             </motion.div>
           </div>
@@ -369,7 +369,7 @@ const LandingNew = () => {
 
                     {/* Content Side (Text Description) */}
                     <motion.div
-                      className={`${isEven ? 'md:order-2 md:pl-12' : 'md:order-1 md:pr-12'} ml-20 md:ml-0`}
+                      className={`${isEven ? 'md:order-2 md:pl-12' : 'md:order-1 md:pr-12'} ml-16 md:ml-0`}
                       initial={{ opacity: 0, x: isEven ? 50 : -50 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
@@ -387,7 +387,7 @@ const LandingNew = () => {
 
                     {/* Visualization Side */}
                     <motion.div
-                      className={`${isEven ? 'md:order-1 md:pr-12' : 'md:order-2 md:pl-12'} ml-20 md:ml-0`}
+                      className={`${isEven ? 'md:order-1 md:pr-12' : 'md:order-2 md:pl-12'} ml-16 md:ml-0`}
                       initial={{ opacity: 0, x: isEven ? -50 : 50 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
@@ -627,7 +627,7 @@ const LandingNew = () => {
                 ].map((session, index) => (
                   <motion.div
                     key={session.patient}
-                    className="flex items-center justify-between rounded-2xl border border-[#e7def3] bg-white p-4 transition-shadow hover:shadow-md"
+                    className="flex flex-col items-start gap-3 rounded-2xl border border-[#e7def3] bg-white p-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
@@ -723,7 +723,7 @@ const LandingNew = () => {
               <span className="text-2xl font-bold">MindScribe</span>
             </div>
 
-            <div className="flex gap-8 text-sm text-gray-400">
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400 sm:gap-8">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
               <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
