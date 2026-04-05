@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import RequestReset from './pages/RequestReset';
 import ResetConfirm from './pages/ResetConfirm';
+import PatientResetRedirect from './pages/PatientResetRedirect';
 import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
@@ -48,6 +49,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/request-reset" element={<RequestReset />} />
             <Route path="/reset-confirm" element={<ResetConfirm />} />
+            <Route path="/patient/reset-password" element={<PatientResetRedirect />} />
             <Route path="/ResetConfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
             <Route path="/resetconfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
