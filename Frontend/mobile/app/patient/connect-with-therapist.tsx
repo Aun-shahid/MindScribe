@@ -555,8 +555,12 @@ export default function ConnectWithTherapist() {
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
 
   const connectedAt = patientProfile?.connected_at;
-  const connectedTherapistCards = Array.isArray(patientProfile?.connected_therapists)
-    ? patientProfile.connected_therapists.map((item: any) => ({
+  const connectedTherapistsFromApi = Array.isArray(patientProfile?.connected_therapists)
+    ? patientProfile.connected_therapists
+    : [];
+
+  const connectedTherapistCards = connectedTherapistsFromApi.length > 0
+    ? connectedTherapistsFromApi.map((item: any) => ({
       id: String(item?.id || '').trim(),
       name: String(item?.name || 'Therapist').trim(),
       specialization: String(item?.specialization || '').trim(),
@@ -564,7 +568,25 @@ export default function ConnectWithTherapist() {
       source: item?.is_primary ? 'profile' as const : 'request' as const,
       connectedAt: item?.connected_at,
     }))
-    : [];
+    : (() => {
+      const fallbackId = String(patientProfile?.therapist_info?.id || '').trim();
+      const fallbackName = String(patientProfile?.therapist_info?.name || '').trim();
+      const fallbackSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
+      const fallbackClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
+
+      if (!fallbackId && !fallbackName) {
+        return [] as Array<{ id: string; name: string; specialization: string; clinic: string; source: 'profile' | 'request'; connectedAt?: string }>;
+      }
+
+      return [{
+        id: fallbackId,
+        name: fallbackName || 'Therapist',
+        specialization: fallbackSpecialization,
+        clinic: fallbackClinic,
+        source: 'profile' as const,
+        connectedAt,
+      }];
+    })();
 
   const isConnected = connectedTherapistCards.length > 0;
 
