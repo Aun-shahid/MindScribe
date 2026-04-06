@@ -73,6 +73,8 @@ const Toast = ({
     onDismiss(toast.id);
   };
 
+  const readMuted = Boolean(toast.is_read);
+
   return (
     <motion.div
       layout
@@ -80,7 +82,9 @@ const Toast = ({
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 80, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-      className={`w-80 rounded-xl shadow-2xl border ${style.bg} ${style.border} overflow-hidden cursor-pointer`}
+      className={`w-80 rounded-xl shadow-2xl border overflow-hidden cursor-pointer ${style.bg} ${style.border} ${
+        readMuted ? 'opacity-80 saturate-50 grayscale-[0.25]' : ''
+      }`}
       onClick={handleClick}
     >
       {/* Progress bar */}

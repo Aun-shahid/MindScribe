@@ -242,21 +242,37 @@ const Layout = () => {
                                         setIsNotificationMenuOpen(false);
                                       }}
                                       className={`block px-4 py-3 transition-colors hover:bg-gray-50 ${
-                                        notification.is_read ? 'bg-white' : 'bg-purple-50/35'
+                                        notification.is_read
+                                          ? 'bg-gray-50/95 text-gray-500'
+                                          : 'bg-purple-50/35'
                                       }`}
                                     >
                                       <div className="flex items-start justify-between gap-3">
-                                        <p className="text-[15px] font-semibold text-gray-900 leading-5">{notification.title}</p>
+                                        <p
+                                          className={`text-[15px] font-semibold leading-5 ${
+                                            notification.is_read ? 'text-gray-500 font-medium' : 'text-gray-900'
+                                          }`}
+                                        >
+                                          {notification.title}
+                                        </p>
                                         {!notification.is_read && (
                                           <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-purple-600" />
                                         )}
                                       </div>
 
-                                      <p className="mt-2 text-sm text-gray-700 leading-5 whitespace-pre-wrap break-words">
+                                      <p
+                                        className={`mt-2 text-sm leading-5 whitespace-pre-wrap break-words ${
+                                          notification.is_read ? 'text-gray-500' : 'text-gray-700'
+                                        }`}
+                                      >
                                         {notification.message}
                                       </p>
 
-                                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+                                      <div
+                                        className={`mt-2 flex items-center justify-between text-[11px] ${
+                                          notification.is_read ? 'text-gray-400/90' : 'text-gray-400'
+                                        }`}
+                                      >
                                         <span>{notification.patient_name || 'MindScribe'}</span>
                                         <span>{formatTimestamp(notification.sent_at) || notification.time_ago}</span>
                                       </div>

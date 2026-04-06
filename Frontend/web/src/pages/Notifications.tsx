@@ -355,8 +355,10 @@ const Notifications = () => {
             return (
               <div
                 key={notification.id}
-                className={`relative bg-white rounded-xl border border-gray-200 border-l-4 ${style.border} shadow-sm transition-all hover:shadow-md ${
-                  !notification.is_read ? 'ring-1 ring-purple-100' : 'opacity-90'
+                className={`relative rounded-xl border border-gray-200 border-l-4 ${style.border} shadow-sm transition-all hover:shadow-md ${
+                  notification.is_read
+                    ? 'bg-gray-50/90 opacity-[0.88]'
+                    : `bg-white ring-1 ring-purple-100`
                 }`}
               >
                 {/* Unread dot */}
@@ -371,7 +373,11 @@ const Notifications = () => {
                     <div className="mt-0.5 shrink-0">{style.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="font-semibold text-gray-900 text-sm">
+                        <span
+                          className={`font-semibold text-sm ${
+                            notification.is_read ? 'text-gray-500' : 'text-gray-900'
+                          }`}
+                        >
                           {notification.title}
                         </span>
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 uppercase">
@@ -384,7 +390,13 @@ const Notifications = () => {
                         )}
                       </div>
 
-                      <p className="text-sm text-gray-600 leading-snug">{notification.message}</p>
+                      <p
+                        className={`text-sm leading-snug ${
+                          notification.is_read ? 'text-gray-500' : 'text-gray-600'
+                        }`}
+                      >
+                        {notification.message}
+                      </p>
 
                       <div className="flex flex-wrap items-center gap-3 mt-2">
                         <div className="flex items-center gap-1 text-xs text-gray-400">

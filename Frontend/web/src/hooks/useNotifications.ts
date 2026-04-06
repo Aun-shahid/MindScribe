@@ -256,6 +256,7 @@ export const useNotifications = () => {
               (metaAny?.patient_name as string) ?? '',
             created_at:
               payload.created_at ?? payload.createdAt ?? new Date().toISOString(),
+            is_read: dbRecord ? Boolean((dbRecord as { is_read?: boolean }).is_read) : false,
           };
 
           setToasts((prev) => [toastEntry, ...prev].slice(0, 5)); // keep max 5 toasts

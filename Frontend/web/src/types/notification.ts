@@ -127,4 +127,6 @@ export interface NotificationToastEntry {
   action_url: string | null;
   patient_name: string;
   created_at: string;
+  /** When true (e.g. already read on server), toast is shown slightly greyed out */
+  is_read?: boolean;
 }
