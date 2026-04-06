@@ -610,10 +610,7 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
     
     def dispatch(self, request, *args, **kwargs):
         if not getattr(request.user, 'is_authenticated', False) or getattr(request.user, 'user_type', None) != 'patient':
-            return Response(
-                {'detail': 'Only patients can access this endpoint.'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+            self.permission_denied(request, message='Only patients can access this endpoint.')
         return super().dispatch(request, *args, **kwargs)
 
 
