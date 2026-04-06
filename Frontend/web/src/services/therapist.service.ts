@@ -69,6 +69,29 @@ class TherapistService {
     }
   }
 
+  /** Profile picture: max 5 MB, jpg/png/gif/webp (enforced on server). */
+  async uploadTherapistAvatar(file: File): Promise<TherapistQRInfo> {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const response = await api.patch<TherapistQRInfo>('/users/therapist-profile/', formData);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async clearTherapistAvatar(): Promise<TherapistQRInfo> {
+    try {
+      const response = await api.patch<TherapistQRInfo>('/users/therapist-profile/', {
+        clear_avatar: true,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   async getTherapistPin(): Promise<any> {
     try {
       console.log('[TherapistService] GET /users/therapist-pin/');

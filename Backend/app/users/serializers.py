@@ -1,11 +1,39 @@
 from rest_framework import serializers
 from django.db import DatabaseError
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from .models import PatientProfile, TherapistProfile, ConnectionRequest
 
 User = get_user_model()
+
+
+def user_avatar_absolute_url(user, request):
+    """
+    Public URL for the avatar image. In production, prefer BACKEND_URL so the
+    browser always gets a stable absolute URL (same origin as the API), even
+    behind proxies. Storage backends that return a full URL (e.g. S3) pass through.
+    """
+    if not getattr(user, 'avatar', None) or not user.avatar:
+        return None
+    path = user.avatar.url
+    if path.startswith(('http://', 'https://')):
+        return path
+    base = (getattr(settings, 'BACKEND_URL', None) or '').strip().rstrip('/')
+    if base:
+        return f"{base}{path}" if path.startswith('/') else f"{base}/{path}"
+    if request:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def _coerce_clear_avatar(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'on', 'yes')
+    return bool(value)
 
 
 class PatientTherapistConnectionSerializer(serializers.Serializer):
@@ -54,6 +82,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
+        request = self.context.get('request')
         return {
             'id': str(user.id),
             'username': user.username,
@@ -62,6 +91,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             'last_name': user.last_name,
             'phone_number': user.phone_number,
             'date_of_birth': user.date_of_birth,
+            'avatar_url': user_avatar_absolute_url(user, request),
         }
     
     @extend_schema_field(serializers.DictField(allow_null=True))
@@ -108,6 +138,8 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    avatar = serializers.FileField(write_only=True, required=False, allow_null=True)
+    clear_avatar = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = TherapistProfile
@@ -116,6 +148,7 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             'education', 'certifications', 'clinic_name', 'clinic_address',
             'therapist_pin', 'user_info', 'patient_count',
             'first_name', 'last_name', 'username',
+            'avatar', 'clear_avatar',
         ]
         read_only_fields = ['therapist_pin']
 
@@ -149,6 +182,17 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop('first_name', serializers.empty)
         last_name = validated_data.pop('last_name', serializers.empty)
         username = validated_data.pop('username', serializers.empty)
+        clear_avatar = _coerce_clear_avatar(validated_data.pop('clear_avatar', False))
+        avatar = validated_data.pop('avatar', serializers.empty)
+
+        if clear_avatar:
+            if user.avatar:
+                user.avatar.delete(save=False)
+            user.avatar = None
+        elif avatar is not serializers.empty and avatar is not None:
+            if user.avatar:
+                user.avatar.delete(save=False)
+            user.avatar = avatar
 
         if first_name is not serializers.empty:
             user.first_name = (first_name or '').strip()
@@ -165,6 +209,7 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
+        request = self.context.get('request')
         next_at = user.next_username_change_allowed_at()
         return {
             'id': str(user.id),
@@ -174,6 +219,7 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             'last_name': user.last_name,
             'phone_number': user.phone_number,
             'date_of_birth': user.date_of_birth,
+            'avatar_url': user_avatar_absolute_url(user, request),
             'can_change_username': user.can_change_username_now(),
             'next_username_change_at': (
                 next_at.isoformat()

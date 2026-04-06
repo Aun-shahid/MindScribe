@@ -118,6 +118,10 @@ export const useTherapistProfile = () => {
     return updatedProfile;
   }, []);
 
+  const applyProfile = useCallback((data: any) => {
+    setProfile(data);
+  }, []);
+
   const handleLogout = useCallback(async () => {
     try {
       // Clear local storage
@@ -138,6 +142,7 @@ export const useTherapistProfile = () => {
     error,
     fetchProfile,
     updateProfile,
+    applyProfile,
     handleLogout,
     clearError: () => setError(null),
   };

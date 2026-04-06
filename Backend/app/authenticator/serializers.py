@@ -5,6 +5,7 @@ from django.utils import timezone
 import uuid
 
 from users.models import TherapistProfile
+from users.serializers import user_avatar_absolute_url, _coerce_clear_avatar
 
 User = get_user_model()
 
@@ -153,6 +154,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     can_change_username = serializers.SerializerMethodField(read_only=True)
     next_username_change_at = serializers.SerializerMethodField(read_only=True)
+    avatar_url = serializers.SerializerMethodField(read_only=True)
+    clear_avatar = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = User
@@ -160,8 +163,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'user_type', 'phone_number', 'date_of_birth', 'email_verified',
             'can_change_username', 'next_username_change_at',
+            'avatar', 'avatar_url', 'clear_avatar',
         ]
-        read_only_fields = ['id', 'email', 'user_type', 'email_verified', 'can_change_username', 'next_username_change_at']
+        read_only_fields = [
+            'id', 'email', 'user_type', 'email_verified',
+            'can_change_username', 'next_username_change_at', 'avatar_url',
+        ]
+        extra_kwargs = {
+            'avatar': {'write_only': True, 'required': False},
+        }
 
     def get_can_change_username(self, obj):
         return obj.can_change_username_now()
@@ -171,6 +181,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if next_at is None or obj.can_change_username_now():
             return None
         return next_at.isoformat()
+
+    def get_avatar_url(self, obj):
+        return user_avatar_absolute_url(obj, self.context.get('request'))
 
     def validate(self, attrs):
         user = self.instance
@@ -197,6 +210,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        clear_avatar = _coerce_clear_avatar(validated_data.pop('clear_avatar', False))
+        avatar = validated_data.pop('avatar', serializers.empty)
+
+        if clear_avatar:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = None
+        elif avatar is not serializers.empty and avatar is not None:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = avatar
+
         new_username = validated_data.get('username')
         if new_username is not None and new_username != instance.username:
             instance.username_last_changed_at = timezone.now()

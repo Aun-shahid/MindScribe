@@ -56,13 +56,18 @@ class AuthService {
   async login(data: LoginData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/login/', data);
-      
-      // Store tokens
+
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      return response.data;
+
+      try {
+        const full = await this.getProfile();
+        localStorage.setItem('user', JSON.stringify(full));
+        return { ...response.data, user: full as AuthResponse['user'] };
+      } catch {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return response.data;
+      }
     } catch (error: any) {
       throw this.handleError(error);
     }
@@ -71,14 +76,19 @@ class AuthService {
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/register/', data);
-      
-      // Store tokens if provided
+
       if (response.data.access && response.data.refresh) {
         localStorage.setItem('access_token', response.data.access);
         localStorage.setItem('refresh_token', response.data.refresh);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        try {
+          const full = await this.getProfile();
+          localStorage.setItem('user', JSON.stringify(full));
+          return { ...response.data, user: full as AuthResponse['user'] };
+        } catch {
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
       }
-      
+
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);

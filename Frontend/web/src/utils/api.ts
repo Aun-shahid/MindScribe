@@ -49,6 +49,10 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+
     if (isAuthEndpoint(config.url)) {
       return config;
     }

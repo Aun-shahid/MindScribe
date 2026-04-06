@@ -10,6 +10,7 @@ interface User {
   is_verified?: boolean;
   first_name?: string;
   last_name?: string;
+  avatar_url?: string | null;
 }
 
 interface AuthError {

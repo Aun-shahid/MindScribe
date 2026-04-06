@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.contrib.auth import get_user_model, authenticate, logout
 from django.db import transaction, IntegrityError
 from django.utils import timezone
@@ -308,6 +309,7 @@ class RegisterView(generics.CreateAPIView):
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_object(self):
         return self.request.user

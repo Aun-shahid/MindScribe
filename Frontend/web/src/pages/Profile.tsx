@@ -1,8 +1,10 @@
 // src/pages/Profile.tsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTherapistProfile } from '../hooks/useTherapist';
+import { useAuth } from '../contexts/AuthContext';
 import authService from '../services/auth.service';
+import therapistService from '../services/therapist.service';
 import { validatePasswordStrength } from '../utils/passwordValidation';
 
 interface ProfileEditingState {
@@ -17,8 +19,14 @@ interface ProfileEditingState {
   years_of_experience: boolean;
 }
 
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
 const Profile = () => {
-  const { profile, loading, error, handleLogout, updateProfile } = useTherapistProfile();
+  const { fetchProfile: refreshAuthUser } = useAuth();
+  const { profile, loading, error, handleLogout, updateProfile, applyProfile } = useTherapistProfile();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState<string | null>(null);
   const [editing, setEditing] = useState<ProfileEditingState>({
     first_name: false,
     last_name: false,
@@ -47,6 +55,7 @@ const Profile = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const userInfo = (profile as any)?.user_info;
+  const avatarUrl = userInfo?.avatar_url as string | undefined;
   const fullName = userInfo
     ? `${userInfo.first_name || ''} ${userInfo.last_name || ''}`.trim()
     : 'N/A';
@@ -133,6 +142,47 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarPick = () => {
+    setAvatarMsg(null);
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarMsg('Image must be 5 MB or smaller.');
+      e.target.value = '';
+      return;
+    }
+    setAvatarMsg(null);
+    setAvatarBusy(true);
+    try {
+      const data = await therapistService.uploadTherapistAvatar(file);
+      applyProfile(data);
+      await refreshAuthUser();
+    } catch (err) {
+      setAvatarMsg(err instanceof Error ? err.message : 'Could not upload photo.');
+    } finally {
+      setAvatarBusy(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarMsg(null);
+    setAvatarBusy(true);
+    try {
+      const data = await therapistService.clearTherapistAvatar();
+      applyProfile(data);
+      await refreshAuthUser();
+    } catch (err) {
+      setAvatarMsg(err instanceof Error ? err.message : 'Could not remove photo.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setDeleteLoading(true);
     try {
@@ -183,11 +233,48 @@ const Profile = () => {
             <div className="flex items-start gap-4 flex-1">
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
-                  {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="w-20 h-20 lg:w-24 lg:h-24 rounded-xl object-cover shadow-xl border-4 border-white/30 bg-white/10"
+                  />
+                ) : (
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
+                    {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
+                  </div>
+                )}
+                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg" aria-hidden />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleAvatarPick}
+                    disabled={avatarBusy}
+                    className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/30 disabled:opacity-50"
+                  >
+                    {avatarBusy ? '…' : avatarUrl ? 'Change photo' : 'Add photo'}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarBusy}
+                      className="text-xs font-medium px-2 py-1 rounded-md bg-transparent hover:bg-white/15 text-white/90 border border-white/25 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
-                {/* Online Status Indicator */}
-                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
+                {avatarMsg && (
+                  <p className="text-xs text-amber-200 mt-1 max-w-[220px] leading-snug">{avatarMsg}</p>
+                )}
               </div>
 
               {/* Therapist Details */}

@@ -32,7 +32,7 @@ const formatTimestamp = (isoDate?: string) => {
 };
 
 const Layout = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const location = useLocation();
   const { unreadCount, notifications, markAsRead, markAllAsRead, toasts, dismissToast } = useNotifications();
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
@@ -40,6 +40,14 @@ const Layout = () => {
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
 
   const previewNotifications = useMemo(() => notifications.slice(0, 14), [notifications]);
+
+  const profileInitials = useMemo(() => {
+    const u = user;
+    if (!u) return '?';
+    const a = `${u.first_name?.[0] || ''}${u.last_name?.[0] || ''}`.trim();
+    if (a) return a.toUpperCase();
+    return u.username?.slice(0, 2).toUpperCase() || '?';
+  }, [user]);
 
   const groupedNotifications = useMemo(() => {
     const groups: Array<{
@@ -269,9 +277,20 @@ const Layout = () => {
                 to="/profile"
                 className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover border border-white/35 shrink-0 bg-white/10"
+                  />
+                ) : (
+                  <span
+                    className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold border border-white/30 shrink-0"
+                    aria-hidden
+                  >
+                    {profileInitials}
+                  </span>
+                )}
                 <span className="hidden sm:inline">Profile</span>
               </Link>
               <button
@@ -349,6 +368,27 @@ const Layout = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               Tools
+            </Link>
+
+            <Link
+              to="/profile"
+              className={navLinkClass('/profile')}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <span className="inline-flex items-center gap-2">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover border border-white/30 bg-white/10 shrink-0"
+                  />
+                ) : (
+                  <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold border border-white/25 shrink-0">
+                    {profileInitials}
+                  </span>
+                )}
+                Profile
+              </span>
             </Link>
           </div>
         </aside>

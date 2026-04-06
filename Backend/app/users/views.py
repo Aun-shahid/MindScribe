@@ -4,6 +4,7 @@ from rest_framework import generics, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
@@ -621,6 +622,7 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
 class TherapistProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = TherapistProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     http_method_names = ['get', 'patch', 'head', 'options']
     
     def get_object(self):

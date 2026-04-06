@@ -1,7 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
+from .validators import MaxFileSizeValidator
 import uuid
 import random
 from datetime import timedelta
@@ -36,7 +37,18 @@ class User(AbstractUser):
     phone_verified = models.BooleanField(default=False)
     # Set when the username is changed after signup (null = never changed; 30-day cooldown applies after first change).
     username_last_changed_at = models.DateTimeField(null=True, blank=True)
-    
+    avatar = models.FileField(
+        upload_to='avatars/%Y/%m/',
+        null=True,
+        blank=True,
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=('jpg', 'jpeg', 'png', 'gif', 'webp'),
+            ),
+            MaxFileSizeValidator(5 * 1024 * 1024),
+        ],
+    )
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
     
