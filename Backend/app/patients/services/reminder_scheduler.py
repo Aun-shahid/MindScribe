@@ -13,8 +13,10 @@ from .notification_service import (
     send_goal_reminder_notifications,
     send_journal_reminder_notifications,
     send_mood_reminder_notifications,
-    send_session_reminder_notifications,
-    send_therapist_upcoming_session_notifications,
+)
+from .time_based_notifications import (
+    send_time_based_session_reminders,
+    send_time_based_therapist_reminders,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,12 +69,12 @@ def run_reminder_scheduler_tick():
     try:
         close_old_connections()
 
-        session_count = send_session_reminder_notifications()
+        session_count = send_time_based_session_reminders()
     except Exception:
         logger.exception("Session reminder tick failed")
 
     try:
-        therapist_session_count = send_therapist_upcoming_session_notifications()
+        therapist_session_count = send_time_based_therapist_reminders()
     except Exception:
         logger.exception("Therapist session reminder tick failed")
 

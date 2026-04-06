@@ -1,11 +1,16 @@
 """
-SOAP Notes Generator Service - Generate structured SOAP notes using Groq/OpenAI providers.
+SOAP Notes Generator Service - Generate structured SOAP notes using HF Space + OpenAI providers.
 """
 import asyncio
 import json
 from typing import Optional, List, Dict
 import logging
 from datetime import datetime
+import re
+import os
+import time
+import urllib.request
+import urllib.error
 
 from openai import AsyncOpenAI
 
@@ -19,10 +24,9 @@ from .anonymization import anonymize_text_for_privacy
 logger = logging.getLogger(__name__)
 
 _openai_client: Optional[AsyncOpenAI] = None
-_groq_client: Optional[AsyncOpenAI] = None
 
 
-SOAP_SYSTEM_PROMPT_GROQ = """You are a clinical psychotherapist assistant trained to generate SOAP notes from psychotherapy session transcripts.
+SOAP_SYSTEM_PROMPT = """You are a clinical psychotherapist assistant trained to generate SOAP notes from psychotherapy session transcripts.
 
 Core rules:
 - Use ONLY information present in the provided transcript and optional context payload. Do not infer, hallucinate, or add unstated facts.
@@ -86,18 +90,6 @@ def get_openai_client() -> AsyncOpenAI:
     return _openai_client
 
 
-def get_groq_client() -> AsyncOpenAI:
-    global _groq_client
-    if _groq_client is None:
-        if not settings.groq_api_key:
-            raise RuntimeError("GROQ_API_KEY is not set")
-        _groq_client = AsyncOpenAI(
-            api_key=settings.groq_api_key,
-            base_url=settings.groq_base_url,
-        )
-    return _groq_client
-
-
 async def generate_soap_notes(
     session_id: str,
     transcript: FullTranscript,
@@ -105,14 +97,13 @@ async def generate_soap_notes(
     additional_context: Optional[str] = None
 ) -> SOAPNote:
     openai_client = get_openai_client()
-    groq_client = get_groq_client()
 
     transcript_text = anonymize_text_for_privacy(_format_transcript_for_soap(transcript, include_emotions))
     emotion_summary = anonymize_text_for_privacy(_generate_emotion_summary(transcript)) if include_emotions else ""
     valence, arousal = _compute_valence_arousal(transcript)
 
     # ── CALL 1: Standard SOAP structure ─────────────────────────────────────
-    system_prompt = SOAP_SYSTEM_PROMPT_GROQ
+    system_prompt = SOAP_SYSTEM_PROMPT
     user_prompt = build_soap_user_prompt(
         transcript_text=transcript_text,
         emotion_summary=emotion_summary,
@@ -165,30 +156,28 @@ Rules:
 - Use professional clinical language throughout.
 - Keep each point to 1-3 sentences maximum."""
 
-    # ── CALL 1: SOAP generation via Groq (replaces previous GPT call) ───────
-    # Previous OpenAI SOAP call intentionally kept here for prompt migration reference.
-    # soap_task = openai_client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[
-    #         {"role": "system", "content": system_prompt},
-    #         {"role": "user", "content": user_prompt}
-    #     ],
-    #     response_format={"type": "json_object"},
-    #     temperature=0.3,
-    #     max_tokens=2000
-    # )
-    soap_task = groq_client.chat.completions.create(
-        model=settings.soap_groq_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.3,
-        max_tokens=2000,
-    )
+    # ── CALL 1: SOAP generation (HF Space if configured, else OpenAI) ───────
+    if settings.hf_space_url:
+        soap_task = _generate_soap_via_hf_space(
+            transcript_text=transcript_text,
+            emotion_summary=emotion_summary,
+            additional_context=additional_context,
+        )
+        soap_model_version = "hf-space"
+    else:
+        soap_task = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+            max_tokens=2000,
+        )
+        soap_model_version = "gpt-4o-mini"
 
     # ── CALL 2: Clinical pattern analysis via OpenAI (kept as requested) ────
-    pattern_task = openai_client.chat.completions.create(
+    pattern_task = asyncio.create_task(openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a clinical psychologist. Respond in concise markdown with clear headings and bullet points."},
@@ -196,11 +185,49 @@ Rules:
         ],
         temperature=0.2,
         max_tokens=1000
-    )
+    ))
 
-    soap_response, pattern_response = await asyncio.gather(soap_task, pattern_task)
+    if settings.hf_space_url:
+        try:
+            soap_response = await asyncio.wait_for(soap_task, timeout=240)
+            soap_text = (soap_response or "").strip()
+            logger.info("SOAP generated via HF Space")
 
-    soap_text = (soap_response.choices[0].message.content or "").strip()
+            refine_enabled = os.getenv("SOAP_HF_REFINE_WITH_OPENAI", "true").lower() == "true"
+            if refine_enabled and soap_text:
+                try:
+                    soap_text = await _refine_hf_soap_with_openai(
+                        openai_client=openai_client,
+                        transcript_text=transcript_text,
+                        hf_draft=soap_text,
+                        emotion_summary=emotion_summary,
+                        additional_context=additional_context,
+                    )
+                    soap_model_version = "hf-space+openai-refine"
+                    logger.info("SOAP refined via OpenAI after HF draft")
+                except Exception as refine_exc:
+                    logger.warning("HF SOAP refinement failed; using HF draft. Error: %s", refine_exc)
+        except Exception as hf_exc:
+            logger.warning(
+                "HF Space SOAP failed or timed out; falling back to OpenAI GPT. Error: %s",
+                hf_exc,
+            )
+            fallback_response = await openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000,
+            )
+            soap_text = (fallback_response.choices[0].message.content or "").strip()
+            soap_model_version = "gpt-4o-mini"
+    else:
+        soap_response = await soap_task
+        soap_text = (soap_response.choices[0].message.content or "").strip()
+
+    pattern_response = await pattern_task
     pattern_text = (pattern_response.choices[0].message.content or "").strip()
 
     sections = _parse_soap_json_response(soap_text)
@@ -230,8 +257,152 @@ Rules:
         plan=SOAPNoteSection(content=sections.get("plan", "No data available"), confidence=0.85, sources=segment_ids),
         emotional_summary=full_emotion_summary if include_emotions else None,
         generated_at=datetime.utcnow(),
-        model_version=settings.soap_groq_model
+        model_version=soap_model_version
     )
+
+
+def _format_transcript_for_hf_space(diarized_transcript: str) -> str:
+    """
+    Normalize diarized labels for the SOAP model that expects Therapist/Patient roles.
+    """
+    formatted = diarized_transcript or ""
+    replacements = {
+        r"\bSPEAKER_00\s*:": "Therapist:",
+        r"\bSPEAKER_01\s*:": "Patient:",
+        r"\bSpeaker\s*0\s*:": "Therapist:",
+        r"\bSpeaker\s*1\s*:": "Patient:",
+    }
+    for pattern, replacement in replacements.items():
+        formatted = re.sub(pattern, replacement, formatted, flags=re.IGNORECASE)
+    return formatted
+
+
+def _build_hf_space_prompt_payload(
+    transcript_text: str,
+    emotion_summary: str,
+    additional_context: Optional[str],
+) -> str:
+    clean_transcript = _format_transcript_for_hf_space(transcript_text)
+
+    parts = [
+        "You are a clinical psychotherapist assistant generating a detailed SOAP note for a psychotherapy session.",
+        "Use ONLY information present in the transcript and optional context.",
+        "Do not hallucinate, do not invent facts, and do not add diagnoses not supported by evidence.",
+        "Do not prescribe or recommend medications unless they are explicitly discussed in the session.",
+        "Use professional psychotherapy language and keep statements evidence-grounded.",
+        "",
+        "Output requirements:",
+        "- Return all 4 SOAP sections.",
+        "- Include substantial, clinically useful detail in each section (not one-liners).",
+        "- Use concise markdown bullets under each section where useful.",
+        "- Include direct transcript evidence or quoted patient phrasing when relevant.",
+        "- Avoid generic advice; tailor to this session only.",
+        "",
+        "Section guidance:",
+        "- Subjective: patient-reported symptoms, emotions, concerns, goals, stressors, and self-reported changes.",
+        "- Objective: therapist-observed behavior, affect, speech patterns, engagement, and in-session presentation only.",
+        "- Assessment: clinical synthesis of themes, progress, barriers, risk flags (if any), and working formulation from session evidence.",
+        "- Plan: concrete psychotherapy-focused next steps for upcoming sessions, including interventions/home practice/follow-up focus.",
+        "",
+        "Format response with these exact section headers on separate lines:",
+        "Subjective:",
+        "Objective:",
+        "Assessment:",
+        "Plan:",
+        "Do not omit any section.",
+        "",
+        "Session Dialogue:",
+        clean_transcript,
+    ]
+
+    if emotion_summary:
+        parts.extend(["", f"Emotion Summary: {emotion_summary}"])
+    if additional_context:
+        parts.extend(["", f"Additional Context: {additional_context}"])
+
+    return "\n".join(parts).strip()
+
+
+async def _generate_soap_via_hf_space(
+    transcript_text: str,
+    emotion_summary: str,
+    additional_context: Optional[str],
+) -> str:
+    base_url = settings.hf_space_url.rstrip("/")
+    if not base_url:
+        raise RuntimeError("HF_SPACE_URL is not set")
+
+    timeout_seconds = int(os.getenv("HF_SPACE_TIMEOUT_SECONDS", "120"))
+    debug_preview = os.getenv("SOAP_DEBUG_PREVIEW", "false").lower() == "true"
+
+    logger.info(
+        "Calling HF Space SOAP endpoint: %s/generate-soap (timeout=%ss)",
+        base_url,
+        timeout_seconds,
+    )
+
+    payload = {
+        "transcript": _build_hf_space_prompt_payload(
+            transcript_text=transcript_text,
+            emotion_summary=emotion_summary,
+            additional_context=additional_context,
+        )
+    }
+
+    transcript_chars = len(payload.get("transcript", ""))
+    logger.info("HF SOAP payload prepared (transcript_chars=%s)", transcript_chars)
+    if debug_preview:
+        preview = payload["transcript"][:400].replace("\n", " ")
+        logger.info("HF SOAP transcript preview: %s", preview)
+
+    headers = {"Content-Type": "application/json"}
+    token = (settings.hf_space_token or settings.hf_token or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    def _post_request() -> str:
+        request = urllib.request.Request(
+            url=f"{base_url}/generate-soap",
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            return response.read().decode("utf-8")
+
+    start = time.perf_counter()
+    try:
+        response_text = await asyncio.to_thread(_post_request)
+        elapsed = round(time.perf_counter() - start, 2)
+        logger.info("HF Space response received in %ss", elapsed)
+    except urllib.error.HTTPError as exc:
+        elapsed = round(time.perf_counter() - start, 2)
+        error_body = ""
+        try:
+            error_body = exc.read().decode("utf-8")
+        except Exception:
+            error_body = str(exc)
+        raise RuntimeError(
+            f"HF Space SOAP request failed in {elapsed}s with status {exc.code}: {error_body}"
+        ) from exc
+    except Exception as exc:
+        elapsed = round(time.perf_counter() - start, 2)
+        raise RuntimeError(f"HF Space SOAP request failed in {elapsed}s: {exc}") from exc
+
+    try:
+        data = json.loads(response_text)
+    except Exception as exc:
+        raise RuntimeError(
+            f"HF Space SOAP response is not valid JSON: {response_text}"
+        ) from exc
+
+    logger.info("Received HF Space SOAP response JSON")
+
+    soap_note = str(data.get("soap_note", "")).strip()
+    if not soap_note:
+        raise RuntimeError("HF Space response missing 'soap_note'")
+    logger.info("HF SOAP note extracted (chars=%s)", len(soap_note))
+    return soap_note
 
   
 
@@ -386,6 +557,32 @@ def _parse_soap_response(response: str) -> dict:
         "plan": ""
     }
 
+    text = (response or "").strip()
+    if not text:
+        return sections
+
+    # Matches optional markdown header markers and optional colon.
+    # Examples matched:
+    #   Subjective:
+    #   ## Objective
+    #   assessment
+    #   PLAN :
+    heading_pattern = re.compile(
+        r"(?im)^\s{0,3}(?:#{1,6}\s*)?(subjective|objective|assessment|plan)\s*:?\s*$"
+    )
+
+    matches = list(heading_pattern.finditer(text))
+    if matches:
+        for idx, match in enumerate(matches):
+            key = match.group(1).lower().strip()
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            chunk = text[start:end].strip()
+            if key in sections and chunk:
+                sections[key] = chunk
+        return sections
+
+    # Legacy marker fallback
     markers = [
         ("SUBJECTIVE:", "subjective"),
         ("S: SUBJECTIVE", "subjective"),
@@ -398,19 +595,71 @@ def _parse_soap_response(response: str) -> dict:
     ]
 
     for i, (marker, key) in enumerate(markers):
-        start_idx = response.upper().find(marker.upper())
+        start_idx = text.upper().find(marker.upper())
         if start_idx == -1:
             continue
 
         content_start = start_idx + len(marker)
-        end_idx = len(response)
+        end_idx = len(text)
 
         for next_marker, _ in markers[i + 1:]:
-            next_idx = response.upper().find(next_marker.upper())
+            next_idx = text.upper().find(next_marker.upper())
             if next_idx != -1 and next_idx < end_idx:
                 end_idx = next_idx
                 break
 
-        sections[key] = response[content_start:end_idx].strip()
+        sections[key] = text[content_start:end_idx].strip()
 
     return sections
+
+
+async def _refine_hf_soap_with_openai(
+    openai_client: AsyncOpenAI,
+    transcript_text: str,
+    hf_draft: str,
+    emotion_summary: str,
+    additional_context: Optional[str],
+) -> str:
+    model_name = os.getenv("SOAP_REFINER_MODEL", "gpt-4o-mini")
+
+    system_prompt = (
+        "You are a clinical psychotherapist assistant refining a SOAP note draft. "
+        "Use only evidence from the provided transcript and context. "
+        "Do not hallucinate facts, do not add unsupported diagnoses, and do not recommend medications unless explicitly discussed. "
+        "Return plain text using exactly these section headers on separate lines: "
+        "Subjective:, Objective:, Assessment:, Plan:."
+    )
+
+    user_parts = [
+        "Refine the HF draft into a complete, clinically useful SOAP note.",
+        "Priorities:",
+        "1) Preserve factual fidelity to transcript.",
+        "2) Improve specificity, completeness, and clinical utility.",
+        "3) Ensure all 4 sections are populated.",
+        "",
+        "Transcript:",
+        transcript_text,
+        "",
+        "HF Draft SOAP:",
+        hf_draft,
+    ]
+
+    if emotion_summary:
+        user_parts.extend(["", f"Emotion Summary: {emotion_summary}"])
+    if additional_context:
+        user_parts.extend(["", f"Additional Context: {additional_context}"])
+
+    response = await openai_client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "\n".join(user_parts)},
+        ],
+        temperature=0.2,
+        max_tokens=2200,
+    )
+
+    refined = (response.choices[0].message.content or "").strip()
+    if not refined:
+        raise RuntimeError("OpenAI refinement returned empty content")
+    return refined

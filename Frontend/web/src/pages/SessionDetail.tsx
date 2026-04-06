@@ -327,6 +327,23 @@ const SessionDetailPage: React.FC = () => {
   }, [activeTab, isCompletedSession, soapNote, soapLoading, soapFetchAttempted]);
 
   React.useEffect(() => {
+    if (!soapNote) return;
+    setSoapDraft({
+      subjective: soapNote.subjective?.content || '',
+      objective: soapNote.objective?.content || '',
+      assessment: soapNote.assessment?.content || '',
+      plan: soapNote.plan?.content || '',
+    });
+  }, [soapNote]);
+
+  const handleSoapDraftChange = (
+    key: 'subjective' | 'objective' | 'assessment' | 'plan',
+    value: string
+  ) => {
+    setSoapDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  React.useEffect(() => {
     if (
       activeTab === 'ai-insights' &&
       isCompletedSession &&
@@ -1057,7 +1074,7 @@ const SessionDetailPage: React.FC = () => {
                       </>
                     )}
                     {!soapEditMode && (
-                      <button onClick={handleGenerateSoap} disabled={soapGenerating} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
+                      <button onClick={handleGenerateSoap} disabled={soapGenerating || soapSaving} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
                         <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Regenerating...' : 'Regenerate'}
                       </button>
                     )}

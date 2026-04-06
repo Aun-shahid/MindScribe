@@ -46,7 +46,7 @@ def _soap_note_from_db_row(db_note: SOAPNoteDB, session_id: str) -> SOAPNote:
         is_finalized=False,
         emotional_summary=None,
         generated_at=db_note.created_at or datetime.utcnow(),
-        model_version=settings.soap_groq_model,
+        model_version="unknown",
     )
 
 
@@ -150,34 +150,52 @@ async def generate_soap(
 
         if not transcript or not transcript.segments:
             from .session import session_manager
+            from .session import _load_transcript_from_db
+
+            # Fast path: after service reload, in-memory session state may be empty
+            # even though transcript segments are already persisted in DB.
+            try:
+                transcript = await _load_transcript_from_db(session_id)
+                if transcript and transcript.segments:
+                    logger.info(
+                        "Loaded transcript from DB before polling: %s segments",
+                        len(transcript.segments),
+                    )
+            except Exception as db_err:
+                logger.info(
+                    "DB transcript not ready before polling for session %s: %s",
+                    session_id,
+                    db_err,
+                )
 
             # ------------------------------------------------------------------ #
             # Poll for pipeline completion — background task may still be running
             # ------------------------------------------------------------------ #
-            MAX_WAIT_SECONDS = 90
-            POLL_INTERVAL_SECONDS = 3
-            elapsed = 0
+            if not transcript or not transcript.segments:
+                MAX_WAIT_SECONDS = 90
+                POLL_INTERVAL_SECONDS = 3
+                elapsed = 0
 
-            session_data = session_manager.get_session(session_id)
-
-            while elapsed < MAX_WAIT_SECONDS:
                 session_data = session_manager.get_session(session_id)
 
-                if session_data:
-                    # Check if pipeline explicitly marked itself done
-                    if session_data.get("finalization_complete"):
-                        logger.info(f"Pipeline complete (finalization_complete flag) after {elapsed}s")
-                        break
+                while elapsed < MAX_WAIT_SECONDS:
+                    session_data = session_manager.get_session(session_id)
 
-                    # Also accept if segments are present (pipeline saved them)
-                    segments = session_data.get("finalized_segments") or session_data.get("segments", [])
-                    if segments:
-                        logger.info(f"Segments available ({len(segments)}) after {elapsed}s — proceeding")
-                        break
+                    if session_data:
+                        # Check if pipeline explicitly marked itself done
+                        if session_data.get("finalization_complete"):
+                            logger.info(f"Pipeline complete (finalization_complete flag) after {elapsed}s")
+                            break
 
-                logger.info(f"Waiting for pipeline to finish for session {session_id} ({elapsed}s elapsed)...")
-                await asyncio.sleep(POLL_INTERVAL_SECONDS)
-                elapsed += POLL_INTERVAL_SECONDS
+                        # Also accept if segments are present (pipeline saved them)
+                        segments = session_data.get("finalized_segments") or session_data.get("segments", [])
+                        if segments:
+                            logger.info(f"Segments available ({len(segments)}) after {elapsed}s — proceeding")
+                            break
+
+                    logger.info(f"Waiting for pipeline to finish for session {session_id} ({elapsed}s elapsed)...")
+                    await asyncio.sleep(POLL_INTERVAL_SECONDS)
+                    elapsed += POLL_INTERVAL_SECONDS
 
             # ------------------------------------------------------------------ #
             # After polling — try to build transcript from session manager
@@ -208,7 +226,6 @@ async def generate_soap(
             if not transcript or not transcript.segments:
                 logger.info(f"Session manager has no segments for {session_id}, trying database...")
                 try:
-                    from .session import _load_transcript_from_db
                     transcript = await _load_transcript_from_db(session_id)
                     logger.info(f"Loaded {len(transcript.segments)} segments from DB for {session_id}")
                 except Exception as db_err:
@@ -327,7 +344,6 @@ async def get_soap_notes(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="SOAP notes not found for this session. Please generate them first."
             )
-
         soap_note = _soap_note_from_db_row(db_note, session_id)
 
         # Warm in-memory cache for subsequent requests.
