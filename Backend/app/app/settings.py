@@ -252,7 +252,7 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
     
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
+    'SIGNING_KEY': AI_SERVICE_SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
@@ -403,5 +403,5 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # --- AI Services Configuration ---
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:8001")
-AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", os.environ.get("AI_SERVICE_SECRET_KEY"))
+AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", SECRET_KEY)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
