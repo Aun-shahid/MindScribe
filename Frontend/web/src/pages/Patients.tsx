@@ -2,6 +2,11 @@
 import { Link } from 'react-router-dom';
 import { useTherapistPatients } from '../hooks/usePatients';
 import { useState } from 'react';
+import {
+  TherapistPageBanner,
+  TherapistPageSimpleHero,
+  therapistHeroPrimaryButtonClass,
+} from '../components/TherapistPageBanner';
 
 const Patients = () => {
   const { patients, loading, error, clearError, updateFilter } = useTherapistPatients({});
@@ -53,28 +58,17 @@ const Patients = () => {
 
   return (
     <div className="patients-page bg-[#f7f7fa] min-h-screen">
-      <div className="relative w-full h-40 bg-[#2f224a] flex items-center justify-center mt-1 rounded-xl overflow-hidden">
-        <img
-          src="/images/pat.png"
-          alt="Patients Header"
-          className="absolute inset-0 w-full h-full object-cover opacity-80"
+      <TherapistPageBanner>
+        <TherapistPageSimpleHero
+          title="All Patients"
+          subtitle="Manage and monitor patient progress"
+          actions={
+            <Link to="/patients/new" className={therapistHeroPrimaryButtonClass}>
+              + Add Patient
+            </Link>
+          }
         />
-        <div className="absolute inset-0 bg-[#5c4092] opacity-60"></div>
-
-        <div className="absolute top-3 right-4 z-20">
-          <Link
-            to="/patients/new"
-            className="bg-[#43275a] hover:bg-[#2d183a] text-white px-4 py-2 rounded-md text-sm font-semibold shadow-md"
-          >
-            + Add Patient
-          </Link>
-        </div>
-
-        <div className="absolute bottom-4 left-4 z-10 text-white">
-          <div className="text-2xl font-semibold">All Patients</div>
-          <div className="text-sm mt-1 text-purple-100">Manage and monitor patient progress</div>
-        </div>
-      </div>
+      </TherapistPageBanner>
 
       <div className="w-full mt-5">
         <div className="relative">

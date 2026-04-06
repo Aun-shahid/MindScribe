@@ -1,6 +1,7 @@
 // src/pages/Sessions.tsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { TherapistPageBanner, TherapistPageSimpleHero } from '../components/TherapistPageBanner';
 import { useSessions } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 import { emitAppEvent } from '../utils/events';
@@ -155,74 +156,68 @@ const Sessions = () => {
   };
 
   return (
-    <div className="sessions-page bg-gradient-to-br from-gray-50 to-purple-50 min-h-screen -mt-4 sm:-mt-6 -mx-3 sm:-mx-8 px-3 sm:px-6 pt-4 sm:pt-5 overflow-x-hidden">
-      {/* Purple Gradient Header with Image */}
-      <div className="relative w-full bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-xl shadow-lg overflow-hidden mb-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/30"></div>
-        <div className="absolute inset-0 backdrop-blur-[2px]">
-          <div className="absolute inset-0 bg-[url('/images/heroo.png')] bg-cover bg-center opacity-20"></div>
-        </div>
-
-        {/* Header Content */}
-        <div className="relative h-full flex flex-col sm:flex-row sm:items-center sm:justify-between justify-center gap-4 px-4 sm:px-6 py-5 sm:py-6">
-          <div className="text-white">
-            <h1 className="text-2xl sm:text-3xl font-semibold mb-1 drop-shadow-md">Therapy Sessions</h1>
-            <p className="text-sm text-purple-100 drop-shadow-sm">Manage and organize your therapy appointments</p>
-          </div>
-
-          {/* Action Buttons on Header */}
-          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-            {selectedSessions.length > 0 ? (
-              <>
-                <button
-                  onClick={() => handleBulkAction('cancel')}
-                  className="bg-red-600/90 backdrop-blur-sm hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span>Cancel ({selectedSessions.length})</span>
-                </button>
-                <button
-                  onClick={() => handleBulkAction('reschedule')}
-                  className="bg-yellow-600/90 backdrop-blur-sm hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>Reschedule ({selectedSessions.length})</span>
-                </button>
-                <button
-                  onClick={() => handleBulkAction('update')}
-                  className="bg-blue-600/90 backdrop-blur-sm hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>Update ({selectedSessions.length})</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/sessions/calendar"
-                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2 flex-1 sm:flex-none min-w-[140px]"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>Calendar View</span>
-                </Link>
-                <Link
-                  to="/sessions/new"
-                  className="bg-white/90 backdrop-blur-sm hover:bg-white text-purple-700 px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center justify-center flex-1 sm:flex-none min-w-[140px]"
-                >
-                  + New Session
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
+    <div className="sessions-page mx-auto min-h-screen max-w-7xl overflow-x-hidden bg-[#f7f7fa] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-6">
+        <TherapistPageBanner heightClassName="min-h-[10.5rem] sm:h-40">
+          <TherapistPageSimpleHero
+            title="Therapy Sessions"
+            subtitle="Manage and organize your therapy appointments"
+            actions={
+              selectedSessions.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction('cancel')}
+                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-red-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-red-700 hover:shadow-lg sm:flex-none"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Cancel ({selectedSessions.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction('reschedule')}
+                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-yellow-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-yellow-700 hover:shadow-lg sm:flex-none"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Reschedule ({selectedSessions.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction('update')}
+                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-blue-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-blue-700 hover:shadow-lg sm:flex-none"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span>Update ({selectedSessions.length})</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/sessions/calendar"
+                    className="inline-flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-white/20 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg sm:flex-none"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Calendar View</span>
+                  </Link>
+                  <Link
+                    to="/sessions/new"
+                    className="inline-flex min-w-[140px] flex-1 items-center justify-center rounded-md bg-white/90 px-5 py-2 text-sm font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg sm:flex-none"
+                  >
+                    + New Session
+                  </Link>
+                </>
+              )
+            }
+          />
+        </TherapistPageBanner>
       </div>
 
       {error && (

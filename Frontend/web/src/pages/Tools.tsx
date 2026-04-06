@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, ChevronRight } from 'lucide-react';
+import { TherapistPageBanner, TherapistPageSimpleHero } from '../components/TherapistPageBanner';
 import { useTherapistPatients } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
 import type { SessionType } from '../types/session';
@@ -101,20 +102,19 @@ const Tools: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 -mt-6 -mx-8 px-8 pt-6">
-      <div className="max-w-6xl mx-auto">
-        
-          <div className=" text-white bg-purple-950 shadow-lg">
-            <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-6">
-          
-              <h1 className="text-3xl font-serif font-bold text-white mt-2 pt-4">Tools</h1>
-                <p className="text-white pt-2 pb-4 font-serif">Access AI-assisted outputs from completed sessions.</p>
-           </div>
-          </div>
-        
+    <div className="min-h-screen bg-[#f7f7fa]">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <TherapistPageBanner>
+            <TherapistPageSimpleHero
+              title="Tools"
+              subtitle="Access AI-assisted outputs from completed sessions."
+            />
+          </TherapistPageBanner>
+        </div>
 
         {showBanner && (
-          <div className="mb-6 rounded-2xl border border-purple-200 m-7 bg-purple-50 p-5 relative">
+          <div className="relative mb-6 rounded-2xl border border-purple-200 bg-purple-50 p-5">
             <button
               onClick={dismissBanner}
               className="absolute top-3 right-3 text-purple-500 hover:text-purple-700"

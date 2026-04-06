@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import authService from '../services/auth.service';
 import therapistService from '../services/therapist.service';
 import { validatePasswordStrength } from '../utils/passwordValidation';
+import { TherapistPageBanner } from '../components/TherapistPageBanner';
 
 interface ProfileEditingState {
   first_name: boolean;
@@ -256,16 +257,8 @@ const Profile = () => {
 
   return (
     <div className="bg-[#f7f7fa] min-h-screen">
-      {/* Header — same visual language as Patients.tsx */}
-      <div className="relative w-full min-h-[200px] bg-[#2f224a] flex flex-col mt-1 rounded-xl overflow-hidden">
-        <img
-          src="/images/pat.png"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-80"
-        />
-        <div className="absolute inset-0 bg-[#5c4092] opacity-60" />
-
-        <div className="relative z-10 flex flex-col gap-5 p-4 sm:p-6 text-white w-full">
+      <TherapistPageBanner heightClassName="min-h-[200px]">
+        <div className="relative z-10 flex w-full flex-col gap-5 p-4 text-white sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold">Profile</h1>
@@ -457,7 +450,7 @@ const Profile = () => {
             </div>
           </div>
         </div>
-      </div>
+      </TherapistPageBanner>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
         {/* Success/Error Notifications */}

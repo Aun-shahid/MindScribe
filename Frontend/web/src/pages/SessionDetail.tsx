@@ -1100,7 +1100,7 @@ const SessionDetailPage: React.FC = () => {
                         {soapEditMode ? (
                           <textarea
                             value={soapDraft[key]}
-                            onChange={(e) => setSoapDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                            onChange={(e) => handleSoapDraftChange(key, e.target.value)}
                             className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-y"
                           />
                         ) : (
