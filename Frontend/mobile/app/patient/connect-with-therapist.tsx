@@ -247,6 +247,10 @@ export default function ConnectWithTherapist() {
   const [showRequests, setShowRequests]     = useState(false);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequestItem[]>([]);
+  const [patientProfile, setPatientProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [showConnectAnotherForm, setShowConnectAnotherForm] = useState(false);
 
   const sheetY = useRef(new Animated.Value(height)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -323,6 +327,10 @@ export default function ConnectWithTherapist() {
       const activeTherapistName = normalizeName(profile?.therapist_info?.name);
       const connectedAt = profile?.connected_at;
 
+      if (profile) {
+        setPatientProfile((prev: any) => profile || prev);
+      }
+
       if (activeTherapistName) {
         const pendingForConnected = requests.find(
           (item) => item.status === 'pending' && normalizeName(item.therapist?.name) === activeTherapistName
@@ -392,10 +400,30 @@ export default function ConnectWithTherapist() {
     }
   }, [readStoredRequests, writeStoredRequests]);
 
+  const loadPatientProfile = useCallback(async () => {
+    try {
+      setProfileLoading(true);
+      const profile = await PatientService.getPatientProfile();
+      setPatientProfile(profile);
+    } catch (err) {
+      console.error('Failed to load patient profile:', err);
+      // Keep last known profile to avoid flickering back to disconnected UI on transient failures.
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadConnectionRequests();
-    }, [loadConnectionRequests])
+      loadPatientProfile();
+
+      const intervalId = setInterval(() => {
+        loadPatientProfile();
+      }, 15000);
+
+      return () => clearInterval(intervalId);
+    }, [loadConnectionRequests, loadPatientProfile])
   );
 
   useEffect(() => {
@@ -468,6 +496,8 @@ export default function ConnectWithTherapist() {
       const deduped = [nextItem, ...existing.filter((item) => item.id !== nextItem.id)];
       await writeStoredRequests(deduped);
       await loadConnectionRequests();
+      await loadPatientProfile();
+      setShowConnectAnotherForm(false);
       setTherapistPin('');
       setConnectMessage('');
       Alert.alert('Request Sent', 'Connection request created. Your therapist must approve it.');
@@ -487,7 +517,57 @@ export default function ConnectWithTherapist() {
     }
   };
 
+  const handleDisconnect = useCallback(async () => {
+    if (disconnecting) return;
+
+    Alert.alert(
+      'Disconnect therapist?',
+      'This will remove your current therapist connection and notify them.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDisconnecting(true);
+              await PatientService.disconnectTherapist();
+              await Promise.all([fetchProfile(), loadPatientProfile(), loadConnectionRequests()]);
+              Alert.alert('Disconnected', 'You are no longer connected to a therapist.');
+            } catch (err: any) {
+              const parsed = parseConnectionError(err);
+              Alert.alert(parsed.title, parsed.message);
+            } finally {
+              setDisconnecting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [disconnecting, fetchProfile, loadConnectionRequests, loadPatientProfile]);
+
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
+
+  const acceptedRequest = connectionRequests.find((req) => req.status === 'accepted' || req.status === 'merged');
+
+  const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
+  const connectedTherapistId = String(patientProfile?.therapist_info?.id || '').trim();
+  const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
+  const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
+  const acceptedRequestTherapistName = String(acceptedRequest?.therapist?.name || '').trim();
+  const acceptedRequestTherapistSpecialization = String(acceptedRequest?.therapist?.specialization || '').trim();
+  const acceptedRequestTherapistClinic = String(acceptedRequest?.therapist?.clinic_name || '').trim();
+  const connectedAt = patientProfile?.connected_at;
+  const isConnected = Boolean(connectedTherapistId || connectedTherapistName || acceptedRequestTherapistName);
+  const displayTherapistName = connectedTherapistName || acceptedRequestTherapistName || 'Therapist';
+  const displayTherapistSpecialization = connectedTherapistSpecialization || acceptedRequestTherapistSpecialization;
+  const displayTherapistClinic = connectedTherapistClinic || acceptedRequestTherapistClinic;
+
+  useEffect(() => {
+    if (isConnected) {
+      setShowConnectAnotherForm(false);
+    }
+  }, [isConnected]);
 
   const handleDeleteRequestCard = useCallback(async (id: string) => {
     const next = connectionRequests.filter((item) => item.id !== id);
@@ -586,99 +666,167 @@ export default function ConnectWithTherapist() {
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* ── QR card — UNCHANGED ── */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={openScanner}
-          style={[styles.connectCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}
-        >
-          <View style={[styles.qrCircle, { width: qrCircleSize, height: qrCircleSize, borderRadius: qrCircleSize / 2 }]}>
-            <FontAwesome name="camera" size={qrIconSize} color="#342949" />
-          </View>
-          <Text style={[styles.cardTitle, { marginTop: clamp(height * 0.018, 10, 16), fontSize: cardTitleSize }]}>Scan QR Code</Text>
-          <Text style={[styles.cardSubtitle, { marginTop: clamp(height * 0.007, 4, 8), fontSize: cardSubtitleSize }]}>Tap to open camera and scan</Text>
-          <View style={[styles.scanBadge, { borderRadius: scanBadgeRadius, paddingHorizontal: scanBadgePaddingX, paddingVertical: scanBadgePaddingY, marginTop: clamp(height * 0.018, 10, 16) }]}>
-            <FontAwesome name="qrcode" size={qrSmallIconSize} color="#8B5CF6" style={{ marginRight: clamp(width * 0.015, 5, 7) }} />
-            <Text style={[styles.scanBadgeText, { fontSize: scanBadgeTextSize }]}>Auto-fills PIN</Text>
-          </View>
-        </TouchableOpacity>
+        {isConnected && (
+          <View style={[styles.connectionCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+            <View style={styles.connectionHeaderRow}>
+              <View style={styles.connectionBadge}>
+                <FontAwesome name="check-circle" size={14} color="#22C55E" />
+                <Text style={styles.connectionBadgeText}>Connected</Text>
+              </View>
+              {profileLoading ? (
+                <Text style={styles.connectionMeta}>Refreshing...</Text>
+              ) : connectedAt ? (
+                <Text style={styles.connectionMeta}>Since {formatDate(connectedAt)}</Text>
+              ) : (
+                <Text style={styles.connectionMeta}>Connected</Text>
+              )}
+            </View>
 
-        {/* ── Divider ── */}
-        <View style={[styles.dividerRow, { marginVertical: dividerVertical }]}>
-          <View style={styles.line} />
-          <Text style={[styles.dividerText, { marginHorizontal: dividerTextMargin, fontSize: dividerTextSize }]}>or enter manually</Text>
-          <View style={styles.line} />
-        </View>
+            <Text style={styles.connectionLabel}>Your therapist</Text>
+            <Text style={styles.connectionName}>{displayTherapistName}</Text>
+            {!!displayTherapistSpecialization && (
+              <Text style={styles.connectionSubtext}>{displayTherapistSpecialization}</Text>
+            )}
+            {!!displayTherapistClinic && (
+              <Text style={styles.connectionSubtext}>{displayTherapistClinic}</Text>
+            )}
 
-        {/* ── Therapist Code card ── */}
-        <View style={{ marginBottom: cardGap }}>
-          <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
-            <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
-            <View style={{ height: 3, backgroundColor: '#A78BFA', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
-            <View style={{ padding: cardPadding }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.028, 10, 13), marginBottom: clamp(height * 0.018, 12, 16) }}>
-                <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(167,139,250,0.18)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)' }}>
-                  <FontAwesome name="key" size={iconSz} color="#A78BFA" />
-                </View>
-                <View>
-                  <Text style={{ color: '#FFFFFF', fontSize: labelSz, fontWeight: '800', letterSpacing: 0.3 }}>Therapist Code</Text>
-                  <Text style={{ color: '#9D8EC7', fontSize: subLblSz, letterSpacing: 1.2, marginTop: 1 }}>REQUIRED</Text>
+            <TouchableOpacity
+              onPress={handleDisconnect}
+              disabled={disconnecting}
+              style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }]}
+              activeOpacity={0.9}
+            >
+              <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
+              <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>
+                {disconnecting ? 'Disconnecting...' : 'Disconnect therapist'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowConnectAnotherForm((prev) => !prev)}
+              style={styles.connectAnotherBtn}
+              activeOpacity={0.9}
+            >
+              <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
+              <Text style={styles.connectAnotherBtnText}>
+                {showConnectAnotherForm ? 'Hide connect form' : 'Connect with another therapist'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={loadPatientProfile}
+              disabled={profileLoading}
+              style={[styles.refreshConnectionBtn, profileLoading && { opacity: 0.75 }]}
+              activeOpacity={0.85}
+            >
+              <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
+              <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh status'}</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.connectionHintText}>
+              You can keep this therapist and still send another connection request.
+            </Text>
+          </View>
+        )}
+
+        {(!isConnected || showConnectAnotherForm) && (
+          <>
+            {/* ── QR card — UNCHANGED ── */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={openScanner}
+              style={[styles.connectCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}
+            >
+              <View style={[styles.qrCircle, { width: qrCircleSize, height: qrCircleSize, borderRadius: qrCircleSize / 2 }]}>
+                <FontAwesome name="camera" size={qrIconSize} color="#342949" />
+              </View>
+              <Text style={[styles.cardTitle, { marginTop: clamp(height * 0.018, 10, 16), fontSize: cardTitleSize }]}>Scan QR Code</Text>
+              <Text style={[styles.cardSubtitle, { marginTop: clamp(height * 0.007, 4, 8), fontSize: cardSubtitleSize }]}>Tap to open camera and scan</Text>
+              <View style={[styles.scanBadge, { borderRadius: scanBadgeRadius, paddingHorizontal: scanBadgePaddingX, paddingVertical: scanBadgePaddingY, marginTop: clamp(height * 0.018, 10, 16) }]}>
+                <FontAwesome name="qrcode" size={qrSmallIconSize} color="#8B5CF6" style={{ marginRight: clamp(width * 0.015, 5, 7) }} />
+                <Text style={[styles.scanBadgeText, { fontSize: scanBadgeTextSize }]}>Auto-fills PIN</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Divider ── */}
+            <View style={[styles.dividerRow, { marginVertical: dividerVertical }]}>
+              <View style={styles.line} />
+              <Text style={[styles.dividerText, { marginHorizontal: dividerTextMargin, fontSize: dividerTextSize }]}>or enter manually</Text>
+              <View style={styles.line} />
+            </View>
+
+            {/* ── Therapist Code card ── */}
+            <View style={{ marginBottom: cardGap }}>
+              <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
+                <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
+                <View style={{ height: 3, backgroundColor: '#A78BFA', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
+                <View style={{ padding: cardPadding }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.028, 10, 13), marginBottom: clamp(height * 0.018, 12, 16) }}>
+                    <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(167,139,250,0.18)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)' }}>
+                      <FontAwesome name="key" size={iconSz} color="#A78BFA" />
+                    </View>
+                    <View>
+                      <Text style={{ color: '#FFFFFF', fontSize: labelSz, fontWeight: '800', letterSpacing: 0.3 }}>Therapist Code</Text>
+                      <Text style={{ color: '#9D8EC7', fontSize: subLblSz, letterSpacing: 1.2, marginTop: 1 }}>REQUIRED</Text>
+                    </View>
+                  </View>
+                  <View style={{ borderBottomWidth: 1.5, borderBottomColor: 'rgba(167,139,250,0.45)', paddingBottom: 4 }}>
+                    <TextInput
+                      value={therapistPin} onChangeText={setTherapistPin}
+                      placeholder="Enter code" placeholderTextColor="rgba(184,168,230,0.45)"
+                      style={{ color: '#FFFFFF', fontSize: inputSz, fontWeight: '600', letterSpacing: 0.2, paddingVertical: clamp(height * 0.009, 6, 9), paddingHorizontal: 2, backgroundColor: 'transparent', height: clamp(height * 0.056, 38, 46) }}
+                      autoCapitalize="none"
+                    />
+                  </View>
                 </View>
               </View>
-              <View style={{ borderBottomWidth: 1.5, borderBottomColor: 'rgba(167,139,250,0.45)', paddingBottom: 4 }}>
-                <TextInput
-                  value={therapistPin} onChangeText={setTherapistPin}
-                  placeholder="Enter code" placeholderTextColor="rgba(184,168,230,0.45)"
-                  style={{ color: '#FFFFFF', fontSize: inputSz, fontWeight: '600', letterSpacing: 0.2, paddingVertical: clamp(height * 0.009, 6, 9), paddingHorizontal: 2, backgroundColor: 'transparent', height: clamp(height * 0.056, 38, 46) }}
-                  autoCapitalize="none"
-                />
+            </View>
+
+            {/* ── Message card ── */}
+            <View style={{ marginBottom: cardGap }}>
+              <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
+                <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
+                <View style={{ height: 3, backgroundColor: '#FFB36B', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
+                <View style={{ padding: cardPadding }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.028, 10, 13), marginBottom: clamp(height * 0.018, 12, 16) }}>
+                    <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,179,107,0.15)', borderWidth: 1, borderColor: 'rgba(255,179,107,0.4)' }}>
+                      <FontAwesome name="edit" size={iconSz} color="#FFB36B" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: labelSz, fontWeight: '800', letterSpacing: 0.3 }}>Message</Text>
+                      <Text style={{ color: '#C9A97E', fontSize: subLblSz, letterSpacing: 0.8, marginTop: 1 }}>OPTIONAL — introduce yourself</Text>
+                    </View>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
+                  <TextInput
+                    value={connectMessage} onChangeText={setConnectMessage}
+                    placeholder="Introduce yourself to your therapist..." placeholderTextColor="rgba(184,168,230,0.45)"
+                    multiline numberOfLines={4} textAlignVertical="top"
+                    style={{ color: '#FFFFFF', fontSize: clamp(width * 0.039, 14, 16), fontWeight: '400', letterSpacing: 0.15, paddingVertical: clamp(height * 0.016, 10, 14), paddingHorizontal: 2, backgroundColor: 'transparent', minHeight: clamp(height * 0.145, 100, 130), lineHeight: clamp(width * 0.039, 14, 16) * 1.55 }}
+                  />
+                </View>
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* ── Message card ── */}
-        <View style={{ marginBottom: cardGap }}>
-          <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
-            <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
-            <View style={{ height: 3, backgroundColor: '#FFB36B', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
-            <View style={{ padding: cardPadding }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.028, 10, 13), marginBottom: clamp(height * 0.018, 12, 16) }}>
-                <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,179,107,0.15)', borderWidth: 1, borderColor: 'rgba(255,179,107,0.4)' }}>
-                  <FontAwesome name="edit" size={iconSz} color="#FFB36B" />
+            {/* ── Connect button ── */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, { marginTop: clamp(height * 0.01, 6, 10), paddingVertical: buttonPaddingY, borderRadius: buttonRadius }, loading && { opacity: 0.7 }]}
+              onPress={handleConnect} activeOpacity={0.9} disabled={loading}
+            >
+              <LinearGradient colors={['#8B5CF6', '#A78BFA']} start={[0, 0]} end={[1, 1]} style={[styles.primaryBtnGradient, { minHeight: buttonMinHeight, borderRadius: buttonRadius }]}>
+                <View style={styles.primaryBtnInner}>
+                  <FontAwesome name="send" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.026, 8, 12) }} />
+                  <Text style={[styles.primaryBtnText, { fontSize: buttonTextSize }]}>{loading ? 'Sending...' : 'Connect with Therapist'}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: labelSz, fontWeight: '800', letterSpacing: 0.3 }}>Message</Text>
-                  <Text style={{ color: '#C9A97E', fontSize: subLblSz, letterSpacing: 0.8, marginTop: 1 }}>OPTIONAL — introduce yourself</Text>
-                </View>
-              </View>
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
-              <TextInput
-                value={connectMessage} onChangeText={setConnectMessage}
-                placeholder="Introduce yourself to your therapist..." placeholderTextColor="rgba(184,168,230,0.45)"
-                multiline numberOfLines={4} textAlignVertical="top"
-                style={{ color: '#FFFFFF', fontSize: clamp(width * 0.039, 14, 16), fontWeight: '400', letterSpacing: 0.15, paddingVertical: clamp(height * 0.016, 10, 14), paddingHorizontal: 2, backgroundColor: 'transparent', minHeight: clamp(height * 0.145, 100, 130), lineHeight: clamp(width * 0.039, 14, 16) * 1.55 }}
-              />
-            </View>
-          </View>
-        </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* ── Connect button ── */}
-        <TouchableOpacity
-          style={[styles.primaryBtn, { marginTop: clamp(height * 0.01, 6, 10), paddingVertical: buttonPaddingY, borderRadius: buttonRadius }, loading && { opacity: 0.7 }]}
-          onPress={handleConnect} activeOpacity={0.9} disabled={loading}
-        >
-          <LinearGradient colors={['#8B5CF6', '#A78BFA']} start={[0, 0]} end={[1, 1]} style={[styles.primaryBtnGradient, { minHeight: buttonMinHeight, borderRadius: buttonRadius }]}>
-            <View style={styles.primaryBtnInner}>
-              <FontAwesome name="send" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.026, 8, 12) }} />
-              <Text style={[styles.primaryBtnText, { fontSize: buttonTextSize }]}>{loading ? 'Sending...' : 'Connect with Therapist'}</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={{ marginTop: clamp(height * 0.016, 10, 14), alignItems: 'center', paddingVertical: clamp(height * 0.01, 6, 10) }} onPress={goBack} activeOpacity={0.7}>
-          <Text style={[styles.skipText, { fontSize: skipTextSize }]}>Skip for now</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={{ marginTop: clamp(height * 0.016, 10, 14), alignItems: 'center', paddingVertical: clamp(height * 0.01, 6, 10) }} onPress={goBack} activeOpacity={0.7}>
+              <Text style={[styles.skipText, { fontSize: skipTextSize }]}>Skip for now</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
       </Animated.ScrollView>
 
@@ -960,6 +1108,118 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: '#FCA5A5',
     fontSize: 12,
+  },
+
+  connectionCard: {
+    backgroundColor: 'rgba(54,46,76,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.35)',
+    shadowColor: '#120A24',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  connectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  connectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.24)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  connectionBadgeText: {
+    color: '#86EFAC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  connectionMeta: {
+    color: '#B8A8E6',
+    fontSize: 12,
+  },
+  connectionLabel: {
+    color: '#B8A8E6',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  connectionName: {
+    marginTop: 4,
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  connectionSubtext: {
+    marginTop: 4,
+    color: '#DDD6FE',
+    fontSize: 13,
+  },
+  disconnectBtn: {
+    marginTop: 14,
+    minHeight: 46,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  disconnectBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  connectAnotherBtn: {
+    marginTop: 10,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.45)',
+    backgroundColor: 'rgba(42,31,61,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectAnotherBtnText: {
+    color: '#D8CCFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  refreshConnectionBtn: {
+    marginTop: 10,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.45)',
+    backgroundColor: 'rgba(76,62,108,0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshConnectionBtnText: {
+    color: '#D8CCFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  connectionHintText: {
+    marginTop: 10,
+    color: '#B8A8E6',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 17,
   },
 
   connectCard: {

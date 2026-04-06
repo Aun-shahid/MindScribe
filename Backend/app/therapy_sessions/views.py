@@ -560,12 +560,17 @@ class StartSessionView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Temporary local-testing override: force consent flags so AI token is always generated.
-        # Remove this once consent collection flow is fully wired end-to-end.
+        # Enforce both consent checks before starting session.
         if not (session.consent_recording and session.consent_ai_analysis):
-            session.consent_recording = True
-            session.consent_ai_analysis = True
-            session.save(update_fields=['consent_recording', 'consent_ai_analysis'])
+            return Response(
+                {
+                    'detail': (
+                        'Cannot start session. Patient consent is required for both '
+                        'session recording and AI analysis/transcription.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
         session.start_session()
 

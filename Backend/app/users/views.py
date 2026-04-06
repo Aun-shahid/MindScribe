@@ -442,7 +442,25 @@ class DisconnectFromTherapistView(APIView):
                     {'detail': 'You are not connected to any therapist.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            therapist_profile = patient_profile.therapist
             
+            try:
+                create_notification(
+                    recipient=therapist_profile.user,
+                    notification_type='general',
+                    title='Patient Disconnected',
+                    message=f'{request.user.full_name} has disconnected from your care.',
+                    action_url='/users/patients',
+                    source_event='patient.connection.disconnected',
+                    metadata={
+                        'patient_id': str(request.user.id),
+                        'therapist_id': str(therapist_profile.user.id),
+                    },
+                )
+            except Exception:
+                pass
+
             # Disconnect from therapist
             patient_profile.therapist = None
             patient_profile.connected_at = None
@@ -452,6 +470,80 @@ class DisconnectFromTherapistView(APIView):
             
         except PatientProfile.DoesNotExist:
             return Response({'detail': 'Patient profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(tags=['Patient Management'])
+class DisconnectPatientFromTherapistView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = None
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(description='Successfully disconnected patient from therapist.'),
+            400: OpenApiResponse(description='Patient is not connected to this therapist.'),
+            403: OpenApiResponse(description='Only therapists can disconnect patients.'),
+            404: OpenApiResponse(description='Patient profile not found.')
+        },
+        summary="Disconnect Patient from Therapist",
+        description="Disconnect a patient from the authenticated therapist and notify the patient."
+    )
+    def post(self, request, patient_id):
+        if request.user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can disconnect patients.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            therapist_profile = request.user.therapist_profile
+        except TherapistProfile.DoesNotExist:
+            return Response({'detail': 'Therapist profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            patient_profile = PatientProfile.objects.select_related('user', 'therapist__user').get(
+                user__id=patient_id,
+                therapist=therapist_profile,
+            )
+        except PatientProfile.DoesNotExist:
+            return Response(
+                {'detail': 'Patient not found or not connected to you.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        patient_user = patient_profile.user
+        therapist_name = request.user.full_name
+
+        patient_profile.therapist = None
+        patient_profile.connected_at = None
+        patient_profile.save(update_fields=['therapist', 'connected_at'])
+
+        try:
+            create_notification(
+                recipient=patient_user,
+                notification_type='general',
+                title='Disconnected from Therapist',
+                message=f'Dr. {therapist_name} has ended your therapy connection.',
+                action_url='/users/therapists',
+                source_event='therapist.connection.disconnected',
+                metadata={
+                    'patient_id': str(patient_user.id),
+                    'therapist_id': str(therapist_profile.user.id),
+                },
+            )
+        except Exception:
+            pass
+
+        return Response(
+            {
+                'detail': 'Patient disconnected successfully.',
+                'patient': {
+                    'id': str(patient_user.id),
+                    'name': patient_user.full_name,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(tags=['User Management'])

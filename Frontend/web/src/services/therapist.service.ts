@@ -89,6 +89,16 @@ class TherapistService {
     }
   }
 
+  async disconnectPatient(patientId: string): Promise<{ detail: string }> {
+    try {
+      console.log('[TherapistService] POST /users/disconnect-patient/', patientId);
+      const response = await api.post<{ detail: string }>(`/users/disconnect-patient/${patientId}/`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   /**
    * QR Code generation for therapist
    */
