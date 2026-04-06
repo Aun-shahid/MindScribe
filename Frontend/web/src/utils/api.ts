@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { backendUrl, aiServiceUrl } from '../config';
 
+const AI_API_TIMEOUT_MS = 300000;
+
 const AUTH_ENDPOINT_PREFIXES = [
   '/authenticator/login/',
   '/authenticator/register/',
@@ -109,6 +111,7 @@ export const aiApi = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  timeout: AI_API_TIMEOUT_MS,
 });
 
 // Request interceptor for AI Service to handle dynamic tokens
@@ -130,7 +133,14 @@ aiApi.interceptors.request.use(
 // AI response errors are handled at feature/service level (token fallback per session).
 aiApi.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error)
+  (error) => {
+    if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+      return Promise.reject(
+        new Error('AI request timed out. Please try again in a moment.')
+      );
+    }
+    return Promise.reject(error);
+  }
 );
 
 export default api;

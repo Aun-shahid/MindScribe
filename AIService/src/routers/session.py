@@ -2,7 +2,7 @@
 Session Router - WebSocket-based real-time transcription and session management.
 
 EMOTION PIPELINE ORDER (matches the tested Streamlit pipeline):
-  Stage 1 — After audio sliced per segment → Wav2Vec2 audio emotion → logged
+    Stage 1 — After audio sliced per segment → Wav2Vec2 audio emotion → logged
     Stage 2 — After translation done → GPT-5-mini text emotion (audio-aware) → logged
     Stage 3 — Lightweight final resolver (text-first, audio-aware) → logged
 Both audio_emotion and text_emotion stored separately on SegmentEmotionResult.
@@ -382,7 +382,7 @@ async def _run_full_pipeline(
       6  Translate Urdu → English
 
       ── EMOTION STAGE 1 ──────────────────────────────────
-      7  Wav2Vec2 audio emotion per segment
+    7  Wav2Vec2 audio emotion per segment
          → logged to console with all_scores
 
       ── EMOTION STAGE 2 ──────────────────────────────────
@@ -679,8 +679,22 @@ async def _run_full_pipeline(
         if save_to_db and django_session_id:
             await save_transcript_to_db(full_transcript, django_session_id)
             logger.info(f"[PIPELINE] Step 10 — saved to DB")
-            await _notify_backend_ai_outputs_ready(django_session_id)
-            logger.info("[PIPELINE] Step 11 — backend notified for therapist notification")
+
+            ready_items = ["emotional_profile"]
+            generated_items = await _auto_generate_post_pipeline_outputs(
+                session_id=session_id,
+                django_session_id=django_session_id,
+                transcript=full_transcript,
+            )
+            for item in generated_items:
+                if item not in ready_items:
+                    ready_items.append(item)
+
+            await _notify_backend_ai_outputs_ready(django_session_id, ready_items=ready_items)
+            logger.info(
+                "[PIPELINE] Step 11 — backend notified for therapist notification (ready_items=%s)",
+                ready_items,
+            )
 
         logger.info(f"[PIPELINE] ═══ COMPLETE: {len(final_segments)} segments ═══")
 
@@ -1154,12 +1168,13 @@ async def _load_transcript_from_db(session_id: str) -> FullTranscript:
         )
 
 
-async def _notify_backend_ai_outputs_ready(session_id: str) -> None:
+async def _notify_backend_ai_outputs_ready(session_id: str, ready_items: Optional[List[str]] = None) -> None:
     """Notify Django backend that AI outputs are ready so therapist notifications can be created."""
     endpoint = f"{settings.backend_url.rstrip('/')}/api/patients/internal/session-ai-ready/"
+    items = ready_items or ["soap", "emotional_profile", "ai_insights"]
     payload = {
         "session_id": session_id,
-        "ready_items": ["soap", "emotional_profile", "ai_insights"],
+        "ready_items": items,
     }
     headers = {
         "X-AI-Service-Key": settings.ai_service_secret_key,
@@ -1181,6 +1196,77 @@ async def _notify_backend_ai_outputs_ready(session_id: str) -> None:
             logger.info("[PIPELINE] Backend notification callback succeeded for session %s", session_id)
     except Exception as exc:
         logger.warning("[PIPELINE] Backend notification callback error for session %s: %s", session_id, exc)
+
+
+async def _auto_generate_post_pipeline_outputs(
+    session_id: str,
+    django_session_id: str,
+    transcript: FullTranscript,
+) -> List[str]:
+    """
+    Auto-generate SOAP and session insights after transcript persistence so
+    therapist notifications can indicate truly ready outputs.
+    """
+    generated_items: List[str] = []
+
+    # 1) SOAP auto-generation (best-effort)
+    try:
+        from ..services.soap_generator import generate_soap_notes
+
+        soap_note = await generate_soap_notes(
+            session_id=django_session_id,
+            transcript=transcript,
+            include_emotions=True,
+            additional_context=None,
+        )
+
+        async with get_db_context() as db:
+            db_note = SOAPNoteDB(
+                session_id=django_session_id,
+                subjective=soap_note.subjective.content,
+                objective=soap_note.objective.content,
+                assessment=soap_note.assessment.content,
+                plan=soap_note.plan.content,
+                raw_json=json.loads(soap_note.json()),
+            )
+            db.add(db_note)
+            await db.commit()
+
+        generated_items.append("soap")
+        logger.info("[PIPELINE] Auto-generated SOAP note for session %s", django_session_id)
+    except Exception as exc:
+        logger.warning("[PIPELINE] SOAP auto-generation failed for session %s: %s", django_session_id, exc)
+
+    # 2) Insights auto-generation (best-effort)
+    try:
+        session_uuid = uuid.UUID(django_session_id)
+        async with get_db_context() as db:
+            context = await _build_insight_context(db, session_id=django_session_id, session_uuid=session_uuid)
+            generated = await _generate_insight_payload(context)
+            emotional_patterns = _build_emotional_patterns(context, generated)
+
+            existing_result = await db.execute(
+                select(SessionInsightDB).where(SessionInsightDB.session_id == session_uuid)
+            )
+            existing = existing_result.scalar_one_or_none()
+            if not existing:
+                existing = SessionInsightDB(session_id=session_uuid)
+                db.add(existing)
+
+            existing.overall_mood = _safe_short_label(generated.get("overall_mood"), max_len=50)
+            existing.mood_score = _safe_float(generated.get("mood_score"), min_val=0.0, max_val=10.0)
+            existing.key_themes = _safe_string_list(generated.get("key_themes"), max_items=8)
+            existing.emotional_patterns = emotional_patterns
+            existing.recommendations = _safe_str(generated.get("recommendations"), max_len=4000)
+            existing.generated_at = datetime.utcnow()
+            await db.commit()
+
+        generated_items.append("ai_insights")
+        logger.info("[PIPELINE] Auto-generated AI insights for session %s", django_session_id)
+    except Exception as exc:
+        logger.warning("[PIPELINE] AI insights auto-generation failed for session %s: %s", django_session_id, exc)
+
+    return generated_items
 
 
 def _serialize_session_insight(insight: SessionInsightDB) -> Dict[str, Any]:

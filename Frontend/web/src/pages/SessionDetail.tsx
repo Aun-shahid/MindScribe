@@ -120,8 +120,16 @@ const SessionDetailPage: React.FC = () => {
   const [soapNote, setSoapNote] = useState<SOAPNote | null>(null);
   const [soapLoading, setSoapLoading] = useState(false);
   const [soapGenerating, setSoapGenerating] = useState(false);
+  const [soapSaving, setSoapSaving] = useState(false);
+  const [soapEditing, setSoapEditing] = useState(false);
   const [soapError, setSoapError] = useState<string | null>(null);
   const [soapFetchAttempted, setSoapFetchAttempted] = useState(false);
+  const [soapDraft, setSoapDraft] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+  });
   const [insightsFetchAttempted, setInsightsFetchAttempted] = useState(false);
 
   const { session, loading, error, updateSessionNotes, fetchSession } = useSessionDetail(id!);
@@ -206,6 +214,13 @@ const SessionDetailPage: React.FC = () => {
     try {
       const generated = await sessionsService.generateSessionSOAP(id, { include_emotions: true });
       setSoapNote(generated.soap_note);
+      setSoapDraft({
+        subjective: generated.soap_note.subjective?.content || '',
+        objective: generated.soap_note.objective?.content || '',
+        assessment: generated.soap_note.assessment?.content || '',
+        plan: generated.soap_note.plan?.content || '',
+      });
+      setSoapEditing(false);
       setSoapFetchAttempted(true);
     } catch (error: any) {
       setSoapError(error?.message || 'Failed to generate SOAP note.');
@@ -225,6 +240,55 @@ const SessionDetailPage: React.FC = () => {
       loadSoapNote();
     }
   }, [activeTab, isCompletedSession, soapNote, soapLoading, soapFetchAttempted]);
+
+  React.useEffect(() => {
+    if (!soapNote) return;
+    setSoapDraft({
+      subjective: soapNote.subjective?.content || '',
+      objective: soapNote.objective?.content || '',
+      assessment: soapNote.assessment?.content || '',
+      plan: soapNote.plan?.content || '',
+    });
+  }, [soapNote]);
+
+  const handleSoapDraftChange = (
+    key: 'subjective' | 'objective' | 'assessment' | 'plan',
+    value: string
+  ) => {
+    setSoapDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveSoapEdits = async () => {
+    if (!id) return;
+    setSoapSaving(true);
+    setSoapError(null);
+    try {
+      const updated = await sessionsService.updateSessionSOAP(id, {
+        subjective: soapDraft.subjective,
+        objective: soapDraft.objective,
+        assessment: soapDraft.assessment,
+        plan: soapDraft.plan,
+      });
+      setSoapNote(updated);
+      setSoapEditing(false);
+    } catch (error: any) {
+      setSoapError(error?.message || 'Failed to save SOAP note edits.');
+    } finally {
+      setSoapSaving(false);
+    }
+  };
+
+  const handleCancelSoapEdits = () => {
+    if (soapNote) {
+      setSoapDraft({
+        subjective: soapNote.subjective?.content || '',
+        objective: soapNote.objective?.content || '',
+        assessment: soapNote.assessment?.content || '',
+        plan: soapNote.plan?.content || '',
+      });
+    }
+    setSoapEditing(false);
+  };
 
   React.useEffect(() => {
     if (
@@ -898,9 +962,37 @@ const SessionDetailPage: React.FC = () => {
                   <p className="text-sm text-gray-500 mt-1">{isCompletedSession ? 'AI-generated structured clinical notes from your session recording.' : 'This will be available after the session is completed.'}</p>
                 </div>
                 {isCompletedSession && (
-                  <button onClick={handleGenerateSoap} disabled={soapGenerating} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
-                    <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {soapNote && !soapEditing && (
+                      <button
+                        onClick={() => setSoapEditing(true)}
+                        className="inline-flex items-center px-3 py-2 border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-50"
+                      >
+                        <Edit size={15} className="mr-2" /> Edit
+                      </button>
+                    )}
+                    {soapNote && soapEditing && (
+                      <>
+                        <button
+                          onClick={handleSaveSoapEdits}
+                          disabled={soapSaving}
+                          className="inline-flex items-center px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          <Save size={15} className="mr-2" /> {soapSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={handleCancelSoapEdits}
+                          disabled={soapSaving}
+                          className="inline-flex items-center px-3 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <X size={15} className="mr-2" /> Cancel
+                        </button>
+                      </>
+                    )}
+                    <button onClick={handleGenerateSoap} disabled={soapGenerating || soapSaving} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
+                      <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -919,9 +1011,17 @@ const SessionDetailPage: React.FC = () => {
                         <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold">{key}</p>
                       </div>
                       <div className="p-4">
-                        <ReactMarkdown components={markdownComponents}>
-                          {soapNote[key]?.content || 'Not available.'}
-                        </ReactMarkdown>
+                        {soapEditing ? (
+                          <textarea
+                            value={soapDraft[key]}
+                            onChange={(e) => handleSoapDraftChange(key, e.target.value)}
+                            className="w-full min-h-[140px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                          />
+                        ) : (
+                          <ReactMarkdown components={markdownComponents}>
+                            {soapNote[key]?.content || 'Not available.'}
+                          </ReactMarkdown>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -2,15 +2,15 @@
 Emotion Analysis Service - Dual emotion analysis (audio + text).
 
 Models:
-  Audio: Wav2Vec2ForSequenceClassification (path from EMOTION_MODEL_PATH env var)
-         → AudacityA/wav2vec-ft-er by default
-    Text:  GPT-based classifier (default: gpt-5-mini), optionally informed by audio stage
-    Fusion: lightweight resolver (text-first, audio-aware)
+    Audio: Wav2Vec2ForSequenceClassification (path from EMOTION_MODEL_PATH env var)
+                 -> AudacityA/wav2vec-ft-er by default
+        Text:  GPT-based classifier (default: gpt-5-mini), optionally informed by audio stage
+        Fusion: lightweight resolver (text-first, audio-aware)
 
 The pipeline in session.py calls each function independently in order:
-  1. analyze_audio_emotion()      → AudioEmotionResult
-    2. analyze_text_emotion(..., audio_result=...) → TextEmotionResult
-    3. _fuse_emotions_with_gpt()    → (EmotionLabel, float)
+    1. analyze_audio_emotion()      -> AudioEmotionResult
+    2. analyze_text_emotion(..., audio_result=...) -> TextEmotionResult
+    3. _fuse_emotions_with_gpt()    -> (EmotionLabel, float)
 so that audio and text results can be logged separately before fusion.
 """
 import asyncio
@@ -21,10 +21,10 @@ import os
 import requests
 import zipfile
 import shutil
+import json
 
 import numpy as np
 import torch
-import json
 
 from ..config import settings
 from ..schemas import (
@@ -120,14 +120,14 @@ def load_emotion_model() -> Tuple[Any, Any]:
             model_path = settings.emotion_model_path
             logger.info(f"Loading emotion model from: {model_path}")
 
-            # HuggingFace URL → model ID
+            # HuggingFace URL -> model ID
             if model_path.startswith('https://huggingface.co/'):
                 parts = model_path.replace('https://huggingface.co/', '').split('/')
                 if len(parts) >= 2:
                     model_path = f"{parts[0]}/{parts[1]}"
-                    logger.info(f"Converted HF URL → model ID: {model_path}")
+                    logger.info(f"Converted HF URL -> model ID: {model_path}")
 
-            # Remote URL (Google Drive or direct download) → cache locally
+            # Remote URL (Google Drive or direct download) -> cache locally
             if model_path.startswith('https://'):
                 cache_dir = os.path.expanduser('~/.cache/mindscribe/models')
                 os.makedirs(cache_dir, exist_ok=True)
@@ -136,7 +136,7 @@ def load_emotion_model() -> Tuple[Any, Any]:
                 model_local_path = os.path.join(cache_dir, f"emotion_model_{url_hash}")
 
                 if not os.path.exists(model_local_path):
-                    logger.info(f"Downloading remote model → {model_local_path}")
+                    logger.info(f"Downloading remote model -> {model_local_path}")
                     zip_path = model_local_path + '.zip'
                     try:
                         if 'drive.google.com' in model_path:
