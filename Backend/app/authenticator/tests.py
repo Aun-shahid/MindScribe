@@ -29,7 +29,8 @@ class EmailVerificationLoginTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 403)
-		self.assertEqual(response.data['detail'], 'Please verify your email before logging in.')
+		self.assertEqual(response.data['code'], 'email_not_verified')
+		self.assertIn('not verified', str(response.data['detail']).lower())
 
 	def test_verification_code_allows_login(self):
 		EmailVerificationToken.objects.create(

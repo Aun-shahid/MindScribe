@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 import uuid
 
+from users.models import TherapistProfile
+
 User = get_user_model()
 
 class LoginSerializer(serializers.Serializer):
@@ -93,6 +95,16 @@ class RegisterSerializer(serializers.ModelSerializer):
     
     license_number = serializers.CharField(required=False, allow_blank=True)
     specialization = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_license_number(self, value):
+        value = (value or '').strip()
+        if not value:
+            return value
+        if TherapistProfile.objects.filter(license_number=value).exists():
+            raise serializers.ValidationError(
+                'A therapist with this license number already exists.'
+            )
+        return value
 
     class Meta:
         model = User

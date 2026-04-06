@@ -53,9 +53,9 @@ const Login_new = () => {
     setLoading(true);
 
     try {
-      const success = await login(email.trim(), password);
-      if (!success) {
-        setError('Invalid email or password');
+      const result = await login(email.trim(), password);
+      if (!result.success) {
+        setError(result.message);
       }
     } catch (err) {
       console.error('Login error:', err);

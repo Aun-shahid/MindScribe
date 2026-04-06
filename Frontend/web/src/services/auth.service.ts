@@ -218,8 +218,14 @@ class AuthService {
         return new Error(data || `Request failed with status ${error.response?.status}`);
       }
       
-      if (data.detail) {
-        return new Error(data.detail);
+      if (data.detail != null && data.detail !== '') {
+        const detail = data.detail;
+        const text = Array.isArray(detail)
+          ? detail.map(String).join(' ')
+          : typeof detail === 'string'
+            ? detail
+            : String(detail);
+        return new Error(text);
       }
       
       if (data.non_field_errors && Array.isArray(data.non_field_errors)) {
