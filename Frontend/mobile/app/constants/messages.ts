@@ -23,7 +23,7 @@ export const VALIDATION_MESSAGES = {
   PASSWORD_TOO_SHORT: 'Password must be at least 8 characters long.',
   PASSWORDS_DONT_MATCH: 'Passwords do not match.',
   INVALID_TOKEN: 'Please enter a valid verification token.',
-  INVALID_PHONE: 'Please enter a valid phone number (at least 10 digits).',
+  INVALID_PHONE: 'Please enter an 11-digit phone number.',
   INVALID_DATE: 'Date must be in YYYY-MM-DD format.',
   FIRST_NAME_REQUIRED: 'First Name is required',
   LAST_NAME_REQUIRED: 'Last Name is required',

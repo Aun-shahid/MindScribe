@@ -16,6 +16,15 @@ const api = axios.create({
   timeout: 10000,
 });
 
+const getFriendlyApiMessage = (error: any): string => {
+  const data = error?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data?.detail) return String(data.detail);
+  if (data?.message) return String(data.message);
+  if (data?.error) return String(data.error);
+  return 'Something went wrong. Please try again.';
+};
+
 // Request interceptor to add auth token and log requests
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('access_token');
@@ -89,6 +98,8 @@ api.interceptors.response.use(
         console.log(`[API Network Error]`, error.message);
       }
     }
+
+    (error as any).userMessage = getFriendlyApiMessage(error);
     
     return Promise.reject(error);
   }

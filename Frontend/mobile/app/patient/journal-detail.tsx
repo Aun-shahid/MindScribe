@@ -21,8 +21,8 @@ import TabLoaderCard from '../components/TabLoaderCard';
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
 const C = {
-  bg:           '#1E1630',
-  bgMid:        '#251C3A',
+  bg:           '#342949',
+  bgMid:        '#2A1F3D',
   surface:      '#2E2448',
   surfaceMuted: '#3D3260',
   border:       'rgba(255,255,255,0.10)',
@@ -365,7 +365,7 @@ export default function JournalDetail() {
               <View style={{ height: 3, backgroundColor: C.purple, borderTopLeftRadius: cR, borderTopRightRadius: cR }} />
               <View style={{ padding: clamp(width * 0.055, 18, 26) }}>
                 <Text style={{ color: C.purple, fontSize: clamp(width * 0.22, 70, 96), lineHeight: clamp(width * 0.15, 48, 66), fontWeight: '900', opacity: 0.2, marginBottom: -clamp(height * 0.012, 8, 12), marginLeft: -4 }}>
-                  "
+                  &quot;
                 </Text>
                 <Text style={{ color: C.text, fontSize: bodyFontSz, lineHeight: bodyLH, fontWeight: '400', letterSpacing: 0.15 }}>
                   {entry.content}
@@ -505,7 +505,7 @@ export default function JournalDetail() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1E1630' },
+  container: { flex: 1, backgroundColor: '#342949' },
   glow:      { position: 'absolute', borderRadius: 9999 },
   bubble:    { position: 'absolute', borderRadius: 9999 },
   headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 900 },

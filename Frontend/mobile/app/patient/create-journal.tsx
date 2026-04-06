@@ -17,7 +17,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService from '../services/patient.service';
-import { validateTextField } from '../utils/validation';
+import { validateMeaningfulTextField } from '../utils/validation';
 import eventBus from '../utils/eventBus';
 import type { CreateJournalEntryData, JournalPrompt } from '../services/patient.service';
 import StickyHeader from '../components/StickyHeader';
@@ -213,12 +213,12 @@ export default function CreateJournal() {
   };
 
   const handleSubmit = async (retryCount = 0) => {
-    const titleValidation = validateTextField(formData.title, 'Title', 2);
+    const titleValidation = validateMeaningfulTextField(formData.title, 'Title', 2, false);
     if (!titleValidation.isValid) {
       Alert.alert('Invalid Title', titleValidation.message || 'Please add a valid title to your journal entry');
       return;
     }
-    const contentValidation = validateTextField(formData.content, 'Content', 5);
+    const contentValidation = validateMeaningfulTextField(formData.content, 'Content', 5, false);
     if (!contentValidation.isValid) {
       Alert.alert('Invalid Content', contentValidation.message || 'Please write some content');
       return;
@@ -333,7 +333,7 @@ export default function CreateJournal() {
                 <LinearGradient colors={CARD_GRAD} start={{x:0,y:0}} end={{x:1,y:1}}
                   style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
                 <ActivityIndicator size="small" color={C.purple} />
-                <Text style={{ color: C.textFaint, fontSize: cSubSz }}>Loading today's prompt…</Text>
+                <Text style={{ color: C.textFaint, fontSize: cSubSz }}>Loading today&apos;s prompt…</Text>
               </View>
             ) : todayPrompt ? (
               <View style={{ marginBottom: sGap }}>
@@ -373,7 +373,7 @@ export default function CreateJournal() {
                   style={[StyleSheet.absoluteFill, { borderRadius: promptR, zIndex: -1 }]} pointerEvents="none" />
                 <Text style={{ fontSize: clamp(width * 0.09, 30, 34), textAlign: 'center', marginBottom: clamp(height * 0.015, 10, 12) }}>📝</Text>
                 <Text style={{ color: C.text, fontSize: promptBSz, lineHeight: promptBLH, textAlign: 'center', fontStyle: 'italic' }}>
-                  Unable to load today's prompt, but you can still write freely!
+                  Unable to load today&apos;s prompt, but you can still write freely!
                 </Text>
               </View>
             ) : null}
@@ -428,7 +428,7 @@ export default function CreateJournal() {
                     <FontAwesome name="edit" size={iconSz} color={C.orange} />
                   </LinearGradient>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>What's on your mind?</Text>
+                    <Text style={{ color: C.white, fontSize: cTitleSz, fontWeight: '800', letterSpacing: 0.4 }}>What&apos;s on your mind?</Text>
                     <Text style={{ color: '#C9A97E', fontSize: clamp(width * 0.029, 10, 11), letterSpacing: 0.8, marginTop: 1 }}>Write freely — no rules here</Text>
                   </View>
                 </View>

@@ -10,8 +10,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PatientService, { CreatePatientGoalData } from '../services/patient.service';
 import eventBus from '../utils/eventBus';
 import StickyHeader from '../components/StickyHeader';
+import { validateMeaningfulTextField } from '../utils/validation';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+
+const getTodayStart = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
 
 export default function AddGoalPage() {
   const { width, height } = useWindowDimensions();
@@ -79,24 +86,32 @@ export default function AddGoalPage() {
   );
 
   const submit = async () => {
-    if (!title.trim()) return Alert.alert('Validation', 'Title is required');
-    // ensure target_date sent to API is in YYYY-MM-DD format
-    let apiTargetDate: string | undefined = undefined;
-    if (dateObj) {
-      const yyyy = dateObj.getFullYear();
-      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const dd = String(dateObj.getDate()).padStart(2, '0');
-      apiTargetDate = `${yyyy}-${mm}-${dd}`;
-    } else if (targetDate && targetDate.includes('/')) {
-      // if user manually entered dd/mm/yyyy, convert
-      const parts = targetDate.split('/');
-      if (parts.length === 3) {
-        const [d, m, y] = parts;
-        apiTargetDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      }
-    } else if (targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      apiTargetDate = targetDate;
+    const titleValidation = validateMeaningfulTextField(title, 'Goal title', 2, false);
+    if (!titleValidation.isValid) {
+      return Alert.alert('Validation', titleValidation.message || 'Goal title is required');
     }
+
+    const descriptionValidation = validateMeaningfulTextField(description, 'Goal description', 3, false);
+    if (!descriptionValidation.isValid) {
+      return Alert.alert('Validation', descriptionValidation.message || 'Goal description cannot be empty. Please add a description.');
+    }
+
+    const todayStart = getTodayStart();
+    if (!dateObj) {
+      return Alert.alert('Validation', 'Target date is required. Please select a target date.');
+    }
+
+    const selectedDate = new Date(dateObj);
+    selectedDate.setHours(0, 0, 0, 0);
+    if (selectedDate < todayStart) {
+      return Alert.alert('Validation', 'Target date cannot be in the past. Please select today or a future date.');
+    }
+
+    // ensure target_date sent to API is in YYYY-MM-DD format
+    const yyyy = selectedDate.getFullYear();
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedDate.getDate()).padStart(2, '0');
+    const apiTargetDate = `${yyyy}-${mm}-${dd}`;
 
     const payload: CreatePatientGoalData = {
       title: title.trim(),
@@ -114,9 +129,18 @@ export default function AddGoalPage() {
       try { eventBus.emit('refreshGoals'); } catch { /* ignore */ }
       // go back to goals list
       router.push('/patient/goals');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Create goal failed', e);
-      Alert.alert('Error', 'Could not create goal');
+      const apiError = e as { response?: { data?: Record<string, any> } };
+      const descriptionError = apiError.response?.data?.description;
+      const targetDateError = apiError.response?.data?.target_date;
+      if (descriptionError) {
+        Alert.alert('Validation', Array.isArray(descriptionError) ? descriptionError[0] : String(descriptionError));
+      } else if (targetDateError) {
+        Alert.alert('Validation', Array.isArray(targetDateError) ? targetDateError[0] : String(targetDateError));
+      } else {
+        Alert.alert('Error', 'Could not create goal');
+      }
     } finally { setLoading(false); }
   };
 
@@ -395,7 +419,7 @@ export default function AddGoalPage() {
               </View>
               <View>
                 <Text style={[styles.cardHeaderLabel, { fontSize: cardTitleSize }]}>Target Date</Text>
-                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>Optional deadline</Text>
+                <Text style={[styles.cardHeaderMeta, { fontSize: cardMetaSize }]}>Required deadline</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -404,16 +428,17 @@ export default function AddGoalPage() {
               style={styles.dateTrigger}
             >
               <Text style={{ color: targetDate ? '#FFFFFF' : 'rgba(184,168,230,0.75)', fontWeight: '600' }}>
-                {targetDate || 'dd/mm/yyyy'}
+                {targetDate || 'Select target date'}
               </Text>
             </TouchableOpacity>
             {showDatePicker && (
               <View style={styles.datePickerWrap}>
                 <DateTimePicker
-                  value={dateObj || new Date()}
+                  value={dateObj || getTodayStart()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
                   onChange={onChangeDate}
+                  minimumDate={getTodayStart()}
                 />
                 {Platform.OS === 'ios' && (
                   <View style={styles.dateActionsRow}>

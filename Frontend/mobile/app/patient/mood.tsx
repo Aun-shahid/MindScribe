@@ -23,6 +23,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../utils/api';
 import eventBus from '../utils/eventBus';
+import { validateMeaningfulTextField } from '../utils/validation';
 
 const moods = [
   { value: 'happy', emoji: '😊', label: 'Happy', color: '#FFD700' },
@@ -115,6 +116,8 @@ export default function MoodTrackerScreen() {
   const historyCardPadding = clamp(width * 0.036, 12, 16);
   const historyTitleSize = clamp(width * 0.039, 14, 16);
   const historyMetaSize = clamp(width * 0.032, 12, 13);
+  const historyTopPadding = clamp(height * 0.01, 8, 12);
+  const historyFilterGap = clamp(height * 0.009, 6, 8);
   const moodCardRadius = clamp(width * 0.07, 22, 30);
   const moodCardMinHeight = clamp(height * 0.24, 170, 220);
   const moodCardTopPad = clamp(height * 0.034, 22, 32);
@@ -307,9 +310,9 @@ export default function MoodTrackerScreen() {
 
   // renderTabLoader no longer includes the menu bar
   const renderTabLoader = (title: string, subtitle: string, showHistoryFilters = false) => (
-    <View style={[styles.tabLoaderScreen, { paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }]}>
+    <View style={[styles.tabLoaderScreen, { paddingHorizontal: pageInset, paddingTop: showHistoryFilters ? historyTopPadding : 0, paddingBottom: contentBottomPadding }]}>
       {showHistoryFilters ? renderHistoryFilterBar() : null}
-      {showHistoryFilters ? <View style={{ height: 12 }} /> : null}
+      {showHistoryFilters ? <View style={{ height: historyFilterGap }} /> : null}
       <View style={[styles.tabLoaderViewport, { minHeight: tabLoaderViewportMinHeight }]}>
         <TabLoaderCard title={title} subtitle={subtitle} spinnerColor="#A78BFA" />
       </View>
@@ -352,6 +355,19 @@ export default function MoodTrackerScreen() {
       Alert.alert('No Mood Selected', 'Please select at least one mood with intensity level 2 or higher.');
       return;
     }
+
+    const activitiesValidation = validateMeaningfulTextField(activities, 'Activities', 3, true);
+    if (!activitiesValidation.isValid) {
+      Alert.alert('Invalid Activities', activitiesValidation.message || 'Please add meaningful activities.');
+      return;
+    }
+
+    const notesValidation = validateMeaningfulTextField(notes, 'Optional notes', 3, true);
+    if (!notesValidation.isValid) {
+      Alert.alert('Invalid Notes', notesValidation.message || 'Please add meaningful notes.');
+      return;
+    }
+
     const payload: MoodEntryPayload = {
       mood_intensities: activeMoods, notes: notes.trim(),
       triggers: selectedTriggers.join(', '), triggers_list: selectedTriggers,
@@ -362,14 +378,18 @@ export default function MoodTrackerScreen() {
       await api.post('/patients/mood/today/', payload);
       try { eventBus.emit('refreshDashboard'); } catch (e) {}
       const moodCount = Object.keys(activeMoods).length;
-      Alert.alert('Success! 🎉', `Your mood entry with ${moodCount} mood${moodCount > 1 ? 's' : ''} has been recorded for today.`, [
-        { text: 'View History', onPress: () => setActiveTab('history') },
-        { text: 'OK', style: 'cancel' },
-      ]);
       const resetIntensities: MoodIntensities = {};
       moods.forEach((mood) => { resetIntensities[mood.value] = 0; });
       setMoodIntensities(resetIntensities);
       setLastSelectedMood(null); setSelectedTriggers([]); setActivities(''); setNotes('');
+      Alert.alert(
+        'Mood Saved',
+        `Your mood entry with ${moodCount} mood${moodCount > 1 ? 's' : ''} has been recorded for today.`,
+        [
+          { text: 'Stay Here', style: 'cancel' },
+          { text: 'View History', onPress: () => setActiveTab('history') },
+        ]
+      );
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || error.response?.data?.mood_intensities?.[0] || error.response?.data?.message || 'Failed to save mood entry. Please try again.';
       Alert.alert('Error', errorMessage);
@@ -612,13 +632,18 @@ export default function MoodTrackerScreen() {
 
       {/* ── WEEKLY TAB ── */}
       {activeTab === 'weekly' && (
+        weeklyLoading ? (
+          <View style={{ flex: 1 }}>
+            {renderTabLoader('Loading Weekly Trend', 'Building your mood graph...')}
+          </View>
+        ) : (
         <Animated.ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
           contentContainerStyle={{ paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
           scrollEventThrottle={16}
         >
-          {weeklyLoading ? renderTabLoader('Loading Weekly Trend', 'Building your mood graph...') : weeklyError ? (
+          {weeklyError ? (
             <View style={styles.glassCard}>
               <LinearGradient colors={CARD_GRADIENT_COLORS} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} pointerEvents="none" />
               <View style={{ padding: 16 }}>
@@ -705,15 +730,16 @@ export default function MoodTrackerScreen() {
             </>
           ) : null}
         </Animated.ScrollView>
+        )
       )}
 
       {/* ── HISTORY TAB ── */}
       {activeTab === 'history' && (
         <View style={styles.historyContainer}>
           {historyLoading ? renderTabLoader('Loading Mood History', 'Gathering your recent entries...') : moodHistory.length === 0 ? (
-            <ScrollView contentContainerStyle={{ paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: pageInset, paddingTop: historyTopPadding, paddingBottom: contentBottomPadding }}>
               {renderHistoryFilterBar()}
-              <View style={{ height: 12 }} />
+              <View style={{ height: historyFilterGap }} />
               <View style={styles.emptyContainer}>
                 <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>No mood entries found</Text>
                 <Text style={[styles.emptySubtext, { color: '#B8A8E6' }]}>Create your first entry in the &quot;New Entry&quot; tab</Text>
@@ -723,13 +749,13 @@ export default function MoodTrackerScreen() {
             <Animated.FlatList
               data={moodHistory}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={[styles.historyList, { paddingHorizontal: pageInset, paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }]}
+              contentContainerStyle={[styles.historyList, { paddingHorizontal: pageInset, paddingTop: historyTopPadding, paddingBottom: contentBottomPadding }]}
               onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
               scrollEventThrottle={16}
               ListHeaderComponent={
                 <>
                   {renderHistoryFilterBar()}
-                  <View style={{ height: 12 }} />
+                  <View style={{ height: historyFilterGap }} />
                 </>
               }
               renderItem={({ item }) => {
@@ -922,8 +948,8 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyText: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   emptySubtext: { fontSize: 14, textAlign: 'center' },
-  tabLoaderScreen: { flex: 1 },
-  tabLoaderViewport: { width: '100%', justifyContent: 'center' },
+  tabLoaderScreen: { flex: 1, justifyContent: 'center' },
+  tabLoaderViewport: { width: '100%', justifyContent: 'center', flex: 1 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', borderRadius: 20, padding: 20, maxHeight: '70%' },
   filtersModalContent: { width: '88%', maxHeight: '78%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },

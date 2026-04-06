@@ -11,12 +11,12 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StickyHeader from '../components/StickyHeader';
+import TabLoaderCard from '../components/TabLoaderCard';
 
 const PUSH_TOKEN_STORAGE_KEY = 'mindscribe_push_token';
 const PUSH_ENABLED_STORAGE_KEY = 'mindscribe_push_enabled';
@@ -341,16 +341,6 @@ const tmr = StyleSheet.create({
   val:  { fontSize: 13, fontWeight: '800' },
 });
 
-// ─── Info note (for goal card) ────────────────────────────────────────────────
-function InfoNote({ text }: { text: string }) {
-  return (
-    <View style={{ flexDirection:'row', alignItems:'flex-start', gap:8, paddingTop:10, borderTopWidth:1, borderTopColor:'rgba(255,255,255,0.06)', marginTop:4 }}>
-      <FontAwesome name="info-circle" size={12} color="#6B6482" style={{ marginTop:1 }} />
-      <Text style={{ color:'#6B6482', fontSize:11, flex:1, lineHeight:16 }}>{text}</Text>
-    </View>
-  );
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function NotificationSettings() {
   const { width, height } = useWindowDimensions();
@@ -395,6 +385,18 @@ export default function NotificationSettings() {
   const b4y = useRef(new Animated.Value(0)).current; const b4x = useRef(new Animated.Value(0)).current;
   const b5y = useRef(new Animated.Value(0)).current; const b5x = useRef(new Animated.Value(0)).current;
 
+  const loadPreferences = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await PatientService.getNotificationPreferences();
+      setPrefs(data);
+    } catch {
+      Alert.alert('Error', 'Failed to load notification preferences');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // ── EAS push token registration ───────────────────────────────────────────
   const registerForPush = useCallback(async (
     options: { silent?: boolean; requestPermissions?: boolean } = {}
@@ -434,18 +436,8 @@ export default function NotificationSettings() {
 
   // ── Load prefs on mount ────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await PatientService.getNotificationPreferences();
-        setPrefs(data);
-      } catch {
-        Alert.alert('Error', 'Failed to load notification preferences');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    loadPreferences();
+  }, [loadPreferences]);
 
   // ── Bootstrap push token silently on mount ────────────────────────────────
   useEffect(() => {
@@ -488,7 +480,7 @@ export default function NotificationSettings() {
         fly(b5y, b5x, 9500, 8200),
       ];
       return () => anims.forEach(a => a.stop());
-    }, [])
+    }, [b1x, b1y, b2x, b2y, b3x, b3y, b4x, b4y, b5x, b5y])
   );
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -501,11 +493,12 @@ export default function NotificationSettings() {
       setSaving(true);
       await PatientService.updateNotificationPreferences(buildPayload(prefs));
       const result = await syncReminders(prefs);
+      await loadPreferences();
       if (!result.ok) {
         Alert.alert('Saved with warning', 'Preferences saved, but device notification permissions are disabled. Enable them in phone Settings.');
         return;
       }
-      Alert.alert('Saved', 'Notification preferences updated.');
+      Alert.alert('Saved', 'Notification preferences updated and refreshed.');
     } catch {
       Alert.alert('Error', 'Failed to save preferences');
     } finally {
@@ -518,8 +511,14 @@ export default function NotificationSettings() {
     return (
       <View style={{ flex: 1, backgroundColor: '#342949', justifyContent: 'center', alignItems: 'center' }}>
         <LinearGradient colors={['#342949', '#2A1F3D', '#342949']} style={StyleSheet.absoluteFill} />
-        <ActivityIndicator size="large" color="#A78BFA" />
-        <Text style={{ color: '#7B6FA0', marginTop: 12, fontSize: 13 }}>Loading preferences…</Text>
+        <TabLoaderCard
+          title="Loading Notification Settings"
+          subtitle="Preparing your reminder preferences..."
+          spinnerColor="#A78BFA"
+          icon="brain"
+          fullScreen
+          showText
+        />
       </View>
     );
   }
@@ -782,22 +781,6 @@ export default function NotificationSettings() {
               isLast
             />
           </View>
-        </GlassCard>
-
-        {/* ── Goal Reminders ── */}
-        {/* No time picker — backend fires goal reminders automatically based on
-            PatientGoal.target_date. User only controls on/off. */}
-        <GlassCard accent="#FFB36B">
-          <CardHeader emoji="🎯" title="Goal Reminders" subtitle="Therapy goal check-ins" />
-          <ToggleRow
-            label="Goal Reminders"
-            hint="Get notified when a therapy goal is due soon"
-            value={!!prefs.goal_reminders_enabled}
-            onChange={v => setPrefs({ ...prefs, goal_reminders_enabled: v })}
-            accent="#FFB36B"
-            isLast
-          />
-          <InfoNote text="Reminders are sent automatically when a goal is due within 3 days — once per goal per day." />
         </GlassCard>
 
         {/* Save button */}

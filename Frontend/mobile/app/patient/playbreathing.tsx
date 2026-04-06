@@ -274,7 +274,13 @@ export default function PlayBreathingScreen() {
     const loaded = await resolveLoadedSound();
     if (!loaded) { isSeekingRef.current = false; return; }
     try {
-      await loaded.current.setPositionAsync(Math.max(0, (loaded.status.positionMillis || 0) - 10000));
+      const wasPlaying = !!loaded.status.isPlaying;
+      const newPosition = Math.max(0, (loaded.status.positionMillis || 0) - 10000);
+      await loaded.current.setStatusAsync({
+        positionMillis: newPosition,
+        shouldPlay: wasPlaying,
+      });
+      setIsPlaying(wasPlaying);
     } catch (err: any) {
       if (!String(err?.message || '').toLowerCase().includes('seeking interrupted')) console.error('Skip backward error', err);
     } finally { isSeekingRef.current = false; }
@@ -286,9 +292,15 @@ export default function PlayBreathingScreen() {
     const loaded = await resolveLoadedSound();
     if (!loaded) { isSeekingRef.current = false; return; }
     try {
+      const wasPlaying = !!loaded.status.isPlaying;
       const cur = loaded.status.positionMillis || 0;
       const max = loaded.status.durationMillis || duration || 0;
-      await loaded.current.setPositionAsync(max > 0 ? Math.min(max, cur + 10000) : cur + 10000);
+      const newPosition = max > 0 ? Math.min(max, cur + 10000) : cur + 10000;
+      await loaded.current.setStatusAsync({
+        positionMillis: newPosition,
+        shouldPlay: wasPlaying,
+      });
+      setIsPlaying(wasPlaying);
     } catch (err: any) {
       if (!String(err?.message || '').toLowerCase().includes('seeking interrupted')) console.error('Skip forward error', err);
     } finally { isSeekingRef.current = false; }

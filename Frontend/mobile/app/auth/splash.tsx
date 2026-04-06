@@ -5,15 +5,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
   Image,
   Dimensions
 } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 
 const screenWidth = Dimensions.get('window').width;
@@ -21,7 +18,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function Splash() {
 
-  const { theme, themeStyle, toggleTheme } = useTheme();
+  const { themeStyle } = useTheme();
  
   
 
