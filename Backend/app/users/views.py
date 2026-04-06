@@ -607,11 +607,14 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
             defaults={'preferred_language': 'en'}
         )
         return patient_profile
-    
-    def dispatch(self, request, *args, **kwargs):
-        if not getattr(request.user, 'is_authenticated', False) or getattr(request.user, 'user_type', None) != 'patient':
-            self.permission_denied(request, message='Only patients can access this endpoint.')
-        return super().dispatch(request, *args, **kwargs)
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'patient':
+            self.permission_denied(
+                request,
+                message='Only patients can access this endpoint.',
+            )
 
 
 @extend_schema(tags=['User Management'])
