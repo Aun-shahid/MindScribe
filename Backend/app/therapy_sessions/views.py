@@ -37,7 +37,7 @@ from .serializers import (
     SessionScheduleResponseSerializer, BulkSessionUpdateSerializer,
     TherapistDateOverrideSerializer, AvailableSlotSerializer, SessionSummarySerializer
 )
-from users.models import PatientProfile, TherapistProfile
+from users.models import PatientProfile, TherapistProfile, PatientTherapistConnection
 # Removed: transcription_service import - migrated to FastAPI AI service
 from .token_utils import generate_session_token
 from django.conf import settings
@@ -78,7 +78,8 @@ class TherapistPatientMoodTrendView(APIView):
         # Ensure the patient is connected to this therapist
         try:
             patient_profile = PatientProfile.objects.get(user__id=patient_id)
-            if patient_profile not in user.therapist_profile.patients.all():
+            therapist_profile = user.therapist_profile
+            if not patient_profile.is_connected_to_therapist(therapist_profile):
                 return Response({"detail": "Patient not connected to therapist."}, status=404)
         except PatientProfile.DoesNotExist:
             return Response({"detail": "Patient not found."}, status=404)
@@ -311,10 +312,14 @@ class TherapistPatientsView(generics.ListAPIView):
         
         try:
             therapist_profile = user.therapist_profile
-            # Get all patients connected to this therapist
-            patient_profiles = therapist_profile.patients.all()
-            patient_users = [profile.user for profile in patient_profiles]
-            return patient_users
+            connected_patient_ids = PatientTherapistConnection.objects.filter(
+                therapist=therapist_profile
+            ).values_list('patient__user_id', flat=True)
+            legacy_patient_ids = PatientProfile.objects.filter(
+                therapist=therapist_profile
+            ).values_list('user_id', flat=True)
+            patient_ids = set(connected_patient_ids) | set(legacy_patient_ids)
+            return User.objects.filter(id__in=patient_ids)
         except TherapistProfile.DoesNotExist:
             return User.objects.none()
 
@@ -1484,7 +1489,7 @@ class AssignPatientToSessionView(generics.GenericAPIView):
             patient = User.objects.get(id=patient_id, user_type='patient')
             
             # Check if patient is connected to this therapist
-            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.therapist or patient.patient_profile.therapist.user != user:
+            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.is_connected_to_therapist(user.therapist_profile):
                 return Response(
                     {'detail': 'Patient is not connected to this therapist.'}, 
                     status=status.HTTP_400_BAD_REQUEST

@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.db import DatabaseError
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -298,3 +299,48 @@ class MultiTherapistConnectionBehaviorTests(TestCase):
 				therapist=self.secondary_therapist_profile,
 			).exists()
 		)
+
+
+class PatientProfileResilienceTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+
+		self.patient_user = User.objects.create_user(
+			username='patient-profile-resilience',
+			email='patient-profile-resilience@example.com',
+			password='testpass123',
+			user_type='patient',
+			first_name='Resilient',
+			last_name='Patient',
+		)
+		self.therapist_user = User.objects.create_user(
+			username='resilience-therapist',
+			email='resilience-therapist@example.com',
+			password='testpass123',
+			user_type='therapist',
+			first_name='Calm',
+			last_name='Therapist',
+		)
+		self.therapist_profile = TherapistProfile.objects.create(
+			user=self.therapist_user,
+			license_number='LIC-RESILIENCE-001',
+			specialization='CBT',
+		)
+		PatientProfile.objects.create(
+			user=self.patient_user,
+			therapist=self.therapist_profile,
+			connected_at=timezone.now(),
+		)
+
+	def test_patient_profile_get_returns_200_when_connected_links_query_fails(self):
+		self.client.force_authenticate(user=self.patient_user)
+
+		with patch(
+			'users.models.PatientProfile.get_connected_therapist_links',
+			side_effect=DatabaseError('relation "patient_therapist_connections" does not exist'),
+		):
+			response = self.client.get('/api/users/patient-profile/')
+
+		self.assertEqual(response.status_code, 200)
+		self.assertIn('therapist_info', response.data)
+		self.assertEqual(response.data.get('connected_therapists'), [])

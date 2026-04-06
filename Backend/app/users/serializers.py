@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import DatabaseError
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema_field
 from .models import PatientProfile, TherapistProfile, ConnectionRequest
@@ -76,7 +77,12 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_connected_therapists(self, obj):
-        links = obj.get_connected_therapist_links()
+        try:
+            links = obj.get_connected_therapist_links()
+        except DatabaseError:
+            # Keep profile endpoint functional even if connection-link table is unavailable.
+            return []
+
         return [
             {
                 'id': str(link.therapist.user.id),
