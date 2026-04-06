@@ -206,18 +206,6 @@ export default function RequestResetScreen() {
               Back to Login
             </Text>
           </TouchableOpacity>
-
-          <View style={styles.testLinksRow}>
-            <TouchableOpacity
-              onPress={() => router.push('./verify-email')}
-              disabled={isLoading}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.testLinkText, isLoading && styles.linkTextDisabled]}>
-                Verify Email (Test)
-              </Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -279,16 +267,6 @@ const styles = StyleSheet.create({
     color: '#A78BFA',
     fontWeight: '700',
     letterSpacing: 0.2,
-  },
-  testLinksRow: {
-    marginTop: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  testLinkText: {
-    color: 'rgba(191,180,226,0.78)',
-    textDecorationLine: 'underline',
-    fontWeight: '600',
   },
   linkTextDisabled: { color: '#9e9e9e' },
 });

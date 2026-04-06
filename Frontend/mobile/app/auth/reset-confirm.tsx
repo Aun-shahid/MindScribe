@@ -34,19 +34,16 @@ export default function ResetConfirmScreen() {
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
   const hPad          = clamp(width * 0.06, 20, 28);
-  const topPad        = insets.top + clamp(height * 0.012, 6, 12);
+  const topPad        = insets.top + clamp(height * 0.016, 8, 14);
   const bottomPad     = clamp(insets.bottom + height * 0.05, 32, 52);
   const kvOffset      = Platform.OS === 'ios' ? insets.top + 8 : 0;
 
   const titleSize     = clamp(width * 0.07, 24, 32);
-  const titleMB       = clamp(height * 0.022, 14, 22);
+  const titleMB       = clamp(height * 0.006, 4, 8);
 
   const imageW        = clamp(width * 0.82, 240, 380);
   const imageH        = clamp(height * 0.34, 200, 290);
-  const imageMB       = clamp(height * 0.008, 4, 8);
-
-  const subtitleSize  = clamp(width * 0.038, 13, 16);
-  const subtitleMB    = clamp(height * 0.018, 10, 16);
+  const imageMB       = clamp(height * 0.004, 2, 4);
 
   const labelSize     = clamp(width * 0.038, 13, 16);
   const labelMB       = clamp(height * 0.008, 5, 8);
@@ -163,14 +160,9 @@ export default function ResetConfirmScreen() {
           {/* Image */}
           <Image
             source={require('../../assets/images/request2.png')}
-            style={{ width: imageW, height: imageH, marginBottom: imageMB }}
+            style={{ width: imageW, height: imageH, marginBottom: imageMB, alignSelf: 'center' }}
             resizeMode="contain"
           />
-
-          {/* Subtitle */}
-          <Text style={[styles.subtitle, { fontSize: subtitleSize, marginBottom: subtitleMB }]}>
-            Please choose a new secure password
-          </Text>
 
           {/* Error */}
           {displayError && (
@@ -289,7 +281,6 @@ const styles = StyleSheet.create({
   scrollView:          { backgroundColor: '#342949' },
   container:           { flexGrow: 1, alignItems: 'center' },
   title:               { fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
-  subtitle:            { color: '#8D8BA7', textAlign: 'center', paddingHorizontal: 10 },
   errorContainer:      {
     backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
     borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 14, width: '100%',

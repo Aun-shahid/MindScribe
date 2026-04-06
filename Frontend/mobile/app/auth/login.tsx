@@ -248,37 +248,6 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
         </View>
-
-        {/* Tiny test links for QA/dev flow checks */}
-        <View style={styles.testLinksRow}>
-          <TouchableOpacity
-            onPress={() => !isLoading && router.push('./request-reset')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Request Reset</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.testLinkDivider}>|</Text>
-
-          <TouchableOpacity
-            onPress={() => !isLoading && router.push('./verify-email')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Verify Email</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.testLinkDivider}>|</Text>
-
-          <TouchableOpacity
-            onPress={() => !isLoading && router.push('./reset-confirm')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Reset Confirm</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -347,21 +316,4 @@ const styles = StyleSheet.create({
   },
   pillLinkText:          { color: '#A78BFA', fontWeight: '700', letterSpacing: 0.2 },
   pillLinkTextSecondary: { color: '#BFB4E2' },
-
-  testLinksRow: {
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  testLinkText: {
-    color: 'rgba(191,180,226,0.72)',
-    textDecorationLine: 'underline',
-    fontWeight: '600',
-  },
-  testLinkDivider: {
-    color: 'rgba(191,180,226,0.45)',
-    marginHorizontal: 8,
-    fontWeight: '600',
-  },
 });
