@@ -103,14 +103,14 @@ const Layout = () => {
   const navLinkClass = (path: string) =>
     `flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
       isActive(path)
-        ? 'bg-white/20 backdrop-blur-sm text-white shadow-lg'
-        : 'text-purple-100 hover:bg-white/10 hover:text-white'
+        ? 'bg-white/15 backdrop-blur-sm text-white shadow-md ring-1 ring-white/15'
+        : 'text-purple-100/95 hover:bg-white/10 hover:text-white'
     }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 overflow-x-hidden">
-      {/* Enhanced Professional Navbar with Purple Theme */}
-      <nav className="bg-gradient-to-r from-purple-900 via-purple-900 to-purple-900 shadow-xl border-b border-purple-500/20">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
+      {/* Dark-glass header: rich deep purple base + blur = frosted glass with dark purple hue */}
+      <nav className="sticky top-0 z-50 w-full bg-[#2f1060]/[.88] backdrop-blur-lg border-b border-purple-400/30 shadow-[0_6px_24px_-4px_rgba(74,29,150,0.45),inset_0_1px_0_rgba(216,180,254,0.22)]">
         <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -127,8 +127,8 @@ const Layout = () => {
               <Link to="/dashboard" className="flex-shrink-0 group">
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center gap-2">
-              <FontAwesomeIcon icon={faBrain} className="text-purple-400 text-[32px]" />
-              <span className="text-2xl text-purple-200 font-bold">MindScribe</span>
+              <FontAwesomeIcon icon={faBrain} className="text-purple-300 text-[32px]" />
+              <span className="text-2xl text-white font-bold tracking-tight">MindScribe</span>
             </div>
                 </div>
               </Link>
@@ -295,7 +295,7 @@ const Layout = () => {
               </Link>
               <button
                 onClick={logout}
-                className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
+                className="flex items-center space-x-2 bg-purple-800/80 hover:bg-purple-700/90 text-white px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-md ring-1 ring-white/10 hover:ring-white/20"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -394,7 +394,7 @@ const Layout = () => {
         </aside>
       </div>
 
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden">
         <div className="w-full max-w-[1600px] mx-auto py-4 sm:py-6 px-3 sm:px-4 lg:px-6">
           <Outlet />
         </div>
