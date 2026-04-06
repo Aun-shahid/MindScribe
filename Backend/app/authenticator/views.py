@@ -52,6 +52,12 @@ class LoginView(APIView):
             password = serializer.validated_data['password']
             user = authenticate(request, email=email, password=password)
             if user is not None:
+                if not user.email_verified:
+                    return Response(
+                        {'detail': 'Please verify your email before logging in.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 # Use token manager to create tokens
                 tokens = TokenManager.create_tokens(user, request)
                 

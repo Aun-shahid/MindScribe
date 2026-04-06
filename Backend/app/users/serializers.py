@@ -36,6 +36,7 @@ class TherapistInfoSerializer(serializers.Serializer):
 class PatientProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     therapist_info = serializers.SerializerMethodField()
+    connected_therapists = serializers.SerializerMethodField()
     preferred_session_days_list = serializers.SerializerMethodField()
     
     class Meta:
@@ -44,7 +45,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             'emergency_contact_name', 'emergency_contact_phone', 'medical_history',
             'current_medications', 'preferred_language', 'connected_at',
             'session_frequency', 'preferred_session_days', 'preferred_session_days_list',
-            'primary_concern', 'therapy_start_date', 'user_info', 'therapist_info'
+            'primary_concern', 'therapy_start_date', 'user_info', 'therapist_info', 'connected_therapists'
         ]
         read_only_fields = ['connected_at']
     
@@ -72,6 +73,21 @@ class PatientProfileSerializer(serializers.ModelSerializer):
                 'clinic_name': therapist.clinic_name,
             }
         return None
+
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_connected_therapists(self, obj):
+        links = obj.get_connected_therapist_links()
+        return [
+            {
+                'id': str(link.therapist.user.id),
+                'name': link.therapist.user.full_name,
+                'specialization': link.therapist.specialization,
+                'clinic_name': link.therapist.clinic_name,
+                'connected_at': link.connected_at,
+                'is_primary': obj.therapist_id == link.therapist_id,
+            }
+            for link in links
+        ]
     
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_preferred_session_days_list(self, obj):

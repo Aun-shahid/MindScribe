@@ -324,22 +324,28 @@ export default function ConnectWithTherapist() {
       ]);
 
       const requests = [...stored];
-      const activeTherapistName = normalizeName(profile?.therapist_info?.name);
+      const activeTherapistNames = new Set<string>(
+        Array.isArray(profile?.connected_therapists)
+          ? profile.connected_therapists
+              .map((item: any) => normalizeName(item?.name))
+              .filter((name: string) => !!name)
+          : []
+      );
       const connectedAt = profile?.connected_at;
 
       if (profile) {
         setPatientProfile((prev: any) => profile || prev);
       }
 
-      if (activeTherapistName) {
-        const pendingForConnected = requests.find(
-          (item) => item.status === 'pending' && normalizeName(item.therapist?.name) === activeTherapistName
-        );
-        if (pendingForConnected) {
-          pendingForConnected.status = 'accepted';
-          pendingForConnected.updated_at = connectedAt || new Date().toISOString();
-          pendingForConnected.responded_at = connectedAt || new Date().toISOString();
-        }
+      if (activeTherapistNames.size > 0) {
+        requests.forEach((item) => {
+          if (item.status !== 'pending') return;
+          const therapistName = normalizeName(item.therapist?.name);
+          if (!activeTherapistNames.has(therapistName)) return;
+          item.status = 'accepted';
+          item.updated_at = connectedAt || new Date().toISOString();
+          item.responded_at = connectedAt || new Date().toISOString();
+        });
       }
 
       const notificationList = Array.isArray(notifications) ? notifications : [];
@@ -517,12 +523,12 @@ export default function ConnectWithTherapist() {
     }
   };
 
-  const handleDisconnect = useCallback(async () => {
-    if (disconnecting) return;
+  const handleDisconnectTherapist = useCallback((therapistId: string, therapistName: string) => {
+    if (disconnecting || !therapistId) return;
 
     Alert.alert(
-      'Disconnect therapist?',
-      'This will remove your current therapist connection and notify them.',
+      `Disconnect ${therapistName || 'therapist'}?`,
+      'This removes only this therapist connection and sends them a notification.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -531,9 +537,9 @@ export default function ConnectWithTherapist() {
           onPress: async () => {
             try {
               setDisconnecting(true);
-              await PatientService.disconnectTherapist();
+              await PatientService.disconnectTherapist(therapistId);
               await Promise.all([fetchProfile(), loadPatientProfile(), loadConnectionRequests()]);
-              Alert.alert('Disconnected', 'You are no longer connected to a therapist.');
+              Alert.alert('Disconnected', `${therapistName || 'Therapist'} has been disconnected.`);
             } catch (err: any) {
               const parsed = parseConnectionError(err);
               Alert.alert(parsed.title, parsed.message);
@@ -548,56 +554,17 @@ export default function ConnectWithTherapist() {
 
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
 
-  const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
-  const connectedTherapistId = String(patientProfile?.therapist_info?.id || '').trim();
-  const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
-  const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
   const connectedAt = patientProfile?.connected_at;
-
-  const acceptedTherapistCards = connectionRequests
-    .filter((req) => req.status === 'accepted' || req.status === 'merged')
-    .map((req) => ({
-      id: String(req.therapist?.id || '').trim(),
-      name: String(req.therapist?.name || '').trim(),
-      specialization: String(req.therapist?.specialization || '').trim(),
-      clinic: String(req.therapist?.clinic_name || '').trim(),
-      source: 'request' as const,
+  const connectedTherapistCards = Array.isArray(patientProfile?.connected_therapists)
+    ? patientProfile.connected_therapists.map((item: any) => ({
+      id: String(item?.id || '').trim(),
+      name: String(item?.name || 'Therapist').trim(),
+      specialization: String(item?.specialization || '').trim(),
+      clinic: String(item?.clinic_name || '').trim(),
+      source: item?.is_primary ? 'profile' as const : 'request' as const,
+      connectedAt: item?.connected_at,
     }))
-    .filter((card) => card.id || card.name);
-
-  const connectedTherapistCards = [
-    ...(connectedTherapistId || connectedTherapistName
-      ? [{
-        id: connectedTherapistId,
-        name: connectedTherapistName || 'Therapist',
-        specialization: connectedTherapistSpecialization,
-        clinic: connectedTherapistClinic,
-        source: 'profile' as const,
-      }]
-      : []),
-    ...acceptedTherapistCards,
-  ].reduce((acc, card) => {
-    const key = card.id || normalizeName(card.name);
-    if (!key) return acc;
-
-    const existingIndex = acc.findIndex((item) => (item.id || normalizeName(item.name)) === key);
-    if (existingIndex === -1) {
-      acc.push(card);
-      return acc;
-    }
-
-    const existing = acc[existingIndex];
-    // Prefer profile-sourced details when both refer to the same therapist.
-    acc[existingIndex] = {
-      ...existing,
-      ...card,
-      source: existing.source === 'profile' || card.source === 'profile' ? 'profile' : 'request',
-      name: existing.name || card.name,
-      specialization: existing.specialization || card.specialization,
-      clinic: existing.clinic || card.clinic,
-    };
-    return acc;
-  }, [] as { id: string; name: string; specialization: string; clinic: string; source: 'profile' | 'request' }[]);
+    : [];
 
   const isConnected = connectedTherapistCards.length > 0;
 
@@ -745,21 +712,21 @@ export default function ConnectWithTherapist() {
                   {!!card.clinic && (
                     <Text style={styles.connectionSubtext}>{card.clinic}</Text>
                   )}
+                  {!!card.connectedAt && (
+                    <Text style={styles.connectionSubtext}>Connected: {formatDate(card.connectedAt)}</Text>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => handleDisconnectTherapist(card.id, card.name)}
+                    disabled={disconnecting}
+                    style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }, { marginTop: 10 }]}
+                    activeOpacity={0.9}
+                  >
+                    <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
+                    <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>Disconnect this therapist</Text>
+                  </TouchableOpacity>
                 </View>
               );
             })}
-
-            <TouchableOpacity
-              onPress={handleDisconnect}
-              disabled={disconnecting}
-              style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }]}
-              activeOpacity={0.9}
-            >
-              <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
-              <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>
-                {disconnecting ? 'Disconnecting...' : 'Disconnect therapist'}
-              </Text>
-            </TouchableOpacity>
 
             <View style={styles.connectionActionRow}>
               <TouchableOpacity
