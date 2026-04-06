@@ -58,7 +58,7 @@ const ActiveSession: React.FC = () => {
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const pendingSamplesRef = useRef<number[]>([]);
-  const chunkSamplesRef = useRef<number>(160000); // 2s @ 16kHz
+  const chunkSamplesRef = useRef<number>(32000); // 2s @ 16kHz
   const chunkQueueRef = useRef<Array<{ audioData: string | null; sampleRate: number; format: string; capturedAt: number }>>([]);
   const [uploadDelayMs, setUploadDelayMs] = useState(0);
   const [queuedChunkCount, setQueuedChunkCount] = useState(0);
@@ -123,8 +123,34 @@ const ActiveSession: React.FC = () => {
     processorNodeRef.current = null;
     sourceNodeRef.current = null;
     pendingSamplesRef.current = [];
-    chunkQueueRef.current = [];
+  }, []);
+
+  const flushQueuedAudioChunks = useCallback(() => {
+    const queue = chunkQueueRef.current;
+    while (queue.length > 0) {
+      const packet = queue.shift();
+      if (!packet) break;
+      sendAudioChunk(packet.audioData, packet.sampleRate, packet.format);
+    }
+
     setQueuedChunkCount(0);
+  }, [sendAudioChunk]);
+
+  const enqueuePendingAudioChunk = useCallback(() => {
+    const pending = pendingSamplesRef.current;
+    if (!pending.length) return;
+
+    const chunk = new Int16Array(pending);
+    const base64 = encodeInt16ToBase64(chunk);
+    chunkQueueRef.current.push({
+      audioData: base64,
+      sampleRate: 16000,
+      format: 'pcm16',
+      capturedAt: Date.now(),
+    });
+
+    pendingSamplesRef.current = [];
+    setQueuedChunkCount(chunkQueueRef.current.length);
   }, []);
 
   const startAudioCapture = useCallback(async () => {
@@ -140,6 +166,7 @@ const ActiveSession: React.FC = () => {
     mediaStreamRef.current = stream;
     const audioContext = new AudioContext();
     audioContextRef.current = audioContext;
+    await audioContext.resume();
 
     const sourceNode = audioContext.createMediaStreamSource(stream);
     sourceNodeRef.current = sourceNode;
@@ -160,32 +187,17 @@ const ActiveSession: React.FC = () => {
       while (pending.length >= chunkSamplesRef.current) {
         const chunkSamples = pending.splice(0, chunkSamplesRef.current);
         
-        // Calculate RMS to detect silence
-        let sumSquares = 0;
-        for (let i = 0; i < chunkSamples.length; i++) {
-          const normalized = chunkSamples[i] / 32768.0;
-          sumSquares += normalized * normalized;
-        }
-        const rms = Math.sqrt(sumSquares / chunkSamples.length);
+        const chunk = new Int16Array(chunkSamples);
+        const base64 = encodeInt16ToBase64(chunk);
 
-        if (rms > 0.005) { // Threshold for silence
-          const chunk = new Int16Array(chunkSamples);
-          const base64 = encodeInt16ToBase64(chunk);
-          chunkQueueRef.current.push({
-            audioData: base64,
-            sampleRate: 16000,
-            format: 'pcm16',
-            capturedAt: Date.now(),
-          });
-        } else {
-          // Queue silence markers too so chunk indexes remain aligned on backend
-          chunkQueueRef.current.push({
-            audioData: null,
-            sampleRate: 16000,
-            format: 'pcm16',
-            capturedAt: Date.now(),
-          });
-        }
+        // Always queue the actual audio chunk so the AI service receives usable PCM.
+        // Silence can still be handled downstream by transcription/transcription cleanup.
+        chunkQueueRef.current.push({
+          audioData: base64,
+          sampleRate: 16000,
+          format: 'pcm16',
+          capturedAt: Date.now(),
+        });
 
         setQueuedChunkCount(chunkQueueRef.current.length);
       }
@@ -246,10 +258,20 @@ const ActiveSession: React.FC = () => {
       if (currentSession.status === 'COMPLETED') return;
 
       if (currentSession.status === 'IN_PROGRESS') {
-        console.log('ℹ️ Session already in progress, reconnecting...');
-        setSessionStarted(true);
-        const storedWsToken = localStorage.getItem('ai_websocket_token');
-        if (storedWsToken) setAiWebsocketToken(storedWsToken);
+        console.log('ℹ️ Session already IN_PROGRESS, re-initializing AI session...');
+        const result = await startSession(id);
+        if (result) {
+          setSessionStarted(true);
+          const wsToken = result.ai_websocket_token || result.websocket_token || null;
+          if (wsToken) {
+            setAiWebsocketToken(wsToken);
+            localStorage.setItem('ai_websocket_token', wsToken);
+          }
+          await fetchSession();
+        } else {
+          alert(`Failed to re-initialize active session: ${startError?.message}`);
+          navigate('/sessions');
+        }
         return;
       }
 
@@ -293,7 +315,7 @@ const ActiveSession: React.FC = () => {
   };
 
   initializeSession();
-}, [id, session]); 
+}, [id, session, sessionStarted, startingSession, startError?.message, startSession, navigate, fetchSession, initialSession]); 
 
   // Auto-connect to AI Service WebSocket when token becomes available
   useEffect(() => {
@@ -306,10 +328,12 @@ const ActiveSession: React.FC = () => {
   // Cleanup WebSockets on unmount
   useEffect(() => {
     return () => {
+      enqueuePendingAudioChunk();
+      flushQueuedAudioChunks();
       stopAudioCapture();
       disconnectAIService();
     };
-  }, [disconnectAIService, stopAudioCapture]);
+  }, [disconnectAIService, enqueuePendingAudioChunk, flushQueuedAudioChunks, stopAudioCapture]);
 
   // Timer effect
   useEffect(() => {
@@ -341,18 +365,26 @@ const ActiveSession: React.FC = () => {
 
   const handleStopRecording = useCallback(async () => {
     setIsRecording(false);
+    enqueuePendingAudioChunk();
+    flushQueuedAudioChunks();
     await stopAudioCapture();
     chunkQueueRef.current = [];
     setQueuedChunkCount(0);
     console.log('🎤 Recording stopped');
-  }, [stopAudioCapture]);
+  }, [enqueuePendingAudioChunk, flushQueuedAudioChunks, stopAudioCapture]);
 
-  const handleEndSession = useCallback(() => {
+  const handleEndSession = useCallback(async () => {
     if (window.confirm('Are you sure you want to end this session? You will be taken to the completion form.')) {
+      if (isRecording) {
+        setIsRecording(false);
+        enqueuePendingAudioChunk();
+        flushQueuedAudioChunks();
+        await stopAudioCapture();
+      }
       // Navigate to end session form
       navigate(`/sessions/${id}/end`);
     }
-  }, [id, navigate]);
+  }, [enqueuePendingAudioChunk, flushQueuedAudioChunks, id, isRecording, navigate, stopAudioCapture]);
 
   if (loading || startingSession) {
     return (

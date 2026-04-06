@@ -287,32 +287,55 @@ const PatientDetail = () => {
       return;
     }
 
+    const normalizeFrequency = (raw: string | undefined): 'weekly' | 'biweekly' | 'monthly' | '' => {
+      const v = (raw || '').trim().toLowerCase().replace(/[_\s-]+/g, '_');
+      if (v === 'weekly' || v === 'every_week') return 'weekly';
+      if (v === 'biweekly' || v === 'bi_weekly' || v === 'every_two_weeks' || v === 'fortnightly') return 'biweekly';
+      if (v === 'monthly' || v === 'every_month') return 'monthly';
+      return '';
+    };
+
+    const normalizeDays = (days: string[]): number[] => {
+      const dayNameToNumber: { [key: string]: number } = {
+        'sun': 0, 'sunday': 0,
+        'mon': 1, 'monday': 1,
+        'tue': 2, 'tues': 2, 'tuesday': 2,
+        'wed': 3, 'wednesday': 3,
+        'thu': 4, 'thur': 4, 'thurs': 4, 'thursday': 4,
+        'fri': 5, 'friday': 5,
+        'sat': 6, 'saturday': 6,
+      };
+
+      return days
+        .map(d => dayNameToNumber[(d || '').trim().toLowerCase()])
+        .filter((n): n is number => Number.isInteger(n));
+    };
+
     // Determine frequency and days to use
-    let frequency = recurringFormData.override_frequency;
+    let frequency = normalizeFrequency(recurringFormData.override_frequency);
     let selectedDays = recurringFormData.override_days;
 
     // If using patient preferences and no override, use patient's defaults
     if (usePatientPreferences && !frequency && preferences?.preferences?.session_frequency) {
-      frequency = preferences.preferences.session_frequency;
+      frequency = normalizeFrequency(preferences.preferences.session_frequency);
     }
     if (usePatientPreferences && selectedDays.length === 0 && preferences?.preferences?.preferred_session_days) {
       selectedDays = preferences.preferences.preferred_session_days;
     }
 
-    // Need frequency and at least one day to calculate
-    if (!frequency || selectedDays.length === 0) {
-      return;
+    // Safe fallbacks so end date still computes if preferences are incomplete/unexpected.
+    if (!frequency) {
+      frequency = 'weekly';
     }
 
     // Calculate end date
     const startDate = new Date(recurringFormData.start_date);
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     let sessionsScheduled = 0;
-    const dayNameToNumber: { [key: string]: number } = {
-      'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
-      'thursday': 4, 'friday': 5, 'saturday': 6
-    };
-    const selectedDayNumbers = selectedDays.map(d => dayNameToNumber[d.toLowerCase()]);
+    let selectedDayNumbers = normalizeDays(selectedDays);
+    if (selectedDayNumbers.length === 0) {
+      selectedDayNumbers = [startDate.getDay()];
+    }
 
     const maxIterations = 400; // Safety limit (over 1 year)
     let iterations = 0;
@@ -354,9 +377,11 @@ const PatientDetail = () => {
 
     // Set the calculated end date
     const calculatedEndDate = currentDate.toISOString().split('T')[0];
-    if (calculatedEndDate !== recurringFormData.end_date) {
-      setRecurringFormData(prev => ({ ...prev, end_date: calculatedEndDate }));
-    }
+    setRecurringFormData(prev => (
+      prev.end_date === calculatedEndDate
+        ? prev
+        : { ...prev, end_date: calculatedEndDate }
+    ));
   }, [
     recurringFormData.start_date,
     recurringFormData.number_of_sessions,

@@ -14,6 +14,7 @@ from ..schemas import (
     SOAPNote, SOAPNoteSection, FullTranscript, TranscriptionSegment,
     EmotionLabel
 )
+from .anonymization import anonymize_text_for_privacy
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +107,8 @@ async def generate_soap_notes(
     openai_client = get_openai_client()
     groq_client = get_groq_client()
 
-    transcript_text = _format_transcript_for_soap(transcript, include_emotions)
-    emotion_summary = _generate_emotion_summary(transcript) if include_emotions else ""
+    transcript_text = anonymize_text_for_privacy(_format_transcript_for_soap(transcript, include_emotions))
+    emotion_summary = anonymize_text_for_privacy(_generate_emotion_summary(transcript)) if include_emotions else ""
     valence, arousal = _compute_valence_arousal(transcript)
 
     # ── CALL 1: Standard SOAP structure ─────────────────────────────────────

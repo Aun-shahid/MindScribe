@@ -12,7 +12,8 @@ import {
   X,
   Trash2,
   Activity,
-  Sparkles
+  Sparkles,
+  CheckCircle
 } from 'lucide-react';
 import { useSessionDetail, useSessionAnalysis, useSessionInsights, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
@@ -31,6 +32,41 @@ const EMOTION_COLORS: Record<string, string> = {
   anger: '#ef4444',
   disgust: '#84cc16',
   unknown: '#a855f7',
+};
+
+type NormalizedSpeakerRole = 'THERAPIST' | 'PATIENT' | 'UNKNOWN';
+
+const normalizeSpeakerRole = (value?: string | null): NormalizedSpeakerRole => {
+  const s = String(value || '').trim().toUpperCase();
+  if (!s) return 'UNKNOWN';
+
+  if (s.includes('THERAPIST') || s === 'SPEAKER_THERAPIST') return 'THERAPIST';
+  if (s.includes('PATIENT') || s === 'SPEAKER_PATIENT') return 'PATIENT';
+
+  const m = s.match(/^SPEAKER[_\s-]?(\d+)$/);
+  if (m) {
+    const idx = Number(m[1]);
+    return idx === 0 ? 'THERAPIST' : 'PATIENT';
+  }
+
+  const spk = s.match(/^SPK[_\s-]?(\d+)$/);
+  if (spk) {
+    const idx = Number(spk[1]);
+    return idx === 0 ? 'THERAPIST' : 'PATIENT';
+  }
+
+  if (/^\d+$/.test(s)) {
+    const idx = Number(s);
+    return idx === 0 ? 'THERAPIST' : 'PATIENT';
+  }
+
+  return 'UNKNOWN';
+};
+
+const speakerDisplay = (role: NormalizedSpeakerRole) => {
+  if (role === 'THERAPIST') return { label: '🩺 Therapist', colorClass: 'text-purple-700' };
+  if (role === 'PATIENT') return { label: '👤 Patient', colorClass: 'text-green-700' };
+  return { label: 'UNKNOWN', colorClass: 'text-blue-700' };
 };
 
 const markdownComponents = {
@@ -120,8 +156,16 @@ const SessionDetailPage: React.FC = () => {
   const [soapNote, setSoapNote] = useState<SOAPNote | null>(null);
   const [soapLoading, setSoapLoading] = useState(false);
   const [soapGenerating, setSoapGenerating] = useState(false);
+  const [soapSaving, setSoapSaving] = useState(false);
+  const [soapEditMode, setSoapEditMode] = useState(false);
   const [soapError, setSoapError] = useState<string | null>(null);
   const [soapFetchAttempted, setSoapFetchAttempted] = useState(false);
+  const [soapDraft, setSoapDraft] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+  });
   const [insightsFetchAttempted, setInsightsFetchAttempted] = useState(false);
 
   const { session, loading, error, updateSessionNotes, fetchSession } = useSessionDetail(id!);
@@ -190,6 +234,13 @@ const SessionDetailPage: React.FC = () => {
     try {
       const note = await sessionsService.getSessionSOAP(id);
       setSoapNote(note);
+      setSoapDraft({
+        subjective: note.subjective?.content || '',
+        objective: note.objective?.content || '',
+        assessment: note.assessment?.content || '',
+        plan: note.plan?.content || '',
+      });
+      setSoapEditMode(false);
     } catch (error: any) {
       setSoapNote(null);
       setSoapError(error?.message || 'Unable to load SOAP note for this session.');
@@ -206,11 +257,60 @@ const SessionDetailPage: React.FC = () => {
     try {
       const generated = await sessionsService.generateSessionSOAP(id, { include_emotions: true });
       setSoapNote(generated.soap_note);
+      setSoapDraft({
+        subjective: generated.soap_note.subjective?.content || '',
+        objective: generated.soap_note.objective?.content || '',
+        assessment: generated.soap_note.assessment?.content || '',
+        plan: generated.soap_note.plan?.content || '',
+      });
+      setSoapEditMode(false);
       setSoapFetchAttempted(true);
     } catch (error: any) {
       setSoapError(error?.message || 'Failed to generate SOAP note.');
     } finally {
       setSoapGenerating(false);
+    }
+  };
+
+  const handleSaveSoapDraft = async () => {
+    if (!id || !soapNote) return;
+    setSoapSaving(true);
+    setSoapError(null);
+    try {
+      const updated = await sessionsService.updateSessionSOAP(id, {
+        subjective: soapDraft.subjective,
+        objective: soapDraft.objective,
+        assessment: soapDraft.assessment,
+        plan: soapDraft.plan,
+        is_finalized: false,
+      });
+      setSoapNote(updated);
+      setSoapEditMode(false);
+    } catch (error: any) {
+      setSoapError(error?.message || 'Failed to save SOAP draft.');
+    } finally {
+      setSoapSaving(false);
+    }
+  };
+
+  const handleFinalizeSoap = async () => {
+    if (!id || !soapNote) return;
+    setSoapSaving(true);
+    setSoapError(null);
+    try {
+      const finalized = await sessionsService.updateSessionSOAP(id, {
+        subjective: soapDraft.subjective,
+        objective: soapDraft.objective,
+        assessment: soapDraft.assessment,
+        plan: soapDraft.plan,
+        is_finalized: true,
+      });
+      setSoapNote(finalized);
+      setSoapEditMode(false);
+    } catch (error: any) {
+      setSoapError(error?.message || 'Failed to finalize SOAP note.');
+    } finally {
+      setSoapSaving(false);
     }
   };
 
@@ -251,7 +351,10 @@ const SessionDetailPage: React.FC = () => {
   React.useEffect(() => {
     setSoapFetchAttempted(false);
     setSoapError(null);
+    setSoapSaving(false);
+    setSoapEditMode(false);
     setSoapNote(null);
+    setSoapDraft({ subjective: '', objective: '', assessment: '', plan: '' });
     setInsightsFetchAttempted(false);
     clearInsightsError();
   }, [id]);
@@ -412,11 +515,15 @@ const SessionDetailPage: React.FC = () => {
           0;
       }
 
+      const role = normalizeSpeakerRole(
+        String(segment.speaker || segment.speaker_id || segment.speaker_type || 'UNKNOWN')
+      );
+
       points.push({
         time: Number(segment.start_time || 0),
         emotion: primaryEmotion || 'unknown',
         confidence,
-        speaker: String(segment.speaker || segment.speaker_type || 'Unknown'),
+        speaker: role,
         text: String(segment.text || segment.text_english || segment.text_urdu || ''),
         source,
         textEmotion,
@@ -431,15 +538,7 @@ const SessionDetailPage: React.FC = () => {
     if (!emotionEvents.length) {
       return { dominantEmotion: null as string | null };
     }
-    const patientEmotionEvents = emotionEvents.filter((p) => {
-      const speaker = String(p.speaker || '').toUpperCase();
-      return (
-        speaker === 'PATIENT' ||
-        speaker === 'PATIENT_1' ||
-        speaker === 'PATIENT_2' ||
-        speaker.includes('PATIENT')
-      );
-    });
+    const patientEmotionEvents = emotionEvents.filter((p) => p.speaker === 'PATIENT');
 
     const counts: Record<string, number> = {};
     patientEmotionEvents.forEach((p) => { counts[p.emotion] = (counts[p.emotion] || 0) + 1; });
@@ -454,16 +553,9 @@ const SessionDetailPage: React.FC = () => {
 
   // ── Three-line emotion chart (audio / text / GPT fused) ───────────────────
   const emotionLineChart = React.useMemo(() => {
-    const emotionPoints = emotionEvents.filter((p) => {
-      const speaker = String(p.speaker || '').toUpperCase();
-      const isPatient =
-        speaker === 'PATIENT' ||
-        speaker === 'PATIENT_1' ||
-        speaker === 'PATIENT_2' ||
-        speaker.includes('PATIENT');
-
-      return isPatient && EMOTION_VISUAL_ORDER.includes(p.emotion as any);
-    });
+    const emotionPoints = emotionEvents.filter(
+      (p) => p.speaker === 'PATIENT' && EMOTION_VISUAL_ORDER.includes(p.emotion as any)
+    );
     if (emotionPoints.length < 2) return null;
 
     const width = 920;
@@ -857,9 +949,30 @@ const SessionDetailPage: React.FC = () => {
                             {Math.floor(segment.start_time / 60)}:{String(Math.floor(segment.start_time % 60)).padStart(2, '0')}
                           </div>
                           <div className="flex-1">
-                            <p className={`text-sm font-semibold mb-1 ${(segment.speaker_id === 'THERAPIST' || segment.speaker_type === 'therapist') ? 'text-purple-700' : 'text-green-700'}`}>
-                              {segment.speaker_id === 'THERAPIST' || segment.speaker_type === 'therapist' ? '🩺 Therapist' : '👤 Patient'}
-                            </p>
+                            {(() => {
+                              const speakerFields = segment as {
+                                speaker_id?: string;
+                                speaker?: string;
+                                speaker_label?: string;
+                                speaker_type?: string;
+                              };
+
+                              const inferredSpeaker = emotionEvents.find(
+                                (ev) => Math.abs((ev.time ?? 0) - (segment.start_time ?? 0)) < 0.7
+                              )?.speaker;
+
+                              const rawSpeaker = String(
+                                inferredSpeaker ||
+                                speakerFields.speaker_id ||
+                                speakerFields.speaker ||
+                                speakerFields.speaker_label ||
+                                speakerFields.speaker_type ||
+                                ''
+                              );
+                              const role = normalizeSpeakerRole(rawSpeaker);
+                              const view = speakerDisplay(role);
+                              return <p className={`text-sm font-semibold mb-1 ${view.colorClass}`}>{view.label}</p>;
+                            })()}
                             <p className="text-sm text-gray-600 leading-relaxed">{segment.text}</p>
                             {segment.emotion && (
                               <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
@@ -895,12 +1008,60 @@ const SessionDetailPage: React.FC = () => {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-serif font-bold text-gray-900">SOAP Notes</h3>
-                  <p className="text-sm text-gray-500 mt-1">{isCompletedSession ? 'AI-generated structured clinical notes from your session recording.' : 'This will be available after the session is completed.'}</p>
+                  <p className="text-sm text-gray-500 mt-1">{isCompletedSession ? 'AI-generated SOAP draft appears automatically after pipeline completion. Review/edit, then finalize.' : 'This will be available after the session is completed.'}</p>
                 </div>
-                {isCompletedSession && (
-                  <button onClick={handleGenerateSoap} disabled={soapGenerating} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
-                    <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
-                  </button>
+                {isCompletedSession && soapNote && (
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${soapNote.is_finalized ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {soapNote.is_finalized ? 'Finalized' : 'Draft'}
+                    </span>
+                    {!soapEditMode && !soapNote.is_finalized && (
+                      <button
+                        onClick={() => setSoapEditMode(true)}
+                        className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+                      >
+                        <Edit3 size={16} className="mr-2" /> Edit SOAP Note
+                      </button>
+                    )}
+                    {soapEditMode && (
+                      <>
+                        <button
+                          onClick={handleSaveSoapDraft}
+                          disabled={soapSaving}
+                          className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                        >
+                          <Save size={16} className="mr-2" /> {soapSaving ? 'Saving...' : 'Save Draft'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSoapDraft({
+                              subjective: soapNote.subjective?.content || '',
+                              objective: soapNote.objective?.content || '',
+                              assessment: soapNote.assessment?.content || '',
+                              plan: soapNote.plan?.content || '',
+                            });
+                            setSoapEditMode(false);
+                          }}
+                          disabled={soapSaving}
+                          className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                        >
+                          <X size={16} className="mr-2" /> Cancel
+                        </button>
+                        <button
+                          onClick={handleFinalizeSoap}
+                          disabled={soapSaving}
+                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                          <CheckCircle size={16} className="mr-2" /> {soapSaving ? 'Finalizing...' : 'Finalize SOAP'}
+                        </button>
+                      </>
+                    )}
+                    {!soapEditMode && (
+                      <button onClick={handleGenerateSoap} disabled={soapGenerating} className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
+                        <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Regenerating...' : 'Regenerate'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -919,18 +1080,31 @@ const SessionDetailPage: React.FC = () => {
                         <p className="text-sm uppercase tracking-wide text-[#431657] font-semibold">{key}</p>
                       </div>
                       <div className="p-4">
-                        <ReactMarkdown components={markdownComponents}>
-                          {soapNote[key]?.content || 'Not available.'}
-                        </ReactMarkdown>
+                        {soapEditMode ? (
+                          <textarea
+                            value={soapDraft[key]}
+                            onChange={(e) => setSoapDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                            className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-y"
+                          />
+                        ) : (
+                          <ReactMarkdown components={markdownComponents}>
+                            {soapNote[key]?.content || 'Not available.'}
+                          </ReactMarkdown>
+                        )}
                       </div>
                     </div>
                   ))}
+                  {soapNote.finalized_at && (
+                    <div className="text-xs text-gray-500 pt-1">
+                      Finalized at: {new Date(soapNote.finalized_at).toLocaleString()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-500 mb-4">No SOAP note generated yet for this session.</p>
+                  <p className="text-gray-500 mb-4">No SOAP draft available yet. If pipeline just completed, wait a moment and retry.</p>
                   <button onClick={handleGenerateSoap} disabled={soapGenerating} className="inline-flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50">
-                    <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Generating...' : 'Generate SOAP Notes'}
+                    <Sparkles size={16} className="mr-2" /> {soapGenerating ? 'Generating...' : 'Generate SOAP Draft'}
                   </button>
                 </div>
               )}
@@ -1062,7 +1236,7 @@ const SessionDetailPage: React.FC = () => {
                           {emotionEvents.map((point, index) => (
                             <div key={`${point.time}-${index}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                <span>{point.speaker}</span>
+                                <span>{speakerDisplay(point.speaker as NormalizedSpeakerRole).label}</span>
                                 <span>{Math.floor(point.time / 60)}:{String(Math.floor(point.time % 60)).padStart(2, '0')}</span>
                               </div>
                               <p className="text-sm text-gray-900 font-medium capitalize">{point.emotion}</p>

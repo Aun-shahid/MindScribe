@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 from .models import (
     MoodEntry, JournalEntry, ActivityLog, MedicationLog, SleepLog,
@@ -21,8 +21,11 @@ from .serializers import (
     PatientMilestoneSerializer, ReflectionPromptSerializer, ReflectionEntrySerializer,
     PatientGoalSerializer, ProgressTrackingSerializer
 )
+from patients.models import Notification
+from patients.services.notification_center import create_notification
 
 User = get_user_model()
+BAD_MOODS = {'sad', 'angry', 'anxious', 'overwhelmed', 'stressed', 'very_sad'}
 
 
 @extend_schema(
@@ -321,7 +324,186 @@ class HistoryEntriesView(generics.GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _notify_therapist_for_history_entry(self, patient_user, entry_type, entry):
-        return
+        if entry_type != 'mood':
+            return
+
+        therapists = self._get_associated_therapists(patient_user)
+        if not therapists.exists():
+            return
+
+        trend_data = self._get_downward_mood_trend(patient_user)
+        bad_streak = self._get_bad_mood_streak(patient_user)
+
+        if not trend_data and not bad_streak:
+            return
+
+        today = timezone.now().date()
+        base_action_url = f'/patients/{patient_user.id}/mood'
+
+        for therapist in therapists:
+            if trend_data:
+                trend_action_url = f'{base_action_url}?alert=trend'
+                already_sent = Notification.objects.filter(
+                    patient=therapist,
+                    notification_type='general',
+                    action_url=trend_action_url,
+                    sent_at__date=today,
+                ).exists()
+
+                if not already_sent:
+                    create_notification(
+                        recipient=therapist,
+                        notification_type='general',
+                        title=f'Mood trend alert: {patient_user.full_name}',
+                        message=(
+                            f'{patient_user.full_name} has a downward mood trend '
+                            f'({trend_data["previous_avg"]} -> {trend_data["recent_avg"]}).'
+                        ),
+                        action_url=trend_action_url,
+                        priority='high',
+                        source_event='mood.trend.downward',
+                        metadata={
+                            'patient_id': str(patient_user.id),
+                            'patient_name': patient_user.full_name,
+                            'drop_value': trend_data['drop_value'],
+                            'recent_days': trend_data['recent_days'],
+                            'origin': 'history.mood_entry',
+                        },
+                        persist=True,
+                        send_realtime=True,
+                    )
+
+            if bad_streak:
+                streak_action_url = f'{base_action_url}?alert=three_bad_moods'
+                already_sent = Notification.objects.filter(
+                    patient=therapist,
+                    notification_type='general',
+                    action_url=streak_action_url,
+                    sent_at__date=today,
+                ).exists()
+
+                if not already_sent:
+                    create_notification(
+                        recipient=therapist,
+                        notification_type='general',
+                        title=f'Urgent mood alert: {patient_user.full_name}',
+                        message=(
+                            f'{patient_user.full_name} logged 3 consecutive low mood days '
+                            f'({", ".join(day["dominant_mood"] for day in bad_streak["streak_days"])}).'
+                        ),
+                        action_url=streak_action_url,
+                        priority='high',
+                        source_event='mood.streak.bad3',
+                        metadata={
+                            'patient_id': str(patient_user.id),
+                            'patient_name': patient_user.full_name,
+                            'streak_size': bad_streak['streak_size'],
+                            'streak_days': bad_streak['streak_days'],
+                            'origin': 'history.mood_entry',
+                        },
+                        persist=True,
+                        send_realtime=True,
+                        notification_level='alert',
+                        related_entity_id=str(patient_user.id),
+                    )
+
+    def _get_associated_therapists(self, patient_user):
+        therapist_ids = set()
+
+        patient_profile = getattr(patient_user, 'patient_profile', None)
+        therapist_obj = getattr(patient_profile, 'therapist', None)
+        therapist_user_id = getattr(therapist_obj, 'user_id', None)
+        if therapist_user_id:
+            therapist_ids.add(therapist_user_id)
+
+        from therapy_sessions.models import Session
+        session_therapist_ids = Session.objects.filter(
+            patient=patient_user,
+            therapist__isnull=False,
+        ).values_list('therapist_id', flat=True).distinct()
+        therapist_ids.update(session_therapist_ids)
+
+        therapist_ids.discard(None)
+        therapist_ids.discard(patient_user.id)
+
+        return User.objects.filter(id__in=therapist_ids, user_type='therapist')
+
+    def _get_downward_mood_trend(self, patient_user, min_drop=1.0):
+        day_scores = list(
+            MoodEntry.objects.filter(patient=patient_user)
+            .values('mood_date')
+            .annotate(avg_score=Avg('mood_score'))
+            .order_by('-mood_date')[:6]
+        )
+
+        if len(day_scores) < 4:
+            return None
+
+        chronological = list(reversed(day_scores))
+        recent_window = chronological[-3:]
+        previous_window = chronological[:-3]
+        if len(previous_window) < 2:
+            return None
+
+        recent_avg = sum(float(day['avg_score']) for day in recent_window) / len(recent_window)
+        previous_avg = sum(float(day['avg_score']) for day in previous_window) / len(previous_window)
+        drop_value = previous_avg - recent_avg
+
+        if drop_value < min_drop:
+            return None
+
+        return {
+            'previous_avg': round(previous_avg, 2),
+            'recent_avg': round(recent_avg, 2),
+            'drop_value': round(drop_value, 2),
+            'recent_days': [
+                {
+                    'date': str(day['mood_date']),
+                    'avg_score': round(float(day['avg_score']), 2),
+                }
+                for day in recent_window
+            ],
+        }
+
+    def _get_bad_mood_streak(self, patient_user, streak_size=3):
+        recent_dates = list(
+            MoodEntry.objects.filter(patient=patient_user)
+            .values_list('mood_date', flat=True)
+            .distinct()
+            .order_by('-mood_date')[:streak_size]
+        )
+
+        if len(recent_dates) < streak_size:
+            return None
+
+        streak_days = []
+        for mood_date in recent_dates:
+            moods = list(
+                MoodEntry.objects.filter(patient=patient_user, mood_date=mood_date)
+                .values_list('mood', flat=True)
+            )
+            if not moods:
+                return None
+
+            dominant_mood = Counter(moods).most_common(1)[0][0]
+            if dominant_mood not in BAD_MOODS:
+                return None
+
+            avg_score = MoodEntry.objects.filter(
+                patient=patient_user,
+                mood_date=mood_date,
+            ).aggregate(avg=Avg('mood_score'))['avg']
+
+            streak_days.append({
+                'date': str(mood_date),
+                'dominant_mood': dominant_mood,
+                'avg_score': round(float(avg_score or 0), 2),
+            })
+
+        return {
+            'streak_size': streak_size,
+            'streak_days': list(reversed(streak_days)),
+        }
     
     def get_queryset_by_type(self, user, entry_type):
         """Get queryset based on entry type"""

@@ -110,6 +110,10 @@ export interface SOAPNote {
   objective: { content: string };
   assessment: { content: string };
   plan: { content: string };
+  status?: 'draft' | 'finalized' | string;
+  is_finalized?: boolean;
+  finalized_at?: string;
+  finalized_by?: string;
   emotional_summary?: string | null;
   model_version?: string;
   key_themes?: string[];

@@ -17,6 +17,7 @@ import soundfile as sf
 import numpy as np
 
 from ..config import settings
+from .anonymization import anonymize_text_for_privacy
 
 logger = logging.getLogger(__name__)
 
@@ -282,6 +283,8 @@ async def translate_to_english(
     try:
         client = get_openai_client()
         
+        safe_text = anonymize_text_for_privacy(urdu_text)
+
         context = ""
         if emotional_context:
             context = f"The speaker is expressing {emotional_context} emotion. "
@@ -289,7 +292,7 @@ async def translate_to_english(
         prompt = f"""Translate the following Urdu text to English.
 {context}Preserve the emotional tone and therapeutic context in your translation.
 
-Urdu text: {urdu_text}
+Urdu text: {safe_text}
 
 Provide only the English translation."""
 

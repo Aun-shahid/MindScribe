@@ -177,13 +177,9 @@ class SessionsService {
         const currentSession = await this.getSessionDetail(sessionId);
         backendSession = currentSession;
 
-        return {
-          detail: 'Session already in progress',
-          session: backendSession,
-          status: 'in_progress',
-          ai_service_url: effectiveAiServiceUrl,
-          message: 'Session already in progress',
-        };
+        // Do not return early here. We still need to (re)start the AI service session,
+        // otherwise WebSocket audio can stream without an AI session state and stop/transcript
+        // endpoints will return 404.
       }
 
       try {
@@ -316,7 +312,7 @@ class SessionsService {
 
   async updateSessionSOAP(
     sessionId: string,
-    payload: { subjective?: string; objective?: string; assessment?: string; plan?: string; }
+    payload: { subjective?: string; objective?: string; assessment?: string; plan?: string; is_finalized?: boolean; }
   ): Promise<SOAPNote> {
     try {
       return await this.runWithAiTokenFallback(async (authToken) => {
@@ -406,22 +402,71 @@ class SessionsService {
 
         const data = await res.json();
 
-        const segments = (data.segments || []).map((seg: any) => ({
-          id: seg.id,
-          speaker: seg.speaker,
-          speaker_type:
-            seg.speaker?.toLowerCase() === 'therapist'
-              ? 'therapist'
-              : 'patient',
-          speaker_id: seg.speaker,
-          text: seg.text_english || seg.text_urdu || '',
-          text_english: seg.text_english || '',
-          text_urdu: seg.text_urdu || '',
-          start_time: seg.start_time,
-          end_time: seg.end_time,
-          confidence: 1.0,
-          emotion: seg.emotion || null,
-        }));
+        const rawSegments = Array.isArray(data.segments) ? data.segments : [];
+
+        const inferRole = (value: unknown): 'THERAPIST' | 'PATIENT' | null => {
+          const s = String(value ?? '').trim().toUpperCase();
+          if (!s) return null;
+          if (s.includes('THERAPIST')) return 'THERAPIST';
+          if (s.includes('PATIENT')) return 'PATIENT';
+
+          const speakerMatch = s.match(/^SPEAKER[_\s-]?(\d+)$/);
+          if (speakerMatch) return Number(speakerMatch[1]) === 0 ? 'THERAPIST' : 'PATIENT';
+
+          const spkMatch = s.match(/^SPK[_\s-]?(\d+)$/);
+          if (spkMatch) return Number(spkMatch[1]) === 0 ? 'THERAPIST' : 'PATIENT';
+
+          if (/^\d+$/.test(s)) return Number(s) === 0 ? 'THERAPIST' : 'PATIENT';
+          return null;
+        };
+
+        const unresolvedOrder: string[] = [];
+        const unresolvedRoleMap: Record<string, 'THERAPIST' | 'PATIENT'> = {};
+
+        rawSegments.forEach((seg: any) => {
+          const sourceToken = String(seg?.speaker ?? seg?.speaker_id ?? seg?.speaker_type ?? '').trim();
+          if (!sourceToken) return;
+          if (inferRole(sourceToken)) return;
+          if (!unresolvedOrder.includes(sourceToken)) unresolvedOrder.push(sourceToken);
+        });
+
+        if (unresolvedOrder.length === 1) {
+          unresolvedRoleMap[unresolvedOrder[0]] = 'THERAPIST';
+        } else if (unresolvedOrder.length >= 2) {
+          unresolvedRoleMap[unresolvedOrder[0]] = 'THERAPIST';
+          unresolvedRoleMap[unresolvedOrder[1]] = 'PATIENT';
+          for (let i = 2; i < unresolvedOrder.length; i += 1) {
+            unresolvedRoleMap[unresolvedOrder[i]] = 'PATIENT';
+          }
+        }
+
+        const segments = rawSegments.map((seg: any, index: number) => {
+          const sourceToken = String(seg?.speaker ?? seg?.speaker_id ?? seg?.speaker_type ?? '').trim();
+          let role = inferRole(sourceToken);
+
+          if (!role && sourceToken && unresolvedRoleMap[sourceToken]) {
+            role = unresolvedRoleMap[sourceToken];
+          }
+
+          // Last-resort fallback so UI never receives empty/UNKNOWN-only role stream.
+          if (!role) {
+            role = index === 0 ? 'THERAPIST' : 'PATIENT';
+          }
+
+          return {
+            id: seg.id,
+            speaker: role,
+            speaker_type: role === 'THERAPIST' ? 'therapist' : 'patient',
+            speaker_id: sourceToken || role,
+            text: seg.text || seg.text_english || seg.text_urdu || '',
+            text_english: seg.text_english || '',
+            text_urdu: seg.text_urdu || '',
+            start_time: seg.start_time,
+            end_time: seg.end_time,
+            confidence: 1.0,
+            emotion: seg.emotion || null,
+          };
+        });
 
         return {
           session_id: data.session_id || sessionId,
