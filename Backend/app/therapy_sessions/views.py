@@ -585,8 +585,8 @@ class StartSessionView(generics.GenericAPIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         
-        # Get AI service URL from settings (you'll configure this later)
-        ai_service_url = getattr(settings, 'AI_SERVICE_URL', 'http://localhost:8000')  # Default to localhost
+        # Get AI service URL from settings
+        ai_service_url = settings.AI_SERVICE_URL
         
         response_data = {
             'detail': 'Session started successfully.',
