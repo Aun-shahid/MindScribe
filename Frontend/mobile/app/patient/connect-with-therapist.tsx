@@ -548,20 +548,58 @@ export default function ConnectWithTherapist() {
 
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
 
-  const acceptedRequest = connectionRequests.find((req) => req.status === 'accepted' || req.status === 'merged');
-
   const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
   const connectedTherapistId = String(patientProfile?.therapist_info?.id || '').trim();
   const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
   const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
-  const acceptedRequestTherapistName = String(acceptedRequest?.therapist?.name || '').trim();
-  const acceptedRequestTherapistSpecialization = String(acceptedRequest?.therapist?.specialization || '').trim();
-  const acceptedRequestTherapistClinic = String(acceptedRequest?.therapist?.clinic_name || '').trim();
   const connectedAt = patientProfile?.connected_at;
-  const isConnected = Boolean(connectedTherapistId || connectedTherapistName || acceptedRequestTherapistName);
-  const displayTherapistName = connectedTherapistName || acceptedRequestTherapistName || 'Therapist';
-  const displayTherapistSpecialization = connectedTherapistSpecialization || acceptedRequestTherapistSpecialization;
-  const displayTherapistClinic = connectedTherapistClinic || acceptedRequestTherapistClinic;
+
+  const acceptedTherapistCards = connectionRequests
+    .filter((req) => req.status === 'accepted' || req.status === 'merged')
+    .map((req) => ({
+      id: String(req.therapist?.id || '').trim(),
+      name: String(req.therapist?.name || '').trim(),
+      specialization: String(req.therapist?.specialization || '').trim(),
+      clinic: String(req.therapist?.clinic_name || '').trim(),
+      source: 'request' as const,
+    }))
+    .filter((card) => card.id || card.name);
+
+  const connectedTherapistCards = [
+    ...(connectedTherapistId || connectedTherapistName
+      ? [{
+        id: connectedTherapistId,
+        name: connectedTherapistName || 'Therapist',
+        specialization: connectedTherapistSpecialization,
+        clinic: connectedTherapistClinic,
+        source: 'profile' as const,
+      }]
+      : []),
+    ...acceptedTherapistCards,
+  ].reduce((acc, card) => {
+    const key = card.id || normalizeName(card.name);
+    if (!key) return acc;
+
+    const existingIndex = acc.findIndex((item) => (item.id || normalizeName(item.name)) === key);
+    if (existingIndex === -1) {
+      acc.push(card);
+      return acc;
+    }
+
+    const existing = acc[existingIndex];
+    // Prefer profile-sourced details when both refer to the same therapist.
+    acc[existingIndex] = {
+      ...existing,
+      ...card,
+      source: existing.source === 'profile' || card.source === 'profile' ? 'profile' : 'request',
+      name: existing.name || card.name,
+      specialization: existing.specialization || card.specialization,
+      clinic: existing.clinic || card.clinic,
+    };
+    return acc;
+  }, [] as { id: string; name: string; specialization: string; clinic: string; source: 'profile' | 'request' }[]);
+
+  const isConnected = connectedTherapistCards.length > 0;
 
   useEffect(() => {
     if (isConnected) {
@@ -682,14 +720,34 @@ export default function ConnectWithTherapist() {
               )}
             </View>
 
-            <Text style={styles.connectionLabel}>Your therapist</Text>
-            <Text style={styles.connectionName}>{displayTherapistName}</Text>
-            {!!displayTherapistSpecialization && (
-              <Text style={styles.connectionSubtext}>{displayTherapistSpecialization}</Text>
-            )}
-            {!!displayTherapistClinic && (
-              <Text style={styles.connectionSubtext}>{displayTherapistClinic}</Text>
-            )}
+            <View style={styles.connectedHeaderRow}>
+              <Text style={styles.connectionLabel}>
+                {connectedTherapistCards.length > 1 ? 'Connected therapists' : 'Your therapist'}
+              </Text>
+              <View style={styles.connectedCountChip}>
+                <Text style={styles.connectedCountChipText}>{connectedTherapistCards.length}</Text>
+              </View>
+            </View>
+
+            {connectedTherapistCards.map((card) => {
+              const isPrimary = card.source === 'profile';
+              return (
+                <View key={card.id || normalizeName(card.name)} style={styles.therapistInfoCard}>
+                  <View style={styles.therapistInfoHead}>
+                    <Text style={styles.connectionName}>{card.name || 'Therapist'}</Text>
+                    <View style={[styles.therapistStatusPill, isPrimary ? styles.therapistStatusActive : styles.therapistStatusAdditional]}>
+                      <Text style={styles.therapistStatusText}>{isPrimary ? 'Active' : 'Also connected'}</Text>
+                    </View>
+                  </View>
+                  {!!card.specialization && (
+                    <Text style={styles.connectionSubtext}>{card.specialization}</Text>
+                  )}
+                  {!!card.clinic && (
+                    <Text style={styles.connectionSubtext}>{card.clinic}</Text>
+                  )}
+                </View>
+              );
+            })}
 
             <TouchableOpacity
               onPress={handleDisconnect}
@@ -703,26 +761,28 @@ export default function ConnectWithTherapist() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setShowConnectAnotherForm((prev) => !prev)}
-              style={styles.connectAnotherBtn}
-              activeOpacity={0.9}
-            >
-              <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
-              <Text style={styles.connectAnotherBtnText}>
-                {showConnectAnotherForm ? 'Hide connect form' : 'Connect with another therapist'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.connectionActionRow}>
+              <TouchableOpacity
+                onPress={() => setShowConnectAnotherForm((prev) => !prev)}
+                style={[styles.connectAnotherBtn, styles.connectionActionHalf]}
+                activeOpacity={0.9}
+              >
+                <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
+                <Text style={styles.connectAnotherBtnText}>
+                  {showConnectAnotherForm ? 'Hide form' : 'Add therapist'}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={loadPatientProfile}
-              disabled={profileLoading}
-              style={[styles.refreshConnectionBtn, profileLoading && { opacity: 0.75 }]}
-              activeOpacity={0.85}
-            >
-              <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
-              <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh status'}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={loadPatientProfile}
+                disabled={profileLoading}
+                style={[styles.refreshConnectionBtn, styles.connectionActionHalf, profileLoading && { opacity: 0.75 }]}
+                activeOpacity={0.85}
+              >
+                <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
+                <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.connectionHintText}>
               You can keep this therapist and still send another connection request.
@@ -1153,6 +1213,29 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  connectedHeaderRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  connectedCountChip: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(167,139,250,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectedCountChipText: {
+    color: '#D8CCFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   connectionName: {
     marginTop: 4,
     color: '#FFFFFF',
@@ -1163,6 +1246,40 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: '#DDD6FE',
     fontSize: 13,
+  },
+  therapistInfoCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(44,34,72,0.85)',
+  },
+  therapistInfoHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  therapistStatusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  therapistStatusActive: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderColor: 'rgba(34,197,94,0.24)',
+  },
+  therapistStatusAdditional: {
+    backgroundColor: 'rgba(167,139,250,0.15)',
+    borderColor: 'rgba(167,139,250,0.35)',
+  },
+  therapistStatusText: {
+    color: '#D8CCFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   disconnectBtn: {
     marginTop: 14,
@@ -1192,6 +1309,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  connectionActionRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  connectionActionHalf: {
+    marginTop: 0,
+    flex: 1,
   },
   connectAnotherBtnText: {
     color: '#D8CCFF',
