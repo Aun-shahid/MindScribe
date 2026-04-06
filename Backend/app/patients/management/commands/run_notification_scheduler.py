@@ -7,8 +7,10 @@ from patients.services.notification_service import (
     send_goal_reminder_notifications,
     send_journal_reminder_notifications,
     send_mood_reminder_notifications,
-    send_session_reminder_notifications,
-    send_therapist_upcoming_session_notifications,
+)
+from patients.services.time_based_notifications import (
+    send_time_based_session_reminders,
+    send_time_based_therapist_reminders,
 )
 
 
@@ -28,8 +30,8 @@ class Command(BaseCommand):
             help='Seconds between scheduler ticks in loop mode (default: 60).',
         )
     def _run_tick(self):
-        session_count = send_session_reminder_notifications()
-        therapist_session_count = send_therapist_upcoming_session_notifications()
+        session_count = send_time_based_session_reminders()
+        therapist_session_count = send_time_based_therapist_reminders()
         goal_count = send_goal_reminder_notifications()
         mood_count = send_mood_reminder_notifications()
         journal_count = send_journal_reminder_notifications()
