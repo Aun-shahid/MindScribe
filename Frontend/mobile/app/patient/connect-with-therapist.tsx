@@ -327,6 +327,10 @@ export default function ConnectWithTherapist() {
       const activeTherapistName = normalizeName(profile?.therapist_info?.name);
       const connectedAt = profile?.connected_at;
 
+      if (profile) {
+        setPatientProfile((prev: any) => profile || prev);
+      }
+
       if (activeTherapistName) {
         const pendingForConnected = requests.find(
           (item) => item.status === 'pending' && normalizeName(item.therapist?.name) === activeTherapistName
@@ -403,7 +407,7 @@ export default function ConnectWithTherapist() {
       setPatientProfile(profile);
     } catch (err) {
       console.error('Failed to load patient profile:', err);
-      setPatientProfile(null);
+      // Keep last known profile to avoid flickering back to disconnected UI on transient failures.
     } finally {
       setProfileLoading(false);
     }
@@ -544,13 +548,26 @@ export default function ConnectWithTherapist() {
 
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
 
+  const acceptedRequest = connectionRequests.find((req) => req.status === 'accepted' || req.status === 'merged');
+
   const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
   const connectedTherapistId = String(patientProfile?.therapist_info?.id || '').trim();
   const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
   const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
+  const acceptedRequestTherapistName = String(acceptedRequest?.therapist?.name || '').trim();
+  const acceptedRequestTherapistSpecialization = String(acceptedRequest?.therapist?.specialization || '').trim();
+  const acceptedRequestTherapistClinic = String(acceptedRequest?.therapist?.clinic_name || '').trim();
   const connectedAt = patientProfile?.connected_at;
-  const isConnected = Boolean(connectedTherapistId || connectedTherapistName);
-  const displayTherapistName = connectedTherapistName || 'Therapist';
+  const isConnected = Boolean(connectedTherapistId || connectedTherapistName || acceptedRequestTherapistName);
+  const displayTherapistName = connectedTherapistName || acceptedRequestTherapistName || 'Therapist';
+  const displayTherapistSpecialization = connectedTherapistSpecialization || acceptedRequestTherapistSpecialization;
+  const displayTherapistClinic = connectedTherapistClinic || acceptedRequestTherapistClinic;
+
+  useEffect(() => {
+    if (isConnected) {
+      setShowConnectAnotherForm(false);
+    }
+  }, [isConnected]);
 
   const handleDeleteRequestCard = useCallback(async (id: string) => {
     const next = connectionRequests.filter((item) => item.id !== id);
@@ -667,11 +684,11 @@ export default function ConnectWithTherapist() {
 
             <Text style={styles.connectionLabel}>Your therapist</Text>
             <Text style={styles.connectionName}>{displayTherapistName}</Text>
-            {!!connectedTherapistSpecialization && (
-              <Text style={styles.connectionSubtext}>{connectedTherapistSpecialization}</Text>
+            {!!displayTherapistSpecialization && (
+              <Text style={styles.connectionSubtext}>{displayTherapistSpecialization}</Text>
             )}
-            {!!connectedTherapistClinic && (
-              <Text style={styles.connectionSubtext}>{connectedTherapistClinic}</Text>
+            {!!displayTherapistClinic && (
+              <Text style={styles.connectionSubtext}>{displayTherapistClinic}</Text>
             )}
 
             <TouchableOpacity

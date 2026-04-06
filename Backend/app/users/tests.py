@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import PatientProfile, TherapistProfile
+from .models import ConnectionRequest, PatientProfile, TherapistProfile
 
 
 User = get_user_model()
@@ -134,3 +134,67 @@ class PatientDisconnectNotificationTests(TestCase):
 		called_kwargs = mock_create_notification.call_args.kwargs
 		self.assertEqual(called_kwargs['recipient'], self.therapist_user)
 		self.assertEqual(called_kwargs['source_event'], 'patient.connection.disconnected')
+
+
+class MultiTherapistConnectionRequestTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+
+		self.current_therapist_user = User.objects.create_user(
+			username='current-therapist',
+			email='current-therapist@example.com',
+			password='testpass123',
+			user_type='therapist',
+			first_name='Current',
+			last_name='Therapist',
+		)
+		self.current_therapist_profile = TherapistProfile.objects.create(
+			user=self.current_therapist_user,
+			license_number='LIC-MULTI-001',
+			specialization='CBT',
+		)
+
+		self.new_therapist_user = User.objects.create_user(
+			username='new-therapist',
+			email='new-therapist@example.com',
+			password='testpass123',
+			user_type='therapist',
+			first_name='New',
+			last_name='Therapist',
+		)
+		self.new_therapist_profile = TherapistProfile.objects.create(
+			user=self.new_therapist_user,
+			license_number='LIC-MULTI-002',
+			specialization='DBT',
+		)
+
+		self.patient_user = User.objects.create_user(
+			username='multi-therapist-patient',
+			email='multi-therapist-patient@example.com',
+			password='testpass123',
+			user_type='patient',
+			first_name='Ali',
+			last_name='Raza',
+		)
+		PatientProfile.objects.create(
+			user=self.patient_user,
+			therapist=self.current_therapist_profile,
+			connected_at=timezone.now(),
+		)
+
+	def test_connected_patient_can_request_another_therapist(self):
+		self.client.force_authenticate(user=self.patient_user)
+
+		response = self.client.post(
+			'/api/users/connect-therapist/',
+			{'therapist_pin': self.new_therapist_profile.therapist_pin, 'message': 'Need a second opinion'},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 201)
+		request = ConnectionRequest.objects.filter(
+			patient_user=self.patient_user,
+			therapist=self.new_therapist_profile,
+			status='pending',
+		).first()
+		self.assertIsNotNone(request)

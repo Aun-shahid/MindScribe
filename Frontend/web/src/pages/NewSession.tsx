@@ -60,6 +60,11 @@ const NewSession = () => {
       return;
     }
 
+    if (!formData.consent_recording || !formData.consent_ai_analysis) {
+      alert('Please confirm both consent checkboxes before starting or scheduling the session.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -383,7 +388,7 @@ const NewSession = () => {
             <button
               type="submit"
               className="btn-primary"
-              disabled={loading || !selectedPatient || !formData.consent_recording}
+              disabled={loading || !selectedPatient || !formData.consent_recording || !formData.consent_ai_analysis}
             >
               {loading
                 ? (sessionTiming === 'now' ? 'Creating...' : 'Scheduling...')

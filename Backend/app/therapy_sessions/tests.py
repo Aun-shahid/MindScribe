@@ -75,3 +75,62 @@ class PatientSessionCreationRemovedTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Session.objects.count(), 0)
+
+
+class StartSessionConsentRequirementTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.therapist_user = User.objects.create_user(
+            username='therapist-consent-test',
+            email='therapist-consent@example.com',
+            password='testpass123',
+            user_type='therapist',
+            first_name='Ayesha',
+            last_name='Khan',
+        )
+        self.therapist_profile = TherapistProfile.objects.create(
+            user=self.therapist_user,
+            license_number='LIC-CONSENT-001',
+            specialization='CBT',
+        )
+
+        self.patient_user = User.objects.create_user(
+            username='patient-consent-test',
+            email='patient-consent@example.com',
+            password='testpass123',
+            user_type='patient',
+            first_name='Ali',
+            last_name='Raza',
+        )
+        PatientProfile.objects.create(
+            user=self.patient_user,
+            therapist=self.therapist_profile,
+            connected_at=timezone.now(),
+        )
+
+        self.session = Session.objects.create(
+            patient=self.patient_user,
+            therapist=self.therapist_user,
+            session_type='individual',
+            scheduled_date=timezone.now() + timedelta(days=1),
+            duration_minutes=60,
+            location='Clinic Room 1',
+            status='UPCOMING',
+            consent_recording=True,
+            consent_ai_analysis=False,
+            created_by=self.therapist_user,
+        )
+
+    def test_start_session_requires_both_consents(self):
+        self.client.force_authenticate(user=self.therapist_user)
+
+        response = self.client.post(
+            f'/api/therapy_sessions/sessions/{self.session.id}/start/',
+            {},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, 'UPCOMING')
