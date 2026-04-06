@@ -268,6 +268,16 @@ export default function LoginScreen() {
           >
             <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Verify Email</Text>
           </TouchableOpacity>
+
+          <Text style={styles.testLinkDivider}>|</Text>
+
+          <TouchableOpacity
+            onPress={() => !isLoading && router.push('./reset-confirm')}
+            disabled={isLoading}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Reset Confirm</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -31,7 +31,7 @@ export default function VerifyEmailScreen() {
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
-  const topPad           = insets.top + clamp(height * 0.02, 12, 24);
+  const topPad           = insets.top + clamp(height * 0.075, 44, 88);
   const bottomPad        = clamp(insets.bottom + height * 0.06, 40, 58);
   const hPad             = clamp(width * 0.06, 20, 28);
 
