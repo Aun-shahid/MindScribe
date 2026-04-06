@@ -21,6 +21,8 @@ import StickyHeader from '../components/StickyHeader';
 import { validateDateOfBirthField, validateNameField, validatePhoneField, validateUsernameField } from '../utils/validation';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+const USERNAME_MAX_LENGTH = 30;
+const NAME_MAX_LENGTH = 50;
 
 const CARD_GRAD: readonly [string, string, string] = [
   'rgba(255,179,107,0.11)',
@@ -38,6 +40,13 @@ const FIELDS = [
 ] as const;
 
 type FieldKey = typeof FIELDS[number]['key'];
+
+const FIELD_MAX_LENGTHS: Partial<Record<FieldKey, number>> = {
+  first_name: NAME_MAX_LENGTH,
+  last_name: NAME_MAX_LENGTH,
+  username: USERNAME_MAX_LENGTH,
+  phone_number: 11,
+};
 
 const normalizeDob = (raw?: string): string => {
   const value = (raw || '').trim();
@@ -429,7 +438,7 @@ export default function ProfileEdit() {
                         placeholderTextColor="rgba(184,168,230,0.45)"
                         keyboardType={field.key === 'phone_number' ? 'number-pad' : field.keyboard}
                         autoCapitalize={field.cap}
-                        maxLength={field.key === 'phone_number' ? 11 : undefined}
+                        maxLength={FIELD_MAX_LENGTHS[field.key]}
                       />
                     )}
                   </View>

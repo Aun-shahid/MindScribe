@@ -20,6 +20,12 @@ const getTodayStart = () => {
   return d;
 };
 
+const GOAL_TITLE_MAX_LENGTH = 100;
+const GOAL_DESCRIPTION_MAX_LENGTH = 1200;
+const COUNTER_WARNING_RATIO = 0.8;
+const GOAL_DESCRIPTION_SOFT_MIN_WORDS = 120;
+const GOAL_DESCRIPTION_SOFT_MAX_WORDS = 200;
+
 export default function AddGoalPage() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -79,6 +85,13 @@ export default function AddGoalPage() {
     setLoading(false);
   }, []);
 
+  const titleCharCount = title.length;
+  const descriptionCharCount = description.length;
+  const descriptionWordCount = description.trim().split(/\s+/).filter(Boolean).length;
+  const titleCounterWarn = titleCharCount >= Math.floor(GOAL_TITLE_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const descriptionCounterWarn = descriptionCharCount >= Math.floor(GOAL_DESCRIPTION_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const inSoftWordTarget = descriptionWordCount >= GOAL_DESCRIPTION_SOFT_MIN_WORDS && descriptionWordCount <= GOAL_DESCRIPTION_SOFT_MAX_WORDS;
+
   useFocusEffect(
     useCallback(() => {
       resetForm();
@@ -86,6 +99,14 @@ export default function AddGoalPage() {
   );
 
   const submit = async () => {
+    if (titleCharCount > GOAL_TITLE_MAX_LENGTH) {
+      return Alert.alert('Validation', `Goal title cannot exceed ${GOAL_TITLE_MAX_LENGTH} characters.`);
+    }
+
+    if (descriptionCharCount > GOAL_DESCRIPTION_MAX_LENGTH) {
+      return Alert.alert('Validation', `Goal description cannot exceed ${GOAL_DESCRIPTION_MAX_LENGTH} characters.`);
+    }
+
     const titleValidation = validateMeaningfulTextField(title, 'Goal title', 2, false);
     if (!titleValidation.isValid) {
       return Alert.alert('Validation', titleValidation.message || 'Goal title is required');
@@ -381,7 +402,13 @@ export default function AddGoalPage() {
                 placeholder="E.g., Daily Meditation Practice"
                 placeholderTextColor="rgba(184,168,230,0.45)"
                 style={styles.titleInput}
+                maxLength={GOAL_TITLE_MAX_LENGTH}
               />
+            </View>
+            <View style={styles.counterRowRight}>
+              <Text style={[styles.counterText, titleCounterWarn && styles.counterTextWarn]}>
+                {titleCharCount}/{GOAL_TITLE_MAX_LENGTH}
+              </Text>
             </View>
           </View>
         </View>
@@ -406,7 +433,16 @@ export default function AddGoalPage() {
               placeholderTextColor="rgba(184,168,230,0.45)"
               style={styles.contentInput}
               multiline
+              maxLength={GOAL_DESCRIPTION_MAX_LENGTH}
             />
+            <View style={styles.counterRowSplit}>
+              <Text style={[styles.softTargetText, inSoftWordTarget ? styles.softTargetTextGood : null]}>
+                Soft target: {GOAL_DESCRIPTION_SOFT_MIN_WORDS}-{GOAL_DESCRIPTION_SOFT_MAX_WORDS} words ({descriptionWordCount})
+              </Text>
+              <Text style={[styles.counterText, descriptionCounterWarn && styles.counterTextWarn]}>
+                {descriptionCharCount}/{GOAL_DESCRIPTION_MAX_LENGTH}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -679,6 +715,36 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   progressPercent: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  counterRowRight: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  counterRowSplit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 10,
+  },
+  counterText: {
+    color: '#9D8EC7',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  counterTextWarn: {
+    color: '#FFB36B',
+    fontWeight: '700',
+  },
+  softTargetText: {
+    color: '#9D8EC7',
+    fontSize: 11,
+    flex: 1,
+  },
+  softTargetTextGood: {
+    color: '#8DE0B5',
+    fontWeight: '700',
+  },
   priorityRow: { flexDirection: 'row', marginTop: 4 },
   priorityPill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#5B5270', marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   priorityPillActive: { backgroundColor: '#A78BFA', borderColor: '#A78BFA' },

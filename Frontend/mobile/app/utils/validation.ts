@@ -77,11 +77,22 @@ export interface ValidationResult {
   message?: string;
 }
 
+const USERNAME_REGEX = /^[A-Za-z0-9._-]+$/;
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 30;
+const NAME_MIN_LENGTH = 1;
+const NAME_MAX_LENGTH = 50;
+const EMAIL_MAX_LENGTH = 254;
+
 export const validateEmailField = (email: string): ValidationResult => {
   if (!validateRequired(email)) {
     return { isValid: false, message: 'Email is required.' };
   }
-  if (!validateEmail(email)) {
+  const trimmedEmail = email.trim();
+  if (trimmedEmail.length > EMAIL_MAX_LENGTH) {
+    return { isValid: false, message: `Email must be at most ${EMAIL_MAX_LENGTH} characters long.` };
+  }
+  if (!validateEmail(trimmedEmail)) {
     return { isValid: false, message: 'Please enter a valid email address.' };
   }
   return { isValid: true };
@@ -108,8 +119,15 @@ export const validateUsernameField = (username: string): ValidationResult => {
   if (!validateRequired(username)) {
     return { isValid: false, message: 'Username is required.' };
   }
-  if (username.trim().length < 3) {
-    return { isValid: false, message: 'Username must be at least 3 characters long.' };
+  const trimmed = username.trim();
+  if (trimmed.length < USERNAME_MIN_LENGTH) {
+    return { isValid: false, message: `Username must be at least ${USERNAME_MIN_LENGTH} characters long.` };
+  }
+  if (trimmed.length > USERNAME_MAX_LENGTH) {
+    return { isValid: false, message: `Username must be at most ${USERNAME_MAX_LENGTH} characters long.` };
+  }
+  if (!USERNAME_REGEX.test(trimmed)) {
+    return { isValid: false, message: 'Username can only contain letters, numbers, periods, underscores, and hyphens.' };
   }
   return { isValid: true };
 };
@@ -119,8 +137,11 @@ export const validateNameField = (name: string, fieldName: string): ValidationRe
     return { isValid: false, message: `${fieldName} is required.` };
   }
   const trimmed = name.trim();
-  if (trimmed.length < 2) {
-    return { isValid: false, message: `${fieldName} must be at least 2 characters long.` };
+  if (trimmed.length < NAME_MIN_LENGTH) {
+    return { isValid: false, message: `${fieldName} must be at least ${NAME_MIN_LENGTH} character long.` };
+  }
+  if (trimmed.length > NAME_MAX_LENGTH) {
+    return { isValid: false, message: `${fieldName} must be at most ${NAME_MAX_LENGTH} characters long.` };
   }
   if (!/^[\p{L}\s]+$/u.test(trimmed)) {
     return { isValid: false, message: `${fieldName} can only contain letters and spaces.` };

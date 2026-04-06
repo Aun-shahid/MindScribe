@@ -24,6 +24,9 @@ import { AUTH_MESSAGES } from '../constants/messages';
 import { RegisterRequest } from '../types/auth';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+const USERNAME_MAX_LENGTH = 30;
+const NAME_MAX_LENGTH = 50;
+const EMAIL_MAX_LENGTH = 254;
 
 export default function RegisterScreen() {
   const [role, setRole] = useState<'therapist' | 'patient'>('patient');
@@ -107,13 +110,18 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    const validation = validateRegisterForm(form);
+    const normalizedForm = {
+      ...form,
+      email: form.email.trim().toLowerCase(),
+    };
+
+    const validation = validateRegisterForm(normalizedForm);
     if (!validation.isValid) {
       setValidationErrors(validation.errors);
       return;
     }
     try {
-      await register(form);
+      await register(normalizedForm);
       Alert.alert(
         'Registration Successful',
         'Your account has been created successfully.\n\nPlease verify your email to continue.',
@@ -184,6 +192,7 @@ export default function RegisterScreen() {
             placeholderTextColor="#8D8BA7"
             onChangeText={(text) => handleChange('username', text)}
             value={form.username}
+            maxLength={USERNAME_MAX_LENGTH}
             editable={!isLoading}
           />
           {validationErrors.username && <Text style={styles.fieldErrorText}>{validationErrors.username}</Text>}
@@ -194,8 +203,9 @@ export default function RegisterScreen() {
             placeholder="Enter your email"
             placeholderTextColor="#8D8BA7"
             keyboardType="email-address"
-            onChangeText={(text) => handleChange('email', text)}
+            onChangeText={(text) => handleChange('email', text.toLowerCase())}
             value={form.email}
+            maxLength={EMAIL_MAX_LENGTH}
             editable={!isLoading}
             autoCapitalize="none"
           />
@@ -250,6 +260,7 @@ export default function RegisterScreen() {
             placeholderTextColor="#8D8BA7"
             onChangeText={(text) => handleChange('first_name', text)}
             value={form.first_name}
+            maxLength={NAME_MAX_LENGTH}
             editable={!isLoading}
           />
           {validationErrors.first_name && <Text style={styles.fieldErrorText}>{validationErrors.first_name}</Text>}
@@ -261,6 +272,7 @@ export default function RegisterScreen() {
             placeholderTextColor="#8D8BA7"
             onChangeText={(text) => handleChange('last_name', text)}
             value={form.last_name}
+            maxLength={NAME_MAX_LENGTH}
             editable={!isLoading}
           />
           {validationErrors.last_name && <Text style={styles.fieldErrorText}>{validationErrors.last_name}</Text>}

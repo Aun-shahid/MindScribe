@@ -42,6 +42,9 @@ const CARD_GRAD: readonly [string, string, string] = [
 ];
 const CARD_BG     = '#3F3752';
 const CARD_BORDER = 'rgba(255,255,255,0.16)';
+const JOURNAL_TITLE_MAX_LENGTH = 120;
+const JOURNAL_CONTENT_MAX_LENGTH = 4000;
+const COUNTER_WARNING_RATIO = 0.8;
 
 export default function JournalEdit() {
   const { width, height } = useWindowDimensions();
@@ -115,6 +118,11 @@ export default function JournalEdit() {
     entry_date: new Date().toISOString().split('T')[0],
   });
 
+  const titleCharCount = (formData.title || '').length;
+  const contentCharCount = (formData.content || '').length;
+  const titleNearLimit = titleCharCount >= Math.floor(JOURNAL_TITLE_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const contentNearLimit = contentCharCount >= Math.floor(JOURNAL_CONTENT_MAX_LENGTH * COUNTER_WARNING_RATIO);
+
   const loadEntry = useCallback(async () => {
     if (!id) return;
     try {
@@ -187,6 +195,16 @@ export default function JournalEdit() {
   };
 
   const handleSubmit = async () => {
+    if (titleCharCount > JOURNAL_TITLE_MAX_LENGTH) {
+      Alert.alert('Validation', `Title cannot exceed ${JOURNAL_TITLE_MAX_LENGTH} characters.`);
+      return;
+    }
+
+    if (contentCharCount > JOURNAL_CONTENT_MAX_LENGTH) {
+      Alert.alert('Validation', `Content cannot exceed ${JOURNAL_CONTENT_MAX_LENGTH} characters.`);
+      return;
+    }
+
     const titleValidation = validateMeaningfulTextField(formData.title || '', 'Title', 2, false);
     if (!titleValidation.isValid) {
       Alert.alert('Invalid Title', titleValidation.message || 'Please add a valid title to your journal entry');
@@ -324,8 +342,14 @@ export default function JournalEdit() {
                     placeholder="Give your entry a title..."
                     placeholderTextColor="rgba(184,168,230,0.45)"
                     value={formData.title}
+                    maxLength={JOURNAL_TITLE_MAX_LENGTH}
                     onChangeText={(text) => setFormData((prev) => ({ ...prev, title: text }))}
                   />
+                </View>
+                <View style={s.counterRow}>
+                  <Text style={[s.counterText, titleNearLimit && s.counterWarning]}>
+                    {titleCharCount}/{JOURNAL_TITLE_MAX_LENGTH}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -354,11 +378,17 @@ export default function JournalEdit() {
                   placeholder="Start writing... Express yourself freely."
                   placeholderTextColor="rgba(184,168,230,0.45)"
                   value={formData.content}
+                  maxLength={JOURNAL_CONTENT_MAX_LENGTH}
                   onChangeText={(text) => setFormData((prev) => ({ ...prev, content: text }))}
                   multiline
                   numberOfLines={12}
                   textAlignVertical="top"
                 />
+                <View style={[s.counterRow, { marginTop: 8 }]}> 
+                  <Text style={[s.counterText, contentNearLimit && s.counterWarning]}>
+                    {contentCharCount}/{JOURNAL_CONTENT_MAX_LENGTH}
+                  </Text>
+                </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' }}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFB36B', opacity: 0.7 }} />
                   <Text style={{ color: '#9D8EC7', fontSize: wordCntSz, fontStyle: 'italic' }}>{wordCount} words</Text>
@@ -481,4 +511,16 @@ const s = StyleSheet.create({
   },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBadge:     { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  counterText: {
+    color: '#9D8EC7',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  counterWarning: {
+    color: '#FFB36B',
+  },
 });
