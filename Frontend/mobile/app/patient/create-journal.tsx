@@ -69,6 +69,10 @@ const CARD_GRAD: readonly [string, string, string] = [
   'rgba(52,41,73,0.72)',
 ];
 
+const JOURNAL_TITLE_MAX_LENGTH = 120;
+const JOURNAL_CONTENT_MAX_LENGTH = 4000;
+const COUNTER_WARNING_RATIO = 0.8;
+
 export default function CreateJournal() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -213,6 +217,15 @@ export default function CreateJournal() {
   };
 
   const handleSubmit = async (retryCount = 0) => {
+    if ((formData.title || '').length > JOURNAL_TITLE_MAX_LENGTH) {
+      Alert.alert('Invalid Title', `Title cannot exceed ${JOURNAL_TITLE_MAX_LENGTH} characters.`);
+      return;
+    }
+    if ((formData.content || '').length > JOURNAL_CONTENT_MAX_LENGTH) {
+      Alert.alert('Invalid Content', `Content cannot exceed ${JOURNAL_CONTENT_MAX_LENGTH} characters.`);
+      return;
+    }
+
     const titleValidation = validateMeaningfulTextField(formData.title, 'Title', 2, false);
     if (!titleValidation.isValid) {
       Alert.alert('Invalid Title', titleValidation.message || 'Please add a valid title to your journal entry');
@@ -253,6 +266,10 @@ export default function CreateJournal() {
   };
 
   const wordCount = formData.content.trim().split(/\s+/).filter((w) => w).length;
+  const titleCharCount = (formData.title || '').length;
+  const contentCharCount = (formData.content || '').length;
+  const titleCounterWarn = titleCharCount >= Math.floor(JOURNAL_TITLE_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const contentCounterWarn = contentCharCount >= Math.floor(JOURNAL_CONTENT_MAX_LENGTH * COUNTER_WARNING_RATIO);
 
   // ── back handler — goes to journal-list ──────────────────────────────────
   const handleBack = () => router.push('./journal-list');
@@ -409,7 +426,13 @@ export default function CreateJournal() {
                     placeholderTextColor="rgba(184,168,230,0.45)"
                     value={formData.title}
                     onChangeText={(text) => setFormData((prev) => ({ ...prev, title: text }))}
+                    maxLength={JOURNAL_TITLE_MAX_LENGTH}
                   />
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <Text style={{ color: titleCounterWarn ? C.orange : C.textMuted, fontSize: clamp(width * 0.031, 11, 12), fontWeight: titleCounterWarn ? '700' : '500' }}>
+                    {titleCharCount}/{JOURNAL_TITLE_MAX_LENGTH}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -448,10 +471,16 @@ export default function CreateJournal() {
                   multiline
                   numberOfLines={12}
                   textAlignVertical="top"
+                  maxLength={JOURNAL_CONTENT_MAX_LENGTH}
                 />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange, opacity: 0.7 }} />
-                  <Text style={{ color: C.textMuted, fontSize: wordCntSz, fontStyle: 'italic' }}>{wordCount} words</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.orange, opacity: 0.7 }} />
+                    <Text style={{ color: C.textMuted, fontSize: wordCntSz, fontStyle: 'italic' }}>{wordCount} words</Text>
+                  </View>
+                  <Text style={{ color: contentCounterWarn ? C.orange : C.textMuted, fontSize: wordCntSz, fontWeight: contentCounterWarn ? '700' : '500' }}>
+                    {contentCharCount}/{JOURNAL_CONTENT_MAX_LENGTH}
+                  </Text>
                 </View>
               </View>
             </View>

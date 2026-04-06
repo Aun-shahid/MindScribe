@@ -140,7 +140,7 @@ class SessionCreateSerializer(serializers.ModelSerializer):
         try:
             patient = User.objects.get(id=value, user_type='patient')
             therapist = self.context['request'].user
-            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.therapist or patient.patient_profile.therapist.user != therapist:
+            if not hasattr(patient, 'patient_profile') or not patient.patient_profile.is_connected_to_therapist(therapist.therapist_profile):
                 raise serializers.ValidationError("Patient is not connected to this therapist.")
             return value
         except User.DoesNotExist:
@@ -308,6 +308,15 @@ class PatientListSerializer(serializers.ModelSerializer):
     def get_patient_profile(self, obj):
         try:
             profile = obj.patient_profile
+            connected_at = profile.connected_at
+            request = self.context.get('request')
+            if request and getattr(request.user, 'user_type', None) == 'therapist':
+                therapist_profile = getattr(request.user, 'therapist_profile', None)
+                if therapist_profile:
+                    link = profile.therapist_connections.filter(therapist=therapist_profile).first()
+                    if link:
+                        connected_at = link.connected_at
+
             return {
                 'patient_id': profile.patient_id,
                 'primary_concern': profile.primary_concern,
@@ -320,7 +329,7 @@ class PatientListSerializer(serializers.ModelSerializer):
                 'medical_history': profile.medical_history,
                 'current_medications': profile.current_medications,
                 'preferred_language': profile.preferred_language,
-                'connected_at': profile.connected_at,
+                'connected_at': connected_at,
             }
         except:
             return None

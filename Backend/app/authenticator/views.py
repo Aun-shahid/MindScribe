@@ -2,7 +2,9 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.contrib.auth import get_user_model, authenticate, logout
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
@@ -14,9 +16,10 @@ from .models import PasswordResetToken, EmailVerificationToken
 from .token_manager import TokenManager
 from .services.email_service import ResendEmailService
 from .serializers import (
-    LoginSerializer, RegisterSerializer, UserProfileSerializer, 
+    LoginSerializer, RegisterSerializer, UserProfileSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer, EmailVerificationSerializer
+    PasswordResetConfirmSerializer, EmailVerificationSerializer,
+    DeleteAccountSerializer,
 )
 from users.models import TherapistProfile
 from users.services import AccountLinkingService
@@ -40,7 +43,8 @@ class LoginView(APIView):
         request=LoginSerializer,
         responses={
             200: OpenApiResponse(description='Login successful, tokens issued.'),
-            401: OpenApiResponse(description='Invalid credentials.')
+            401: OpenApiResponse(description='Invalid credentials.'),
+            403: OpenApiResponse(description='Email not verified; sign-in is blocked until verification.'),
         },
         summary="User Login",
         description="Authenticate user with email and password, returning access and refresh tokens."
@@ -52,6 +56,18 @@ class LoginView(APIView):
             password = serializer.validated_data['password']
             user = authenticate(request, email=email, password=password)
             if user is not None:
+                if not user.email_verified:
+                    return Response(
+                        {
+                            'detail': (
+                                'This account is not verified yet. Please verify your email '
+                                'before signing in (check your inbox for the verification code).'
+                            ),
+                            'code': 'email_not_verified',
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 # Use token manager to create tokens
                 tokens = TokenManager.create_tokens(user, request)
                 
@@ -186,63 +202,87 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
 
         therapist_pin = None
         account_linking_info = None
+        user = None
 
-        # Handle therapist profile creation
-        if user.user_type == 'therapist':
-            extra = getattr(user, '_extra_profile_data', {})
-            license_number = extra.get('license_number')
-            specialization = extra.get('specialization')
+        try:
+            with transaction.atomic():
+                user = serializer.save()
 
-            # Create the therapist profile
-            therapist_profile = TherapistProfile.objects.create(
-                user=user,
-                license_number=license_number,
-                specialization=specialization,
-            )
-            therapist_pin = therapist_profile.therapist_pin
-        
-        # Handle account linking for patients
-        elif user.user_type == 'patient':
-            # Attempt to detect and link with existing therapist-created patient profile
-            linked, message, linked_profile = AccountLinkingService.detect_and_link_during_registration(user)
-            
-            if linked and linked_profile:
-                account_linking_info = {
-                    'account_linked': True,
-                    'message': message,
-                    'therapist_info': {
-                        'id': str(linked_profile.therapist.user.id),
-                        'name': linked_profile.therapist.user.full_name,
-                        'specialization': linked_profile.therapist.specialization,
-                        'clinic_name': linked_profile.therapist.clinic_name
+                # Handle therapist profile creation (same transaction as user — rolls back if this fails)
+                if user.user_type == 'therapist':
+                    extra = getattr(user, '_extra_profile_data', {})
+                    license_number = extra.get('license_number')
+                    specialization = extra.get('specialization')
+
+                    therapist_profile = TherapistProfile.objects.create(
+                        user=user,
+                        license_number=license_number,
+                        specialization=specialization,
+                    )
+                    therapist_pin = therapist_profile.therapist_pin
+
+                # Handle account linking for patients
+                elif user.user_type == 'patient':
+                    linked, message, linked_profile = AccountLinkingService.detect_and_link_during_registration(
+                        user
+                    )
+
+                    if linked and linked_profile:
+                        account_linking_info = {
+                            'account_linked': True,
+                            'message': message,
+                            'therapist_info': {
+                                'id': str(linked_profile.therapist.user.id),
+                                'name': linked_profile.therapist.user.full_name,
+                                'specialization': linked_profile.therapist.specialization,
+                                'clinic_name': linked_profile.therapist.clinic_name
+                            },
+                            'patient_id': linked_profile.patient_id,
+                            'linked_at': linked_profile.linked_at
+                        }
+                        print(f"Account linked for {user.email} with patient profile {linked_profile.patient_id}")
+                    else:
+                        account_linking_info = {
+                            'account_linked': False,
+                            'message': message
+                        }
+
+                # Email verification token/code (committed with registration)
+                token = uuid.uuid4()
+                verification_code = _generate_email_verification_code()
+                expires_at = timezone.now() + timedelta(days=1)
+
+                EmailVerificationToken.objects.filter(user=user, is_used=False).delete()
+
+                EmailVerificationToken.objects.create(
+                    user=user,
+                    token=token,
+                    verification_code=verification_code,
+                    expires_at=expires_at
+                )
+
+        except IntegrityError as exc:
+            err_text = str(exc).lower()
+            if 'license_number' in err_text:
+                return Response(
+                    {
+                        'license_number': [
+                            'A therapist with this license number already exists.'
+                        ]
                     },
-                    'patient_id': linked_profile.patient_id,
-                    'linked_at': linked_profile.linked_at
-                }
-                print(f"Account linked for {user.email} with patient profile {linked_profile.patient_id}")
-            else:
-                account_linking_info = {
-                    'account_linked': False,
-                    'message': message
-                }
-
-        # Email verification token/code
-        token = uuid.uuid4()
-        verification_code = _generate_email_verification_code()
-        expires_at = timezone.now() + timedelta(days=1)
-
-        EmailVerificationToken.objects.filter(user=user, is_used=False).delete()
-
-        EmailVerificationToken.objects.create(
-            user=user,
-            token=token,
-            verification_code=verification_code,
-            expires_at=expires_at
-        )
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                {
+                    'detail': (
+                        'Registration could not be completed. This email or username may already be in use.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         email_sent, email_message = ResendEmailService.send_verification_email(user, verification_code)
         if not email_sent:
@@ -269,6 +309,7 @@ class RegisterView(generics.CreateAPIView):
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_object(self):
         return self.request.user
@@ -466,6 +507,39 @@ class EmailVerificationView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeleteAccountSerializer
+
+    @extend_schema(
+        request=DeleteAccountSerializer,
+        responses={
+            200: OpenApiResponse(description='User account and related data deleted.'),
+            400: OpenApiResponse(description='Invalid password.'),
+        },
+        summary='Delete account',
+        description='Permanently delete the authenticated user and related data. Requires current password.',
+    )
+    def post(self, request):
+        serializer = DeleteAccountSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        password = serializer.validated_data['password']
+        user = request.user
+        if not user.check_password(password):
+            return Response({'password': ['Wrong password.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh_token = request.data.get('refresh')
+        if refresh_token:
+            try:
+                TokenManager.blacklist_refresh_token(refresh_token)
+            except Exception:
+                pass
+
+        user.delete()
+        return Response({'detail': 'Account deleted.'}, status=status.HTTP_200_OK)
 
 
 class RefreshTokenView(APIView):

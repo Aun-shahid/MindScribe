@@ -17,6 +17,11 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 const CARD_GRADIENT_COLORS = ['rgba(255,179,107,0.11)', 'rgba(167,139,250,0.08)', 'rgba(52,41,73,0.72)'] as const;
 const CARD_BG     = '#3F3752';
 const CARD_BORDER = 'rgba(255,255,255,0.16)';
+const GOAL_TITLE_MAX_LENGTH = 100;
+const GOAL_DESCRIPTION_MAX_LENGTH = 1200;
+const COUNTER_WARNING_RATIO = 0.8;
+const GOAL_DESCRIPTION_SOFT_WORD_MIN = 120;
+const GOAL_DESCRIPTION_SOFT_WORD_MAX = 200;
 
 const getTodayStart = () => {
   const d = new Date();
@@ -64,6 +69,15 @@ export default function UpdateGoalPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [progress,    setProgress]    = useState('0');
   const [goalId,      setGoalId]      = useState<string | null>(null);
+
+  const titleCharCount = title.length;
+  const descriptionCharCount = description.length;
+  const descriptionWordCount = description.trim().split(/\s+/).filter(Boolean).length;
+  const titleNearLimit = titleCharCount >= Math.floor(GOAL_TITLE_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const descriptionNearLimit = descriptionCharCount >= Math.floor(GOAL_DESCRIPTION_MAX_LENGTH * COUNTER_WARNING_RATIO);
+  const descriptionWithinSoftTarget =
+    descriptionWordCount >= GOAL_DESCRIPTION_SOFT_WORD_MIN &&
+    descriptionWordCount <= GOAL_DESCRIPTION_SOFT_WORD_MAX;
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -167,6 +181,14 @@ export default function UpdateGoalPage() {
 
   const submit = async () => {
     if (!goalId) return;
+
+    if (titleCharCount > GOAL_TITLE_MAX_LENGTH) {
+      return Alert.alert('Validation', `Goal title cannot exceed ${GOAL_TITLE_MAX_LENGTH} characters.`);
+    }
+
+    if (descriptionCharCount > GOAL_DESCRIPTION_MAX_LENGTH) {
+      return Alert.alert('Validation', `Goal description cannot exceed ${GOAL_DESCRIPTION_MAX_LENGTH} characters.`);
+    }
 
     const titleValidation = validateMeaningfulTextField(title, 'Goal title', 2, false);
     if (!titleValidation.isValid) {
@@ -280,8 +302,14 @@ export default function UpdateGoalPage() {
                     value={title} onChangeText={setTitle}
                     placeholder="E.g., Daily Meditation Practice"
                     placeholderTextColor="rgba(184,168,230,0.45)"
+                    maxLength={GOAL_TITLE_MAX_LENGTH}
                     style={{ color:'#FFFFFF', fontSize:inputSize, fontWeight:'600', paddingVertical:clamp(height*0.009,6,9), paddingHorizontal:2, backgroundColor:'transparent', height:clamp(height*0.056,38,46) }}
                   />
+                </View>
+                <View style={styles.counterRow}>
+                  <Text style={[styles.counterText, titleNearLimit && styles.counterWarning]}>
+                    {titleCharCount}/{GOAL_TITLE_MAX_LENGTH}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -305,9 +333,18 @@ export default function UpdateGoalPage() {
                   value={description} onChangeText={setDescription}
                   placeholder="Describe your goal and why it matters to you..."
                   placeholderTextColor="rgba(184,168,230,0.45)"
+                  maxLength={GOAL_DESCRIPTION_MAX_LENGTH}
                   multiline numberOfLines={4} textAlignVertical="top"
                   style={{ color:'#FFFFFF', fontSize:clamp(width*0.039,14,16), paddingVertical:clamp(height*0.016,10,14), paddingHorizontal:2, backgroundColor:'transparent', minHeight:descInputHeight, lineHeight:clamp(width*0.039,14,16)*1.55 }}
                 />
+                <View style={[styles.counterRow, { marginTop: 8 }]}> 
+                  <Text style={[styles.counterText, descriptionNearLimit && styles.counterWarning]}>
+                    {descriptionCharCount}/{GOAL_DESCRIPTION_MAX_LENGTH}
+                  </Text>
+                </View>
+                <Text style={[styles.softTargetText, descriptionWithinSoftTarget && styles.softTargetGood]}>
+                  Word target: {GOAL_DESCRIPTION_SOFT_WORD_MIN}-{GOAL_DESCRIPTION_SOFT_WORD_MAX} words (current: {descriptionWordCount})
+                </Text>
               </View>
             </View>
 
@@ -530,6 +567,27 @@ const styles = StyleSheet.create({
   },
   dateActionTextPrimary: {
     color: '#FFFFFF',
+  },
+
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  counterText: {
+    color: '#9D8EC7',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  counterWarning: {
+    color: '#FFB36B',
+  },
+  softTargetText: {
+    color: '#9D8EC7',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  softTargetGood: {
+    color: '#6EE7B7',
   },
 
   saveBtn:  { width:'100%', alignItems:'center', justifyContent:'center', shadowColor:'#1F103D', shadowOpacity:0.24, shadowOffset:{width:0,height:8}, shadowRadius:16, elevation:6 },

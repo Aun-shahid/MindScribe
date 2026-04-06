@@ -13,6 +13,8 @@ interface User {
   is_verified?: boolean;
   first_name?: string;
   last_name?: string;
+  /** Absolute URL from `/authenticator/profile/` (same as therapist profile). */
+  avatar_url?: string | null;
 }
 
 interface AuthError {
@@ -21,9 +23,13 @@ interface AuthError {
   details?: any;
 }
 
+export type LoginResult =
+  | { success: true }
+  | { success: false; message: string };
+
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   register: (userData: any) => Promise<{ success: boolean; needsVerification?: boolean; user?: any }>;
   logout: () => void;
   loading: boolean;
@@ -73,18 +79,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       setLoading(true);
       const response = await authService.login({ email, password });
       if (response.user) {
         setUser(response.user);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: 'Login failed.' };
     } catch (error) {
       console.error('Login failed:', error);
-      return false;
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Invalid email or password.';
+      return { success: false, message };
     } finally {
       setLoading(false);
     }

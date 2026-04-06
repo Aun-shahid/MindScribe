@@ -56,13 +56,18 @@ class AuthService {
   async login(data: LoginData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/login/', data);
-      
-      // Store tokens
+
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      return response.data;
+
+      try {
+        const full = await this.getProfile();
+        localStorage.setItem('user', JSON.stringify(full));
+        return { ...response.data, user: full as AuthResponse['user'] };
+      } catch {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return response.data;
+      }
     } catch (error: any) {
       throw this.handleError(error);
     }
@@ -71,14 +76,19 @@ class AuthService {
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/register/', data);
-      
-      // Store tokens if provided
+
       if (response.data.access && response.data.refresh) {
         localStorage.setItem('access_token', response.data.access);
         localStorage.setItem('refresh_token', response.data.refresh);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        try {
+          const full = await this.getProfile();
+          localStorage.setItem('user', JSON.stringify(full));
+          return { ...response.data, user: full as AuthResponse['user'] };
+        } catch {
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
       }
-      
+
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -146,9 +156,39 @@ class AuthService {
     }
   }
 
-  async changePassword(data: { old_password: string; new_password: string }): Promise<void> {
+  async changePassword(data: {
+    old_password: string;
+    new_password: string;
+    new_password_confirm?: string;
+  }): Promise<void> {
     try {
-      await api.post('/authenticator/change-password/', data);
+      const response = await api.post<{
+        access?: string;
+        refresh?: string;
+        detail?: string;
+      }>('/authenticator/change-password/', {
+        old_password: data.old_password,
+        new_password: data.new_password,
+        new_password_confirm: data.new_password_confirm ?? data.new_password,
+      });
+      if (response.data.access) {
+        localStorage.setItem('access_token', response.data.access);
+      }
+      if (response.data.refresh) {
+        localStorage.setItem('refresh_token', response.data.refresh);
+      }
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteAccount(data: { password: string }): Promise<void> {
+    try {
+      const refresh = localStorage.getItem('refresh_token') || undefined;
+      await api.post('/authenticator/account/delete/', {
+        password: data.password,
+        ...(refresh ? { refresh } : {}),
+      });
     } catch (error: any) {
       throw this.handleError(error);
     }
@@ -218,8 +258,14 @@ class AuthService {
         return new Error(data || `Request failed with status ${error.response?.status}`);
       }
       
-      if (data.detail) {
-        return new Error(data.detail);
+      if (data.detail != null && data.detail !== '') {
+        const detail = data.detail;
+        const text = Array.isArray(detail)
+          ? detail.map(String).join(' ')
+          : typeof detail === 'string'
+            ? detail
+            : String(detail);
+        return new Error(text);
       }
       
       if (data.non_field_errors && Array.isArray(data.non_field_errors)) {

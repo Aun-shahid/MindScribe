@@ -177,6 +177,13 @@ export default function SessionsScreen() {
     setSelectedSession(null);
   };
 
+  const openSessionDetailPage = () => {
+    if (!selectedSession?.id) return;
+    const sessionId = String(selectedSession.id);
+    closeSessionModal();
+    router.push(`./session-detail?id=${sessionId}` as any);
+  };
+
   const formatStatus = (status?: string | null) => {
     if (!status) return '';
     return String(status).replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -394,6 +401,14 @@ export default function SessionsScreen() {
                   </View>
                 </View>
                 <View style={styles.modalFooterNoteWrap}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={openSessionDetailPage}
+                    style={styles.modalDetailButton}
+                  >
+                    <MaterialIcons name="open-in-new" size={16} color="#FFFFFF" />
+                    <Text style={styles.modalDetailButtonText}>Open Full Session Details</Text>
+                  </TouchableOpacity>
                   <Text style={styles.modalFooterNote}>Tap outside or use the close button to dismiss.</Text>
                 </View>
               </LinearGradient>
@@ -496,5 +511,23 @@ const styles = StyleSheet.create({
   modalInfoLabel:        { color: '#9D8EC7', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700', marginBottom: 5 },
   modalInfoValue:        { color: '#FFFFFF', fontWeight: '700', lineHeight: 21 },
   modalFooterNoteWrap:   { marginTop: 16, paddingTop: 14, paddingBottom: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  modalDetailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(167,139,250,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 10,
+  },
+  modalDetailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   modalFooterNote:       { color: '#B8A8E6', fontSize: 12, lineHeight: 18, textAlign: 'center' },
 });

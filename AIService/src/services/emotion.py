@@ -30,6 +30,7 @@ from ..config import settings
 from ..schemas import (
     CombinedEmotionResult, AudioEmotionResult, TextEmotionResult, EmotionLabel
 )
+from .anonymization import anonymize_text_for_privacy
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +309,8 @@ async def _analyze_text_emotion_with_gpt(
             "Use this as a weak prior to correct textual ambiguity, not as hard truth."
         )
 
+    safe_text = anonymize_text_for_privacy(text)
+
     prompt = (
         "Classify the emotion of this therapy transcript segment.\n"
         "Return strict JSON only with this schema:\n"
@@ -316,7 +319,7 @@ async def _analyze_text_emotion_with_gpt(
         "\"all_scores\": {\"joy\":0-1,\"sadness\":0-1,\"anger\":0-1,\"neutral\":0-1,\"surprise\":0-1,\"disgust\":0-1,\"fear\":0-1}}\n"
         "Confidence should reflect certainty of the chosen primary emotion.\n"
         f"Audio prior: {audio_context}\n"
-        f"Text: \"{text}\""
+        f"Text: \"{safe_text}\""
     )
 
     request_kwargs: Dict[str, Any] = {
@@ -424,6 +427,19 @@ def _analyze_text_emotion_sync(text: str) -> TextEmotionResult:
 # GPT Fusion (standalone — imported by session.py)
 # ============================================================================
 
+def _calibrate_audio_for_fusion(audio_result: AudioEmotionResult) -> tuple[EmotionLabel, float]:
+    thresholds = {
+        EmotionLabel.SADNESS: 0.75,
+        EmotionLabel.FEAR: 0.80,
+        EmotionLabel.JOY: 0.70,
+    }
+    label = audio_result.primary_emotion
+    conf = max(0.0, min(1.0, float(audio_result.confidence)))
+    threshold = thresholds.get(label)
+    if threshold is not None and conf < threshold:
+        return EmotionLabel.NEUTRAL, conf * 0.85
+    return label, conf
+
 async def _fuse_emotions_with_gpt(
     audio_result: AudioEmotionResult,
     text_result: TextEmotionResult,
@@ -434,13 +450,28 @@ async def _fuse_emotions_with_gpt(
 
     Returns (final_emotion, final_confidence).
     """
-    if text_result.primary_emotion != EmotionLabel.UNKNOWN:
-        confidence = max(0.0, min(1.0, text_result.confidence))
-        if text_result.primary_emotion == audio_result.primary_emotion:
-            confidence = min(0.98, max(confidence, audio_result.confidence) * 0.95)
-        return text_result.primary_emotion, confidence
+    audio_label, audio_conf = _calibrate_audio_for_fusion(audio_result)
+    text_label = text_result.primary_emotion
+    text_conf = max(0.0, min(1.0, float(text_result.confidence)))
+    agreement = (audio_label == text_label)
 
-    return audio_result.primary_emotion, max(0.0, min(1.0, audio_result.confidence))
+    if text_label != EmotionLabel.UNKNOWN and text_conf >= 0.70:
+        final_label = text_label
+        final_conf = text_conf
+    elif audio_label != EmotionLabel.UNKNOWN and audio_conf >= 0.85:
+        final_label = audio_label
+        final_conf = audio_conf
+    elif text_label != EmotionLabel.UNKNOWN:
+        final_label = text_label
+        final_conf = text_conf
+    else:
+        final_label = audio_label
+        final_conf = audio_conf
+
+    if agreement:
+        final_conf = min(0.98, max(final_conf, audio_conf, text_conf) * 0.95)
+
+    return final_label, final_conf
 
 
 # ============================================================================

@@ -5,7 +5,7 @@ Uses configured LLM providers for SOAP note generation.
 from ..database import async_session_maker, SOAPNoteDB
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 import asyncio
 from datetime import datetime
@@ -26,6 +26,101 @@ router = APIRouter()
 
 # In-memory SOAP notes storage (for production, use database)
 soap_notes_store: dict[str, SOAPNote] = {}
+
+
+def _soap_note_from_db_row(db_note: SOAPNoteDB, session_id: str) -> SOAPNote:
+    if isinstance(db_note.raw_json, dict):
+        try:
+            parsed = SOAPNote.model_validate(db_note.raw_json)
+            return parsed
+        except Exception:
+            pass
+
+    return SOAPNote(
+        session_id=session_id,
+        subjective=SOAPNoteSection(content=db_note.subjective or ""),
+        objective=SOAPNoteSection(content=db_note.objective or ""),
+        assessment=SOAPNoteSection(content=db_note.assessment or ""),
+        plan=SOAPNoteSection(content=db_note.plan or ""),
+        status="draft",
+        is_finalized=False,
+        emotional_summary=None,
+        generated_at=db_note.created_at or datetime.utcnow(),
+        model_version="unknown",
+    )
+
+
+async def _upsert_soap_db_note(session_id: str, soap_note: SOAPNote) -> None:
+    payload: Dict[str, Any] = soap_note.model_dump(mode="json")
+
+    async with async_session_maker() as db:
+        existing_result = await db.execute(
+            select(SOAPNoteDB)
+            .where(SOAPNoteDB.session_id == session_id)
+            .order_by(SOAPNoteDB.created_at.desc())
+            .limit(1)
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        if existing:
+            existing.subjective = soap_note.subjective.content
+            existing.objective = soap_note.objective.content
+            existing.assessment = soap_note.assessment.content
+            existing.plan = soap_note.plan.content
+            existing.raw_json = payload
+        else:
+            db.add(
+                SOAPNoteDB(
+                    session_id=session_id,
+                    subjective=soap_note.subjective.content,
+                    objective=soap_note.objective.content,
+                    assessment=soap_note.assessment.content,
+                    plan=soap_note.plan.content,
+                    raw_json=payload,
+                )
+            )
+
+        await db.commit()
+
+
+async def ensure_soap_note_generated(
+    session_id: str,
+    transcript: FullTranscript,
+    include_emotions: bool = True,
+    additional_context: Optional[str] = None,
+) -> SOAPNote:
+    cached = soap_notes_store.get(session_id)
+    if cached:
+        return cached
+
+    async with async_session_maker() as db:
+        existing_result = await db.execute(
+            select(SOAPNoteDB)
+            .where(SOAPNoteDB.session_id == session_id)
+            .order_by(SOAPNoteDB.created_at.desc())
+            .limit(1)
+        )
+        existing = existing_result.scalar_one_or_none()
+
+    if existing:
+        note = _soap_note_from_db_row(existing, session_id)
+        soap_notes_store[session_id] = note
+        return note
+
+    note = await generate_soap_notes(
+        session_id=session_id,
+        transcript=transcript,
+        include_emotions=include_emotions,
+        additional_context=additional_context,
+    )
+    note.status = "draft"
+    note.is_finalized = False
+    note.finalized_at = None
+    note.finalized_by = None
+
+    soap_notes_store[session_id] = note
+    await _upsert_soap_db_note(session_id, note)
+    return note
 
 
 @router.post("/{session_id}/generate", response_model=SOAPGenerateResponse)
@@ -145,28 +240,20 @@ async def generate_soap(
                 )
             )
 
-        # Generate SOAP notes
+        # Generate SOAP notes as editable draft.
         soap_note = await generate_soap_notes(
             session_id=session_id,
             transcript=transcript,
             include_emotions=request.include_emotions,
             additional_context=request.additional_context
         )
+        soap_note.status = "draft"
+        soap_note.is_finalized = False
+        soap_note.finalized_at = None
+        soap_note.finalized_by = None
 
-        # Store in memory
         soap_notes_store[session_id] = soap_note
-        async with async_session_maker() as db:
-            db_note = SOAPNoteDB(
-                session_id=session_id,
-                subjective=soap_note.subjective.content,
-                objective=soap_note.objective.content,
-                assessment=soap_note.assessment.content,
-                plan=soap_note.plan.content,
-                raw_json=json.loads(soap_note.json()),
-            )
-
-            db.add(db_note)
-            await db.commit()
+        await _upsert_soap_db_note(session_id, soap_note)
         # Calculate processing time
         processing_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
@@ -212,6 +299,15 @@ async def get_soap_status(
             pipeline_done = True
 
     soap_ready = session_id in soap_notes_store
+    if not soap_ready:
+        async with async_session_maker() as db:
+            result = await db.execute(
+                select(SOAPNoteDB.id)
+                .where(SOAPNoteDB.session_id == session_id)
+                .order_by(SOAPNoteDB.created_at.desc())
+                .limit(1)
+            )
+            soap_ready = result.scalar_one_or_none() is not None
 
     return {
         "session_id": session_id,
@@ -248,24 +344,7 @@ async def get_soap_notes(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="SOAP notes not found for this session. Please generate them first."
             )
-
-        if isinstance(db_note.raw_json, dict):
-            try:
-                soap_note = SOAPNote.model_validate(db_note.raw_json)
-            except Exception:
-                soap_note = None
-
-        if not soap_note:
-            soap_note = SOAPNote(
-                session_id=session_id,
-                subjective=SOAPNoteSection(content=db_note.subjective or ""),
-                objective=SOAPNoteSection(content=db_note.objective or ""),
-                assessment=SOAPNoteSection(content=db_note.assessment or ""),
-                plan=SOAPNoteSection(content=db_note.plan or ""),
-                emotional_summary=None,
-                generated_at=db_note.created_at or datetime.utcnow(),
-                model_version="unknown",
-            )
+        soap_note = _soap_note_from_db_row(db_note, session_id)
 
         # Warm in-memory cache for subsequent requests.
         soap_notes_store[session_id] = soap_note
@@ -287,10 +366,22 @@ async def update_soap_notes(
 
     existing = soap_notes_store.get(session_id)
     if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SOAP notes not found for this session"
-        )
+        async with async_session_maker() as db:
+            result = await db.execute(
+                select(SOAPNoteDB)
+                .where(SOAPNoteDB.session_id == session_id)
+                .order_by(SOAPNoteDB.created_at.desc())
+                .limit(1)
+            )
+            db_note = result.scalar_one_or_none()
+
+        if not db_note:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="SOAP notes not found for this session"
+            )
+
+        existing = _soap_note_from_db_row(db_note, session_id)
 
     # Update only provided fields
     if request.subjective is not None:
@@ -302,8 +393,19 @@ async def update_soap_notes(
     if request.plan is not None:
         existing.plan.content = request.plan
 
+    if request.is_finalized is not None:
+        existing.is_finalized = bool(request.is_finalized)
+        existing.status = "finalized" if existing.is_finalized else "draft"
+        if existing.is_finalized:
+            existing.finalized_at = datetime.utcnow()
+            existing.finalized_by = str(session.therapist_id or "")
+        else:
+            existing.finalized_at = None
+            existing.finalized_by = None
+
     # Update the store
     soap_notes_store[session_id] = existing
+    await _upsert_soap_db_note(session_id, existing)
 
     return existing
 

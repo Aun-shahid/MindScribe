@@ -35,9 +35,6 @@ const PatientSessions = () => {
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
       });
 
-      console.log('[PatientSessions] API Response:', response);
-      console.log('[PatientSessions] Response type:', typeof response);
-      console.log('[PatientSessions] Is array:', Array.isArray(response));
 
       // Backend returns { sessions: { upcoming: [], past: [] }, patient_info, ... }
       // Keep compatibility with any legacy array response shape.
@@ -60,8 +57,6 @@ const PatientSessions = () => {
         return acc;
       }, []);
 
-      console.log('[PatientSessions] Total sessions:', sessionsArray.length);
-      console.log('[PatientSessions] Unique sessions:', uniqueSessions.length);
       setSessions(uniqueSessions);
 
       if (response?.patient_info?.full_name) {

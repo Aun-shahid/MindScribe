@@ -186,11 +186,8 @@ def validate_patient_therapist_connection(patient, therapist):
     if not hasattr(patient, 'patient_profile'):
         raise PatientNotConnectedException("Patient profile not found")
     
-    if not patient.patient_profile.therapist:
+    if not patient.patient_profile.is_connected_to_therapist(getattr(therapist, 'therapist_profile', None)):
         raise PatientNotConnectedException("Patient is not connected to any therapist")
-    
-    if patient.patient_profile.therapist.user != therapist:
-        raise PatientNotConnectedException("Patient is not connected to this therapist")
 
 
 def validate_session_timing(scheduled_date, duration_minutes):

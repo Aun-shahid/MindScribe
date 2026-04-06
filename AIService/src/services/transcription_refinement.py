@@ -12,6 +12,7 @@ import logging
 import os
 
 from .transcription import get_openai_client
+from .anonymization import anonymize_text_for_privacy
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +55,13 @@ async def normalize_segments_for_therapy(
 
         payload = []
         for i, seg in enumerate(chunk):
+            safe_text = anonymize_text_for_privacy(str(seg.get("text", "") or ""))
             payload.append(
                 {
                     "idx": i,
                     "id": seg.get("id", f"seg_{chunk_start + i:04d}"),
                     "speaker_hint": seg.get("speaker", "UNKNOWN"),
-                    "text": seg.get("text", ""),
+                    "text": safe_text,
                 }
             )
 

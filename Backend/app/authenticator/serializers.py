@@ -1,7 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 import uuid
+
+from users.models import TherapistProfile
+from users.serializers import user_avatar_absolute_url, _coerce_clear_avatar
 
 User = get_user_model()
 
@@ -94,6 +98,16 @@ class RegisterSerializer(serializers.ModelSerializer):
     license_number = serializers.CharField(required=False, allow_blank=True)
     specialization = serializers.CharField(required=False, allow_blank=True)
 
+    def validate_license_number(self, value):
+        value = (value or '').strip()
+        if not value:
+            return value
+        if TherapistProfile.objects.filter(license_number=value).exists():
+            raise serializers.ValidationError(
+                'A therapist with this license number already exists.'
+            )
+        return value
+
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password_confirm', 'first_name', 
@@ -138,11 +152,80 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    can_change_username = serializers.SerializerMethodField(read_only=True)
+    next_username_change_at = serializers.SerializerMethodField(read_only=True)
+    avatar_url = serializers.SerializerMethodField(read_only=True)
+    clear_avatar = serializers.BooleanField(write_only=True, required=False)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                  'user_type', 'phone_number', 'date_of_birth', 'email_verified']
-        read_only_fields = ['id', 'email', 'user_type', 'email_verified']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'user_type', 'phone_number', 'date_of_birth', 'email_verified',
+            'can_change_username', 'next_username_change_at',
+            'avatar', 'avatar_url', 'clear_avatar',
+        ]
+        read_only_fields = [
+            'id', 'email', 'user_type', 'email_verified',
+            'can_change_username', 'next_username_change_at', 'avatar_url',
+        ]
+        extra_kwargs = {
+            'avatar': {'write_only': True, 'required': False},
+        }
+
+    def get_can_change_username(self, obj):
+        return obj.can_change_username_now()
+
+    def get_next_username_change_at(self, obj):
+        next_at = obj.next_username_change_allowed_at()
+        if next_at is None or obj.can_change_username_now():
+            return None
+        return next_at.isoformat()
+
+    def get_avatar_url(self, obj):
+        return user_avatar_absolute_url(obj, self.context.get('request'))
+
+    def validate(self, attrs):
+        user = self.instance
+        if not user:
+            return attrs
+        if 'username' in attrs:
+            new_username = (attrs.get('username') or '').strip()
+            if not new_username:
+                raise serializers.ValidationError({'username': ['This field may not be blank.']})
+            attrs['username'] = new_username
+            if new_username != user.username:
+                if not user.can_change_username_now():
+                    next_at = user.next_username_change_allowed_at()
+                    msg = (
+                        f'You can change your username again after {next_at.date().isoformat()}.'
+                        if next_at
+                        else 'You cannot change your username yet.'
+                    )
+                    raise serializers.ValidationError({'username': [msg]})
+                if User.objects.exclude(pk=user.pk).filter(username=new_username).exists():
+                    raise serializers.ValidationError(
+                        {'username': ['This username is already taken.']}
+                    )
+        return attrs
+
+    def update(self, instance, validated_data):
+        clear_avatar = _coerce_clear_avatar(validated_data.pop('clear_avatar', False))
+        avatar = validated_data.pop('avatar', serializers.empty)
+
+        if clear_avatar:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = None
+        elif avatar is not serializers.empty and avatar is not None:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = avatar
+
+        new_username = validated_data.get('username')
+        if new_username is not None and new_username != instance.username:
+            instance.username_last_changed_at = timezone.now()
+        return super().update(instance, validated_data)
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -173,5 +256,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class EmailVerificationSerializer(serializers.Serializer):
     code = serializers.RegexField(regex=r'^\d{6}$', required=True)
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    password = serializers.CharField(required=True, write_only=True)
 
 

@@ -30,7 +30,7 @@ export default function RequestResetScreen() {
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens (all clamp — zero fixed px) ─────────────────────────
-  const topPad        = insets.top + clamp(height * 0.02, 12, 24);
+  const topPad        = insets.top + clamp(height * 0.1, 58, 110);
   const bottomPad     = clamp(insets.bottom + height * 0.06, 40, 58);
   const hPad          = clamp(width * 0.06, 20, 28);
   const kvOffset      = Platform.OS === 'ios' ? insets.top + 8 : 0;

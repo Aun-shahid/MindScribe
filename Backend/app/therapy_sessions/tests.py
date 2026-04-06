@@ -134,3 +134,66 @@ class StartSessionConsentRequirementTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.session.refresh_from_db()
         self.assertEqual(self.session.status, 'UPCOMING')
+
+
+class TherapistPatientsListConnectionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.primary_therapist_user = User.objects.create_user(
+            username='therapist-primary-list',
+            email='therapist-primary-list@example.com',
+            password='testpass123',
+            user_type='therapist',
+            first_name='Primary',
+            last_name='Therapist',
+        )
+        self.primary_therapist_profile = TherapistProfile.objects.create(
+            user=self.primary_therapist_user,
+            license_number='LIC-LIST-001',
+            specialization='CBT',
+        )
+
+        self.secondary_therapist_user = User.objects.create_user(
+            username='therapist-secondary-list',
+            email='therapist-secondary-list@example.com',
+            password='testpass123',
+            user_type='therapist',
+            first_name='Secondary',
+            last_name='Therapist',
+        )
+        self.secondary_therapist_profile = TherapistProfile.objects.create(
+            user=self.secondary_therapist_user,
+            license_number='LIC-LIST-002',
+            specialization='DBT',
+        )
+
+        self.patient_user = User.objects.create_user(
+            username='list-connection-patient',
+            email='list-connection-patient@example.com',
+            password='testpass123',
+            user_type='patient',
+            first_name='Connected',
+            last_name='Patient',
+        )
+        self.patient_profile = PatientProfile.objects.create(
+            user=self.patient_user,
+            therapist=self.primary_therapist_profile,
+            connected_at=timezone.now(),
+        )
+        self.patient_profile.connect_to_therapist(self.secondary_therapist_profile, connected_at=timezone.now())
+
+    def test_therapist_patients_list_includes_connection_table_patients(self):
+        self.client.force_authenticate(user=self.secondary_therapist_user)
+
+        response = self.client.get('/api/therapy_sessions/patients/')
+
+        self.assertEqual(response.status_code, 200)
+        patient_ids = [str(item['id']) for item in response.data]
+        self.assertIn(str(self.patient_user.id), patient_ids)
+
+        patient_entry = next(item for item in response.data if str(item['id']) == str(self.patient_user.id))
+        self.assertEqual(
+            str(patient_entry['patient_profile']['connected_at']),
+            str(self.patient_profile.therapist_connections.get(therapist=self.secondary_therapist_profile).connected_at),
+        )

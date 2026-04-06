@@ -1,9 +1,39 @@
 from rest_framework import serializers
+from django.db import DatabaseError
 from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from .models import PatientProfile, TherapistProfile, ConnectionRequest
 
 User = get_user_model()
+
+
+def user_avatar_absolute_url(user, request):
+    """
+    Public URL for the avatar image. In production, prefer BACKEND_URL so the
+    browser always gets a stable absolute URL (same origin as the API), even
+    behind proxies. Storage backends that return a full URL (e.g. S3) pass through.
+    """
+    if not getattr(user, 'avatar', None) or not user.avatar:
+        return None
+    path = user.avatar.url
+    if path.startswith(('http://', 'https://')):
+        return path
+    base = (getattr(settings, 'BACKEND_URL', None) or '').strip().rstrip('/')
+    if base:
+        return f"{base}{path}" if path.startswith('/') else f"{base}/{path}"
+    if request:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def _coerce_clear_avatar(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'on', 'yes')
+    return bool(value)
 
 
 class PatientTherapistConnectionSerializer(serializers.Serializer):
@@ -36,6 +66,7 @@ class TherapistInfoSerializer(serializers.Serializer):
 class PatientProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     therapist_info = serializers.SerializerMethodField()
+    connected_therapists = serializers.SerializerMethodField()
     preferred_session_days_list = serializers.SerializerMethodField()
     
     class Meta:
@@ -44,13 +75,14 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             'emergency_contact_name', 'emergency_contact_phone', 'medical_history',
             'current_medications', 'preferred_language', 'connected_at',
             'session_frequency', 'preferred_session_days', 'preferred_session_days_list',
-            'primary_concern', 'therapy_start_date', 'user_info', 'therapist_info'
+            'primary_concern', 'therapy_start_date', 'user_info', 'therapist_info', 'connected_therapists'
         ]
         read_only_fields = ['connected_at']
     
     @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
+        request = self.context.get('request')
         return {
             'id': str(user.id),
             'username': user.username,
@@ -59,6 +91,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             'last_name': user.last_name,
             'phone_number': user.phone_number,
             'date_of_birth': user.date_of_birth,
+            'avatar_url': user_avatar_absolute_url(user, request),
         }
     
     @extend_schema_field(serializers.DictField(allow_null=True))
@@ -72,6 +105,26 @@ class PatientProfileSerializer(serializers.ModelSerializer):
                 'clinic_name': therapist.clinic_name,
             }
         return None
+
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_connected_therapists(self, obj):
+        try:
+            links = obj.get_connected_therapist_links()
+        except DatabaseError:
+            # Keep profile endpoint functional even if connection-link table is unavailable.
+            return []
+
+        return [
+            {
+                'id': str(link.therapist.user.id),
+                'name': link.therapist.user.full_name,
+                'specialization': link.therapist.specialization,
+                'clinic_name': link.therapist.clinic_name,
+                'connected_at': link.connected_at,
+                'is_primary': obj.therapist_id == link.therapist_id,
+            }
+            for link in links
+        ]
     
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_preferred_session_days_list(self, obj):
@@ -82,19 +135,82 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 class TherapistProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     patient_count = serializers.SerializerMethodField()
-    
+    first_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    avatar = serializers.FileField(write_only=True, required=False, allow_null=True)
+    clear_avatar = serializers.BooleanField(write_only=True, required=False)
+
     class Meta:
         model = TherapistProfile
         fields = [
             'license_number', 'specialization', 'years_of_experience',
             'education', 'certifications', 'clinic_name', 'clinic_address',
-            'therapist_pin', 'user_info', 'patient_count'
+            'therapist_pin', 'user_info', 'patient_count',
+            'first_name', 'last_name', 'username',
+            'avatar', 'clear_avatar',
         ]
         read_only_fields = ['therapist_pin']
-    
+
+    def validate(self, attrs):
+        instance = self.instance
+        if not instance:
+            return attrs
+        user = instance.user
+        if 'username' in attrs:
+            new_username = (attrs.get('username') or '').strip()
+            if not new_username:
+                raise serializers.ValidationError({'username': ['This field may not be blank.']})
+            attrs['username'] = new_username
+            if new_username != user.username:
+                if not user.can_change_username_now():
+                    next_at = user.next_username_change_allowed_at()
+                    msg = (
+                        f'You can change your username again after {next_at.date().isoformat()}.'
+                        if next_at
+                        else 'You cannot change your username yet.'
+                    )
+                    raise serializers.ValidationError({'username': [msg]})
+                if User.objects.exclude(pk=user.pk).filter(username=new_username).exists():
+                    raise serializers.ValidationError(
+                        {'username': ['This username is already taken.']}
+                    )
+        return attrs
+
+    def update(self, instance, validated_data):
+        user = instance.user
+        first_name = validated_data.pop('first_name', serializers.empty)
+        last_name = validated_data.pop('last_name', serializers.empty)
+        username = validated_data.pop('username', serializers.empty)
+        clear_avatar = _coerce_clear_avatar(validated_data.pop('clear_avatar', False))
+        avatar = validated_data.pop('avatar', serializers.empty)
+
+        if clear_avatar:
+            if user.avatar:
+                user.avatar.delete(save=False)
+            user.avatar = None
+        elif avatar is not serializers.empty and avatar is not None:
+            if user.avatar:
+                user.avatar.delete(save=False)
+            user.avatar = avatar
+
+        if first_name is not serializers.empty:
+            user.first_name = (first_name or '').strip()
+        if last_name is not serializers.empty:
+            user.last_name = (last_name or '').strip()
+        if username is not serializers.empty:
+            new_u = username
+            if new_u != user.username:
+                user.username = new_u
+                user.username_last_changed_at = timezone.now()
+        user.save()
+        return super().update(instance, validated_data)
+
     @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
+        request = self.context.get('request')
+        next_at = user.next_username_change_allowed_at()
         return {
             'id': str(user.id),
             'username': user.username,
@@ -103,8 +219,15 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             'last_name': user.last_name,
             'phone_number': user.phone_number,
             'date_of_birth': user.date_of_birth,
+            'avatar_url': user_avatar_absolute_url(user, request),
+            'can_change_username': user.can_change_username_now(),
+            'next_username_change_at': (
+                next_at.isoformat()
+                if next_at and not user.can_change_username_now()
+                else None
+            ),
         }
-    
+
     @extend_schema_field(serializers.IntegerField())
     def get_patient_count(self, obj):
         return obj.get_patient_count()

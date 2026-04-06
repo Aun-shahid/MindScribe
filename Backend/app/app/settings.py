@@ -53,6 +53,11 @@ AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", SECRET_KEY)
 # IMPORTANT: In production, set DEBUG to False!
 DEBUG = env_bool("DJANGO_DEBUG", True)
 
+# Railway / reverse proxy: correct Host and HTTPS for request.build_absolute_uri / redirects.
+if env_bool("DJANGO_BEHIND_PROXY", not DEBUG):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 # ALLOWED_HOSTS for production. Add your domain and Elastic Beanstalk URL here.
 # For development, if DEBUG is True, ['*'] is often used, but it's safer to specify.
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if os.environ.get("DJANGO_ALLOWED_HOSTS") else []
@@ -220,6 +225,7 @@ STORAGES = {
 # Media files (User-uploaded content like profile pictures, audio)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# PaaS disks are often ephemeral; use a volume or S3-style storage in production if uploads must survive deploys.
 
 
 # Default primary key field type
@@ -398,12 +404,9 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 SITE_NAME = os.environ.get("SITE_NAME", "MindScribe")
 VERSION = os.environ.get("VERSION", "1.0.0")
 
-# --- Media Files Configuration ---
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-
 # --- AI Services Configuration ---
+# Public base URL of this API (no trailing path). Used for absolute avatar/media URLs in API JSON.
+# Set in production to your deployed origin, e.g. https://your-service.railway.app
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:8001")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

@@ -1,8 +1,16 @@
 // src/pages/Profile.tsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useTherapistProfile } from '../hooks/useTherapist';
+import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth.service';
+import therapistService from '../services/therapist.service';
+import { validatePasswordStrength } from '../utils/passwordValidation';
 
-interface EditableField {
+interface ProfileEditingState {
+  first_name: boolean;
+  last_name: boolean;
+  username: boolean;
   education: boolean;
   certifications: boolean;
   clinic_name: boolean;
@@ -11,9 +19,18 @@ interface EditableField {
   years_of_experience: boolean;
 }
 
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
 const Profile = () => {
-  const { profile, loading, error, handleLogout, updateProfile } = useTherapistProfile();
-  const [editing, setEditing] = useState<EditableField>({
+  const { fetchProfile: refreshAuthUser } = useAuth();
+  const { profile, loading, error, handleLogout, updateProfile, applyProfile } = useTherapistProfile();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ProfileEditingState>({
+    first_name: false,
+    last_name: false,
+    username: false,
     education: false,
     certifications: false,
     clinic_name: false,
@@ -21,50 +38,164 @@ const Profile = () => {
     specialization: false,
     years_of_experience: false,
   });
+  const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordNotice, setPasswordNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [passwordErrors, setPasswordErrors] = useState<{
+    old?: string;
+    new?: string;
+    confirm?: string;
+  }>({});
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const userInfo = (profile as any)?.user_info;
+  const avatarUrl = userInfo?.avatar_url as string | undefined;
   const fullName = userInfo
     ? `${userInfo.first_name || ''} ${userInfo.last_name || ''}`.trim()
     : 'N/A';
 
-  const handleEdit = (field: keyof EditableField) => {
+  const handleEdit = (field: keyof ProfileEditingState) => {
     setEditing({ ...editing, [field]: true });
-    setFormData({ ...formData, [field]: (profile as any)?.[field] || '' });
+    const userInfo = (profile as any)?.user_info;
+    if (field === 'first_name' || field === 'last_name' || field === 'username') {
+      setFormData({ ...formData, [field]: userInfo?.[field] ?? '' });
+    } else {
+      setFormData({ ...formData, [field]: (profile as any)?.[field] || '' });
+    }
     setSaveSuccess(null);
     setSaveError(null);
   };
 
-  const handleCancel = (field: keyof EditableField) => {
+  const handleCancel = (field: keyof ProfileEditingState) => {
     setEditing({ ...editing, [field]: false });
     setFormData({ ...formData, [field]: '' });
   };
 
-  const handleSave = async (field: keyof EditableField) => {
+  const handleSave = async (field: keyof ProfileEditingState) => {
     try {
       setSaveError(null);
       const updateData = { [field]: formData[field] };
-      const success = await updateProfile(updateData);
-      
-      if (success) {
-        setEditing({ ...editing, [field]: false });
-        setSaveSuccess(`${field.replace(/_/g, ' ')} updated successfully!`);
-        setTimeout(() => setSaveSuccess(null), 3000);
-      } else {
-        setSaveError('Failed to update. Please try again.');
-      }
-    } catch (err) {
-      setSaveError('An error occurred while saving.');
+      await updateProfile(updateData);
+      setEditing({ ...editing, [field]: false });
+      setSaveSuccess(`${field.replace(/_/g, ' ')} updated successfully!`);
+      setTimeout(() => setSaveSuccess(null), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An error occurred while saving.';
+      setSaveError(msg);
       console.error('Save error:', err);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent, field: keyof EditableField) => {
+  const handleKeyPress = (e: React.KeyboardEvent, field: keyof ProfileEditingState) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSave(field);
+    }
+  };
+
+  const setPasswordField = (key: 'old' | 'new' | 'confirm', value: string) => {
+    setPasswordForm((prev) => ({ ...prev, [key]: value }));
+    setPasswordErrors((prev) => ({ ...prev, [key]: undefined }));
+    if (passwordNotice) setPasswordNotice(null);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordNotice(null);
+    const nextErrors: typeof passwordErrors = {};
+    if (!passwordForm.old.trim()) {
+      nextErrors.old = 'Current password is required';
+    }
+    const newErr = validatePasswordStrength(passwordForm.new, 'New password is required');
+    if (newErr) nextErrors.new = newErr;
+    if (!passwordForm.confirm) {
+      nextErrors.confirm = 'Please confirm your new password';
+    } else if (passwordForm.new !== passwordForm.confirm) {
+      nextErrors.confirm = 'Passwords do not match';
+    }
+    setPasswordErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setPasswordSaving(true);
+    try {
+      await authService.changePassword({
+        old_password: passwordForm.old,
+        new_password: passwordForm.new,
+        new_password_confirm: passwordForm.confirm,
+      });
+      setPasswordForm({ old: '', new: '', confirm: '' });
+      setPasswordErrors({});
+      setPasswordNotice({ type: 'ok', text: 'Password updated. You remain signed in.' });
+    } catch (err: unknown) {
+      setPasswordNotice({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Could not change password.',
+      });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleAvatarPick = () => {
+    setAvatarMsg(null);
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarMsg('Image must be 5 MB or smaller.');
+      e.target.value = '';
+      return;
+    }
+    setAvatarMsg(null);
+    setAvatarBusy(true);
+    try {
+      const data = await therapistService.uploadTherapistAvatar(file);
+      applyProfile(data);
+      await refreshAuthUser();
+    } catch (err) {
+      setAvatarMsg(err instanceof Error ? err.message : 'Could not upload photo.');
+    } finally {
+      setAvatarBusy(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarMsg(null);
+    setAvatarBusy(true);
+    try {
+      const data = await therapistService.clearTherapistAvatar();
+      applyProfile(data);
+      await refreshAuthUser();
+    } catch (err) {
+      setAvatarMsg(err instanceof Error ? err.message : 'Could not remove photo.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await authService.deleteAccount({ password: deletePassword });
+      setDeleteOpen(false);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Could not delete account.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -102,11 +233,48 @@ const Profile = () => {
             <div className="flex items-start gap-4 flex-1">
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
-                  {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="w-20 h-20 lg:w-24 lg:h-24 rounded-xl object-cover shadow-xl border-4 border-white/30 bg-white/10"
+                  />
+                ) : (
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
+                    {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
+                  </div>
+                )}
+                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg" aria-hidden />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleAvatarPick}
+                    disabled={avatarBusy}
+                    className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 text-white border border-white/30 disabled:opacity-50"
+                  >
+                    {avatarBusy ? '…' : avatarUrl ? 'Change photo' : 'Add photo'}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarBusy}
+                      className="text-xs font-medium px-2 py-1 rounded-md bg-transparent hover:bg-white/15 text-white/90 border border-white/25 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
-                {/* Online Status Indicator */}
-                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
+                {avatarMsg && (
+                  <p className="text-xs text-amber-200 mt-1 max-w-[220px] leading-snug">{avatarMsg}</p>
+                )}
               </div>
 
               {/* Therapist Details */}
@@ -217,13 +385,216 @@ const Profile = () => {
               </svg>
               Account Information
             </h2>
-            <div className="space-y-3">
-              <InfoField label="Username" value={userInfo?.username} />
+            <div className="space-y-4">
+              <ProfileEditableField
+                label="First name"
+                value={userInfo?.first_name}
+                field="first_name"
+                editing={editing.first_name}
+                formData={formData.first_name}
+                onEdit={() => handleEdit('first_name')}
+                onCancel={() => handleCancel('first_name')}
+                onSave={() => handleSave('first_name')}
+                onChange={(value: string) => setFormData({ ...formData, first_name: value })}
+                onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'first_name')}
+              />
+              <ProfileEditableField
+                label="Last name"
+                value={userInfo?.last_name}
+                field="last_name"
+                editing={editing.last_name}
+                formData={formData.last_name}
+                onEdit={() => handleEdit('last_name')}
+                onCancel={() => handleCancel('last_name')}
+                onSave={() => handleSave('last_name')}
+                onChange={(value: string) => setFormData({ ...formData, last_name: value })}
+                onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'last_name')}
+              />
+              <div>
+                {userInfo?.can_change_username === false && userInfo?.next_username_change_at && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
+                    Next change allowed after{' '}
+                    {new Date(userInfo.next_username_change_at).toLocaleString(undefined, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </p>
+                )}
+                <ProfileEditableField
+                  label="Username"
+                  value={userInfo?.username}
+                  field="username"
+                  editing={editing.username}
+                  formData={formData.username}
+                  onEdit={() => {
+                    if (userInfo?.can_change_username === false) {
+                      setSaveError(
+                        'You can only change your username once every 30 days. See the date above.'
+                      );
+                      return;
+                    }
+                    handleEdit('username');
+                  }}
+                  onCancel={() => handleCancel('username')}
+                  onSave={() => handleSave('username')}
+                  onChange={(value: string) => setFormData({ ...formData, username: value })}
+                  onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'username')}
+                  hideLabel
+                  disabledHint={userInfo?.can_change_username === false}
+                />
+              </div>
               <InfoField label="Email" value={userInfo?.email} />
               <InfoField label="Phone" value={userInfo?.phone_number} />
               <InfoField label="Date of Birth" value={userInfo?.date_of_birth} />
             </div>
           </div>
+
+          {/* Security */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSecurityOpen((o) => !o)}
+              className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-gray-50/80 transition-colors"
+              aria-expanded={securityOpen}
+              id="profile-security-toggle"
+            >
+              <span className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Security
+              </span>
+              <ChevronDown
+                className={`h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200 ${
+                  securityOpen ? 'rotate-180' : ''
+                }`}
+                aria-hidden
+              />
+            </button>
+
+            {securityOpen && (
+              <div className="border-t border-gray-100 px-5 pb-5 pt-2" role="region" aria-labelledby="profile-security-toggle">
+                <form onSubmit={handleChangePassword} className="space-y-3">
+                  {passwordNotice && (
+                    <p
+                      className={`text-sm px-2 py-1.5 rounded ${
+                        passwordNotice.type === 'ok'
+                          ? 'bg-green-50 text-green-800 border border-green-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}
+                    >
+                      {passwordNotice.text}
+                    </p>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Current password</label>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={passwordForm.old}
+                      onChange={(e) => setPasswordField('old', e.target.value)}
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                        passwordErrors.old ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {passwordErrors.old && (
+                      <p className="text-red-500 text-xs mt-1">{passwordErrors.old}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">New password</label>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordForm.new}
+                      onChange={(e) => setPasswordField('new', e.target.value)}
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                        passwordErrors.new ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {passwordErrors.new && (
+                      <p className="text-red-500 text-xs mt-1">{passwordErrors.new}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Confirm new password</label>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordField('confirm', e.target.value)}
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                        passwordErrors.confirm ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {passwordErrors.confirm && (
+                      <p className="text-red-500 text-xs mt-1">{passwordErrors.confirm}</p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-60"
+                  >
+                    {passwordSaving ? 'Updating…' : 'Change password'}
+                  </button>
+                </form>
+
+                <div className="mt-6 pt-5 border-t border-gray-200">
+                  <p className="text-xs font-medium text-red-800 mb-2">Danger zone</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletePassword('');
+                      setDeleteOpen(true);
+                      setSaveError(null);
+                    }}
+                    className="w-full border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-50"
+                  >
+                    Delete account
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {deleteOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+              <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Delete your account?</h3>
+                <p className="text-sm text-gray-600">
+                  This permanently removes your account and associated data. This cannot be undone.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Confirm with your password</label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteOpen(false)}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteLoading || !deletePassword}
+                    onClick={handleDeleteAccount}
+                    className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleteLoading ? 'Deleting…' : 'Delete forever'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
@@ -257,7 +628,7 @@ const Profile = () => {
               Professional Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EditableField
+              <ProfileEditableField
                 label="Specialization"
                 value={(profile as any)?.specialization}
                 field="specialization"
@@ -270,7 +641,7 @@ const Profile = () => {
                 onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'specialization')}
               />
               <InfoField label="License Number" value={(profile as any)?.license_number} readOnly />
-              <EditableField
+              <ProfileEditableField
                 label="Years of Experience"
                 value={(profile as any)?.years_of_experience}
                 field="years_of_experience"
@@ -287,7 +658,7 @@ const Profile = () => {
             </div>
 
             <div className="mt-5 space-y-5">
-              <EditableField
+              <ProfileEditableField
                 label="Education"
                 value={(profile as any)?.education}
                 field="education"
@@ -300,7 +671,7 @@ const Profile = () => {
                 onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'education')}
                 multiline
               />
-              <EditableField
+              <ProfileEditableField
                 label="Certifications"
                 value={(profile as any)?.certifications}
                 field="certifications"
@@ -325,7 +696,7 @@ const Profile = () => {
               Clinic Information
             </h2>
             <div className="space-y-5">
-              <EditableField
+              <ProfileEditableField
                 label="Clinic Name"
                 value={(profile as any)?.clinic_name}
                 field="clinic_name"
@@ -337,7 +708,7 @@ const Profile = () => {
                 onChange={(value: string) => setFormData({ ...formData, clinic_name: value })}
                 onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'clinic_name')}
               />
-              <EditableField
+              <ProfileEditableField
                 label="Clinic Address"
                 value={(profile as any)?.clinic_address}
                 field="clinic_address"
@@ -370,7 +741,7 @@ const InfoField = ({ label, value, readOnly = false, mono = false }: any) => (
 );
 
 // Helper component for editable fields
-const EditableField = ({
+const ProfileEditableField = ({
   label,
   value,
   editing,
@@ -381,13 +752,17 @@ const EditableField = ({
   onChange,
   onKeyPress,
   multiline = false,
-  type = 'text'
+  type = 'text',
+  hideLabel = false,
+  disabledHint = false,
 }: any) => {
   const isEmpty = !value || value.toString().trim() === '';
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-2">{label}</label>
+      {!hideLabel && label ? (
+        <label className="block text-xs font-medium text-gray-500 mb-2">{label}</label>
+      ) : null}
       {editing ? (
         <div className="space-y-2">
           {multiline ? (
@@ -437,11 +812,18 @@ const EditableField = ({
           </div>
         </button>
       ) : (
-        <div className="group relative bg-gray-50 rounded-lg p-3 hover:bg-purple-50 transition-colors">
+        <div
+          className={`group relative bg-gray-50 rounded-lg p-3 transition-colors ${
+            disabledHint ? 'opacity-75' : 'hover:bg-purple-50'
+          }`}
+        >
           <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
           <button
             onClick={onEdit}
-            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 transition-all"
+            disabled={disabledHint}
+            className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-purple-600 text-white p-2 rounded-lg transition-all ${
+              disabledHint ? 'opacity-40 cursor-not-allowed' : 'hover:bg-purple-700'
+            }`}
             title="Edit"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

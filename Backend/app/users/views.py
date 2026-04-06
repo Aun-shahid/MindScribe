@@ -4,10 +4,11 @@ from rest_framework import generics, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
-from .models import PatientProfile, TherapistProfile, ConnectionRequest
+from .models import PatientProfile, TherapistProfile, ConnectionRequest, PatientTherapistConnection
 from .serializers import (
     PatientTherapistConnectionSerializer, TherapistInfoSerializer,
     PatientProfileSerializer, TherapistProfileSerializer,
@@ -16,6 +17,23 @@ from .serializers import (
     ConnectionRequestRejectSerializer, MergeablePatientSerializer
 )
 from patients.services.notification_center import create_notification
+
+
+def _patient_connected_to_therapist(patient_profile, therapist_profile):
+    if not patient_profile or not therapist_profile:
+        return False
+    return patient_profile.is_connected_to_therapist(therapist_profile)
+
+
+def _connected_at_for(patient_profile, therapist_profile):
+    if not patient_profile or not therapist_profile:
+        return None
+    link = patient_profile.therapist_connections.filter(therapist=therapist_profile).first()
+    if link:
+        return link.connected_at
+    if patient_profile.therapist_id == therapist_profile.id:
+        return patient_profile.connected_at
+    return None
 
 
 @extend_schema(tags=['Therapist Management'])
@@ -87,7 +105,7 @@ class TherapistsView(APIView):
             if request.user.user_type == 'patient':
                 try:
                     patient_profile = request.user.patient_profile
-                    if patient_profile.therapist != therapist_profile:
+                    if not _patient_connected_to_therapist(patient_profile, therapist_profile):
                         return Response(
                             {'detail': 'You can only view your connected therapist.'}, 
                             status=status.HTTP_403_FORBIDDEN
@@ -224,11 +242,16 @@ class PatientsView(APIView):
     def _get_patient_detail(self, patient_id, therapist_profile):
         """Get detailed information for a specific patient"""
         try:
-            patient_profile = PatientProfile.objects.select_related('user').get(
-                user__id=patient_id, therapist=therapist_profile
+            patient_profile = PatientProfile.objects.select_related('user').get(user__id=patient_id)
+
+            if not _patient_connected_to_therapist(patient_profile, therapist_profile):
+                raise PatientProfile.DoesNotExist
+
+            patient_data = self._format_patient_data(
+                patient_profile,
+                detailed=True,
+                connected_at=_connected_at_for(patient_profile, therapist_profile),
             )
-            
-            patient_data = self._format_patient_data(patient_profile, detailed=True)
             therapist_data = self._format_therapist_info(therapist_profile)
             
             return Response({
@@ -246,8 +269,11 @@ class PatientsView(APIView):
         """Get list of patients with filtering and ordering"""
         ordering = request.query_params.get('ordering', 'connected_at')
         search = request.query_params.get('search', '')
-        
-        patients = PatientProfile.objects.select_related('user').filter(therapist=therapist_profile)
+
+        patient_ids = PatientTherapistConnection.objects.filter(
+            therapist=therapist_profile
+        ).values_list('patient_id', flat=True)
+        patients = PatientProfile.objects.select_related('user').filter(id__in=patient_ids)
         
         # Apply search filter
         if search:
@@ -263,9 +289,18 @@ class PatientsView(APIView):
             'created_at': ['-user__created_at'],
             'connected_at': ['-connected_at']
         }
-        patients = patients.order_by(*ordering_map.get(ordering, ['-connected_at']))
-        
-        patients_data = [self._format_patient_data(p) for p in patients]
+        if ordering == 'connected_at':
+            patients = patients.order_by('-therapist_connections__connected_at')
+        else:
+            patients = patients.order_by(*ordering_map.get(ordering, ['-user__created_at']))
+
+        patients_data = [
+            self._format_patient_data(
+                p,
+                connected_at=_connected_at_for(p, therapist_profile),
+            )
+            for p in patients
+        ]
         
         return Response({
             'patients': patients_data,
@@ -278,7 +313,7 @@ class PatientsView(APIView):
             }
         }, status=status.HTTP_200_OK)
     
-    def _format_patient_data(self, patient_profile, detailed=False):
+    def _format_patient_data(self, patient_profile, detailed=False, connected_at=None):
         """Format patient data"""
         base_data = {
             'id': str(patient_profile.user.id),
@@ -286,7 +321,7 @@ class PatientsView(APIView):
             'email': patient_profile.user.email,
             'phone_number': patient_profile.user.phone_number,
             'date_of_birth': patient_profile.user.date_of_birth,
-            'connected_at': patient_profile.connected_at,
+            'connected_at': connected_at if connected_at is not None else patient_profile.connected_at,
             'preferred_language': patient_profile.preferred_language,
             'created_at': patient_profile.user.created_at
         }
@@ -348,7 +383,7 @@ class ConnectToTherapistView(APIView):
             # Check if patient is already connected to this therapist
             try:
                 patient_profile = request.user.patient_profile
-                if patient_profile.therapist == therapist_profile:
+                if patient_profile.is_connected_to_therapist(therapist_profile):
                     return Response(
                         {'detail': 'You are already connected to this therapist.'}, 
                         status=status.HTTP_400_BAD_REQUEST
@@ -416,6 +451,9 @@ class ConnectToTherapistView(APIView):
 class DisconnectFromTherapistView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = None # Explicitly state no serializer is used
+
+    class DisconnectSerializer(serializers.Serializer):
+        therapist_id = serializers.UUIDField(required=False)
     
     @extend_schema(
         request=None,
@@ -433,17 +471,34 @@ class DisconnectFromTherapistView(APIView):
                 {'detail': 'Only patients can disconnect from therapists.'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        serializer = self.DisconnectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        therapist_id = serializer.validated_data.get('therapist_id')
         
         try:
             patient_profile = PatientProfile.objects.get(user=request.user)
-            
-            if not patient_profile.therapist:
+
+            link_qs = patient_profile.therapist_connections.select_related('therapist__user')
+
+            if therapist_id:
+                link = link_qs.filter(therapist__user__id=therapist_id).first()
+                if not link and patient_profile.therapist and str(patient_profile.therapist.user.id) == str(therapist_id):
+                    patient_profile.connect_to_therapist(patient_profile.therapist, connected_at=patient_profile.connected_at)
+                    link = link_qs.filter(therapist__user__id=therapist_id).first()
+            else:
+                link = link_qs.filter(therapist=patient_profile.therapist).first() if patient_profile.therapist else link_qs.first()
+                if not link and patient_profile.therapist:
+                    patient_profile.connect_to_therapist(patient_profile.therapist, connected_at=patient_profile.connected_at)
+                    link = link_qs.filter(therapist=patient_profile.therapist).first()
+
+            if not link:
                 return Response(
                     {'detail': 'You are not connected to any therapist.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            therapist_profile = patient_profile.therapist
+            therapist_profile = link.therapist
             
             try:
                 create_notification(
@@ -461,10 +516,8 @@ class DisconnectFromTherapistView(APIView):
             except Exception:
                 pass
 
-            # Disconnect from therapist
-            patient_profile.therapist = None
-            patient_profile.connected_at = None
-            patient_profile.save()
+            # Disconnect only from selected therapist
+            patient_profile.disconnect_from_therapist(therapist_profile)
             
             return Response({'detail': 'Successfully disconnected from therapist.'}, status=status.HTTP_200_OK)
             
@@ -501,10 +554,9 @@ class DisconnectPatientFromTherapistView(APIView):
             return Response({'detail': 'Therapist profile not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            patient_profile = PatientProfile.objects.select_related('user', 'therapist__user').get(
-                user__id=patient_id,
-                therapist=therapist_profile,
-            )
+            patient_profile = PatientProfile.objects.select_related('user').get(user__id=patient_id)
+            if not patient_profile.is_connected_to_therapist(therapist_profile):
+                raise PatientProfile.DoesNotExist
         except PatientProfile.DoesNotExist:
             return Response(
                 {'detail': 'Patient not found or not connected to you.'},
@@ -514,9 +566,7 @@ class DisconnectPatientFromTherapistView(APIView):
         patient_user = patient_profile.user
         therapist_name = request.user.full_name
 
-        patient_profile.therapist = None
-        patient_profile.connected_at = None
-        patient_profile.save(update_fields=['therapist', 'connected_at'])
+        patient_profile.disconnect_from_therapist(therapist_profile)
 
         try:
             create_notification(
@@ -558,20 +608,21 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
             defaults={'preferred_language': 'en'}
         )
         return patient_profile
-    
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.user_type != 'patient':
-            return Response(
-                {'detail': 'Only patients can access this endpoint.'}, 
-                status=status.HTTP_403_FORBIDDEN
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'patient':
+            self.permission_denied(
+                request,
+                message='Only patients can access this endpoint.',
             )
-        return super().dispatch(request, *args, **kwargs)
 
 
 @extend_schema(tags=['User Management'])
 class TherapistProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = TherapistProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     http_method_names = ['get', 'patch', 'head', 'options']
     
     def get_object(self):
@@ -579,7 +630,7 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
     
     def check_permissions(self, request):
         super().check_permissions(request)
-        if not hasattr(request.user, 'user_type') or request.user.user_type != 'therapist':
+        if not getattr(request.user, 'is_authenticated', False) or getattr(request.user, 'user_type', None) != 'therapist':
             self.permission_denied(
                 request,
                 message='Only therapists can access this endpoint.',
@@ -625,7 +676,10 @@ class ConnectionRequestsListView(APIView):
         requests_qs = requests_qs.order_by('-created_at')
         
         # Get mergeable patients (existing patients connected to this therapist)
-        existing_patients = PatientProfile.objects.filter(therapist=therapist_profile).select_related('user')
+        connected_patient_ids = PatientTherapistConnection.objects.filter(
+            therapist=therapist_profile
+        ).values_list('patient_id', flat=True)
+        existing_patients = PatientProfile.objects.filter(id__in=connected_patient_ids).select_related('user')
         mergeable_patients = [
             {
                 'id': str(p.user.id),
@@ -765,10 +819,9 @@ class ConnectionRequestActionView(APIView):
             defaults={'preferred_language': 'en'}
         )
         
-        # Connect to therapist
-        patient_profile.therapist = therapist_profile
-        patient_profile.connected_at = timezone.now()
-        patient_profile.save()
+        # Connect to therapist without replacing existing connections
+        now = timezone.now()
+        patient_profile.connect_to_therapist(therapist_profile, connected_at=now)
         
         # Update connection request
         connection_request.status = 'accepted'
@@ -796,7 +849,7 @@ class ConnectionRequestActionView(APIView):
                 'id': str(patient_user.id),
                 'name': patient_user.full_name,
                 'email': patient_user.email,
-                'connected_at': patient_profile.connected_at
+                'connected_at': _connected_at_for(patient_profile, therapist_profile)
             }
         }, status=status.HTTP_200_OK)
     
@@ -829,10 +882,9 @@ class ConnectionRequestActionView(APIView):
     def _merge_request(self, connection_request, therapist_profile, merge_with_patient_id):
         """Merge request with existing patient"""
         try:
-            existing_patient = PatientProfile.objects.get(
-                user__id=merge_with_patient_id,
-                therapist=therapist_profile
-            )
+            existing_patient = PatientProfile.objects.get(user__id=merge_with_patient_id)
+            if not existing_patient.is_connected_to_therapist(therapist_profile):
+                raise PatientProfile.DoesNotExist
         except PatientProfile.DoesNotExist:
             return Response(
                 {'detail': 'Target patient not found or not connected to you.'}, 
@@ -848,9 +900,8 @@ class ConnectionRequestActionView(APIView):
             defaults={'preferred_language': 'en'}
         )
         
-        patient_profile.therapist = therapist_profile
-        patient_profile.connected_at = timezone.now()
-        patient_profile.save()
+        now = timezone.now()
+        patient_profile.connect_to_therapist(therapist_profile, connected_at=now)
         
         # Update connection request with merge info
         connection_request.status = 'merged'
@@ -882,6 +933,6 @@ class ConnectionRequestActionView(APIView):
             'new_patient': {
                 'id': str(requesting_user.id),
                 'name': requesting_user.full_name,
-                'connected_at': patient_profile.connected_at
+                'connected_at': _connected_at_for(patient_profile, therapist_profile)
             }
         }, status=status.HTTP_200_OK)

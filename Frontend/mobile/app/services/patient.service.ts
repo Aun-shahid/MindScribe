@@ -618,12 +618,13 @@ class PatientService {
   }
 
   /**
-   * Disconnect from current therapist
+   * Disconnect from a specific therapist (or current primary if omitted)
    */
-  async disconnectTherapist(): Promise<any> {
+  async disconnectTherapist(therapistId?: string): Promise<any> {
     try {
-      console.log('[PatientService] disconnectTherapist request');
-      const response = await api.post('/users/disconnect-therapist/');
+      console.log('[PatientService] disconnectTherapist request', { therapistId });
+      const body = therapistId ? { therapist_id: therapistId } : {};
+      const response = await api.post('/users/disconnect-therapist/', body);
       console.log('[PatientService] disconnectTherapist response:', response.status, response.data);
       return response.data;
     } catch (err: any) {

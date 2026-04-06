@@ -111,17 +111,15 @@ export const useTherapistProfile = () => {
     }
   }, [fetchProfile]);
 
-  const updateProfile = useCallback(async (profileData: any): Promise<boolean> => {
-    try {
-      setError(null);
-      const updatedProfile = await therapistService.updateTherapistProfile(profileData);
-      setProfile(updatedProfile);
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
-      console.error('Profile update error:', err);
-      return false;
-    }
+  const updateProfile = useCallback(async (profileData: any) => {
+    setError(null);
+    const updatedProfile = await therapistService.updateTherapistProfile(profileData);
+    setProfile(updatedProfile);
+    return updatedProfile;
+  }, []);
+
+  const applyProfile = useCallback((data: any) => {
+    setProfile(data);
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -144,6 +142,7 @@ export const useTherapistProfile = () => {
     error,
     fetchProfile,
     updateProfile,
+    applyProfile,
     handleLogout,
     clearError: () => setError(null),
   };

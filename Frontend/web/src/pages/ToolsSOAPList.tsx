@@ -4,7 +4,7 @@ import { FileText } from 'lucide-react';
 import { useSessions } from '../hooks/useSessions';
 
 const ToolsSOAPList: React.FC = () => {
-  const { sessions, loading, error } = useSessions({ status: 'COMPLETED' });
+  const { sessions, loading, error } = useSessions({ status: 'COMPLETED', limit: 100 });
 
   const completedSessions = [...sessions].sort((a, b) => {
     const aTime = new Date((a as any).scheduled_date || a.session_date).getTime();

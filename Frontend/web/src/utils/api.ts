@@ -51,13 +51,16 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+
     if (isAuthEndpoint(config.url)) {
       return config;
     }
 
     const token = localStorage.getItem('access_token');
     if (token) {
-      console.log('[API] Adding token to request:', config.url);
       config.headers.Authorization = `Bearer ${token}`;
     } else {
       console.warn('[API] No access token found for request:', config.url);

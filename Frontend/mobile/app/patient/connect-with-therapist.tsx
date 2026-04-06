@@ -324,22 +324,28 @@ export default function ConnectWithTherapist() {
       ]);
 
       const requests = [...stored];
-      const activeTherapistName = normalizeName(profile?.therapist_info?.name);
+      const activeTherapistNames = new Set<string>(
+        Array.isArray(profile?.connected_therapists)
+          ? profile.connected_therapists
+              .map((item: any) => normalizeName(item?.name))
+              .filter((name: string) => !!name)
+          : []
+      );
       const connectedAt = profile?.connected_at;
 
       if (profile) {
         setPatientProfile((prev: any) => profile || prev);
       }
 
-      if (activeTherapistName) {
-        const pendingForConnected = requests.find(
-          (item) => item.status === 'pending' && normalizeName(item.therapist?.name) === activeTherapistName
-        );
-        if (pendingForConnected) {
-          pendingForConnected.status = 'accepted';
-          pendingForConnected.updated_at = connectedAt || new Date().toISOString();
-          pendingForConnected.responded_at = connectedAt || new Date().toISOString();
-        }
+      if (activeTherapistNames.size > 0) {
+        requests.forEach((item) => {
+          if (item.status !== 'pending') return;
+          const therapistName = normalizeName(item.therapist?.name);
+          if (!activeTherapistNames.has(therapistName)) return;
+          item.status = 'accepted';
+          item.updated_at = connectedAt || new Date().toISOString();
+          item.responded_at = connectedAt || new Date().toISOString();
+        });
       }
 
       const notificationList = Array.isArray(notifications) ? notifications : [];
@@ -517,12 +523,12 @@ export default function ConnectWithTherapist() {
     }
   };
 
-  const handleDisconnect = useCallback(async () => {
-    if (disconnecting) return;
+  const handleDisconnectTherapist = useCallback((therapistId: string, therapistName: string) => {
+    if (disconnecting || !therapistId) return;
 
     Alert.alert(
-      'Disconnect therapist?',
-      'This will remove your current therapist connection and notify them.',
+      `Disconnect ${therapistName || 'therapist'}?`,
+      'This removes only this therapist connection and sends them a notification.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -531,9 +537,9 @@ export default function ConnectWithTherapist() {
           onPress: async () => {
             try {
               setDisconnecting(true);
-              await PatientService.disconnectTherapist();
+              await PatientService.disconnectTherapist(therapistId);
               await Promise.all([fetchProfile(), loadPatientProfile(), loadConnectionRequests()]);
-              Alert.alert('Disconnected', 'You are no longer connected to a therapist.');
+              Alert.alert('Disconnected', `${therapistName || 'Therapist'} has been disconnected.`);
             } catch (err: any) {
               const parsed = parseConnectionError(err);
               Alert.alert(parsed.title, parsed.message);
@@ -548,20 +554,41 @@ export default function ConnectWithTherapist() {
 
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
 
-  const acceptedRequest = connectionRequests.find((req) => req.status === 'accepted' || req.status === 'merged');
-
-  const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
-  const connectedTherapistId = String(patientProfile?.therapist_info?.id || '').trim();
-  const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
-  const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
-  const acceptedRequestTherapistName = String(acceptedRequest?.therapist?.name || '').trim();
-  const acceptedRequestTherapistSpecialization = String(acceptedRequest?.therapist?.specialization || '').trim();
-  const acceptedRequestTherapistClinic = String(acceptedRequest?.therapist?.clinic_name || '').trim();
   const connectedAt = patientProfile?.connected_at;
-  const isConnected = Boolean(connectedTherapistId || connectedTherapistName || acceptedRequestTherapistName);
-  const displayTherapistName = connectedTherapistName || acceptedRequestTherapistName || 'Therapist';
-  const displayTherapistSpecialization = connectedTherapistSpecialization || acceptedRequestTherapistSpecialization;
-  const displayTherapistClinic = connectedTherapistClinic || acceptedRequestTherapistClinic;
+  const connectedTherapistsFromApi = Array.isArray(patientProfile?.connected_therapists)
+    ? patientProfile.connected_therapists
+    : [];
+
+  const connectedTherapistCards = connectedTherapistsFromApi.length > 0
+    ? connectedTherapistsFromApi.map((item: any) => ({
+      id: String(item?.id || '').trim(),
+      name: String(item?.name || 'Therapist').trim(),
+      specialization: String(item?.specialization || '').trim(),
+      clinic: String(item?.clinic_name || '').trim(),
+      source: item?.is_primary ? 'profile' as const : 'request' as const,
+      connectedAt: item?.connected_at,
+    }))
+    : (() => {
+      const fallbackId = String(patientProfile?.therapist_info?.id || '').trim();
+      const fallbackName = String(patientProfile?.therapist_info?.name || '').trim();
+      const fallbackSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
+      const fallbackClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
+
+      if (!fallbackId && !fallbackName) {
+        return [] as Array<{ id: string; name: string; specialization: string; clinic: string; source: 'profile' | 'request'; connectedAt?: string }>;
+      }
+
+      return [{
+        id: fallbackId,
+        name: fallbackName || 'Therapist',
+        specialization: fallbackSpecialization,
+        clinic: fallbackClinic,
+        source: 'profile' as const,
+        connectedAt,
+      }];
+    })();
+
+  const isConnected = connectedTherapistCards.length > 0;
 
   useEffect(() => {
     if (isConnected) {
@@ -682,47 +709,69 @@ export default function ConnectWithTherapist() {
               )}
             </View>
 
-            <Text style={styles.connectionLabel}>Your therapist</Text>
-            <Text style={styles.connectionName}>{displayTherapistName}</Text>
-            {!!displayTherapistSpecialization && (
-              <Text style={styles.connectionSubtext}>{displayTherapistSpecialization}</Text>
-            )}
-            {!!displayTherapistClinic && (
-              <Text style={styles.connectionSubtext}>{displayTherapistClinic}</Text>
-            )}
-
-            <TouchableOpacity
-              onPress={handleDisconnect}
-              disabled={disconnecting}
-              style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }]}
-              activeOpacity={0.9}
-            >
-              <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
-              <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>
-                {disconnecting ? 'Disconnecting...' : 'Disconnect therapist'}
+            <View style={styles.connectedHeaderRow}>
+              <Text style={styles.connectionLabel}>
+                {connectedTherapistCards.length > 1 ? 'Connected therapists' : 'Your therapist'}
               </Text>
-            </TouchableOpacity>
+              <View style={styles.connectedCountChip}>
+                <Text style={styles.connectedCountChipText}>{connectedTherapistCards.length}</Text>
+              </View>
+            </View>
 
-            <TouchableOpacity
-              onPress={() => setShowConnectAnotherForm((prev) => !prev)}
-              style={styles.connectAnotherBtn}
-              activeOpacity={0.9}
-            >
-              <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
-              <Text style={styles.connectAnotherBtnText}>
-                {showConnectAnotherForm ? 'Hide connect form' : 'Connect with another therapist'}
-              </Text>
-            </TouchableOpacity>
+            {connectedTherapistCards.map((card) => {
+              const isPrimary = card.source === 'profile';
+              return (
+                <View key={card.id || normalizeName(card.name)} style={styles.therapistInfoCard}>
+                  <View style={styles.therapistInfoHead}>
+                    <Text style={styles.connectionName}>{card.name || 'Therapist'}</Text>
+                    <View style={[styles.therapistStatusPill, isPrimary ? styles.therapistStatusActive : styles.therapistStatusAdditional]}>
+                      <Text style={styles.therapistStatusText}>{isPrimary ? 'Active' : 'Also connected'}</Text>
+                    </View>
+                  </View>
+                  {!!card.specialization && (
+                    <Text style={styles.connectionSubtext}>{card.specialization}</Text>
+                  )}
+                  {!!card.clinic && (
+                    <Text style={styles.connectionSubtext}>{card.clinic}</Text>
+                  )}
+                  {!!card.connectedAt && (
+                    <Text style={styles.connectionSubtext}>Connected: {formatDate(card.connectedAt)}</Text>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => handleDisconnectTherapist(card.id, card.name)}
+                    disabled={disconnecting}
+                    style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }, { marginTop: 10 }]}
+                    activeOpacity={0.9}
+                  >
+                    <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
+                    <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>Disconnect this therapist</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
 
-            <TouchableOpacity
-              onPress={loadPatientProfile}
-              disabled={profileLoading}
-              style={[styles.refreshConnectionBtn, profileLoading && { opacity: 0.75 }]}
-              activeOpacity={0.85}
-            >
-              <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
-              <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh status'}</Text>
-            </TouchableOpacity>
+            <View style={styles.connectionActionRow}>
+              <TouchableOpacity
+                onPress={() => setShowConnectAnotherForm((prev) => !prev)}
+                style={[styles.connectAnotherBtn, styles.connectionActionHalf]}
+                activeOpacity={0.9}
+              >
+                <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
+                <Text style={styles.connectAnotherBtnText}>
+                  {showConnectAnotherForm ? 'Hide form' : 'Add therapist'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={loadPatientProfile}
+                disabled={profileLoading}
+                style={[styles.refreshConnectionBtn, styles.connectionActionHalf, profileLoading && { opacity: 0.75 }]}
+                activeOpacity={0.85}
+              >
+                <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
+                <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.connectionHintText}>
               You can keep this therapist and still send another connection request.
@@ -1153,6 +1202,29 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  connectedHeaderRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  connectedCountChip: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(167,139,250,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectedCountChipText: {
+    color: '#D8CCFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   connectionName: {
     marginTop: 4,
     color: '#FFFFFF',
@@ -1163,6 +1235,40 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: '#DDD6FE',
     fontSize: 13,
+  },
+  therapistInfoCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(44,34,72,0.85)',
+  },
+  therapistInfoHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  therapistStatusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  therapistStatusActive: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderColor: 'rgba(34,197,94,0.24)',
+  },
+  therapistStatusAdditional: {
+    backgroundColor: 'rgba(167,139,250,0.15)',
+    borderColor: 'rgba(167,139,250,0.35)',
+  },
+  therapistStatusText: {
+    color: '#D8CCFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   disconnectBtn: {
     marginTop: 14,
@@ -1192,6 +1298,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  connectionActionRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  connectionActionHalf: {
+    marginTop: 0,
+    flex: 1,
   },
   connectAnotherBtnText: {
     color: '#D8CCFF',

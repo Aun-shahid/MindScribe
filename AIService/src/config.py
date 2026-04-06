@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         default="scribe_v2_realtime",
         alias="ELEVENLABS_REALTIME_MODEL"
     )
-    
+
     backend_url: str = Field(..., alias="BACKEND_URL")
     
     # HuggingFace Configuration

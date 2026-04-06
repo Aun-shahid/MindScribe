@@ -8,7 +8,17 @@ import type { SessionFilter } from '../types/session';
 
 const Sessions = () => {
   const [activeFilter, setActiveFilter] = useState<SessionFilter>({});
-  const { sessions, loading, error, updateFilter, clearError } = useSessions(activeFilter);
+  const {
+    sessions,
+    loading,
+    pagination,
+    page,
+    totalPages,
+    goToPage,
+    error,
+    updateFilter,
+    clearError,
+  } = useSessions(activeFilter);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<'cancel' | 'reschedule' | 'update' | ''>('');
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -19,12 +29,17 @@ const Sessions = () => {
   const [newDuration, setNewDuration] = useState('');
   const [bulkResult, setBulkResult] = useState<any>(null);
 
-  // Sort sessions in ascending order by scheduled/session date
-  const displaySessions = [...sessions].sort((a, b) => {
-    const dateA = new Date((a as any).scheduled_date || a.session_date).getTime();
-    const dateB = new Date((b as any).scheduled_date || b.session_date).getTime();
-    return dateA - dateB;
-  });
+  // API returns newest first (scheduled_date desc, then created_at desc)
+  const displaySessions = sessions;
+
+  const showItemRange = displaySessions.length > 0 && pagination.total_count > 0;
+  const rangeStart = showItemRange ? pagination.offset + 1 : 0;
+  const rangeEnd = showItemRange ? pagination.offset + displaySessions.length : 0;
+
+  const handlePageChange = (nextPage: number) => {
+    goToPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleFilterChange = (newFilter: SessionFilter) => {
     setActiveFilter(newFilter);
@@ -138,14 +153,6 @@ const Sessions = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
-
-  if (loading && displaySessions.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="sessions-page bg-gradient-to-br from-gray-50 to-purple-50 min-h-screen -mt-4 sm:-mt-6 -mx-3 sm:-mx-8 px-3 sm:px-6 pt-4 sm:pt-5 overflow-x-hidden">
@@ -300,16 +307,18 @@ const Sessions = () => {
           </div>
 
           <div>
-            <label htmlFor="patient_id" className="form-label text-xs">
-              Patient ID
+            <label htmlFor="patient_name" className="form-label text-xs">
+              Patient name
             </label>
             <input
-              id="patient_id"
-              type="text"
-              placeholder="Enter patient ID"
+              id="patient_name"
+              type="search"
+              placeholder="Search by first or last name"
               className="form-input text-sm py-2"
-              value={activeFilter.patient_id || ''}
-              onChange={(e) => handleFilterChange({ ...activeFilter, patient_id: e.target.value || undefined })}
+              value={activeFilter.patient_name || ''}
+              onChange={(e) =>
+                handleFilterChange({ ...activeFilter, patient_name: e.target.value || undefined })
+              }
             />
           </div>
         </div>
@@ -326,7 +335,9 @@ const Sessions = () => {
             </div>
             <h2 className="text-lg font-semibold text-gray-900">
               All Sessions
-              <span className="ml-2 text-xs font-normal text-gray-500">({displaySessions.length} total)</span>
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                ({pagination.total_count} total{pagination.total_count > 0 ? ' · newest first' : ''})
+              </span>
             </h2>
           </div>
           {displaySessions.length > 0 && (
@@ -346,14 +357,29 @@ const Sessions = () => {
           )}
         </div>
 
-        <div className="space-y-3">
-          {loading ? (
+        <div className="space-y-3 relative">
+          {loading && displaySessions.length > 0 && (
+            <div
+              className="flex items-center gap-2 text-sm text-purple-700 py-2 px-1 rounded-lg bg-purple-50/90 border border-purple-100"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent shrink-0" />
+              <span>Updating results…</span>
+            </div>
+          )}
+          {loading && displaySessions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-500">Loading sessions...</span>
+              <span className="ml-3 text-gray-500">Loading sessions…</span>
             </div>
           ) : displaySessions.length > 0 ? (
-            displaySessions.map((session) => (
+            <>
+            <div
+              className={loading ? 'opacity-60 pointer-events-none transition-opacity' : ''}
+              aria-busy={loading}
+            >
+            {displaySessions.map((session) => (
               <div key={session.id} className="group relative border border-gray-200 hover:border-purple-300 rounded-lg p-3.5 hover:bg-gradient-to-r hover:from-purple-50/40 hover:to-pink-50/40 transition-all duration-200 hover:shadow-sm">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                   <div className="flex items-start sm:items-center space-x-3 flex-1 min-w-0">
@@ -427,7 +453,68 @@ const Sessions = () => {
                   </div>
                 </div>
               </div>
-            ))
+            ))}
+            </div>
+            {pagination.total_count > 0 && (
+              <div
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 pt-4 mt-1 border-t border-gray-100 ${
+                  showItemRange && totalPages > 1 ? 'sm:justify-between' : 'justify-center'
+                }`}
+              >
+                {showItemRange && (
+                  <p className="text-sm text-gray-600">
+                    Showing{' '}
+                    <span className="font-medium text-gray-900">
+                      {rangeStart}–{rangeEnd}
+                    </span>{' '}
+                    of <span className="font-medium text-gray-900">{pagination.total_count}</span>
+                  </p>
+                )}
+                {totalPages > 1 && (
+                  <nav
+                    className="flex flex-wrap items-center justify-center gap-2"
+                    aria-label="Session list pagination"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(1)}
+                      disabled={page <= 1 || loading}
+                      className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      First
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(page - 1)}
+                      disabled={page <= 1 || loading}
+                      className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-2 text-sm text-gray-600 tabular-nums">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={page >= totalPages || loading}
+                      className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(totalPages)}
+                      disabled={page >= totalPages || loading}
+                      className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Last
+                    </button>
+                  </nav>
+                )}
+              </div>
+            )}
+            </>
           ) : (
             <div className="text-center py-16 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-dashed border-purple-200">
               <div className="bg-gradient-to-r from-purple-600 to-pink-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
