@@ -5,6 +5,7 @@ import { usePatientDetail } from '../hooks/usePatients';
 import { InfoField } from '../components/InfoField';
 import PatientMoodTrend from '../components/PatientMoodTrend';
 import sessionsService from '../services/sessions.service';
+import therapistService from '../services/therapist.service';
 import type { SessionType } from '../types/session';
 import {
   formatDate,
@@ -25,6 +26,7 @@ const PatientDetail = () => {
   const { patient, loading, error, handleStartSession } = usePatientDetail(patientId || '');
   const [scheduleSuccess, setScheduleSuccess] = useState<{ sessions_created: number; sessions: any[] } | null>(null);
   const [preferences, setPreferences] = useState<any>(null);
+  const [disconnectingPatient, setDisconnectingPatient] = useState(false);
 
   // Session history states
   const [pastSessions, setPastSessions] = useState<SessionType[]>([]);
@@ -47,6 +49,8 @@ const PatientDetail = () => {
     reason: '',
   });
   const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  const isConnectedToTherapist = Boolean(patient?.patient_profile?.connected_at);
 
   // Recurring schedule states
   const [showRecurringModal, setShowRecurringModal] = useState(false);
@@ -161,6 +165,29 @@ const PatientDetail = () => {
       alert(err.message || 'Failed to update sessions');
     } finally {
       setBulkUpdating(false);
+    }
+  };
+
+  const handleDisconnectPatient = async () => {
+    if (!patientId || !patient) return;
+
+    const confirmed = window.confirm(
+      `Disconnect ${patient.full_name} from your therapist connection? This will remove them from your patient list and notify them.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDisconnectingPatient(true);
+    try {
+      const result = await therapistService.disconnectPatient(patientId);
+      alert(result.detail || 'Patient disconnected successfully.');
+      navigate('/patients', { replace: true });
+    } catch (err: any) {
+      alert(err?.message || 'Failed to disconnect patient');
+    } finally {
+      setDisconnectingPatient(false);
     }
   };
 
@@ -546,6 +573,11 @@ const PatientDetail = () => {
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold mb-2">{patient.full_name}</h1>
                   <div className="flex flex-wrap items-center gap-3">
+                    {isConnectedToTherapist && (
+                      <span className="inline-flex items-center px-2.5 py-1 bg-green-500/20 backdrop-blur-sm rounded-lg text-xs font-semibold border border-green-300/30">
+                        Connected to therapist
+                      </span>
+                    )}
                     {patient.date_of_birth && (
                       <span className="inline-flex items-center px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-xs font-medium">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -647,6 +679,15 @@ const PatientDetail = () => {
               >
                 Start Session
               </button>
+              {isConnectedToTherapist && (
+                <button
+                  onClick={handleDisconnectPatient}
+                  disabled={disconnectingPatient}
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl"
+                >
+                  {disconnectingPatient ? 'Disconnecting...' : 'Disconnect Patient'}
+                </button>
+              )}
             </div>
           </div>
         </div>

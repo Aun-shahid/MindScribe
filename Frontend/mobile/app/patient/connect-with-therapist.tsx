@@ -247,6 +247,9 @@ export default function ConnectWithTherapist() {
   const [showRequests, setShowRequests]     = useState(false);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequestItem[]>([]);
+  const [patientProfile, setPatientProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const sheetY = useRef(new Animated.Value(height)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -392,10 +395,24 @@ export default function ConnectWithTherapist() {
     }
   }, [readStoredRequests, writeStoredRequests]);
 
+  const loadPatientProfile = useCallback(async () => {
+    try {
+      setProfileLoading(true);
+      const profile = await PatientService.getPatientProfile();
+      setPatientProfile(profile);
+    } catch (err) {
+      console.error('Failed to load patient profile:', err);
+      setPatientProfile(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadConnectionRequests();
-    }, [loadConnectionRequests])
+      loadPatientProfile();
+    }, [loadConnectionRequests, loadPatientProfile])
   );
 
   useEffect(() => {
@@ -468,6 +485,7 @@ export default function ConnectWithTherapist() {
       const deduped = [nextItem, ...existing.filter((item) => item.id !== nextItem.id)];
       await writeStoredRequests(deduped);
       await loadConnectionRequests();
+      await loadPatientProfile();
       setTherapistPin('');
       setConnectMessage('');
       Alert.alert('Request Sent', 'Connection request created. Your therapist must approve it.');
@@ -487,7 +505,42 @@ export default function ConnectWithTherapist() {
     }
   };
 
+  const handleDisconnect = useCallback(async () => {
+    if (disconnecting) return;
+
+    Alert.alert(
+      'Disconnect therapist?',
+      'This will remove your current therapist connection and notify them.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDisconnecting(true);
+              await PatientService.disconnectTherapist();
+              await Promise.all([fetchProfile(), loadPatientProfile(), loadConnectionRequests()]);
+              Alert.alert('Disconnected', 'You are no longer connected to a therapist.');
+            } catch (err: any) {
+              const parsed = parseConnectionError(err);
+              Alert.alert(parsed.title, parsed.message);
+            } finally {
+              setDisconnecting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [disconnecting, fetchProfile, loadConnectionRequests, loadPatientProfile]);
+
   const pendingCount = connectionRequests.filter((req) => req.status === 'pending').length;
+
+  const connectedTherapistName = String(patientProfile?.therapist_info?.name || '').trim();
+  const connectedTherapistSpecialization = String(patientProfile?.therapist_info?.specialization || '').trim();
+  const connectedTherapistClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
+  const connectedAt = patientProfile?.connected_at;
+  const isConnected = Boolean(connectedTherapistName && connectedAt);
 
   const handleDeleteRequestCard = useCallback(async (id: string) => {
     const next = connectionRequests.filter((item) => item.id !== id);
@@ -585,6 +638,43 @@ export default function ConnectWithTherapist() {
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
       >
+
+        {isConnected && (
+          <View style={[styles.connectionCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+            <View style={styles.connectionHeaderRow}>
+              <View style={styles.connectionBadge}>
+                <FontAwesome name="check-circle" size={14} color="#22C55E" />
+                <Text style={styles.connectionBadgeText}>Connected</Text>
+              </View>
+              {profileLoading ? (
+                <Text style={styles.connectionMeta}>Refreshing...</Text>
+              ) : (
+                <Text style={styles.connectionMeta}>Since {formatDate(connectedAt)}</Text>
+              )}
+            </View>
+
+            <Text style={styles.connectionLabel}>Your therapist</Text>
+            <Text style={styles.connectionName}>{connectedTherapistName}</Text>
+            {!!connectedTherapistSpecialization && (
+              <Text style={styles.connectionSubtext}>{connectedTherapistSpecialization}</Text>
+            )}
+            {!!connectedTherapistClinic && (
+              <Text style={styles.connectionSubtext}>{connectedTherapistClinic}</Text>
+            )}
+
+            <TouchableOpacity
+              onPress={handleDisconnect}
+              disabled={disconnecting}
+              style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }]}
+              activeOpacity={0.9}
+            >
+              <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
+              <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>
+                {disconnecting ? 'Disconnecting...' : 'Disconnect therapist'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── QR card — UNCHANGED ── */}
         <TouchableOpacity
@@ -960,6 +1050,79 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: '#FCA5A5',
     fontSize: 12,
+  },
+
+  connectionCard: {
+    backgroundColor: 'rgba(54,46,76,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.35)',
+    shadowColor: '#120A24',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  connectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  connectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.24)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  connectionBadgeText: {
+    color: '#86EFAC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  connectionMeta: {
+    color: '#B8A8E6',
+    fontSize: 12,
+  },
+  connectionLabel: {
+    color: '#B8A8E6',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  connectionName: {
+    marginTop: 4,
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  connectionSubtext: {
+    marginTop: 4,
+    color: '#DDD6FE',
+    fontSize: 13,
+  },
+  disconnectBtn: {
+    marginTop: 14,
+    minHeight: 46,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  disconnectBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
 
   connectCard: {

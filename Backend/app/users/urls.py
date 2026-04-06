@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     TherapistPinView, ConnectToTherapistView, DisconnectFromTherapistView,
-    TherapistsView, PatientsView, PatientProfileView, TherapistProfileView,
+    DisconnectPatientFromTherapistView, TherapistsView, PatientsView, PatientProfileView, TherapistProfileView,
     ConnectionRequestsListView, ConnectionRequestActionView
 )
 
@@ -12,6 +12,7 @@ urlpatterns = [
     # Patient-Therapist Connection URLs (patient initiates connection request)
     path('connect-therapist/', ConnectToTherapistView.as_view(), name='connect_therapist'),
     path('disconnect-therapist/', DisconnectFromTherapistView.as_view(), name='disconnect_therapist'),
+    path('disconnect-patient/<uuid:patient_id>/', DisconnectPatientFromTherapistView.as_view(), name='disconnect_patient_from_therapist'),
     path('therapists/', TherapistsView.as_view(), name='therapists'),
     path('patients/', PatientsView.as_view(), name='patients'),
     
