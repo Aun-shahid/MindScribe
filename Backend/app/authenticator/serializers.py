@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 import uuid
 
 from users.models import TherapistProfile
@@ -150,11 +151,56 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    can_change_username = serializers.SerializerMethodField(read_only=True)
+    next_username_change_at = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                  'user_type', 'phone_number', 'date_of_birth', 'email_verified']
-        read_only_fields = ['id', 'email', 'user_type', 'email_verified']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'user_type', 'phone_number', 'date_of_birth', 'email_verified',
+            'can_change_username', 'next_username_change_at',
+        ]
+        read_only_fields = ['id', 'email', 'user_type', 'email_verified', 'can_change_username', 'next_username_change_at']
+
+    def get_can_change_username(self, obj):
+        return obj.can_change_username_now()
+
+    def get_next_username_change_at(self, obj):
+        next_at = obj.next_username_change_allowed_at()
+        if next_at is None or obj.can_change_username_now():
+            return None
+        return next_at.isoformat()
+
+    def validate(self, attrs):
+        user = self.instance
+        if not user:
+            return attrs
+        if 'username' in attrs:
+            new_username = (attrs.get('username') or '').strip()
+            if not new_username:
+                raise serializers.ValidationError({'username': ['This field may not be blank.']})
+            attrs['username'] = new_username
+            if new_username != user.username:
+                if not user.can_change_username_now():
+                    next_at = user.next_username_change_allowed_at()
+                    msg = (
+                        f'You can change your username again after {next_at.date().isoformat()}.'
+                        if next_at
+                        else 'You cannot change your username yet.'
+                    )
+                    raise serializers.ValidationError({'username': [msg]})
+                if User.objects.exclude(pk=user.pk).filter(username=new_username).exists():
+                    raise serializers.ValidationError(
+                        {'username': ['This username is already taken.']}
+                    )
+        return attrs
+
+    def update(self, instance, validated_data):
+        new_username = validated_data.get('username')
+        if new_username is not None and new_username != instance.username:
+            instance.username_last_changed_at = timezone.now()
+        return super().update(instance, validated_data)
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -185,5 +231,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class EmailVerificationSerializer(serializers.Serializer):
     code = serializers.RegexField(regex=r'^\d{6}$', required=True)
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    password = serializers.CharField(required=True, write_only=True)
 
 

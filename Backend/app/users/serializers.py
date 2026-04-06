@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db import DatabaseError
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from .models import PatientProfile, TherapistProfile, ConnectionRequest
 
@@ -104,19 +105,67 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 class TherapistProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     patient_count = serializers.SerializerMethodField()
-    
+    first_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
     class Meta:
         model = TherapistProfile
         fields = [
             'license_number', 'specialization', 'years_of_experience',
             'education', 'certifications', 'clinic_name', 'clinic_address',
-            'therapist_pin', 'user_info', 'patient_count'
+            'therapist_pin', 'user_info', 'patient_count',
+            'first_name', 'last_name', 'username',
         ]
         read_only_fields = ['therapist_pin']
-    
+
+    def validate(self, attrs):
+        instance = self.instance
+        if not instance:
+            return attrs
+        user = instance.user
+        if 'username' in attrs:
+            new_username = (attrs.get('username') or '').strip()
+            if not new_username:
+                raise serializers.ValidationError({'username': ['This field may not be blank.']})
+            attrs['username'] = new_username
+            if new_username != user.username:
+                if not user.can_change_username_now():
+                    next_at = user.next_username_change_allowed_at()
+                    msg = (
+                        f'You can change your username again after {next_at.date().isoformat()}.'
+                        if next_at
+                        else 'You cannot change your username yet.'
+                    )
+                    raise serializers.ValidationError({'username': [msg]})
+                if User.objects.exclude(pk=user.pk).filter(username=new_username).exists():
+                    raise serializers.ValidationError(
+                        {'username': ['This username is already taken.']}
+                    )
+        return attrs
+
+    def update(self, instance, validated_data):
+        user = instance.user
+        first_name = validated_data.pop('first_name', serializers.empty)
+        last_name = validated_data.pop('last_name', serializers.empty)
+        username = validated_data.pop('username', serializers.empty)
+
+        if first_name is not serializers.empty:
+            user.first_name = (first_name or '').strip()
+        if last_name is not serializers.empty:
+            user.last_name = (last_name or '').strip()
+        if username is not serializers.empty:
+            new_u = username
+            if new_u != user.username:
+                user.username = new_u
+                user.username_last_changed_at = timezone.now()
+        user.save()
+        return super().update(instance, validated_data)
+
     @extend_schema_field(serializers.DictField())
     def get_user_info(self, obj):
         user = obj.user
+        next_at = user.next_username_change_allowed_at()
         return {
             'id': str(user.id),
             'username': user.username,
@@ -125,8 +174,14 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             'last_name': user.last_name,
             'phone_number': user.phone_number,
             'date_of_birth': user.date_of_birth,
+            'can_change_username': user.can_change_username_now(),
+            'next_username_change_at': (
+                next_at.isoformat()
+                if next_at and not user.can_change_username_now()
+                else None
+            ),
         }
-    
+
     @extend_schema_field(serializers.IntegerField())
     def get_patient_count(self, obj):
         return obj.get_patient_count()

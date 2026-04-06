@@ -15,9 +15,10 @@ from .models import PasswordResetToken, EmailVerificationToken
 from .token_manager import TokenManager
 from .services.email_service import ResendEmailService
 from .serializers import (
-    LoginSerializer, RegisterSerializer, UserProfileSerializer, 
+    LoginSerializer, RegisterSerializer, UserProfileSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer, EmailVerificationSerializer
+    PasswordResetConfirmSerializer, EmailVerificationSerializer,
+    DeleteAccountSerializer,
 )
 from users.models import TherapistProfile
 from users.services import AccountLinkingService
@@ -504,6 +505,39 @@ class EmailVerificationView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeleteAccountSerializer
+
+    @extend_schema(
+        request=DeleteAccountSerializer,
+        responses={
+            200: OpenApiResponse(description='User account and related data deleted.'),
+            400: OpenApiResponse(description='Invalid password.'),
+        },
+        summary='Delete account',
+        description='Permanently delete the authenticated user and related data. Requires current password.',
+    )
+    def post(self, request):
+        serializer = DeleteAccountSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        password = serializer.validated_data['password']
+        user = request.user
+        if not user.check_password(password):
+            return Response({'password': ['Wrong password.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh_token = request.data.get('refresh')
+        if refresh_token:
+            try:
+                TokenManager.blacklist_refresh_token(refresh_token)
+            except Exception:
+                pass
+
+        user.delete()
+        return Response({'detail': 'Account deleted.'}, status=status.HTTP_200_OK)
 
 
 class RefreshTokenView(APIView):

@@ -146,9 +146,39 @@ class AuthService {
     }
   }
 
-  async changePassword(data: { old_password: string; new_password: string }): Promise<void> {
+  async changePassword(data: {
+    old_password: string;
+    new_password: string;
+    new_password_confirm?: string;
+  }): Promise<void> {
     try {
-      await api.post('/authenticator/change-password/', data);
+      const response = await api.post<{
+        access?: string;
+        refresh?: string;
+        detail?: string;
+      }>('/authenticator/change-password/', {
+        old_password: data.old_password,
+        new_password: data.new_password,
+        new_password_confirm: data.new_password_confirm ?? data.new_password,
+      });
+      if (response.data.access) {
+        localStorage.setItem('access_token', response.data.access);
+      }
+      if (response.data.refresh) {
+        localStorage.setItem('refresh_token', response.data.refresh);
+      }
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteAccount(data: { password: string }): Promise<void> {
+    try {
+      const refresh = localStorage.getItem('refresh_token') || undefined;
+      await api.post('/authenticator/account/delete/', {
+        password: data.password,
+        ...(refresh ? { refresh } : {}),
+      });
     } catch (error: any) {
       throw this.handleError(error);
     }

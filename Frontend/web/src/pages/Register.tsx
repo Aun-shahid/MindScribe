@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { validatePasswordStrength } from '../utils/passwordValidation';
 
 /** YYYY-MM-DD for a date N full calendar years before today (local). */
 function getIsoDateYearsAgo(years: number): string {
@@ -20,16 +21,6 @@ function computeAgeFromIsoDate(dobIso: string): number {
     age -= 1;
   }
   return age;
-}
-
-function validatePasswordStrength(password: string): string | null {
-  if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters';
-  if (!/[A-Z]/.test(password)) return 'Include at least one uppercase letter';
-  if (!/[a-z]/.test(password)) return 'Include at least one lowercase letter';
-  if (!/[0-9]/.test(password)) return 'Include at least one number';
-  if (!/[^A-Za-z0-9]/.test(password)) return 'Include at least one special character';
-  return null;
 }
 
 const LICENSE_REGEX = /^[A-Za-z0-9\s-]{5,30}$/;

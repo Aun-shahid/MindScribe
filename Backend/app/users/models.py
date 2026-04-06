@@ -6,6 +6,9 @@ import uuid
 import random
 from datetime import timedelta
 
+USERNAME_CHANGE_COOLDOWN_DAYS = 30
+
+
 class User(AbstractUser):
     USER_TYPES = [
         ('patient', 'Patient'),
@@ -31,6 +34,8 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
+    # Set when the username is changed after signup (null = never changed; 30-day cooldown applies after first change).
+    username_last_changed_at = models.DateTimeField(null=True, blank=True)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -39,6 +44,19 @@ class User(AbstractUser):
     def full_name(self):
         """Return the full name of the user"""
         return f"{self.first_name} {self.last_name}".strip() or self.username
+
+    def can_change_username_now(self) -> bool:
+        if self.username_last_changed_at is None:
+            return True
+        return timezone.now() >= self.username_last_changed_at + timedelta(
+            days=USERNAME_CHANGE_COOLDOWN_DAYS
+        )
+
+    def next_username_change_allowed_at(self):
+        """Return datetime when username may be changed again, or None if allowed now."""
+        if self.username_last_changed_at is None:
+            return None
+        return self.username_last_changed_at + timedelta(days=USERNAME_CHANGE_COOLDOWN_DAYS)
     
     class Meta:
         db_table = 'users'
