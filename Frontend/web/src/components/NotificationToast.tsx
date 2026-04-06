@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, AlertTriangle, TrendingDown } from 'lucide-react';
+import { X, AlertTriangle, TrendingDown, Info } from 'lucide-react';
 import type { NotificationToastEntry } from '../types/notification';
 import { normalizeNotificationActionUrl } from '../utils/notificationNavigation';
 
@@ -14,6 +14,24 @@ const AUTO_DISMISS_MS = 7000;
 
 // Resolve colour scheme and icon from the source_event
 const getToastStyle = (sourceEvent: string, priority: string) => {
+  if (sourceEvent === 'app.error') {
+    return {
+      bg: 'bg-red-600',
+      border: 'border-red-400',
+      icon: <AlertTriangle size={20} className="shrink-0 text-white" />,
+      badge: 'ERROR',
+      badgeBg: 'bg-red-800',
+    };
+  }
+  if (sourceEvent === 'app.info') {
+    return {
+      bg: 'bg-slate-700',
+      border: 'border-slate-500',
+      icon: <Info size={20} className="shrink-0 text-white" />,
+      badge: 'NOTICE',
+      badgeBg: 'bg-slate-900',
+    };
+  }
   if (sourceEvent === 'mood.streak.bad3') {
     return {
       bg: 'bg-red-600',

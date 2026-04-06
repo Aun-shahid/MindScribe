@@ -7,6 +7,7 @@ import type {
   WSNotificationPayload,
   NotificationToastEntry,
 } from '../types/notification';
+import type { AppToastPayload } from '../utils/events';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -322,6 +323,28 @@ export const useNotifications = () => {
       unlisten();
     };
   }, [fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    const onAppToast = (e: Event) => {
+      const detail = (e as CustomEvent<AppToastPayload>).detail;
+      if (!detail?.title?.trim()) return;
+      const id = `app-toast-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      const isError = detail.variant !== 'info';
+      const entry: NotificationToastEntry = {
+        id,
+        title: detail.title,
+        message: detail.message ?? '',
+        priority: isError ? 'high' : 'normal',
+        source_event: isError ? 'app.error' : 'app.info',
+        action_url: null,
+        patient_name: '',
+        created_at: new Date().toISOString(),
+      };
+      setToasts((prev) => [entry, ...prev].slice(0, 5));
+    };
+    window.addEventListener('therapease:app-toast', onAppToast);
+    return () => window.removeEventListener('therapease:app-toast', onAppToast);
+  }, []);
 
   return {
     // State

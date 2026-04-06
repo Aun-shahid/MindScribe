@@ -46,3 +46,16 @@ export const listenToNotificationEvent = (
     window.removeEventListener(`therapease:${eventName}`, handler as EventListener);
   };
 };
+
+/** In-app toast (same stack as real-time notification toasts in Layout). */
+export type AppToastPayload = {
+  title: string;
+  message?: string;
+  variant?: 'error' | 'info';
+};
+
+export const emitAppToast = (payload: AppToastPayload) => {
+  window.dispatchEvent(
+    new CustomEvent<AppToastPayload>('therapease:app-toast', { detail: payload })
+  );
+};

@@ -16,6 +16,7 @@ import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { emitAppToast } from '../utils/events';
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +64,7 @@ const ActiveSession: React.FC = () => {
   const chunkQueueRef = useRef<Array<{ audioData: string | null; sampleRate: number; format: string; capturedAt: number }>>([]);
   const [uploadDelayMs, setUploadDelayMs] = useState(0);
   const [queuedChunkCount, setQueuedChunkCount] = useState(0);
+  const [endSessionConfirmOpen, setEndSessionConfirmOpen] = useState(false);
 
   const encodeInt16ToBase64 = (samples: Int16Array): string => {
     const bytes = new Uint8Array(samples.buffer);
@@ -238,7 +240,11 @@ const ActiveSession: React.FC = () => {
   useEffect(() => {
   if (session && session.status === 'COMPLETED' && !startingSession) {
     console.log('⚠️ Session is already completed, redirecting to detail page');
-    alert('This session has already been completed. You will be redirected to the session details page.');
+    emitAppToast({
+      title: 'Session already completed',
+      message: 'Redirecting to session details…',
+      variant: 'info',
+    });
     navigate(`/sessions/${id}`);
   }
 }, [session, id, navigate, startingSession]);
@@ -270,7 +276,11 @@ const ActiveSession: React.FC = () => {
           }
           await fetchSession();
         } else {
-          alert(`Failed to re-initialize active session: ${startError?.message}`);
+          emitAppToast({
+            title: 'Could not resume session',
+            message: startError?.message ?? 'Failed to re-initialize active session.',
+            variant: 'error',
+          });
           navigate('/sessions');
         }
         return;
@@ -289,7 +299,11 @@ const ActiveSession: React.FC = () => {
         }
 
         if (!['UPCOMING', 'RESCHEDULED', 'REQUESTED'].includes(latest.status)) {
-          alert(`Session cannot be started. Status is: ${latest.status}`);
+          emitAppToast({
+            title: 'Cannot start session',
+            message: `Current status is: ${latest.status}`,
+            variant: 'error',
+          });
           navigate('/sessions');
           return;
         }
@@ -306,7 +320,11 @@ const ActiveSession: React.FC = () => {
           // Re-fetch so session.websocket_room_id is up to date
           await fetchSession();
         } else {
-          alert(`Failed to start session: ${startError?.message}`);
+          emitAppToast({
+            title: 'Could not start session',
+            message: startError?.message ?? 'Please try again.',
+            variant: 'error',
+          });
           navigate('/sessions');
         }
       }
@@ -360,7 +378,11 @@ const ActiveSession: React.FC = () => {
     } catch (captureError) {
       console.error('❌ Failed to access microphone:', captureError);
       setIsRecording(false);
-      alert('Unable to access microphone. Please allow microphone access and try again.');
+      emitAppToast({
+        title: 'Microphone access needed',
+        message: 'Please allow microphone access and try again.',
+        variant: 'error',
+      });
     }
   }, [startAudioCapture]);
 
@@ -374,17 +396,15 @@ const ActiveSession: React.FC = () => {
     console.log('🎤 Recording stopped');
   }, [enqueuePendingAudioChunk, flushQueuedAudioChunks, stopAudioCapture]);
 
-  const handleEndSession = useCallback(async () => {
-    if (window.confirm('Are you sure you want to end this session? You will be taken to the completion form.')) {
-      if (isRecording) {
-        setIsRecording(false);
-        enqueuePendingAudioChunk();
-        flushQueuedAudioChunks();
-        await stopAudioCapture();
-      }
-      // Navigate to end session form
-      navigate(`/sessions/${id}/end`);
+  const handleEndSessionConfirm = useCallback(async () => {
+    setEndSessionConfirmOpen(false);
+    if (isRecording) {
+      setIsRecording(false);
+      enqueuePendingAudioChunk();
+      flushQueuedAudioChunks();
+      await stopAudioCapture();
     }
+    navigate(`/sessions/${id}/end`);
   }, [enqueuePendingAudioChunk, flushQueuedAudioChunks, id, isRecording, navigate, stopAudioCapture]);
 
   if (loading || startingSession) {
@@ -449,7 +469,8 @@ const ActiveSession: React.FC = () => {
             </div>
 
             <button
-              onClick={handleEndSession}
+              type="button"
+              onClick={() => setEndSessionConfirmOpen(true)}
               className="flex items-center bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
             >
               <StopCircle size={20} className="mr-2" />
@@ -630,6 +651,45 @@ const ActiveSession: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {endSessionConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="active-session-end-title"
+          aria-describedby="active-session-end-desc"
+          onClick={() => setEndSessionConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="active-session-end-title" className="text-lg font-semibold text-gray-900">
+              End this session?
+            </h3>
+            <p id="active-session-end-desc" className="mt-2 text-sm text-gray-600 leading-relaxed">
+              Are you sure you want to end this session? You will be taken to the completion form.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setEndSessionConfirmOpen(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleEndSessionConfirm()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                End session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

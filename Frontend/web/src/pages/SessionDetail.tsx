@@ -19,6 +19,7 @@ import { useSessionDetail, useSessionAnalysis, useSessionInsights, useSessionTra
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
 import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { emitAppToast } from '../utils/events';
 
 type SessionDetailTab = 'overview' | 'soap' | 'emotional-profile' | 'ai-insights';
 
@@ -392,7 +393,11 @@ const SessionDetailPage: React.FC = () => {
       setIsEditingDetails(false);
     } catch (error) {
       console.error('Failed to save session details:', error);
-      alert('Failed to save session details. Please try again.');
+      emitAppToast({
+        title: 'Could not save session details',
+        message: 'Please try again.',
+        variant: 'error',
+      });
     } finally {
       setSavingDetails(false);
     }
@@ -417,7 +422,11 @@ const SessionDetailPage: React.FC = () => {
       setIsEditingSummary(false);
     } catch (error) {
       console.error('Failed to save summary:', error);
-      alert('Failed to save summary. Please try again.');
+      emitAppToast({
+        title: 'Could not save summary',
+        message: 'Please try again.',
+        variant: 'error',
+      });
     } finally {
       setSavingSummary(false);
     }
@@ -431,7 +440,11 @@ const SessionDetailPage: React.FC = () => {
         navigate('/sessions');
       } catch (error) {
         console.error('Failed to delete session:', error);
-        alert('Failed to delete session. Please try again.');
+        emitAppToast({
+          title: 'Could not delete session',
+          message: 'Please try again.',
+          variant: 'error',
+        });
       }
     }
   };

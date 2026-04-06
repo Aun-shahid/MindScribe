@@ -5,6 +5,7 @@ import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle, Loader, 
 import { useSessionDetail } from '../hooks/useSessions';
 import { useEndSession } from '../hooks/useSessions';
 import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { emitAppToast } from '../utils/events';
 
 const EndSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,8 @@ const EndSession: React.FC = () => {
   const [nextSessionGoals, setNextSessionGoals] = useState('');
   const [sessionEffectiveness, setSessionEffectiveness] = useState('8');
   const [completionPopupMessage, setCompletionPopupMessage] = useState<string | null>(null);
+  const [completeSessionConfirmOpen, setCompleteSessionConfirmOpen] = useState(false);
+  const [cancelNavigationConfirmOpen, setCancelNavigationConfirmOpen] = useState(false);
 
   // Use hooks
   const { session } = useSessionDetail(id!);
@@ -56,30 +59,50 @@ const EndSession: React.FC = () => {
     };
   }, [loading]);
 
-  const handleCompleteSession = async () => {
+  /** Validates before opening the complete-session confirmation modal */
+  const requestCompleteSession = () => {
     if (!id) {
-      alert('No session ID found');
+      emitAppToast({
+        title: 'No session ID',
+        message: 'Go back to sessions and open this session again.',
+        variant: 'error',
+      });
       return;
     }
 
     if (session?.status === 'UPCOMING') {
-      alert('This session has not been started yet. Please start the session first before completing it.');
+      emitAppToast({
+        title: 'Session not started',
+        message: 'Start the session first before completing it.',
+        variant: 'info',
+      });
       return;
     }
 
     if (session?.status !== 'IN_PROGRESS' && session?.status !== 'COMPLETED') {
-      alert(`Session cannot be completed. Current status: ${session?.status}. Only IN_PROGRESS or COMPLETED sessions can be updated.`);
+      emitAppToast({
+        title: 'Cannot complete session',
+        message: `Current status: ${session?.status}. Only in-progress or completed sessions can be updated.`,
+        variant: 'error',
+      });
       return;
     }
 
     if (!sessionNotes.trim()) {
-      alert('Please enter session notes before completing the session.');
+      emitAppToast({
+        title: 'Session notes required',
+        message: 'Enter session notes before completing the session.',
+        variant: 'info',
+      });
       return;
     }
 
-    if (!window.confirm('Are you sure you want to complete this session? This action cannot be undone.')) {
-      return;
-    }
+    setCompleteSessionConfirmOpen(true);
+  };
+
+  const submitCompleteSession = async () => {
+    if (!id) return;
+    setCompleteSessionConfirmOpen(false);
 
     const sessionData = {
       session_notes: sessionNotes,
@@ -96,14 +119,21 @@ const EndSession: React.FC = () => {
         'Session saved successfully. AI processing is now running in the background. You will be notified when your SOAP Notes, Emotional Profile, and AI Insights are ready.'
       );
     } else if (endSessionError) {
-      alert(endSessionError.message || 'Failed to complete session. Please try again.');
+      emitAppToast({
+        title: 'Could not complete session',
+        message: endSessionError.message || 'Please try again.',
+        variant: 'error',
+      });
     }
   };
 
-  const handleCancel = () => {
-    if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
-      navigate(-1);
-    }
+  const requestCancelNavigation = () => {
+    setCancelNavigationConfirmOpen(true);
+  };
+
+  const confirmCancelNavigation = () => {
+    setCancelNavigationConfirmOpen(false);
+    navigate(-1);
   };
 
   const isAlreadyCompleted = session?.status === 'COMPLETED';
@@ -163,7 +193,8 @@ const EndSession: React.FC = () => {
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
-                onClick={handleCancel}
+                type="button"
+                onClick={requestCancelNavigation}
                 className="mr-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
               >
                 <ChevronLeft size={24} />
@@ -378,7 +409,8 @@ const EndSession: React.FC = () => {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-6">
             <button
-              onClick={handleCancel}
+              type="button"
+              onClick={requestCancelNavigation}
               className="flex-1 bg-white text-gray-700 border border-gray-300 py-3 px-6 rounded-lg hover:bg-gray-50 transition-colors"
               disabled={loading}
             >
@@ -386,7 +418,8 @@ const EndSession: React.FC = () => {
             </button>
 
             <button
-              onClick={handleCompleteSession}
+              type="button"
+              onClick={requestCompleteSession}
               className="flex-1 flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || !canEndSession}
             >
@@ -400,6 +433,84 @@ const EndSession: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {completeSessionConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-session-complete-title"
+          aria-describedby="end-session-complete-desc"
+          onClick={() => setCompleteSessionConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="end-session-complete-title" className="text-lg font-semibold text-gray-900">
+              Complete this session?
+            </h3>
+            <p id="end-session-complete-desc" className="mt-2 text-sm text-gray-600 leading-relaxed">
+              Are you sure you want to complete this session? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setCompleteSessionConfirmOpen(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitCompleteSession()}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+              >
+                Complete session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelNavigationConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-session-cancel-nav-title"
+          aria-describedby="end-session-cancel-nav-desc"
+          onClick={() => setCancelNavigationConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="end-session-cancel-nav-title" className="text-lg font-semibold text-gray-900">
+              Leave this page?
+            </h3>
+            <p id="end-session-cancel-nav-desc" className="mt-2 text-sm text-gray-600 leading-relaxed">
+              Are you sure you want to cancel? Any unsaved changes will be lost.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setCancelNavigationConfirmOpen(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancelNavigation}
+                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
