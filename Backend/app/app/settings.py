@@ -46,6 +46,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # IMPORTANT: In production, this should be loaded from an environment variable!
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-xlb)p+*0f81&n^mnnta1_-n%mw^dwt#6tgqrcp#5b7+hpp(v^g")
 
+# AI Service Authentication Key (Shared with AI Service)
+AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", SECRET_KEY)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 # IMPORTANT: In production, set DEBUG to False!
 DEBUG = env_bool("DJANGO_DEBUG", True)
@@ -403,5 +406,4 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # --- AI Services Configuration ---
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:8001")
-AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", SECRET_KEY)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
