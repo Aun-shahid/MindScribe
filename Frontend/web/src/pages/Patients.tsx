@@ -8,7 +8,7 @@ import {
   therapistHeroPrimaryButtonClass,
 } from '../components/TherapistPageBanner';
 import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
-import { PatientsPageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
+import { PatientsListSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
 
 const Patients = () => {
   const { patients, loading, error, clearError, updateFilter } = useTherapistPatients({});
@@ -50,12 +50,9 @@ const Patients = () => {
     });
   };
 
-  if (loading) {
-    return <PatientsPageSkeleton />;
-  }
-
   return (
     <div className={`patients-page ${THERAPIST_PAGE_SHELL}`}>
+      <div className="mb-6">
       <TherapistPageBanner>
         <TherapistPageSimpleHero
           title="All Patients"
@@ -67,6 +64,7 @@ const Patients = () => {
           }
         />
       </TherapistPageBanner>
+      </div>
 
       <div className="w-full mt-5">
         <div className="relative">
@@ -108,7 +106,7 @@ const Patients = () => {
           )}
         </div>
 
-        {searchQuery && (
+        {searchQuery && !loading && (
           <p className="mt-2 text-sm text-black">
             Found {filteredPatients.length} patient{filteredPatients.length !== 1 ? 's' : ''}
           </p>
@@ -124,9 +122,28 @@ const Patients = () => {
         </div>
       )}
 
-      <div className="w-full mt-5 space-y-4 pb-8">
-        {filteredPatients.length > 0 ? (
-          <>
+      <div className="relative w-full mt-5 space-y-4 pb-8">
+        {loading && patients.length > 0 && (
+          <div
+            className="flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50/90 px-2 py-2 text-sm text-purple-700"
+            role="status"
+            aria-live="polite"
+          >
+            <div
+              className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-purple-600 border-t-transparent"
+              aria-hidden
+            />
+            <span>Updating results…</span>
+          </div>
+        )}
+
+        {loading && patients.length === 0 ? (
+          <PatientsListSkeleton rows={5} />
+        ) : filteredPatients.length > 0 ? (
+          <div
+            className={loading ? 'pointer-events-none opacity-60 transition-opacity' : ''}
+            aria-busy={loading}
+          >
             <div className="hidden md:grid md:grid-cols-12 items-center bg-white border border-gray-200 rounded-lg px-5 py-3 text-xs font-bold uppercase tracking-wide text-black">
               <div className="md:col-span-4">Name</div>
               <div className="md:col-span-4">Care Profile</div>
@@ -206,8 +223,8 @@ const Patients = () => {
                 </div>
               );
             })}
-          </>
-        ) : (
+          </div>
+        ) : !loading ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm">
             <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -237,7 +254,7 @@ const Patients = () => {
               </Link>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

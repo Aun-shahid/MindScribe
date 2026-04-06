@@ -127,60 +127,41 @@ export function SessionsListSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
-/** Patients: hero + search + table rows */
-export function PatientsPageSkeleton() {
+/** Patients list area only — banner + search render immediately in Patients.tsx */
+export function PatientsListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div
-      className={THERAPIST_PAGE_SHELL}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading patients"
-    >
-      <div className="relative w-full overflow-hidden rounded-xl bg-[#2f224a]/40 min-h-[10.5rem] sm:h-40">
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-400/30 via-gray-300/20 to-gray-400/30" />
-        <div className="relative z-10 flex h-full flex-col justify-end p-4 sm:p-6">
-          <Sk className="mb-2 h-8 w-56 max-w-[80%] bg-white/30" />
-          <Sk className="h-4 w-72 max-w-[90%] bg-white/25" />
-        </div>
+    <div className="w-full space-y-4" role="status" aria-busy="true" aria-label="Loading patients">
+      <div className="hidden rounded-lg border border-gray-200 bg-white px-5 py-3 md:grid md:grid-cols-12">
+        <Sk className="col-span-4 h-3" />
+        <Sk className="col-span-4 h-3" />
+        <Sk className="col-span-2 h-3" />
+        <Sk className="col-span-2 ml-auto h-3 w-16" />
       </div>
-
-      <div className="mt-5 w-full">
-        <Sk className="h-12 w-full rounded-lg" />
-      </div>
-
-      <div className="mt-5 w-full space-y-4 pb-8">
-        <div className="hidden rounded-lg border border-gray-200 bg-white px-5 py-3 md:grid md:grid-cols-12">
-          <Sk className="col-span-4 h-3" />
-          <Sk className="col-span-4 h-3" />
-          <Sk className="col-span-2 h-3" />
-          <Sk className="col-span-2 ml-auto h-3 w-16" />
-        </div>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-          >
-            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-12">
-              <div className="md:col-span-4 space-y-3">
-                <Sk className="h-6 w-48" />
-                <Sk className="h-4 w-32" />
-                <Sk className="h-4 w-full max-w-sm" />
-              </div>
-              <div className="md:col-span-4 space-y-2">
-                <Sk className="h-4 w-56" />
-                <Sk className="h-3 w-40" />
-              </div>
-              <div className="md:col-span-2">
-                <Sk className="h-4 w-28" />
-              </div>
-              <div className="flex flex-col gap-2 md:col-span-2 md:ml-auto md:max-w-[220px]">
-                <Sk className="h-10 w-full rounded-md" />
-                <Sk className="h-10 w-full rounded-md" />
-              </div>
+      {Array.from({ length: rows }, (_, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+        >
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-12">
+            <div className="space-y-3 md:col-span-4">
+              <Sk className="h-6 w-48" />
+              <Sk className="h-4 w-32" />
+              <Sk className="h-4 w-full max-w-sm" />
+            </div>
+            <div className="space-y-2 md:col-span-4">
+              <Sk className="h-4 w-56" />
+              <Sk className="h-3 w-40" />
+            </div>
+            <div className="md:col-span-2">
+              <Sk className="h-4 w-28" />
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2 md:ml-auto md:max-w-[220px]">
+              <Sk className="h-10 w-full rounded-md" />
+              <Sk className="h-10 w-full rounded-md" />
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
