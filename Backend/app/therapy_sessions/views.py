@@ -915,9 +915,21 @@ class SessionStatsView(generics.GenericAPIView):
         ),
         OpenApiParameter(
             name='limit',
-            description='Limit number of results (default: 50)',
+            description='Page size / max results (default: 50, max: 100)',
             required=False,
             type=int
+        ),
+        OpenApiParameter(
+            name='offset',
+            description='Number of sessions to skip (for pagination)',
+            required=False,
+            type=int
+        ),
+        OpenApiParameter(
+            name='patient_name',
+            description='Filter by patient name (matches first or last name; multiple words are all required)',
+            required=False,
+            type=str
         ),
     ],
     responses={
@@ -944,6 +956,10 @@ class SessionStatsView(generics.GenericAPIView):
                     }
                 ],
                 "total_count": 25,
+                "limit": 50,
+                "offset": 0,
+                "has_next": False,
+                "has_previous": False,
                 "user_type": "therapist"
             },
             response_only=True,
@@ -975,26 +991,53 @@ class SessionsListView(generics.ListAPIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # Filter by patient ID (for therapists viewing specific patient's sessions)
-        patient_id_filter = self.request.query_params.get('patient_id')
-        if patient_id_filter and user.user_type == 'therapist':
-            queryset = queryset.filter(patient_id=patient_id_filter)
-        
-        # Apply limit
-        limit = int(self.request.query_params.get('limit', 50))
-        
-        return queryset.select_related('patient', 'therapist').order_by('-scheduled_date')[:limit]
-    
+        # Filter by patient name (therapists only)
+        patient_name = (self.request.query_params.get('patient_name') or '').strip()
+        if patient_name and user.user_type == 'therapist':
+            parts = [p for p in patient_name.split() if p]
+            for part in parts:
+                queryset = queryset.filter(
+                    Q(patient__first_name__icontains=part)
+                    | Q(patient__last_name__icontains=part)
+                )
+
+        # Newest / most recent first: scheduled time desc, then created desc for stable order
+        return queryset.select_related('patient', 'therapist').order_by(
+            '-scheduled_date', '-created_at'
+        )
+
     def list(self, request, *args, **kwargs):
-        """Override list to add user type and total count"""
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        
-        return Response({
-            'sessions': serializer.data,
-            'total_count': len(serializer.data),
-            'user_type': request.user.user_type
-        }, status=status.HTTP_200_OK)
+        """Paginate sessions; total_count is the full filtered count (not page size)."""
+        queryset = self.filter_queryset(self.get_queryset())
+        total_count = queryset.count()
+
+        try:
+            limit = int(request.query_params.get('limit', 50))
+        except (TypeError, ValueError):
+            limit = 50
+        limit = max(1, min(limit, 100))
+
+        try:
+            offset = int(request.query_params.get('offset', 0))
+        except (TypeError, ValueError):
+            offset = 0
+        offset = max(0, offset)
+
+        page = queryset[offset : offset + limit]
+        serializer = self.get_serializer(page, many=True)
+
+        return Response(
+            {
+                'sessions': serializer.data,
+                'total_count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'has_next': offset + limit < total_count,
+                'has_previous': offset > 0,
+                'user_type': request.user.user_type,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(

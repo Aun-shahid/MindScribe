@@ -16,6 +16,7 @@ import type {
   SessionType,
   SessionDetail,
   SessionFilter,
+  SessionsListApiResponse,
   SessionFormData,
   CalendarSession,
   SessionNotes,
@@ -501,36 +502,43 @@ class SessionsService {
   }
 
   /**
-   * Get sessions with optional filtering
+   * Get sessions with optional filtering and offset/limit pagination.
    */
-  async getSessions(filter: SessionFilter = {}): Promise<SessionType[]> {
+  async getSessions(filter: SessionFilter = {}): Promise<SessionsListApiResponse> {
     try {
-      let endpoint = '/therapy_sessions/sessions/';
       const params = new URLSearchParams();
 
       if (filter.date) params.append('date', filter.date);
       if (filter.status && filter.status !== 'ALL') params.append('status', filter.status);
-      if (filter.patient_id) params.append('patient_id', filter.patient_id);
+      if (filter.patient_name?.trim()) params.append('patient_name', filter.patient_name.trim());
+
+      const limit = filter.limit ?? 20;
+      const offset = filter.offset ?? 0;
+      params.append('limit', String(limit));
+      params.append('offset', String(offset));
 
       const queryString = params.toString();
-      if (queryString) {
-        endpoint += `?${queryString}&limit=50`;
-      } else {
-        endpoint += '?limit=50';
+      const endpoint = `/therapy_sessions/sessions/?${queryString}`;
+
+      const response = await api.get<SessionsListApiResponse>(endpoint);
+      const raw = response.data as Partial<SessionsListApiResponse> & { results?: SessionType[] };
+
+      let sessionsData: SessionType[] = [];
+      if (Array.isArray(raw?.sessions)) {
+        sessionsData = raw.sessions;
+      } else if (Array.isArray(raw?.results)) {
+        sessionsData = raw.results;
       }
 
-      const response = await api.get(endpoint);
-      let sessionsData = [];
-      if (response.data) {
-        if (Array.isArray(response.data.sessions)) {
-          sessionsData = response.data.sessions;
-        } else if (Array.isArray(response.data)) {
-          sessionsData = response.data;
-        } else if (response.data.results && Array.isArray(response.data.results)) {
-          sessionsData = response.data.results;
-        }
-      }
-      return sessionsData;
+      return {
+        sessions: sessionsData,
+        total_count: typeof raw?.total_count === 'number' ? raw.total_count : sessionsData.length,
+        limit: typeof raw?.limit === 'number' ? raw.limit : limit,
+        offset: typeof raw?.offset === 'number' ? raw.offset : offset,
+        has_next: Boolean(raw?.has_next),
+        has_previous: Boolean(raw?.has_previous),
+        user_type: raw?.user_type,
+      };
     } catch (error) {
       throw this.handleError(error);
     }

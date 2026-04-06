@@ -399,7 +399,23 @@ export interface SessionFormData {
 export interface SessionFilter {
   status?: SessionStatus;
   date?: string;
-  patient_id?: string;
+  /** Filter sessions by patient first/last name (partial match) */
+  patient_name?: string;
+  /** Page size (default 20 in hook; max 100 on backend) */
+  limit?: number;
+  /** Skip this many sessions (for pagination) */
+  offset?: number;
+}
+
+/** Response from GET /therapy_sessions/sessions/ */
+export interface SessionsListApiResponse {
+  sessions: SessionType[];
+  total_count: number;
+  limit: number;
+  offset: number;
+  has_next: boolean;
+  has_previous: boolean;
+  user_type?: string;
 }
 
 export interface SessionsResponse {

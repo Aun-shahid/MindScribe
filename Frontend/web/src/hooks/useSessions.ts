@@ -1,6 +1,6 @@
 // src/hooks/useSessions.ts
 // Session-specific hooks for live sessions, analysis, and transcription
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aiServiceUrl } from '../config';
 import sessionsService from '../services/sessions.service';
@@ -516,66 +516,127 @@ export const useSessionInsights = (
 /**
  * Hook for managing all sessions for a therapist
  */
+const DEFAULT_PAGE_SIZE = 20;
+
 export const useSessions = (initialFilter: SessionFilter = {}) => {
   const [sessions, setSessions] = useState<SessionType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<TherapistError | null>(null);
-  const [filter, setFilter] = useState<SessionFilter>(initialFilter);
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<SessionFilter>({
+    limit: DEFAULT_PAGE_SIZE,
+    ...initialFilter,
+  });
+  const [pagination, setPagination] = useState({
+    total_count: 0,
+    limit: DEFAULT_PAGE_SIZE,
+    offset: 0,
+    has_next: false,
+    has_previous: false,
+  });
 
-  const fetchSessions = useCallback(async (filterOverride?: SessionFilter) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const currentFilter = filterOverride || filter;
-      const data = await sessionsService.getSessions(currentFilter);
-      setSessions(data);
-    } catch (err) {
-      setError(err as TherapistError);
-      console.error('Sessions fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const totalPages = useMemo(() => {
+    const lim = pagination.limit || DEFAULT_PAGE_SIZE;
+    if (pagination.total_count === 0) return 0;
+    return Math.ceil(pagination.total_count / lim);
+  }, [pagination.total_count, pagination.limit]);
+
+  const fetchSessions = useCallback(
+    async (filterOverride?: SessionFilter) => {
+      const currentFilter = filterOverride ?? filter;
+      const limit = currentFilter.limit ?? DEFAULT_PAGE_SIZE;
+      const offset = (page - 1) * limit;
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const data = await sessionsService.getSessions({
+          ...currentFilter,
+          limit,
+          offset,
+        });
+
+        setSessions(data.sessions);
+        setPagination({
+          total_count: data.total_count,
+          limit: data.limit,
+          offset: data.offset,
+          has_next: data.has_next,
+          has_previous: data.has_previous,
+        });
+      } catch (err) {
+        setError(err as TherapistError);
+        console.error('Sessions fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filter, page]
+  );
 
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
 
   const updateFilter = useCallback((newFilter: SessionFilter, reset = false) => {
+    setPage(1);
     if (reset) {
-      setFilter({ ...newFilter });
+      setFilter({ limit: DEFAULT_PAGE_SIZE, ...newFilter });
     } else {
-      setFilter(prev => ({ ...prev, ...newFilter }));
+      setFilter((prev) => ({ ...prev, ...newFilter }));
     }
   }, []);
 
-  const createSession = useCallback(async (sessionData: SessionFormData): Promise<SessionType | null> => {
-    try {
-      setError(null);
-      const newSession = await sessionsService.createSession(sessionData);
-      await fetchSessions();
-      return newSession;
-    } catch (err) {
-      setError(err as TherapistError);
-      return null;
-    }
-  }, [fetchSessions]);
+  const goToPage = useCallback(
+    (nextPage: number) => {
+      const lim = filter.limit ?? DEFAULT_PAGE_SIZE;
+      const tp =
+        pagination.total_count === 0 ? 0 : Math.ceil(pagination.total_count / lim);
+      if (nextPage < 1 || (tp > 0 && nextPage > tp)) return;
+      setPage(nextPage);
+    },
+    [filter.limit, pagination.total_count]
+  );
 
-  const updateSession = useCallback(async (sessionId: string, updateData: SessionUpdate): Promise<boolean> => {
-    try {
-      setError(null);
-      await sessionsService.updateSession(sessionId, updateData);
-      await fetchSessions();
-      return true;
-    } catch (err) {
-      setError(err as TherapistError);
-      return false;
-    }
-  }, [fetchSessions]);
+  const createSession = useCallback(
+    async (sessionData: SessionFormData): Promise<SessionType | null> => {
+      try {
+        setError(null);
+        const newSession = await sessionsService.createSession(sessionData);
+        await fetchSessions();
+        return newSession;
+      } catch (err) {
+        setError(err as TherapistError);
+        return null;
+      }
+    },
+    [fetchSessions]
+  );
+
+  const updateSession = useCallback(
+    async (sessionId: string, updateData: SessionUpdate): Promise<boolean> => {
+      try {
+        setError(null);
+        await sessionsService.updateSession(sessionId, updateData);
+        await fetchSessions();
+        return true;
+      } catch (err) {
+        setError(err as TherapistError);
+        return false;
+      }
+    },
+    [fetchSessions]
+  );
 
   return {
     sessions,
     loading,
+    pagination,
+    page,
+    setPage,
+    totalPages,
+    goToPage,
     error,
     filter,
     updateFilter,
