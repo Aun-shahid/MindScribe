@@ -250,7 +250,25 @@ export default function LoginScreen() {
         </View>
 
         {/* Tiny test links for QA/dev flow checks */}
-        
+        <View style={styles.testLinksRow}>
+          <TouchableOpacity
+            onPress={() => !isLoading && router.push('./request-reset')}
+            disabled={isLoading}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Request Reset</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.testLinkDivider}>|</Text>
+
+          <TouchableOpacity
+            onPress={() => !isLoading && router.push('./verify-email')}
+            disabled={isLoading}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.testLinkText, isLoading && { opacity: 0.5 }]}>Verify Email</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

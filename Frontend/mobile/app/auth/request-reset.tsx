@@ -30,7 +30,7 @@ export default function RequestResetScreen() {
   const insets = useSafeAreaInsets();
 
   // ── Responsive tokens (all clamp — zero fixed px) ─────────────────────────
-  const topPad        = insets.top + clamp(height * 0.02, 12, 24);
+  const topPad        = insets.top + clamp(height * 0.075, 44, 88);
   const bottomPad     = clamp(insets.bottom + height * 0.06, 40, 58);
   const hPad          = clamp(width * 0.06, 20, 28);
   const kvOffset      = Platform.OS === 'ios' ? insets.top + 8 : 0;
@@ -206,6 +206,18 @@ export default function RequestResetScreen() {
               Back to Login
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.testLinksRow}>
+            <TouchableOpacity
+              onPress={() => router.push('./verify-email')}
+              disabled={isLoading}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.testLinkText, isLoading && styles.linkTextDisabled]}>
+                Verify Email (Test)
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -267,6 +279,16 @@ const styles = StyleSheet.create({
     color: '#A78BFA',
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  testLinksRow: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testLinkText: {
+    color: 'rgba(191,180,226,0.78)',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   linkTextDisabled: { color: '#9e9e9e' },
 });
