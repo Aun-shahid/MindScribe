@@ -242,7 +242,7 @@ class SOAPNote(BaseModel):
     plan: SOAPNoteSection
     emotional_summary: Optional[str] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
-    model_version: str = "gpt-4o-mini"
+    model_version: str = "provider-configured"
 
 
 class SOAPGenerateRequest(BaseModel):

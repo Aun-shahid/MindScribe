@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
 
+    # Groq Configuration (used for SOAP generation)
+    groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
+    groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    soap_groq_model: str = Field(default="llama-3.1-8b-instant", alias="SOAP_GROQ_MODEL")
+
     # ElevenLabs Configuration
     elevenlabs_api_key: str = Field(default="", alias="ELEVENLABS_API_KEY")
     elevenlabs_realtime_model: str = Field(

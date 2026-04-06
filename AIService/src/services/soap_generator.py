@@ -1,5 +1,5 @@
 """
-SOAP Notes Generator Service - Generate structured SOAP notes using GPT-4o-mini.
+SOAP Notes Generator Service - Generate structured SOAP notes using Groq/OpenAI providers.
 """
 import asyncio
 import json
@@ -18,6 +18,64 @@ from ..schemas import (
 logger = logging.getLogger(__name__)
 
 _openai_client: Optional[AsyncOpenAI] = None
+_groq_client: Optional[AsyncOpenAI] = None
+
+
+SOAP_SYSTEM_PROMPT_GROQ = """You are a clinical psychotherapist assistant trained to generate SOAP notes from psychotherapy session transcripts.
+
+Core rules:
+- Use ONLY information present in the provided transcript and optional context payload. Do not infer, hallucinate, or add unstated facts.
+- Use psychotherapy and psychology terminology throughout.
+- Be clinically precise, objective, and evidence-grounded.
+- Do not prescribe, recommend, or introduce medications unless explicitly discussed in the transcript.
+- Do not include content unrelated to therapy session data.
+
+Output contract (STRICT):
+- Return STRICT JSON with exactly these keys: subjective, objective, assessment, plan.
+- Each value must be a detailed clinical markdown string.
+- Do not wrap output in markdown code fences.
+
+Clinical writing quality:
+- Subjective: include patient-reported symptoms, thoughts, concerns, and goals, using quoted evidence where relevant.
+- Objective: include therapist-observable behavior, affect, speech, engagement, and in-session presentation only.
+- Assessment: synthesize themes, progress, barriers, and clinically relevant patterns based on transcript evidence only.
+- Plan: provide clear, actionable psychotherapy-focused next steps for subsequent sessions.
+
+Few-shot style reference:
+TRANSCRIPT EXCERPT:
+Therapist: While I'm looking at these, tell me how you've been feeling this week.
+Patient: I feel a little bit better. I could get up more easily and concentrate better.
+Therapist: Any idea why?
+Patient: Maybe what we're doing here is helping.
+Patient: Evenings are really hard. I end up alone with my thoughts.
+Patient: My apartment is a mess and feels too big to handle.
+
+SOAP STYLE EXCERPT:
+Subjective should capture patient-reported improvement and direct quotes about evening isolation/overwhelm.
+Objective should capture observed engagement and communication style without inventing physical exam details.
+Assessment should describe progress plus continuing cognitive-emotional difficulties.
+Plan should include structured, therapy-appropriate next steps (behavioral activation, task breakdown, review next session).
+"""
+
+
+def build_soap_user_prompt(
+    transcript_text: str,
+    emotion_summary: str,
+    valence: Optional[float],
+    arousal: Optional[float],
+    additional_context: Optional[str],
+) -> str:
+    return f"""Now generate a SOAP note for the following therapy session.
+
+SESSION TRANSCRIPT:
+{transcript_text}
+
+{f"EMOTION ANALYSIS SUMMARY: {emotion_summary}" if emotion_summary else ""}
+{f"Average valence: {valence:+.2f} (scale -1 to +1), Average arousal: {arousal:.2f} (scale 0 to 1)" if valence is not None else ""}
+{f"ADDITIONAL CONTEXT: {additional_context}" if additional_context else ""}
+
+Return only the strict JSON object with keys: subjective, objective, assessment, plan.
+"""
 
 
 def get_openai_client() -> AsyncOpenAI:
@@ -27,43 +85,40 @@ def get_openai_client() -> AsyncOpenAI:
     return _openai_client
 
 
+def get_groq_client() -> AsyncOpenAI:
+    global _groq_client
+    if _groq_client is None:
+        if not settings.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is not set")
+        _groq_client = AsyncOpenAI(
+            api_key=settings.groq_api_key,
+            base_url=settings.groq_base_url,
+        )
+    return _groq_client
+
+
 async def generate_soap_notes(
     session_id: str,
     transcript: FullTranscript,
     include_emotions: bool = True,
     additional_context: Optional[str] = None
 ) -> SOAPNote:
-    client = get_openai_client()
+    openai_client = get_openai_client()
+    groq_client = get_groq_client()
 
     transcript_text = _format_transcript_for_soap(transcript, include_emotions)
     emotion_summary = _generate_emotion_summary(transcript) if include_emotions else ""
     valence, arousal = _compute_valence_arousal(transcript)
 
     # ── CALL 1: Standard SOAP structure ─────────────────────────────────────
-    system_prompt = """You are an expert therapy session analyst specializing in SOAP notes.
-Generate accurate, professional SOAP notes from therapy transcripts.
-
-Return STRICT JSON with exactly these keys:
-- subjective
-- objective
-- assessment
-- plan
-
-Each value must be a markdown-formatted string (not HTML), using concise headings/bullets where useful.
-Do not wrap the JSON in markdown code fences.
-Use professional clinical language and cite concrete evidence from the transcript when possible."""
-
-    user_prompt = f"""Generate SOAP notes for this therapy session.
-
-SESSION TRANSCRIPT:
-{transcript_text}
-
-{f"EMOTION ANALYSIS SUMMARY: {emotion_summary}" if emotion_summary else ""}
-{f"Average valence: {valence:+.2f} (scale -1 to +1), Average arousal: {arousal:.2f} (scale 0 to 1)" if valence is not None else ""}
-
-{f"ADDITIONAL CONTEXT: {additional_context}" if additional_context else ""}
-
-Return only the strict JSON object."""
+    system_prompt = SOAP_SYSTEM_PROMPT_GROQ
+    user_prompt = build_soap_user_prompt(
+        transcript_text=transcript_text,
+        emotion_summary=emotion_summary,
+        valence=valence,
+        arousal=arousal,
+        additional_context=additional_context,
+    )
 
     # ── CALL 2: Clinical pattern analysis (runs in parallel with CALL 1) ────
     pattern_prompt = f"""You are a clinical psychologist analyzing a therapy session transcript.
@@ -109,18 +164,30 @@ Rules:
 - Use professional clinical language throughout.
 - Keep each point to 1-3 sentences maximum."""
 
-    # Run both GPT calls in parallel
-    soap_task = client.chat.completions.create(
-        model="gpt-4o-mini",
+    # ── CALL 1: SOAP generation via Groq (replaces previous GPT call) ───────
+    # Previous OpenAI SOAP call intentionally kept here for prompt migration reference.
+    # soap_task = openai_client.chat.completions.create(
+    #     model="gpt-4o-mini",
+    #     messages=[
+    #         {"role": "system", "content": system_prompt},
+    #         {"role": "user", "content": user_prompt}
+    #     ],
+    #     response_format={"type": "json_object"},
+    #     temperature=0.3,
+    #     max_tokens=2000
+    # )
+    soap_task = groq_client.chat.completions.create(
+        model=settings.soap_groq_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        response_format={"type": "json_object"},
         temperature=0.3,
-        max_tokens=2000
+        max_tokens=2000,
     )
-    pattern_task = client.chat.completions.create(
+
+    # ── CALL 2: Clinical pattern analysis via OpenAI (kept as requested) ────
+    pattern_task = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a clinical psychologist. Respond in concise markdown with clear headings and bullet points."},
@@ -162,7 +229,7 @@ Rules:
         plan=SOAPNoteSection(content=sections.get("plan", "No data available"), confidence=0.85, sources=segment_ids),
         emotional_summary=full_emotion_summary if include_emotions else None,
         generated_at=datetime.utcnow(),
-        model_version="gpt-4o-mini"
+        model_version=settings.soap_groq_model
     )
 
   
@@ -320,9 +387,13 @@ def _parse_soap_response(response: str) -> dict:
 
     markers = [
         ("SUBJECTIVE:", "subjective"),
+        ("S: SUBJECTIVE", "subjective"),
         ("OBJECTIVE:", "objective"),
+        ("O: OBJECTIVE", "objective"),
         ("ASSESSMENT:", "assessment"),
-        ("PLAN:", "plan")
+        ("A: ASSESSMENT", "assessment"),
+        ("PLAN:", "plan"),
+        ("P: PLAN", "plan"),
     ]
 
     for i, (marker, key) in enumerate(markers):

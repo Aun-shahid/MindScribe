@@ -1,6 +1,6 @@
 """
 SOAP Notes Router - Generate and manage SOAP notes for therapy sessions.
-Uses GPT-4o-mini for intelligent SOAP note generation.
+Uses configured LLM providers for SOAP note generation.
 """
 from ..database import async_session_maker, SOAPNoteDB
 import json
@@ -12,6 +12,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from ..auth import get_current_session, validate_session_access, AuthenticatedSession
+from ..config import settings
 from ..schemas import (
     SOAPNote, SOAPNoteSection, SOAPGenerateRequest, SOAPGenerateResponse,
     SOAPUpdateRequest, FullTranscript
@@ -37,7 +38,7 @@ async def generate_soap(
     Generate SOAP notes for a therapy session.
 
     Uses the session transcript and emotion data to create
-    structured SOAP notes using GPT-4o-mini.
+    structured SOAP notes using the configured SOAP LLM provider.
 
     If the background pipeline is still running (segments not ready yet),
     this endpoint will poll for up to 90 seconds before giving up.
@@ -246,7 +247,7 @@ async def get_soap_notes(
                 plan=SOAPNoteSection(content=db_note.plan or ""),
                 emotional_summary=None,
                 generated_at=db_note.created_at or datetime.utcnow(),
-                model_version="gpt-4o-mini",
+                model_version=settings.soap_groq_model,
             )
 
         # Warm in-memory cache for subsequent requests.
