@@ -133,7 +133,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 
 
 class PublicTherapistSerializer(serializers.ModelSerializer):
-    """Limited fields for anonymous patient browsing of directory listings."""
+    """Limited fields for anonymous patient browsing; includes PIN for connect-with-PIN flows."""
 
     id = serializers.SerializerMethodField()
     full_name = serializers.CharField(source='user.full_name', read_only=True)
@@ -150,6 +150,7 @@ class PublicTherapistSerializer(serializers.ModelSerializer):
             'clinic_name',
             'languages_spoken',
             'avatar_url',
+            'therapist_pin',
         ]
 
     def get_id(self, obj):

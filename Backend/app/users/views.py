@@ -642,7 +642,7 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
     summary='List public therapists',
     description=(
         'Returns therapists who opted into the public directory. '
-        'Only non-sensitive fields are included (no email, phone, or PIN). '
+        'Excludes email and phone; includes therapist_pin so patients can connect via PIN. '
         'Does not require authentication.'
     ),
     responses={200: PublicTherapistSerializer(many=True)},
