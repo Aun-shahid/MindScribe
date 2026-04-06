@@ -221,6 +221,7 @@ class RegisterView(generics.CreateAPIView):
                         user=user,
                         license_number=license_number,
                         specialization=specialization,
+                        is_public=False,
                     )
                     therapist_pin = therapist_profile.therapist_pin
 

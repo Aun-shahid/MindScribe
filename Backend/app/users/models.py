@@ -291,6 +291,15 @@ class TherapistProfile(models.Model):
     bio = models.TextField(blank=True, null=True, help_text="Professional bio/description")
     languages_spoken = models.CharField(max_length=200, blank=True, null=True, 
                                       help_text="Comma-separated languages (e.g., 'English,Urdu')")
+    # Public directory (patients can browse limited profile when True).
+    # NULL = legacy / unset → treated as private (not listed publicly).
+    is_public = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        db_index=True,
+        help_text="When True, this therapist appears in the public therapist directory.",
+    )
     
     def generate_unique_pin(self):
         """Generate a unique 9-digit PIN for the therapist"""

@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import generics, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
@@ -11,7 +11,7 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParamet
 from .models import PatientProfile, TherapistProfile, ConnectionRequest, PatientTherapistConnection
 from .serializers import (
     PatientTherapistConnectionSerializer, TherapistInfoSerializer,
-    PatientProfileSerializer, TherapistProfileSerializer,
+    PatientProfileSerializer, TherapistProfileSerializer, PublicTherapistSerializer,
     PatientListResponseSerializer, ConnectionRequestSerializer,
     ConnectionRequestCreateSerializer, ConnectionRequestAcceptSerializer,
     ConnectionRequestRejectSerializer, MergeablePatientSerializer
@@ -624,10 +624,10 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     http_method_names = ['get', 'patch', 'head', 'options']
-    
+
     def get_object(self):
         return get_object_or_404(TherapistProfile, user=self.request.user)
-    
+
     def check_permissions(self, request):
         super().check_permissions(request)
         if not getattr(request.user, 'is_authenticated', False) or getattr(request.user, 'user_type', None) != 'therapist':
@@ -635,6 +635,31 @@ class TherapistProfileView(generics.RetrieveUpdateAPIView):
                 request,
                 message='Only therapists can access this endpoint.',
             )
+
+
+@extend_schema(
+    tags=['Therapist Directory'],
+    summary='List public therapists',
+    description=(
+        'Returns therapists who opted into the public directory. '
+        'Only non-sensitive fields are included (no email, phone, or PIN). '
+        'Does not require authentication.'
+    ),
+    responses={200: PublicTherapistSerializer(many=True)},
+)
+class PublicTherapistsListView(generics.ListAPIView):
+    """Anonymous-safe listing for patient browsing."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PublicTherapistSerializer
+
+    def get_queryset(self):
+        # Only explicit opt-in (True). NULL and False are private / legacy-unset.
+        return (
+            TherapistProfile.objects.filter(is_public=True)
+            .select_related('user')
+            .order_by('user__last_name', 'user__first_name')
+        )
 
 
 @extend_schema(tags=['Connection Requests'])

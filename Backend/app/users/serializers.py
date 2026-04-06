@@ -132,6 +132,34 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         return obj.get_preferred_days_list()
 
 
+class PublicTherapistSerializer(serializers.ModelSerializer):
+    """Limited fields for anonymous patient browsing of directory listings."""
+
+    id = serializers.SerializerMethodField()
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TherapistProfile
+        fields = [
+            'id',
+            'full_name',
+            'specialization',
+            'years_of_experience',
+            'bio',
+            'clinic_name',
+            'languages_spoken',
+            'avatar_url',
+        ]
+
+    def get_id(self, obj):
+        return str(obj.user.id)
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_avatar_url(self, obj):
+        return user_avatar_absolute_url(obj.user, self.context.get('request'))
+
+
 class TherapistProfileSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     patient_count = serializers.SerializerMethodField()
@@ -146,7 +174,7 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
         fields = [
             'license_number', 'specialization', 'years_of_experience',
             'education', 'certifications', 'clinic_name', 'clinic_address',
-            'therapist_pin', 'user_info', 'patient_count',
+            'therapist_pin', 'user_info', 'patient_count', 'is_public',
             'first_name', 'last_name', 'username',
             'avatar', 'clear_avatar',
         ]
@@ -176,6 +204,13 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
                         {'username': ['This username is already taken.']}
                     )
         return attrs
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Legacy rows may have is_public=NULL → expose as private for clients.
+        if ret.get('is_public') is None:
+            ret['is_public'] = False
+        return ret
 
     def update(self, instance, validated_data):
         user = instance.user

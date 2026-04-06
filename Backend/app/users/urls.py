@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     TherapistPinView, ConnectToTherapistView, DisconnectFromTherapistView,
     DisconnectPatientFromTherapistView, TherapistsView, PatientsView, PatientProfileView, TherapistProfileView,
+    PublicTherapistsListView,
     ConnectionRequestsListView, ConnectionRequestActionView
 )
 
@@ -23,4 +24,5 @@ urlpatterns = [
     # Profile Management URLs
     path('patient-profile/', PatientProfileView.as_view(), name='patient_profile'),
     path('therapist-profile/', TherapistProfileView.as_view(), name='therapist_profile'),
+    path('public-therapists/', PublicTherapistsListView.as_view(), name='public_therapists'),
 ]
