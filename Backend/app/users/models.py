@@ -147,6 +147,69 @@ class PatientProfile(models.Model):
             self.preferred_session_days = ','.join(days_list)
         else:
             self.preferred_session_days = ''
+
+    def get_connected_therapist_links(self):
+        links = self.therapist_connections.select_related('therapist__user').order_by('-connected_at')
+        if links.exists() or not self.therapist:
+            return links
+
+        # Backward compatibility for legacy rows created before connection links existed.
+        PatientTherapistConnection.objects.get_or_create(
+            patient=self,
+            therapist=self.therapist,
+            defaults={'connected_at': self.connected_at or timezone.now()},
+        )
+        return self.therapist_connections.select_related('therapist__user').order_by('-connected_at')
+
+    def get_connected_therapists(self):
+        return [link.therapist for link in self.get_connected_therapist_links()]
+
+    def is_connected_to_therapist(self, therapist_profile):
+        if not therapist_profile:
+            return False
+        if self.therapist_id == therapist_profile.id:
+            return True
+        return self.therapist_connections.filter(therapist=therapist_profile).exists()
+
+    def connect_to_therapist(self, therapist_profile, connected_at=None):
+        if not therapist_profile:
+            return None
+
+        connected_at = connected_at or timezone.now()
+        link, created = PatientTherapistConnection.objects.get_or_create(
+            patient=self,
+            therapist=therapist_profile,
+            defaults={'connected_at': connected_at},
+        )
+
+        if not created and connected_at and link.connected_at != connected_at:
+            link.connected_at = connected_at
+            link.save(update_fields=['connected_at'])
+
+        if not self.therapist:
+            self.therapist = therapist_profile
+            self.connected_at = connected_at
+            self.save(update_fields=['therapist', 'connected_at'])
+
+        return link
+
+    def disconnect_from_therapist(self, therapist_profile):
+        if not therapist_profile:
+            return False
+
+        deleted, _ = self.therapist_connections.filter(therapist=therapist_profile).delete()
+
+        if self.therapist == therapist_profile:
+            next_link = self.therapist_connections.select_related('therapist').order_by('-connected_at').first()
+            if next_link:
+                self.therapist = next_link.therapist
+                self.connected_at = next_link.connected_at
+            else:
+                self.therapist = None
+                self.connected_at = None
+            self.save(update_fields=['therapist', 'connected_at'])
+
+        return deleted > 0
     
     @property
     def assigned_therapist_name(self):
@@ -215,11 +278,14 @@ class TherapistProfile(models.Model):
     
     def get_connected_patients(self):
         """Get all patients connected to this therapist"""
-        return self.patients.all()
+        linked_patient_ids = PatientTherapistConnection.objects.filter(
+            therapist=self
+        ).values_list('patient_id', flat=True)
+        return PatientProfile.objects.filter(id__in=linked_patient_ids)
     
     def get_patient_count(self):
         """Get the number of patients connected to this therapist"""
-        return self.patients.count()
+        return self.get_connected_patients().count()
     
     def get_languages_list(self):
         """Return languages spoken as a list"""
@@ -319,11 +385,11 @@ class ConnectionRequest(models.Model):
         )
         
         # Connect to therapist
-        patient_profile.therapist = self.therapist
-        patient_profile.connected_at = timezone.now()
+        now = timezone.now()
+        patient_profile.connect_to_therapist(self.therapist, connected_at=now)
         patient_profile.is_linked_account = True
-        patient_profile.linked_at = timezone.now()
-        patient_profile.save()
+        patient_profile.linked_at = now
+        patient_profile.save(update_fields=['is_linked_account', 'linked_at'])
         
         # Update request status
         self.status = 'accepted'
@@ -337,7 +403,7 @@ class ConnectionRequest(models.Model):
         if self.status != 'pending':
             raise ValueError("Can only merge pending requests")
         
-        if existing_patient_profile.therapist != self.therapist:
+        if not existing_patient_profile.is_connected_to_therapist(self.therapist):
             raise ValueError("Existing patient must belong to the same therapist")
         
         if existing_patient_profile.is_linked_account:
@@ -350,10 +416,10 @@ class ConnectionRequest(models.Model):
         )
         
         # Transfer data from existing profile to new profile
-        new_patient_profile.therapist = self.therapist
-        new_patient_profile.connected_at = timezone.now()
+        now = timezone.now()
+        new_patient_profile.connect_to_therapist(self.therapist, connected_at=now)
         new_patient_profile.is_linked_account = True
-        new_patient_profile.linked_at = timezone.now()
+        new_patient_profile.linked_at = now
         new_patient_profile.original_therapist_patient = existing_patient_profile
         
         # Copy relevant fields from existing profile
@@ -407,4 +473,21 @@ class ConnectionRequest(models.Model):
                 condition=models.Q(status='pending'),
                 name='unique_pending_request'
             ),
+        ]
+
+
+class PatientTherapistConnection(models.Model):
+    patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name='therapist_connections')
+    therapist = models.ForeignKey(TherapistProfile, on_delete=models.CASCADE, related_name='patient_connections')
+    connected_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'patient_therapist_connections'
+        ordering = ['-connected_at']
+        constraints = [
+            models.UniqueConstraint(fields=['patient', 'therapist'], name='unique_patient_therapist_connection')
+        ]
+        indexes = [
+            models.Index(fields=['therapist', 'connected_at'], name='ptc_therapist_connected_idx'),
+            models.Index(fields=['patient', 'connected_at'], name='ptc_patient_connected_idx'),
         ]
