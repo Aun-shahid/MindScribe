@@ -5,6 +5,7 @@ import { useTherapistQRCode } from '../hooks/useTherapist';
 import TherapistQRCode from '../components/TherapistQRCode';
 import therapistService from '../services/therapist.service';
 import type { ConnectionRequest } from '../types/therapist';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
 import { Check, X, UserPlus, Clock, Mail, Phone } from 'lucide-react';
 
 const QRCode = () => {
@@ -115,7 +116,8 @@ const QRCode = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={THERAPIST_PAGE_SHELL}>
+    <div className="w-full space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Patient Connection</h1>
         <button
@@ -250,6 +252,7 @@ const QRCode = () => {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };

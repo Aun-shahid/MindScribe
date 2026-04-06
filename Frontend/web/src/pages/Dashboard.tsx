@@ -19,6 +19,8 @@ import {
   Legend,
 } from 'recharts';
 import { listenToAppEvent } from '../utils/events';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { DashboardPageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
 import { Calendar, Users, ClipboardList, Activity, ChevronRight, Stethoscope } from 'lucide-react';
 
 interface SessionStats {
@@ -221,11 +223,7 @@ const Dashboard = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-purple-600" />
-      </div>
-    );
+    return <DashboardPageSkeleton />;
   }
 
   if (error) {
@@ -244,8 +242,8 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f5fb] pb-12">
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className={`${THERAPIST_PAGE_CANVAS} pb-12`}>
+      <div className="mx-auto max-w-[1400px] space-y-6">
         {successMessage && (
           <div className="flex animate-fade-in items-center justify-between rounded-2xl border border-green-200 bg-green-50 px-6 py-4 text-green-800 shadow-sm">
             <span className="font-medium">{successMessage}</span>

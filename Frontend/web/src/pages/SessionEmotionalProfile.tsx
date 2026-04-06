@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Activity } from 'lucide-react';
 import { useSessionAnalysis, useSessionDetail } from '../hooks/useSessions';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 type EmotionPoint = {
   timestamp: number;
@@ -105,7 +106,7 @@ return rawTimeline
   }, [points]);
 
   return (
-    <div className="min-h-screen bg-gray-50 -mt-6 -mx-8 px-8 pt-6">
+    <div className={THERAPIST_PAGE_CANVAS}>
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">

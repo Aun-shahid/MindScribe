@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { aiServiceUrl } from '../config';
 import { useSessionDetail } from '../hooks/useSessions';
+import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 // ─── Emotion colours for the badge ──────────────────────────────────────────
 const EMOTION_COLOR: Record<string, string> = {
@@ -925,9 +926,9 @@ const SessionDetailView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className={THERAPIST_PAGE_CANVAS}>
         <div className="bg-purple-700 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
             <div className="flex items-center py-6">
               <button onClick={() => navigate(-1)} className="mr-4 p-2 bg-white/20 rounded-full">
                 <ChevronLeft size={24} />
@@ -948,7 +949,7 @@ const SessionDetailView: React.FC = () => {
 
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <div className="text-6xl mb-4">❌</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Session Not Found</h3>
@@ -962,10 +963,10 @@ const SessionDetailView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50">
+    <div className={THERAPIST_DETAIL_FLOW_BG}>
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-purple-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-8">
             <div className="flex items-center space-x-4">
               <button onClick={() => navigate(-1)}
@@ -1015,7 +1016,7 @@ const SessionDetailView: React.FC = () => {
 
 
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Left column */}

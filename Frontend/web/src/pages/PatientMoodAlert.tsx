@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft, CalendarDays, RefreshCw, TrendingDown } from 
 import patientService from '../services/patient.service';
 import notificationService from '../services/notification.service';
 import type { TherapistNotification } from '../types/notification';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 type MoodTrendDay = {
   date: string;
@@ -84,7 +85,8 @@ const PatientMoodAlert = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className={THERAPIST_PAGE_CANVAS}>
+    <div className="max-w-5xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate('/notifications')}
@@ -229,6 +231,7 @@ const PatientMoodAlert = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };

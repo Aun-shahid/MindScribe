@@ -7,6 +7,8 @@ import authService from '../services/auth.service';
 import therapistService from '../services/therapist.service';
 import { validatePasswordStrength } from '../utils/passwordValidation';
 import { TherapistPageBanner } from '../components/TherapistPageBanner';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
+import { ProfilePageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
 
 interface ProfileEditingState {
   first_name: boolean;
@@ -240,11 +242,7 @@ const Profile = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   if (error) {
@@ -256,8 +254,9 @@ const Profile = () => {
   }
 
   return (
-    <div className="bg-[#f7f7fa] min-h-screen">
-      <TherapistPageBanner heightClassName="min-h-[200px]">
+    <div className={THERAPIST_PAGE_SHELL}>
+      <div className="mb-6">
+        <TherapistPageBanner heightClassName="min-h-[200px]">
         <div className="relative z-10 flex w-full flex-col gap-5 p-4 text-white sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -450,9 +449,10 @@ const Profile = () => {
             </div>
           </div>
         </div>
-      </TherapistPageBanner>
+        </TherapistPageBanner>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <div className="space-y-5">
         {/* Success/Error Notifications */}
       {saveSuccess && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center">

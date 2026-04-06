@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCreatePatient } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 interface NewPatientData {
   first_name: string;
@@ -270,10 +271,10 @@ const NewPatient: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
       <div className="bg-purple-700 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
@@ -309,7 +310,7 @@ const NewPatient: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-start">

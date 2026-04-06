@@ -20,6 +20,7 @@ import type {
   TherapistNotification,
   TherapistNotificationSummary,
 } from '../types/notification';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,7 +220,8 @@ const Notifications = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className={THERAPIST_PAGE_CANVAS}>
+      <div className="max-w-3xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -433,6 +435,7 @@ const Notifications = () => {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 };

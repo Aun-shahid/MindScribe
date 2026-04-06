@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { aiServiceUrl } from '../config';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 type SOAPFormState = {
   subjective: string;
@@ -216,7 +217,7 @@ const SessionSOAP: React.FC = () => {
   // ── Loading / polling screen ───────────────────────────────────────────
   if (loading || polling) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center max-w-md px-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4" />
           {polling ? (
@@ -240,10 +241,10 @@ const SessionSOAP: React.FC = () => {
 
   // ── Main UI ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
       <div className="bg-purple-700 text-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between gap-3">
+        <div className="max-w-5xl mx-auto py-6 flex items-center justify-between gap-3">
           <div className="flex items-center">
             <button
               onClick={() => navigate(-1)}
@@ -279,7 +280,7 @@ const SessionSOAP: React.FC = () => {
       </div>
 
       {/* Body */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto py-8 space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
             {error}

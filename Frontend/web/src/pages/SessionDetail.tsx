@@ -18,6 +18,7 @@ import {
 import { useSessionDetail, useSessionAnalysis, useSessionInsights, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
 import type { SOAPNote } from '../types/session';
+import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 type SessionDetailTab = 'overview' | 'soap' | 'emotional-profile' | 'ai-insights';
 
@@ -629,7 +630,7 @@ const SessionDetailPage: React.FC = () => {
   // ── Loading / error states ─────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
           <p className="text-gray-600 mt-4">Loading session details...</p>
@@ -640,7 +641,7 @@ const SessionDetailPage: React.FC = () => {
 
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <p className="text-red-600 mb-4">Failed to load session details</p>
           <button onClick={() => navigate('/sessions')} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
@@ -654,10 +655,10 @@ const SessionDetailPage: React.FC = () => {
   const sessionDateTime = formatDateTime(session.scheduled_date);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50">
+    <div className={THERAPIST_DETAIL_FLOW_BG}>
       {/* Header */}
       <div className="text-purple-900 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-8">
             <div className="flex items-center space-x-4">
               <button onClick={() => navigate(-1)} className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all">
@@ -694,7 +695,7 @@ const SessionDetailPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto py-8">
         {/* Tab bar */}
         <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-2 mb-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">

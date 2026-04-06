@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronRight, PanelRight } from 'lucide-react';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
 import { TherapistPageBanner, TherapistPageSimpleHero } from '../components/TherapistPageBanner';
 import { useTherapistPatients } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
@@ -102,8 +103,7 @@ const Tools: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f7fa]">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className={THERAPIST_PAGE_SHELL}>
         <div className="mb-6">
           <TherapistPageBanner>
             <TherapistPageSimpleHero
@@ -289,10 +289,12 @@ const Tools: React.FC = () => {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => navigate(`/sessions/${session.id}?tab=soap`)}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-300/45 bg-white/50 px-4 py-2 text-sm font-semibold text-purple-900 shadow-sm backdrop-blur-md ring-1 ring-white/50 transition-all hover:border-purple-400/55 hover:bg-white/75 hover:shadow-md"
                     >
                       View Details
+                      <PanelRight className="h-4 w-4 shrink-0 text-purple-800/90" strokeWidth={2} aria-hidden />
                     </button>
                   </div>
                 ))}
@@ -300,7 +302,6 @@ const Tools: React.FC = () => {
             )}
           </div>
         )}
-      </div>
     </div>
   );
 };

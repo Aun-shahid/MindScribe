@@ -1,8 +1,9 @@
 // src/pages/PatientSessions.tsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Calendar, Clock, MapPin, Video, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Calendar, Clock, MapPin, Video, CheckCircle, XCircle, AlertCircle, PanelRight } from 'lucide-react';
 import sessionsService from '../services/sessions.service';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 import type { SessionType } from '../types/session';
 
 const PatientSessions = () => {
@@ -117,7 +118,7 @@ const PatientSessions = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="text-gray-600 mt-4">Loading sessions...</p>
@@ -128,7 +129,7 @@ const PatientSessions = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <button
@@ -143,10 +144,10 @@ const PatientSessions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
       <div className="bg-purple-700 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
@@ -165,7 +166,7 @@ const PatientSessions = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto py-8">
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
@@ -296,9 +297,10 @@ const PatientSessions = () => {
                     <div className="ml-4">
                       <Link
                         to={`/sessions/${session.id}`}
-                        className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
+                        className="inline-flex items-center gap-2 rounded-lg border border-purple-300/45 bg-white/50 px-4 py-2 text-sm font-semibold text-purple-900 shadow-sm backdrop-blur-md ring-1 ring-white/50 transition-all hover:border-purple-400/55 hover:bg-white/75"
                       >
                         View Details
+                        <PanelRight className="h-4 w-4 shrink-0 text-purple-800/90" strokeWidth={2} aria-hidden />
                       </Link>
                     </div>
                   </div>

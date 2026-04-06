@@ -15,6 +15,7 @@ import {
 import { useSessionDetail } from '../hooks/useSessions';
 import { useStartSession, useAIServiceWebSocket } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 const ActiveSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -388,7 +389,7 @@ const ActiveSession: React.FC = () => {
 
   if (loading || startingSession) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="text-gray-600 mt-4">{startingSession ? 'Starting session...' : 'Loading session...'}</p>
@@ -399,7 +400,7 @@ const ActiveSession: React.FC = () => {
 
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`${THERAPIST_PAGE_CANVAS} flex items-center justify-center`}>
         <div className="text-center">
           <p className="text-red-600 mb-4">Failed to load session</p>
           <button
@@ -429,10 +430,10 @@ const ActiveSession: React.FC = () => {
   ));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
       <div className="bg-purple-700 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
@@ -458,7 +459,7 @@ const ActiveSession: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto py-8">
         {/* WebSocket Connection Status */}
         {aiError && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">

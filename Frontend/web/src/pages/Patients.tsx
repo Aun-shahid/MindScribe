@@ -7,6 +7,8 @@ import {
   TherapistPageSimpleHero,
   therapistHeroPrimaryButtonClass,
 } from '../components/TherapistPageBanner';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
+import { PatientsPageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
 
 const Patients = () => {
   const { patients, loading, error, clearError, updateFilter } = useTherapistPatients({});
@@ -49,15 +51,11 @@ const Patients = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <PatientsPageSkeleton />;
   }
 
   return (
-    <div className="patients-page bg-[#f7f7fa] min-h-screen">
+    <div className={`patients-page ${THERAPIST_PAGE_SHELL}`}>
       <TherapistPageBanner>
         <TherapistPageSimpleHero
           title="All Patients"

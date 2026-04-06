@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTherapistPatients } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
 
 const NewSession = () => {
   const navigate = useNavigate();
@@ -127,7 +128,8 @@ const NewSession = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={THERAPIST_PAGE_SHELL}>
+    <div className="w-full space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">New Session</h1>
         <button
@@ -397,6 +399,7 @@ const NewSession = () => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { useSessions } from '../hooks/useSessions';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 const ToolsEmotionalProfileList: React.FC = () => {
   const { sessions, loading, error } = useSessions({ status: 'COMPLETED', limit: 100 });
@@ -13,7 +14,7 @@ const ToolsEmotionalProfileList: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 -mt-6 -mx-8 px-8 pt-6">
+    <div className={THERAPIST_PAGE_CANVAS}>
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Emotional Profile</h1>

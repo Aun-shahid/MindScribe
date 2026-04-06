@@ -1,6 +1,9 @@
 // src/pages/Sessions.tsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PanelRight, UserRound } from 'lucide-react';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
+import { SessionsListSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
 import { TherapistPageBanner, TherapistPageSimpleHero } from '../components/TherapistPageBanner';
 import { useSessions } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
@@ -156,7 +159,7 @@ const Sessions = () => {
   };
 
   return (
-    <div className="sessions-page mx-auto min-h-screen max-w-7xl overflow-x-hidden bg-[#f7f7fa] px-4 py-6 sm:px-6 lg:px-8">
+    <div className={`sessions-page ${THERAPIST_PAGE_SHELL}`}>
       <div className="mb-6">
         <TherapistPageBanner heightClassName="min-h-[10.5rem] sm:h-40">
           <TherapistPageSimpleHero
@@ -364,10 +367,7 @@ const Sessions = () => {
             </div>
           )}
           {loading && displaySessions.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-500">Loading sessions…</span>
-            </div>
+            <SessionsListSkeleton rows={6} />
           ) : displaySessions.length > 0 ? (
             <>
             <div
@@ -387,10 +387,8 @@ const Sessions = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start space-x-3">
                         {/* Session Icon */}
-                        <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-md shadow-sm group-hover:shadow-md transition-shadow">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
+                        <div className="rounded-lg border border-purple-200/55 bg-white/50 p-2 shadow-sm backdrop-blur-sm ring-1 ring-white/40 transition-shadow group-hover:border-purple-300/60 group-hover:bg-white/65">
+                          <UserRound className="h-4 w-4 text-purple-700" strokeWidth={2} aria-hidden />
                         </div>
 
                         <div className="min-w-0">
@@ -438,12 +436,10 @@ const Sessions = () => {
                     
                     <Link
                       to={`/sessions/${session.id}?tab=overview`}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-1.5 w-full sm:w-auto"
+                      className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-purple-300/45 bg-white/50 px-4 py-2 text-sm font-semibold text-purple-900 shadow-sm backdrop-blur-md ring-1 ring-white/50 transition-all hover:border-purple-400/55 hover:bg-white/75 hover:shadow-md"
                     >
                       <span>View Details</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                      <PanelRight className="h-4 w-4 shrink-0 text-purple-800/90" strokeWidth={2} aria-hidden />
                     </Link>
                   </div>
                 </div>

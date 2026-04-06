@@ -14,6 +14,7 @@ import {
   formatPreferredDays,
   formatPreferredLanguage,
 } from '../utils/patientDetails';
+import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 
 
@@ -507,7 +508,7 @@ const PatientDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className={THERAPIST_PAGE_CANVAS}>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
@@ -520,7 +521,7 @@ const PatientDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className={THERAPIST_PAGE_CANVAS}>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg">
@@ -541,7 +542,7 @@ const PatientDetail = () => {
 
   if (!patient) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className={THERAPIST_PAGE_CANVAS}>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <p className="text-gray-500 text-lg">Patient not found</p>
@@ -558,7 +559,7 @@ const PatientDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+    <div className={THERAPIST_DETAIL_FLOW_BG}>
       {/* Purple Gradient Header with Patient Info */}
       <div className="relative bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 text-white shadow-2xl overflow-hidden">
         {/* Background Pattern */}
@@ -569,7 +570,7 @@ const PatientDetail = () => {
           }}></div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="relative max-w-7xl mx-auto py-6">
           {/* Back Button */}
           <button
             onClick={() => navigate('/patients')}
@@ -720,7 +721,7 @@ const PatientDetail = () => {
 
       {/* Success Message */}
       {scheduleSuccess && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="max-w-7xl mx-auto pt-4">
           <div className="bg-green-50 border border-green-200 text-green-800 px-6 py-4 rounded-lg">
             <p className="font-medium">✓ Sessions scheduled successfully!</p>
             <p className="text-sm mt-1">
@@ -731,7 +732,7 @@ const PatientDetail = () => {
       )}
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto py-6">
         <div className="space-y-5">
           {/* Schedule Preferences Card */}
           {preferences && (

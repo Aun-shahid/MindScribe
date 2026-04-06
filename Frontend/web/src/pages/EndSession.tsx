@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle, Loader, Info } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
 import { useEndSession } from '../hooks/useSessions';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 const EndSession: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -110,7 +111,7 @@ const EndSession: React.FC = () => {
   const canEndSession = session?.status === 'IN_PROGRESS' || session?.status === 'COMPLETED';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Blocking processing modal */}
       {loading && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
@@ -158,7 +159,7 @@ const EndSession: React.FC = () => {
 
       {/* Header */}
       <div className="bg-purple-800 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
@@ -180,7 +181,7 @@ const EndSession: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto py-8">
         <div className="space-y-6">
           {/* Guidance Banner */}
           <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">

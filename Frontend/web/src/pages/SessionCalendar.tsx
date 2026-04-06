@@ -14,10 +14,12 @@ import {
   XCircle,
   HelpCircle,
   User,
-  AlertCircle
+  AlertCircle,
+  PanelRight,
 } from 'lucide-react';
 import { useSessionCalendar } from '../hooks/useSessions';
 import type { CalendarSession } from '../types/session';
+import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 // Enhanced Calendar Component
 const EnhancedCalendar: React.FC<{
@@ -249,10 +251,10 @@ const SessionCalendar: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
       <div className=" text-purple-900 bg-white shadow-sm border-b border-gray-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
@@ -282,7 +284,7 @@ const SessionCalendar: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Calendar Section */}
           <div className="lg:col-span-1">
@@ -398,11 +400,12 @@ const SessionCalendar: React.FC = () => {
 
                       {/* Action Button */}
                       <button
+                        type="button"
                         onClick={() => handleViewDetails(session)}
-                        className="w-full bg-purple-50 text-purple-700 border border-purple-200 py-2 px-4 rounded-lg hover:bg-purple-100 transition-colors flex items-center justify-center"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-purple-300/45 bg-white/50 px-4 py-2 text-sm font-semibold text-purple-900 shadow-sm backdrop-blur-md ring-1 ring-white/50 transition-all hover:border-purple-400/55 hover:bg-white/75"
                       >
                         <span className="font-medium">View Details</span>
-                        <ChevronLeft size={16} className="ml-2 rotate-180" />
+                        <PanelRight size={16} className="shrink-0 text-purple-800/90" strokeWidth={2} aria-hidden />
                       </button>
                     </div>
                   ))
