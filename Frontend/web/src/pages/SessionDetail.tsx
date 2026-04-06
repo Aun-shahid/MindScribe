@@ -343,8 +343,6 @@ const SessionDetailPage: React.FC = () => {
 
     type EmotionPoint = {
       time: number;
-      valence: number | null;
-      arousal: number | null;
       emotion: string;
       confidence: number;
       speaker: string;
@@ -361,8 +359,6 @@ const SessionDetailPage: React.FC = () => {
       if (!rawEmotion) return;
 
       let primaryEmotion = 'unknown';
-      let valence: number | null = null;
-      let arousal: number | null = null;
       let confidence = 0;
       let source: 'text_only' | 'audio_text' | 'unknown' = 'unknown';
       let textEmotion: string | null = null;
@@ -409,10 +405,6 @@ const SessionDetailPage: React.FC = () => {
           'unknown'
         ).toLowerCase();
 
-        // AI Service sets valence/arousal to 0.0 as placeholder — treat 0.0 as not computed
-        valence = typeof rawEmotion.valence === 'number' && rawEmotion.valence !== 0 ? rawEmotion.valence : null;
-        arousal = typeof rawEmotion.arousal === 'number' && rawEmotion.arousal !== 0 ? rawEmotion.arousal : null;
-
         confidence =
           typeof rawEmotion.final_confidence === 'number' ? rawEmotion.final_confidence :
           typeof rawEmotion.confidence === 'number'       ? rawEmotion.confidence :
@@ -422,8 +414,6 @@ const SessionDetailPage: React.FC = () => {
 
       points.push({
         time: Number(segment.start_time || 0),
-        valence,
-        arousal,
         emotion: primaryEmotion || 'unknown',
         confidence,
         speaker: String(segment.speaker || segment.speaker_type || 'Unknown'),
@@ -461,19 +451,6 @@ const SessionDetailPage: React.FC = () => {
     () => normalizeEmotionalPatterns(sessionInsight?.emotional_patterns),
     [sessionInsight?.emotional_patterns]
   );
-
-  // ── Emotion source summary ─────────────────────────────────────────────────
-  const emotionSourceSummary = React.useMemo(() => {
-    const withAudio = emotionEvents.filter((e) => e.source === 'audio_text').length;
-    const textOnly  = emotionEvents.filter((e) => e.source === 'text_only').length;
-    const unknown   = emotionEvents.filter((e) => e.source === 'unknown').length;
-    let mode: 'text_only' | 'audio_text' | 'mixed' | 'none' = 'none';
-    if (withAudio > 0 && textOnly > 0) mode = 'mixed';
-    else if (withAudio > 0) mode = 'audio_text';
-    else if (textOnly > 0) mode = 'text_only';
-    else if (unknown > 0) mode = 'text_only';
-    return { withAudio, textOnly, unknown, mode };
-  }, [emotionEvents]);
 
   // ── Three-line emotion chart (audio / text / GPT fused) ───────────────────
   const emotionLineChart = React.useMemo(() => {
@@ -992,29 +969,6 @@ const SessionDetailPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Emotion Analysis Mode */}
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Emotion Analysis Mode</p>
-                        {emotionSourceSummary.mode === 'audio_text' && <span className="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Dual Source (Audio + Text)</span>}
-                        {emotionSourceSummary.mode === 'text_only' && <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Text-Only</span>}
-                        {emotionSourceSummary.mode === 'mixed'     && <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Mixed</span>}
-                        {emotionSourceSummary.mode === 'none'      && <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">No Emotion Payload</span>}
-                      </div>
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                        {[
-                          { label: 'Dual-source segments', value: emotionSourceSummary.withAudio },
-                          { label: 'Text-only segments',   value: emotionSourceSummary.textOnly  },
-                          { label: 'Unknown source',       value: emotionSourceSummary.unknown   },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                            <p className="text-gray-500 text-xs uppercase tracking-wide">{label}</p>
-                            <p className="text-lg font-bold text-gray-900 mt-1">{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Three-line emotion timeline chart */}
                     <div className="rounded-xl border border-gray-200 p-4">
                       <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Emotion Journey (Timeline)</p>
@@ -1113,16 +1067,14 @@ const SessionDetailPage: React.FC = () => {
                               </div>
                               <p className="text-sm text-gray-900 font-medium capitalize">{point.emotion}</p>
                               <div className="text-xs text-gray-600 mt-1">
-                                <span>Valence: {point.valence !== null ? point.valence.toFixed(2) : 'N/A'}</span>
-                                <span className="mx-2">|</span>
-                                <span>Arousal: {point.arousal !== null ? point.arousal.toFixed(2) : 'N/A'}</span>
-                                <span className="mx-2">|</span>
                                 <span>Confidence: {(point.confidence * 100).toFixed(0)}%</span>
                               </div>
                               <div className="text-[11px] text-gray-500 mt-1 flex flex-wrap gap-2">
-                                <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">
-                                  Source: {point.source === 'audio_text' ? 'Audio + Text' : point.source === 'text_only' ? 'Text Only' : 'Unknown'}
-                                </span>
+                                {point.source !== 'unknown' && (
+                                  <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">
+                                    Source: {point.source === 'audio_text' ? 'Audio + Text' : 'Text Only'}
+                                  </span>
+                                )}
                                 {point.textEmotion  && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Text: {point.textEmotion}</span>}
                                 {point.audioEmotion && <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Audio: {point.audioEmotion}</span>}
                               </div>

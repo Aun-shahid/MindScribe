@@ -3,7 +3,7 @@ from django.urls import path
 
 from .views import (
     SessionDetailView, TherapistPatientsView, TherapistSessionsView,
-    CreatePatientView, StartSessionView, EndSessionView, SessionStatsView,
+    CreatePatientView, StartSessionView, SessionAITokenView, EndSessionView, SessionStatsView,
     SessionsListView, 
     TherapistDashboardView, SessionNotesView, SessionSummaryView,
     PatientProgressJourneyView,
@@ -30,6 +30,7 @@ urlpatterns = [
     
     # Session actions
     path('sessions/<uuid:session_id>/start/', StartSessionView.as_view(), name='start_session'),
+    path('sessions/<uuid:session_id>/ai-token/', SessionAITokenView.as_view(), name='session_ai_token'),
     path('sessions/<uuid:session_id>/end/', EndSessionView.as_view(), name='end_session'),
     path('sessions/<uuid:session_id>/notes/', SessionNotesView.as_view(), name='session_notes'),
     path('sessions/<uuid:session_id>/summary/', SessionSummaryView.as_view(), name='session_summary'),

@@ -1086,18 +1086,48 @@ async def _load_transcript_from_db(session_id: str) -> FullTranscript:
         segments = []
         for i, (seg, em_row) in enumerate(rows):
             emotion = None
-            if em_row and em_row.emotion_scores:
-                scores = em_row.emotion_scores
+            if em_row:
+                scores = em_row.emotion_scores if isinstance(em_row.emotion_scores, dict) else {}
                 try:
+                    def _to_label(value: Any):
+                        """Normalize legacy/new emotion payload shapes to EmotionLabel or None."""
+                        if value is None:
+                            return None
+                        if hasattr(value, "value"):
+                            value = value.value
+                        if isinstance(value, dict):
+                            value = value.get("primary_emotion") or value.get("emotion")
+                        if not value:
+                            return None
+                        return normalize_emotion_label(str(value))
+
+                    audio_label = _to_label(scores.get("audio") or scores.get("audio_emotion"))
+                    text_label = _to_label(scores.get("text") or scores.get("text_emotion"))
+                    final_label = _to_label(em_row.primary_emotion)
+
+                    analysis_type = str(scores.get("analysis_type") or "").strip()
+                    if analysis_type not in {"combined", "text_only", "audio_only"}:
+                        if audio_label and text_label:
+                            analysis_type = "combined"
+                        elif audio_label:
+                            analysis_type = "audio_only"
+                        elif text_label:
+                            analysis_type = "text_only"
+                        else:
+                            # Legacy rows may only have primary_emotion/confidence.
+                            # Expose as text_only so frontend does not mark source unknown.
+                            analysis_type = "text_only"
+                            text_label = final_label
+
                     emotion = SegmentEmotionResult(
-                        audio_emotion=normalize_emotion_label(scores["audio"]) if scores.get("audio") else None,
+                        audio_emotion=audio_label,
                         audio_confidence=float(scores.get("audio_confidence", 0.0)),
-                        text_emotion=normalize_emotion_label(scores["text"]) if scores.get("text") else None,
-                        text_confidence=float(scores.get("text_confidence", 0.0)),
-                        final_emotion=normalize_emotion_label(em_row.primary_emotion),
+                        text_emotion=text_label,
+                        text_confidence=float(scores.get("text_confidence", em_row.confidence or 0.0)),
+                        final_emotion=final_label or normalize_emotion_label("neutral"),
                         final_confidence=float(em_row.confidence or 0.0),
                         agreement=scores.get("agreement"),
-                        analysis_type=scores.get("analysis_type", "text_only")
+                        analysis_type=analysis_type,
                     )
                 except Exception as e:
                     logger.warning(f"Could not reconstruct emotion for seg {i}: {e}")
@@ -1265,7 +1295,7 @@ async def _generate_insight_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         "You are an expert clinical supervision assistant. "
         "Analyze one completed therapy session and produce coaching insights for the therapist. "
         "Use only provided data. Do not diagnose conditions and do not prescribe medication. "
-        "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations. "
+        "Return STRICT JSON with keys: overall_mood, mood_score, key_themes, emotional_patterns, recommendations.overall_mood must be a short label of 1-3 words, maximum 30 characters, not a sentence. "
         "The recommendations value must be valid markdown with concise headings and bullet points. "
         "The emotional_patterns value must be a concise comma-separated string of high-level patterns only."
     )

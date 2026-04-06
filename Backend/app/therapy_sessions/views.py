@@ -609,6 +609,74 @@ class StartSessionView(generics.GenericAPIView):
 
 @extend_schema(
     tags=['Therapy Sessions'],
+    summary="Issue AI service token for a session",
+    description=(
+        "Generate a fresh JWT for FastAPI AI service calls (SOAP notes, insights, transcription) "
+        "for a therapist-owned session."
+    ),
+    responses={
+        200: OpenApiResponse(description='AI service token generated successfully.'),
+        403: OpenApiResponse(description='Only therapists can request AI service tokens.'),
+        404: OpenApiResponse(description='Session not found.'),
+    },
+)
+class SessionAITokenView(APIView):
+    """Issue a short-lived AI service token for an existing therapist session."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, session_id):
+        user = request.user
+        if user.user_type != 'therapist':
+            return Response(
+                {'detail': 'Only therapists can request AI service tokens.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        session = get_object_or_404(Session, id=session_id, therapist=user)
+
+        if not (session.consent_recording and session.consent_ai_analysis):
+            return Response(
+                {
+                    'detail': (
+                        'AI service token not generated - patient consent required '
+                        'for recording and AI analysis'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            ai_token = generate_session_token(
+                session_id=session.id,
+                therapist_id=user.id,
+                expiration_hours=2
+            )
+        except Exception as e:
+            return Response(
+                {'detail': f'Failed to generate AI service token: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        ai_service_url = getattr(settings, 'AI_SERVICE_URL', 'http://localhost:8000')
+
+        return Response(
+            {
+                'detail': 'AI service token generated successfully.',
+                'session_id': str(session.id),
+                'ai_service_token': ai_token,
+                'ai_service_url': ai_service_url,
+                'token_info': {
+                    'expires_in_hours': 2,
+                    'usage': 'Include this token in Authorization header as "Bearer <token>" when calling AI service'
+                }
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+@extend_schema(
+    tags=['Therapy Sessions'],
     summary="End therapy session",
     description="End an in-progress therapy session. Changes status from 'in_progress' to 'completed' and records actual end time. Allows updating session notes and patient mood.",
     request={

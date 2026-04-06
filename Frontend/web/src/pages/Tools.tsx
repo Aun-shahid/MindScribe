@@ -173,8 +173,8 @@ const Tools: React.FC = () => {
                 <circle cx="94" cy="26" r="3.5" fill="#350759"/>
                 <circle cx="112" cy="14" r="3.5" fill="#350759"/>
                 <path d="M40 62L58 50L76 38L94 26L112 14" stroke="#350759" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 4"/>
-                <rect x="111" y="71" width="44" height="18" rx="9" fill="#0B4D3C"/>
-                <text x="133" y="83" textAnchor="middle" fill="white" fontSize="9" fontWeight="600" fontFamily="sans-serif">improving</text>
+                
+                
               </svg>
             </div>
             <div className="p-5 border-t-[0.5px] border-gray-200">

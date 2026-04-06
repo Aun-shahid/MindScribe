@@ -1,7 +1,7 @@
 // src/pages/EndSession.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle, Loader } from 'lucide-react';
+import { ChevronLeft, FileText, Heart, Target, TrendingUp, CheckCircle, Loader, Info } from 'lucide-react';
 import { useSessionDetail } from '../hooks/useSessions';
 import { useEndSession } from '../hooks/useSessions';
 
@@ -182,6 +182,24 @@ const EndSession: React.FC = () => {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
+          {/* Guidance Banner */}
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0">
+                <Info size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-semibold text-indigo-900">
+                  Clinical Documentation Guidance
+                </h2>
+                <p className="mt-1 text-sm text-indigo-800 leading-relaxed">
+                  The notes you complete here support your patient&apos;s progress tracking and continuity of care. Please keep entries clear,
+                  objective, and clinically relevant so both therapist records and patient-facing progress context remain meaningful.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Warning Message for upcoming sessions */}
           {isUpcoming && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
