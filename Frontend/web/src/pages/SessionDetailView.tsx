@@ -6,7 +6,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, User, Calendar, Clock, FileText,
-  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star, Edit3
+  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star
 } from 'lucide-react';
 import { aiServiceUrl } from '../config';
 import { useSessionDetail } from '../hooks/useSessions';
@@ -260,12 +260,24 @@ const EmotionTimeline: React.FC<{ segments: Segment[] }> = ({ segments }) => {
 };
 
 // ─── TranscriptSection ────────────────────────────────────────────────────
-export const TranscriptSection: React.FC<{ sessionId: string }> = ({ sessionId }) => {
+export const TranscriptSection: React.FC<{ sessionId: string; sessionStatus?: string }> = ({
+  sessionId,
+  sessionStatus,
+}) => {
   const [segments, setSegments] = React.useState<Segment[]>([]);
   const [status, setStatus] = React.useState<'loading' | 'processing' | 'ready' | 'error'>('loading');
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const isCompletedSession = String(sessionStatus || '').toUpperCase() === 'COMPLETED';
+
   React.useEffect(() => {
+    if (!isCompletedSession) {
+      setSegments([]);
+      setStatus('ready');
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+
     let attempts = 0;
     const MAX = 24; // ~2 minutes at 5s intervals
 
@@ -341,7 +353,15 @@ export const TranscriptSection: React.FC<{ sessionId: string }> = ({ sessionId }
     check();
     pollRef.current = setInterval(check, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [sessionId]);
+  }, [sessionId, isCompletedSession]);
+
+  if (!isCompletedSession) {
+    return (
+      <p className="text-sm text-gray-500 py-3">
+        Nothing to show here as this session has not been conducted yet.
+      </p>
+    );
+  }
 
   // ── Status states ──────────────────────────────────────────────────────
   if (status === 'loading') {
@@ -755,14 +775,26 @@ const EpSegmentCards: React.FC<{ segments: Segment[]; patientOnly: boolean }> = 
   );
 };
 
-const EmotionalProfileSection: React.FC<{ sessionId: string }> = ({ sessionId }) => {
+const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: string }> = ({
+  sessionId,
+  sessionStatus,
+}) => {
   const [segments, setSegments]       = React.useState<Segment[]>([]);
   const [status, setStatus]           = React.useState<'loading'|'processing'|'ready'|'error'>('loading');
   const [tab, setTab]                 = React.useState<'chart'|'distribution'|'cooccurrence'|'segments'>('chart');
   const [patientOnly, setPatientOnly] = React.useState(true);
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const isCompletedSession = String(sessionStatus || '').toUpperCase() === 'COMPLETED';
+
   React.useEffect(() => {
+    if (!isCompletedSession) {
+      setSegments([]);
+      setStatus('ready');
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+
     let attempts = 0;
     const MAX = 24;
     const check = async () => {
@@ -786,7 +818,13 @@ const EmotionalProfileSection: React.FC<{ sessionId: string }> = ({ sessionId })
     check();
     pollRef.current = setInterval(check, 6000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [sessionId]);
+  }, [sessionId, isCompletedSession]);
+
+  if (!isCompletedSession) return (
+    <p className="text-sm text-gray-500 py-3">
+      Nothing to show here as this session has not been conducted yet.
+    </p>
+  );
 
   if (status === 'loading') return (
     <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
@@ -992,11 +1030,6 @@ const SessionDetailView: React.FC = () => {
                 <RefreshCw size={18} />
                 <span className="hidden sm:inline font-medium">Refresh</span>
               </button>
-              <button onClick={() => navigate(`/sessions/${id}/edit`)}
-                className="flex items-center space-x-2 px-4 py-2.5 bg-white text-purple-700 rounded-xl hover:bg-purple-50 transition-all shadow-lg">
-                <Edit3 size={18} />
-                <span className="hidden sm:inline font-medium">Edit Session</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1096,7 +1129,7 @@ const SessionDetailView: React.FC = () => {
                 </h3>
               </div>
               <div className="p-6">
-                <TranscriptSection sessionId={id!} />
+                <TranscriptSection sessionId={id!} sessionStatus={session.status} />
               </div>
             </div>
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
@@ -1110,7 +1143,7 @@ const SessionDetailView: React.FC = () => {
     </h3>
   </div>
   <div className="p-6">
-    <EmotionalProfileSection sessionId={id!} />
+    <EmotionalProfileSection sessionId={id!} sessionStatus={session.status} />
   </div>
 </div>
 
