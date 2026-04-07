@@ -229,6 +229,18 @@ export interface WeeklyMoodTrendResponse {
   pattern_insight: string;
 }
 
+export interface PublicTherapistProfile {
+  id: string;
+  full_name: string;
+  specialization: string;
+  years_of_experience: number;
+  bio?: string | null;
+  clinic_name?: string | null;
+  languages_spoken?: string | null;
+  avatar_url?: string | null;
+  therapist_pin: string;
+}
+
 export interface DashboardData {
   mood_today: MoodEntry | null;
   journal_count_this_month: number;
@@ -614,6 +626,14 @@ class PatientService {
     sanitizedPin = sanitizedPin.replace(/^['"]+|['"]+$/g, '');
     const body = { therapist_pin: sanitizedPin, message };
     const response = await api.post('/users/connect-therapist/', body);
+    return response.data;
+  }
+
+  /**
+   * Get therapist directory for patient browsing (public profiles only)
+   */
+  async getPublicTherapists(): Promise<PublicTherapistProfile[]> {
+    const response = await api.get<PublicTherapistProfile[]>('/users/public-therapists/');
     return response.data;
   }
 
