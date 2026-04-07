@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft,
   User,
   MapPin,
   Heart,
@@ -12,7 +11,8 @@ import {
 } from 'lucide-react';
 import { useCreatePatient } from '../hooks/usePatients';
 import sessionsService from '../services/sessions.service';
-import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
+import { TherapistPageBanner, TherapistPageSimpleHero } from '../components/TherapistPageBanner';
 
 interface NewPatientData {
   first_name: string;
@@ -271,46 +271,36 @@ const NewPatient: React.FC = () => {
   };
 
   return (
-    <div className={THERAPIST_PAGE_CANVAS}>
-      {/* Header */}
-      <div className="bg-purple-700 text-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate(-1)}
-                className="mr-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold">Add New Patient</h1>
-                <p className="text-purple-200">Create a new patient profile</p>
+    <div className={THERAPIST_PAGE_SHELL}>
+      <div className="mb-6">
+        <TherapistPageBanner heightClassName="min-h-[10.5rem] sm:h-44">
+          <TherapistPageSimpleHero
+            title="Add New Patient"
+            subtitle="Create a complete patient profile and therapy setup"
+            actions={
+              <div className="flex w-full min-w-[220px] flex-col items-stretch gap-2 sm:w-auto">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="inline-flex w-full items-center justify-center space-x-2 rounded-md bg-white/20 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg"
+                >
+                  <X size={18} />
+                  <span>Cancel</span>
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center space-x-2 rounded-md bg-white/90 px-5 py-3 text-base font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  <span>{loading ? 'Saving...' : 'Save Patient'}</span>
+                </button>
               </div>
-            </div>
-
-            <div className="flex space-x-2">
-              <button
-                onClick={() => navigate(-1)}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center"
-              >
-                <X size={16} className="mr-1" />
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="px-4 py-2 bg-white text-purple-700 rounded-lg hover:bg-gray-100 transition-colors flex items-center disabled:opacity-50"
-              >
-                <Save size={16} className="mr-1" />
-                {loading ? 'Saving...' : 'Save Patient'}
-              </button>
-            </div>
-          </div>
-        </div>
+            }
+          />
+        </TherapistPageBanner>
       </div>
 
-      <div className="max-w-4xl mx-auto py-8">
+      <div className="mx-auto w-full max-w-6xl py-2">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-start">
