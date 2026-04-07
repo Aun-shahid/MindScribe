@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Bell, Menu, X } from 'lucide-react';
+import { Bell, Menu, X, Settings, LogOut } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBrain } from '@fortawesome/free-solid-svg-icons';
 import { useNotifications } from '../hooks/useNotifications';
@@ -36,8 +36,10 @@ const Layout = () => {
   const location = useLocation();
   const { unreadCount, notifications, markAsRead, markAllAsRead, toasts, dismissToast } = useNotifications();
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const previewNotifications = useMemo(() => notifications.slice(0, 14), [notifications]);
 
@@ -74,11 +76,15 @@ const Layout = () => {
       if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) {
         setIsNotificationMenuOpen(false);
       }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsNotificationMenuOpen(false);
+        setIsProfileMenuOpen(false);
         setIsMobileMenuOpen(false);
       }
     };
@@ -94,6 +100,8 @@ const Layout = () => {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsNotificationMenuOpen(false);
+    setIsProfileMenuOpen(false);
   }, [location.pathname]);
 
   const isActive = (path: string) => {
@@ -289,35 +297,60 @@ const Layout = () => {
                 )}
               </div>
 
-              <Link
-                to="/profile"
-                className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              >
-                {user?.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover border border-white/35 shrink-0 bg-white/10"
-                  />
-                ) : (
-                  <span
-                    className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold border border-white/30 shrink-0"
-                    aria-hidden
-                  >
-                    {profileInitials}
-                  </span>
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                  className={`flex items-center space-x-2 px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isProfileMenuOpen
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
+                  }`}
+                  aria-haspopup="menu"
+                  aria-expanded={isProfileMenuOpen}
+                  aria-label="Open profile menu"
+                >
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover border border-white/35 shrink-0 bg-white/10"
+                    />
+                  ) : (
+                    <span
+                      className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold border border-white/30 shrink-0"
+                      aria-hidden
+                    >
+                      {profileInitials}
+                    </span>
+                  )}
+                  <span className="hidden sm:inline">Profile</span>
+                </button>
+
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl z-50">
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-purple-50 hover:text-purple-800"
+                    >
+                      <Settings className="h-4 w-4" strokeWidth={2.1} aria-hidden />
+                      Settings
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        logout();
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" strokeWidth={2.1} aria-hidden />
+                      Logout
+                    </button>
+                  </div>
                 )}
-                <span className="hidden sm:inline">Profile</span>
-              </Link>
-              <button
-                onClick={logout}
-                className="flex items-center space-x-2 bg-purple-800/80 hover:bg-purple-700/90 text-white px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-md ring-1 ring-white/10 hover:ring-white/20"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="hidden sm:inline">Logout</span>
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -415,6 +448,21 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+
+      <footer className="border-t border-purple-100/80 bg-white/70 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-gray-600 sm:flex-row sm:px-6 lg:px-8">
+          <p>© {new Date().getFullYear()} MindScribe. All rights reserved.</p>
+          <div className="flex items-center gap-3">
+            <Link to="/profile" className="hover:text-purple-700 transition-colors">
+              Profile
+            </Link>
+            <span className="text-gray-300">•</span>
+            <Link to="/notifications" className="hover:text-purple-700 transition-colors">
+              Notifications
+            </Link>
+          </div>
+        </div>
+      </footer>
 
       {/* Real-time notification toasts — rendered at bottom-right */}
       <NotificationToast toasts={toasts} onDismiss={dismissToast} />

@@ -8,6 +8,8 @@ const RequestReset = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { requestPasswordReset, loading } = useAuth();
+  const backgroundImage =
+    'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1920&q=80';
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,11 +50,18 @@ const RequestReset = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${backgroundImage})` }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-[#16082f]/65 backdrop-blur-[2px]" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/70 via-[#5c4092]/55 to-[#2a0f4f]/75" aria-hidden />
+        <div className="relative z-10 w-full max-w-md">
+          <div className="rounded-3xl border border-white/25 bg-white/10 px-5 py-8 shadow-[0_20px_60px_-12px_rgba(16,8,35,0.75)] backdrop-blur-xl sm:px-8">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-200/60 bg-emerald-100/90">
                 <svg
                   className="h-6 w-6 text-green-600"
                   fill="none"
@@ -67,15 +76,15 @@ const RequestReset = () => {
                   />
                 </svg>
               </div>
-              <h2 className="text-lg font-medium text-gray-900 mb-2">
+              <h2 className="mb-2 text-lg font-semibold text-white">
                 📧 Email Sent
               </h2>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="mb-6 text-sm text-purple-100">
                 We've sent you a password reset link. Please check your email and follow the instructions to reset your password.
               </p>
               <Link
                 to="/login"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-white/30 bg-[#5c4092]/90 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#43275a]/95"
               >
                 Back to Login
               </Link>
@@ -87,52 +96,42 @@ const RequestReset = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-[#16082f]/65 backdrop-blur-[2px]" aria-hidden />
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/70 via-[#5c4092]/55 to-[#2a0f4f]/75" aria-hidden />
+
+      <div className="relative z-10 w-full max-w-md">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="mb-2 text-3xl font-bold text-white">
             Forgot Your Password?
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-purple-100">
             Enter your email address and we will send you a link to reset your password.
           </p>
         </div>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="mt-8">
+        <div className="rounded-3xl border border-white/25 bg-white/10 px-5 py-8 shadow-[0_20px_60px_-12px_rgba(16,8,35,0.75)] backdrop-blur-xl sm:px-8">
           <form className="space-y-6" onSubmit={handleResetRequest}>
             {emailError && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-800">{emailError}</p>
-                  </div>
-                </div>
+              <div className="rounded-xl border border-red-300/45 bg-red-500/20 px-4 py-3 text-sm text-red-100">
+                {emailError}
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-purple-100">
                 Email address
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
-                    className="h-5 w-5 text-gray-400"
+                    className="h-5 w-5 text-purple-200/80"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -151,9 +150,9 @@ const RequestReset = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`appearance-none block w-full pl-10 pr-3 py-2 border ${
-                    emailError ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  className={`block w-full rounded-xl border bg-white/15 py-2.5 pl-10 pr-3 text-sm text-white placeholder-purple-100/70 transition focus:outline-none focus:ring-2 focus:ring-purple-300 ${
+                    emailError ? 'border-red-300/80' : 'border-white/30 focus:border-purple-200'
+                  }`}
                   placeholder="Enter your email"
                   value={email}
                   onChange={handleEmailChange}
@@ -166,10 +165,10 @@ const RequestReset = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                className={`flex w-full justify-center rounded-xl border border-white/30 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all ${
                   loading
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                    ? 'cursor-not-allowed bg-white/25'
+                    : 'bg-[#5c4092]/90 hover:bg-[#43275a]/95 focus:outline-none focus:ring-2 focus:ring-purple-300'
                 }`}
               >
                 {loading ? (
@@ -207,7 +206,7 @@ const RequestReset = () => {
             <div className="text-center">
               <Link
                 to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-semibold text-white hover:text-purple-200"
                 tabIndex={loading ? -1 : 0}
               >
                 ← Back to Login
@@ -215,6 +214,7 @@ const RequestReset = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

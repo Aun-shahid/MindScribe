@@ -173,10 +173,7 @@ const Patients = () => {
                           Active
                         </span>
                       </div>
-                      <div className="text-gray-600 text-sm flex items-center">
-                        <span className="font-medium text-gray-700">ID:</span>
-                        <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{patient.id}</span>
-                      </div>
+                      
                       {patient.email && <div className="text-sm text-gray-600 mt-1 truncate">{patient.email}</div>}
                     </div>
 

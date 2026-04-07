@@ -21,7 +21,7 @@ import {
 import { listenToAppEvent } from '../utils/events';
 import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 import { DashboardPageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
-import { Calendar, Users, ClipboardList, Activity, ChevronRight, Stethoscope } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Activity, ChevronRight, Stethoscope, PlusCircle, RefreshCw } from 'lucide-react';
 
 interface SessionStats {
   total_sessions: number;
@@ -270,6 +270,30 @@ const Dashboard = () => {
               <span className="rounded-full bg-[#ede9fe] px-4 py-2 text-xs font-semibold text-[#5b21b6]">
                 {totalNotifications} notifications
               </span>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link
+                to="/sessions/new"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5c4092] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#43275a]"
+              >
+                <PlusCircle className="h-4 w-4" strokeWidth={2.2} />
+                New session
+              </Link>
+              <Link
+                to="/patients"
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-200/70 bg-purple-50/70 px-4 py-2.5 text-sm font-semibold text-[#5c4092] transition hover:bg-purple-100/80"
+              >
+                <Users className="h-4 w-4" strokeWidth={2.2} />
+                Patients
+              </Link>
+              <button
+                type="button"
+                onClick={refreshAllDashboardData}
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-200/70 bg-purple-50/70 px-4 py-2.5 text-sm font-semibold text-[#5c4092] transition hover:bg-purple-100/80"
+              >
+                <RefreshCw className="h-4 w-4" strokeWidth={2.2} />
+                Refresh
+              </button>
             </div>
           </div>
 
@@ -570,7 +594,7 @@ const Dashboard = () => {
 
         {/* Notifications + quick actions */}
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-2">
             <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
             {notificationChartData.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-3">
@@ -592,30 +616,6 @@ const Dashboard = () => {
             ) : (
               <p className="mt-3 text-sm text-gray-500">You&apos;re all caught up.</p>
             )}
-          </div>
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                to="/sessions/new"
-                className="inline-flex flex-1 min-w-[120px] items-center justify-center rounded-xl bg-[#5c4092] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#43275a]"
-              >
-                New session
-              </Link>
-              <Link
-                to="/patients"
-                className="inline-flex flex-1 min-w-[120px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-              >
-                Patients
-              </Link>
-              <button
-                type="button"
-                onClick={refreshAllDashboardData}
-                className="inline-flex flex-1 min-w-[120px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-              >
-                Refresh
-              </button>
-            </div>
           </div>
         </div>
       </div>
