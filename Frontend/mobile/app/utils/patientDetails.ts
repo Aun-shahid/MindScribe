@@ -101,3 +101,7 @@ export const shouldShowPreferredDays = (patient: PatientDetailsType): boolean =>
     patient.patient_profile.preferred_session_days.length > 0
   );
 };
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

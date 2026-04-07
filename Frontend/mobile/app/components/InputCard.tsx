@@ -82,3 +82,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

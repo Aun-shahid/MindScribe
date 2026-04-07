@@ -35,7 +35,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 interface AuthProviderProps {
   children: ReactNode;
 }
-
+const THERAPIST_ACCOUNT_REQUIRED_MESSAGE = 'You do not have a valid therapist account.';
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const authState = useAuth();
 
@@ -53,3 +53,7 @@ export const useAuthContext = (): AuthContextType => {
   }
   return context;
 };
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

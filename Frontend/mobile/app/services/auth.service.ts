@@ -16,8 +16,12 @@ class AuthService {
    */
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
-      console.log('[AuthService] POST /authenticator/login/', credentials);
-      const response = await api.post<LoginResponse>('/authenticator/login/', credentials);
+      const payload = {
+        ...credentials,
+        ...(credentials.role ? { role: credentials.role } : {}),
+      };
+      console.log('[AuthService] POST /authenticator/login/', payload);
+      const response = await api.post<LoginResponse>('/authenticator/login/', payload);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
@@ -70,7 +74,7 @@ class AuthService {
   async verifyEmail(data: EmailVerificationRequest): Promise<void> {
     try {
       console.log('[AuthService] POST /authenticator/verify-email/', data);
-      await api.post('/authenticator/verify-email/', data);
+      await api.post('/authenticator/verify-email/', { code: data.code });
     } catch (error: any) {
       throw this.handleError(error);
     }
@@ -84,7 +88,7 @@ class AuthService {
       // Optional: Call logout endpoint if backend requires it
       // console.log('[AuthService] POST /authenticator/logout/');
       // await api.post('/authenticator/logout/');
-    } catch (error) {
+    } catch {
       // Ignore errors during logout
     }
   }

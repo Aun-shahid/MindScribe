@@ -75,3 +75,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

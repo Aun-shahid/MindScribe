@@ -121,3 +121,7 @@ export function normalizeNotificationActionUrl(actionUrl: string | null | undefi
 
   return normalizePatientAction(parsed.pathname);
 }
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

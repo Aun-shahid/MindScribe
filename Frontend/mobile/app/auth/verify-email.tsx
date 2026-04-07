@@ -105,7 +105,7 @@ export default function VerifyEmailScreen() {
       return;
     }
     try {
-      await verifyEmail({ token: code });
+      await verifyEmail({ code });
       router.push('./email-verified');
     } catch {
       Alert.alert(

@@ -152,10 +152,13 @@ export const useAuth = (): AuthState & AuthActions => {
         // Ignore token clear failures; login request will still proceed.
       }
 
-      const response = await authService.login(credentials);
-      
-      // Check if user type matches selected role
       const savedRole = await AsyncStorage.getItem('selected_role');
+      const response = await authService.login({
+        ...credentials,
+        role: savedRole === 'therapist' || savedRole === 'patient' ? savedRole : undefined,
+      });
+
+      // Check if user type matches selected role
       if (savedRole && savedRole !== response.user.user_type) {
         throw {
           message: `This account is registered as a ${response.user.user_type}.`,
@@ -270,11 +273,10 @@ export const useAuth = (): AuthState & AuthActions => {
       await authService.verifyEmail(data);
       
       updateState({ isLoading: false });
-      
-      // Navigate to login after successful verification
-      router.push('./login');
     } catch (error) {
-      setError(error as AuthError);
+      const authError = error as AuthError;
+      setError(authError);
+      throw authError;
     }
   };
 
@@ -355,3 +357,6 @@ export const useAuth = (): AuthState & AuthActions => {
     updateProfile,
   };
 };
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

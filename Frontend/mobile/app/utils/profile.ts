@@ -42,3 +42,7 @@ export const isProfileVerified = (profile: TherapistProfileData): boolean => {
 export const getProfileDisplayValue = (value: string | undefined | null): string => {
   return value || 'Not available';
 };
+
+export default function ProfileUtilsRoute() {
+  return null;
+}

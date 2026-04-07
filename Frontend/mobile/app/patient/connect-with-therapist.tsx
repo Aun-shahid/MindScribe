@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, StatusBar, Animated, Modal, useWindowDimensions, ScrollView,
+  Alert, StatusBar, Animated, Modal, useWindowDimensions, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -13,6 +13,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import StickyHeader from '../components/StickyHeader';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { PublicTherapistProfile } from '../services/patient.service';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
@@ -36,6 +37,23 @@ type ConnectionRequestItem = {
     specialization?: string;
     clinic_name?: string;
   };
+};
+
+type ConnectedTherapistCard = {
+  id: string;
+  name: string;
+  specialization: string;
+  clinic: string;
+  source: 'profile' | 'request';
+  connectedAt?: string;
+};
+
+type RequestTherapist = {
+  id?: string;
+  name: string;
+  specialization?: string;
+  clinic_name?: string;
+  therapist_pin: string;
 };
 
 const CONNECTION_REQUESTS_STORAGE_KEY = 'patient_connection_requests_v1';
@@ -213,6 +231,10 @@ export default function ConnectWithTherapist() {
   const buttonMinHeight       = clamp(height * 0.055, 40, 50);
   const skipTextSize          = clamp(width * 0.033, 12, 14);
   const screenBottomSpacer    = clamp(height * 0.06, 28, 52);
+  const sectionMenuPadding    = clamp(width * 0.008, 2, 5);
+  const sectionTabPaddingY    = clamp(height * 0.011, 8, 11);
+  const sectionTabPaddingX    = clamp(width * 0.03, 11, 16);
+  const sectionTabTextSize    = clamp(width * 0.033, 12, 14);
 
   const estimatedTitleHeight  = Math.ceil(titleFontSize * 1.3);
   const headerHeight          = headerTopPadding + titleMarginTop + estimatedTitleHeight + headerBottomPadding;
@@ -248,9 +270,19 @@ export default function ConnectWithTherapist() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequestItem[]>([]);
   const [patientProfile, setPatientProfile] = useState<any>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [showConnectAnotherForm, setShowConnectAnotherForm] = useState(false);
+  const [flowStep, setFlowStep] = useState<'find' | 'request' | 'status'>('find');
+  const [findMode, setFindMode] = useState<'existing' | 'discover'>('existing');
+  const [selectedTherapist, setSelectedTherapist] = useState<RequestTherapist | null>(null);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverSearch, setDiscoverSearch] = useState('');
+  const [publicTherapists, setPublicTherapists] = useState<PublicTherapistProfile[]>([]);
+
+  const resetRequestForm = useCallback(() => {
+    setSelectedTherapist(null);
+    setConnectMessage('');
+    setTherapistPin('');
+  }, []);
 
   const sheetY = useRef(new Animated.Value(height)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -408,14 +440,24 @@ export default function ConnectWithTherapist() {
 
   const loadPatientProfile = useCallback(async () => {
     try {
-      setProfileLoading(true);
       const profile = await PatientService.getPatientProfile();
       setPatientProfile(profile);
     } catch (err) {
       console.error('Failed to load patient profile:', err);
       // Keep last known profile to avoid flickering back to disconnected UI on transient failures.
+    }
+  }, []);
+
+  const loadPublicTherapists = useCallback(async () => {
+    try {
+      setDiscoverLoading(true);
+      const list = await PatientService.getPublicTherapists();
+      setPublicTherapists(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error('Failed to load public therapists:', err);
+      setPublicTherapists([]);
     } finally {
-      setProfileLoading(false);
+      setDiscoverLoading(false);
     }
   }, []);
 
@@ -423,13 +465,14 @@ export default function ConnectWithTherapist() {
     useCallback(() => {
       loadConnectionRequests();
       loadPatientProfile();
+      loadPublicTherapists();
 
       const intervalId = setInterval(() => {
         loadPatientProfile();
       }, 15000);
 
       return () => clearInterval(intervalId);
-    }, [loadConnectionRequests, loadPatientProfile])
+    }, [loadConnectionRequests, loadPatientProfile, loadPublicTherapists])
   );
 
   useEffect(() => {
@@ -471,22 +514,19 @@ export default function ConnectWithTherapist() {
     setTherapistPin(pin.trim());
   };
 
-  const handleConnect = async () => {
-    const pinValidation = validateTherapistPinField(therapistPin);
-    if (!pinValidation.isValid) {
-      Alert.alert('Invalid Code', pinValidation.message || 'Therapist code is invalid.');
-      return;
-    }
+  const submitConnectionRequest = async (pinRaw: string, messageRaw: string) => {
     try {
       setLoading(true);
-      const response = await PatientService.connectTherapist(therapistPin.trim(), connectMessage.trim());
+      const sanitizedPin = pinRaw.trim();
+      const sanitizedMessage = messageRaw.trim();
+      const response = await PatientService.connectTherapist(sanitizedPin, sanitizedMessage);
       const request = response?.request;
       const therapistInfo = request?.therapist_info;
       const createdAt = request?.created_at || new Date().toISOString();
       const nextItem: ConnectionRequestItem = {
-        id: String(request?.id || `${Date.now()}-${therapistPin.trim()}`),
+        id: String(request?.id || `${Date.now()}-${sanitizedPin}`),
         status: String(request?.status || 'pending'),
-        message: String(request?.message || connectMessage.trim() || ''),
+        message: String(request?.message || sanitizedMessage || ''),
         created_at: createdAt,
         updated_at: request?.updated_at || createdAt,
         responded_at: request?.responded_at || null,
@@ -503,17 +543,15 @@ export default function ConnectWithTherapist() {
       await writeStoredRequests(deduped);
       await loadConnectionRequests();
       await loadPatientProfile();
-      setShowConnectAnotherForm(false);
-      setTherapistPin('');
-      setConnectMessage('');
+      setFlowStep('status');
+      resetRequestForm();
       Alert.alert('Request Sent', 'Connection request created. Your therapist must approve it.');
       try { await fetchProfile(); } catch { /* ignore */ }
     } catch (err: any) {
       const parsed = parseConnectionError(err);
       if (parsed.kind === 'already_connected') {
         try { await fetchProfile(); } catch {}
-        setTherapistPin('');
-        setConnectMessage('');
+        resetRequestForm();
         Alert.alert(parsed.title, parsed.message);
         return;
       }
@@ -521,6 +559,39 @@ export default function ConnectWithTherapist() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConnect = async () => {
+    if (!selectedTherapist?.therapist_pin) {
+      Alert.alert('Select Therapist', 'Please choose a therapist first from Find Therapist.');
+      return;
+    }
+    await submitConnectionRequest(selectedTherapist.therapist_pin, connectMessage);
+  };
+
+  const handleContinueFromPinQr = async () => {
+    const pinValidation = validateTherapistPinField(therapistPin);
+    if (!pinValidation.isValid) {
+      Alert.alert('Invalid Code', pinValidation.message || 'Therapist code is invalid.');
+      return;
+    }
+    setSelectedTherapist({
+      name: 'Therapist via PIN/QR',
+      therapist_pin: therapistPin.trim(),
+    });
+    setFlowStep('request');
+  };
+
+  const handleSelectFromDiscover = (item: PublicTherapistProfile) => {
+    setSelectedTherapist({
+      id: item.id,
+      name: item.full_name,
+      specialization: item.specialization,
+      clinic_name: item.clinic_name || undefined,
+      therapist_pin: item.therapist_pin,
+    });
+    setConnectMessage(`Hi ${item.full_name}, I would like to connect for therapy support.`);
+    setFlowStep('request');
   };
 
   const handleDisconnectTherapist = useCallback((therapistId: string, therapistName: string) => {
@@ -559,7 +630,7 @@ export default function ConnectWithTherapist() {
     ? patientProfile.connected_therapists
     : [];
 
-  const connectedTherapistCards = connectedTherapistsFromApi.length > 0
+  const connectedTherapistCards: ConnectedTherapistCard[] = connectedTherapistsFromApi.length > 0
     ? connectedTherapistsFromApi.map((item: any) => ({
       id: String(item?.id || '').trim(),
       name: String(item?.name || 'Therapist').trim(),
@@ -575,7 +646,7 @@ export default function ConnectWithTherapist() {
       const fallbackClinic = String(patientProfile?.therapist_info?.clinic_name || '').trim();
 
       if (!fallbackId && !fallbackName) {
-        return [] as Array<{ id: string; name: string; specialization: string; clinic: string; source: 'profile' | 'request'; connectedAt?: string }>;
+        return [] as ConnectedTherapistCard[];
       }
 
       return [{
@@ -591,10 +662,27 @@ export default function ConnectWithTherapist() {
   const isConnected = connectedTherapistCards.length > 0;
 
   useEffect(() => {
-    if (isConnected) {
-      setShowConnectAnotherForm(false);
+    if (!isConnected) {
+      setFlowStep('find');
     }
   }, [isConnected]);
+
+  useEffect(() => {
+    if (flowStep === 'request' && !selectedTherapist) {
+      setConnectMessage('');
+    }
+  }, [flowStep, selectedTherapist]);
+
+  const discoveredTherapists = publicTherapists.filter((item) => {
+    const q = discoverSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [
+      item.full_name,
+      item.specialization,
+      item.clinic_name || '',
+      item.languages_spoken || '',
+    ].some((value) => String(value || '').toLowerCase().includes(q));
+  });
 
   const handleDeleteRequestCard = useCallback(async (id: string) => {
     const next = connectionRequests.filter((item) => item.id !== id);
@@ -693,93 +781,161 @@ export default function ConnectWithTherapist() {
         keyboardShouldPersistTaps="handled"
       >
 
-        {isConnected && (
-          <View style={[styles.connectionCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
-            <View style={styles.connectionHeaderRow}>
+        <View style={[styles.sectionMenuContainer, { padding: sectionMenuPadding, marginBottom: cardGap }]}>
+          {(['find', 'request', 'status'] as const).map((stepKey) => {
+            const isActive = flowStep === stepKey;
+            const label = stepKey === 'find' ? 'Find' : stepKey === 'request' ? 'Request' : 'Status';
+
+            return (
+              <TouchableOpacity
+                key={stepKey}
+                onPress={() => setFlowStep(stepKey)}
+                style={styles.sectionMenuTab}
+                activeOpacity={0.85}
+              >
+                {isActive ? (
+                  <LinearGradient
+                    colors={['#FF5AA8', '#FFB36B']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={[
+                      styles.sectionMenuActive,
+                      {
+                        paddingVertical: sectionTabPaddingY,
+                        paddingHorizontal: sectionTabPaddingX,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.sectionMenuActiveText, { fontSize: sectionTabTextSize }]}>{label}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View
+                    style={[
+                      styles.sectionMenuInactive,
+                      {
+                        paddingVertical: sectionTabPaddingY,
+                        paddingHorizontal: sectionTabPaddingX,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.sectionMenuInactiveText, { fontSize: sectionTabTextSize }]}>{label}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {flowStep === 'find' && (
+          <View style={[styles.methodSwitchRow, { marginBottom: cardGap }]}>
+            <TouchableOpacity
+              onPress={() => setFindMode('existing')}
+              activeOpacity={0.9}
+              style={[
+                styles.methodCard,
+                findMode === 'existing' ? styles.methodCardActive : styles.methodCardInactive,
+              ]}
+            >
+              <FontAwesome name="qrcode" size={14} color={findMode === 'existing' ? '#FFFFFF' : '#CFC5EE'} />
+              <Text style={[styles.methodCardTitle, findMode === 'existing' ? styles.methodCardTitleActive : styles.methodCardTitleInactive]}>
+                PIN or QR
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setFindMode('discover')}
+              activeOpacity={0.9}
+              style={[
+                styles.methodCard,
+                findMode === 'discover' ? styles.methodCardActive : styles.methodCardInactive,
+              ]}
+            >
+              <FontAwesome name="search" size={14} color={findMode === 'discover' ? '#FFFFFF' : '#CFC5EE'} />
+              <Text style={[styles.methodCardTitle, findMode === 'discover' ? styles.methodCardTitleActive : styles.methodCardTitleInactive]}>
+                Discover
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {flowStep === 'status' && isConnected && (
+          <View style={[styles.statusShell, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+            <View style={styles.statusHeaderRow}>
               <View style={styles.connectionBadge}>
                 <FontAwesome name="check-circle" size={14} color="#22C55E" />
                 <Text style={styles.connectionBadgeText}>Connected</Text>
               </View>
-              {profileLoading ? (
-                <Text style={styles.connectionMeta}>Refreshing...</Text>
-              ) : connectedAt ? (
-                <Text style={styles.connectionMeta}>Since {formatDate(connectedAt)}</Text>
-              ) : (
-                <Text style={styles.connectionMeta}>Connected</Text>
-              )}
+              <Text style={styles.statusCountText}>{connectedTherapistCards.length} total</Text>
             </View>
 
-            <View style={styles.connectedHeaderRow}>
-              <Text style={styles.connectionLabel}>
-                {connectedTherapistCards.length > 1 ? 'Connected therapists' : 'Your therapist'}
-              </Text>
-              <View style={styles.connectedCountChip}>
-                <Text style={styles.connectedCountChipText}>{connectedTherapistCards.length}</Text>
-              </View>
-            </View>
-
-            {connectedTherapistCards.map((card) => {
-              const isPrimary = card.source === 'profile';
-              return (
-                <View key={card.id || normalizeName(card.name)} style={styles.therapistInfoCard}>
-                  <View style={styles.therapistInfoHead}>
-                    <Text style={styles.connectionName}>{card.name || 'Therapist'}</Text>
-                    <View style={[styles.therapistStatusPill, isPrimary ? styles.therapistStatusActive : styles.therapistStatusAdditional]}>
-                      <Text style={styles.therapistStatusText}>{isPrimary ? 'Active' : 'Also connected'}</Text>
-                    </View>
-                  </View>
-                  {!!card.specialization && (
-                    <Text style={styles.connectionSubtext}>{card.specialization}</Text>
-                  )}
-                  {!!card.clinic && (
-                    <Text style={styles.connectionSubtext}>{card.clinic}</Text>
-                  )}
-                  {!!card.connectedAt && (
-                    <Text style={styles.connectionSubtext}>Connected: {formatDate(card.connectedAt)}</Text>
-                  )}
-                  <TouchableOpacity
-                    onPress={() => handleDisconnectTherapist(card.id, card.name)}
-                    disabled={disconnecting}
-                    style={[styles.disconnectBtn, disconnecting && { opacity: 0.75 }, { marginTop: 10 }]}
-                    activeOpacity={0.9}
-                  >
-                    <FontAwesome name="unlink" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.024, 8, 11) }} />
-                    <Text style={[styles.disconnectBtnText, { fontSize: buttonTextSize }]}>Disconnect this therapist</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-
-            <View style={styles.connectionActionRow}>
-              <TouchableOpacity
-                onPress={() => setShowConnectAnotherForm((prev) => !prev)}
-                style={[styles.connectAnotherBtn, styles.connectionActionHalf]}
-                activeOpacity={0.9}
+            {connectedTherapistCards.map((card, index) => (
+              <View
+                key={card.id || normalizeName(card.name)}
+                style={[styles.statusTherapistRow, index > 0 && styles.statusTherapistRowDivider]}
               >
-                <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
-                <Text style={styles.connectAnotherBtnText}>
-                  {showConnectAnotherForm ? 'Hide form' : 'Add therapist'}
-                </Text>
-              </TouchableOpacity>
+                <View style={styles.statusTherapistMain}>
+                  <Text style={styles.statusTherapistName}>{card.name || 'Therapist'}</Text>
+                  <Text style={styles.statusTherapistMeta}>
+                    {card.specialization || 'Specialization not added'}
+                    {card.clinic ? ` • ${card.clinic}` : ''}
+                  </Text>
+                  {!!card.connectedAt && (
+                    <Text style={styles.statusTherapistMeta}>Connected: {formatDate(card.connectedAt)}</Text>
+                  )}
+                </View>
 
+                <TouchableOpacity
+                  onPress={() => handleDisconnectTherapist(card.id, card.name)}
+                  disabled={disconnecting}
+                  style={[styles.statusDisconnectBtn, disconnecting && { opacity: 0.75 }]}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.statusDisconnectBtnText}>Disconnect</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <View style={styles.statusBottomActions}>
               <TouchableOpacity
-                onPress={loadPatientProfile}
-                disabled={profileLoading}
-                style={[styles.refreshConnectionBtn, styles.connectionActionHalf, profileLoading && { opacity: 0.75 }]}
+                onPress={() => setFlowStep('find')}
+                style={styles.statusGhostAction}
                 activeOpacity={0.85}
               >
-                <FontAwesome name="refresh" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
-                <Text style={styles.refreshConnectionBtnText}>{profileLoading ? 'Refreshing...' : 'Refresh'}</Text>
+                <Text style={styles.statusGhostActionText}>Add therapist</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowRequests(true);
+                  loadConnectionRequests();
+                }}
+                style={styles.statusGhostAction}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.statusGhostActionText}>View requests</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.connectionHintText}>
-              You can keep this therapist and still send another connection request.
-            </Text>
           </View>
         )}
 
-        {(!isConnected || showConnectAnotherForm) && (
+        {flowStep === 'status' && !isConnected && (
+          <View style={[styles.emptyStateCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+            <Text style={styles.emptyStateTitle}>No therapist connected yet</Text>
+            <Text style={styles.emptyStateText}>
+              Start from Find Therapist to choose a therapist, then send your request.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setFlowStep('find')}
+              style={styles.emptyStateButton}
+              activeOpacity={0.9}
+            >
+              <FontAwesome name="plus-circle" size={13} color="#D8CCFF" style={{ marginRight: 8 }} />
+              <Text style={styles.emptyStateButtonText}>Start connection request</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {flowStep === 'find' && findMode === 'existing' && (
           <>
             {/* ── QR card — UNCHANGED ── */}
             <TouchableOpacity
@@ -832,41 +988,15 @@ export default function ConnectWithTherapist() {
               </View>
             </View>
 
-            {/* ── Message card ── */}
-            <View style={{ marginBottom: cardGap }}>
-              <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
-                <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
-                <View style={{ height: 3, backgroundColor: '#FFB36B', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
-                <View style={{ padding: cardPadding }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: clamp(width * 0.028, 10, 13), marginBottom: clamp(height * 0.018, 12, 16) }}>
-                    <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,179,107,0.15)', borderWidth: 1, borderColor: 'rgba(255,179,107,0.4)' }}>
-                      <FontAwesome name="edit" size={iconSz} color="#FFB36B" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#FFFFFF', fontSize: labelSz, fontWeight: '800', letterSpacing: 0.3 }}>Message</Text>
-                      <Text style={{ color: '#C9A97E', fontSize: subLblSz, letterSpacing: 0.8, marginTop: 1 }}>OPTIONAL — introduce yourself</Text>
-                    </View>
-                  </View>
-                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
-                  <TextInput
-                    value={connectMessage} onChangeText={setConnectMessage}
-                    placeholder="Introduce yourself to your therapist..." placeholderTextColor="rgba(184,168,230,0.45)"
-                    multiline numberOfLines={4} textAlignVertical="top"
-                    style={{ color: '#FFFFFF', fontSize: clamp(width * 0.039, 14, 16), fontWeight: '400', letterSpacing: 0.15, paddingVertical: clamp(height * 0.016, 10, 14), paddingHorizontal: 2, backgroundColor: 'transparent', minHeight: clamp(height * 0.145, 100, 130), lineHeight: clamp(width * 0.039, 14, 16) * 1.55 }}
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* ── Connect button ── */}
+            {/* ── Continue to request step ── */}
             <TouchableOpacity
               style={[styles.primaryBtn, { marginTop: clamp(height * 0.01, 6, 10), paddingVertical: buttonPaddingY, borderRadius: buttonRadius }, loading && { opacity: 0.7 }]}
-              onPress={handleConnect} activeOpacity={0.9} disabled={loading}
+              onPress={handleContinueFromPinQr} activeOpacity={0.9} disabled={loading}
             >
               <LinearGradient colors={['#8B5CF6', '#A78BFA']} start={[0, 0]} end={[1, 1]} style={[styles.primaryBtnGradient, { minHeight: buttonMinHeight, borderRadius: buttonRadius }]}>
                 <View style={styles.primaryBtnInner}>
-                  <FontAwesome name="send" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.026, 8, 12) }} />
-                  <Text style={[styles.primaryBtnText, { fontSize: buttonTextSize }]}>{loading ? 'Sending...' : 'Connect with Therapist'}</Text>
+                  <FontAwesome name="arrow-right" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.026, 8, 12) }} />
+                  <Text style={[styles.primaryBtnText, { fontSize: buttonTextSize }]}>Continue to Request</Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -874,6 +1004,139 @@ export default function ConnectWithTherapist() {
             <TouchableOpacity style={{ marginTop: clamp(height * 0.016, 10, 14), alignItems: 'center', paddingVertical: clamp(height * 0.01, 6, 10) }} onPress={goBack} activeOpacity={0.7}>
               <Text style={[styles.skipText, { fontSize: skipTextSize }]}>Skip for now</Text>
             </TouchableOpacity>
+          </>
+        )}
+
+        {flowStep === 'find' && findMode === 'discover' && (
+          <>
+            <View style={[styles.discoverPanel, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+              <View style={styles.discoverHeaderRow}>
+                <Text style={styles.discoverTitle}>Find a Therapist</Text>
+                <TouchableOpacity onPress={loadPublicTherapists} disabled={discoverLoading}>
+                  <FontAwesome name="refresh" size={14} color="#D8CCFF" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.discoverSubtext}>Browse public therapist profiles and select one for request step.</Text>
+              <View style={styles.discoverSearchBox}>
+                <FontAwesome name="search" size={13} color="#B8A8E6" style={{ marginRight: 8 }} />
+                <TextInput
+                  value={discoverSearch}
+                  onChangeText={setDiscoverSearch}
+                  placeholder="Search by name, specialization, clinic"
+                  placeholderTextColor="rgba(184,168,230,0.5)"
+                  style={styles.discoverSearchInput}
+                />
+              </View>
+            </View>
+
+            {discoverLoading ? (
+              <View style={[styles.discoverPanel, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap, alignItems: 'center' }]}>
+                <ActivityIndicator color="#A78BFA" />
+                <Text style={styles.discoverEmptyText}>Loading therapists...</Text>
+              </View>
+            ) : discoveredTherapists.length === 0 ? (
+              <View style={[styles.discoverPanel, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+                <Text style={styles.discoverEmptyTitle}>No therapists found</Text>
+                <Text style={styles.discoverEmptyText}>Try a different search, or use Current Flow to connect with a known PIN.</Text>
+              </View>
+            ) : (
+              discoveredTherapists.map((item) => (
+                <View key={item.id} style={styles.discoverRow}>
+                  <View style={styles.discoverRowMain}>
+                    <Text style={styles.discoverCardName}>{item.full_name}</Text>
+                    {!!item.specialization && <Text style={styles.discoverCardMeta}>{item.specialization}</Text>}
+                    <Text style={styles.discoverRowMetaCompact}>
+                      {item.clinic_name || 'Clinic not specified'}
+                      {typeof item.years_of_experience === 'number' ? ` • ${item.years_of_experience}y exp` : ''}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleSelectFromDiscover(item)}
+                    disabled={loading}
+                    style={[styles.discoverSelectBtn, loading && { opacity: 0.7 }]}
+                    activeOpacity={0.9}
+                  >
+                    <Text style={styles.discoverSelectBtnText}>Select</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </>
+        )}
+
+        {flowStep === 'request' && (
+          <>
+            <View style={[styles.requestSummaryCard, { borderRadius: cardRadius, padding: cardPadding, marginBottom: cardGap }]}>
+              <View style={styles.requestSummaryTopRow}>
+                <Text style={styles.requestSummaryTitle}>Selected Therapist</Text>
+                <View style={styles.requestSummaryVerifiedPill}>
+                  <FontAwesome name="check-circle" size={11} color="#86EFAC" />
+                  <Text style={styles.requestSummaryVerifiedText}>Verified</Text>
+                </View>
+              </View>
+              {selectedTherapist ? (
+                <>
+                  <Text style={[styles.requestSummaryName, { marginTop: 8 }]}>{selectedTherapist.name}</Text>
+                  {!!selectedTherapist.specialization && <Text style={styles.requestSummaryMeta}>{selectedTherapist.specialization}</Text>}
+                  {!!selectedTherapist.clinic_name && <Text style={styles.requestSummaryMeta}>{selectedTherapist.clinic_name}</Text>}
+                  <Text style={styles.requestSummaryPinText}>PIN verified by system: {selectedTherapist.therapist_pin}</Text>
+                </>
+              ) : (
+                <Text style={styles.discoverEmptyText}>No therapist selected yet. Go back to Find Therapist.</Text>
+              )}
+            </View>
+
+            <View style={{ marginBottom: cardGap }}>
+              <View style={[styles.inputCard, { borderRadius: cardRadius }]}>
+                <LinearGradient colors={CARD_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: cardRadius }]} pointerEvents="none" />
+                <View style={{ height: 3, backgroundColor: '#FFB36B', borderTopLeftRadius: cardRadius, borderTopRightRadius: cardRadius }} />
+                <View style={{ padding: cardPadding }}>
+                  <View style={styles.requestComposerHeader}>
+                    <View style={{ width: badgeSz, height: badgeSz, borderRadius: badgeR, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,179,107,0.15)', borderWidth: 1, borderColor: 'rgba(255,179,107,0.4)' }}>
+                      <FontAwesome name="edit" size={iconSz} color="#FFB36B" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.requestComposerTitle}>Message</Text>
+                      <Text style={styles.requestComposerSubTitle}>Optional intro for therapist</Text>
+                    </View>
+                    <Text style={styles.requestComposerCount}>{connectMessage.trim().length}/500</Text>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
+                  <TextInput
+                    value={connectMessage} onChangeText={setConnectMessage}
+                    placeholder="Introduce yourself to your therapist..." placeholderTextColor="rgba(184,168,230,0.45)"
+                    multiline numberOfLines={4} textAlignVertical="top"
+                    maxLength={500}
+                    style={styles.requestComposerInput}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.requestActionRow}>
+              <TouchableOpacity
+                onPress={() => setFlowStep('find')}
+                style={styles.requestBackBtn}
+                activeOpacity={0.85}
+              >
+                <FontAwesome name="arrow-left" size={12} color="#D8CCFF" style={{ marginRight: 8 }} />
+                <Text style={styles.requestBackBtnText}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.requestSendBtn, loading && { opacity: 0.7 }]}
+                onPress={handleConnect}
+                activeOpacity={0.9}
+                disabled={loading || !selectedTherapist}
+              >
+                <LinearGradient colors={['#8B5CF6', '#A78BFA']} start={[0, 0]} end={[1, 1]} style={styles.requestSendBtnGradient}>
+                  <View style={styles.primaryBtnInner}>
+                    <FontAwesome name="send" size={buttonIconSize} color="#fff" style={{ marginRight: clamp(width * 0.026, 8, 12) }} />
+                    <Text style={styles.requestSendBtnText}>{loading ? 'Sending...' : 'Send Request'}</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -1225,6 +1488,80 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  statusShell: {
+    backgroundColor: 'rgba(54,46,76,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.3)',
+  },
+  statusHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  statusCountText: {
+    color: '#B8A8E6',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  statusTherapistRow: {
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusTherapistRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(167,139,250,0.2)',
+  },
+  statusTherapistMain: {
+    flex: 1,
+  },
+  statusTherapistName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statusTherapistMeta: {
+    marginTop: 3,
+    color: '#CFC5EE',
+    fontSize: 12,
+  },
+  statusDisconnectBtn: {
+    minHeight: 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.5)',
+    backgroundColor: 'rgba(239,68,68,0.12)',
+  },
+  statusDisconnectBtnText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  statusBottomActions: {
+    marginTop: 8,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statusGhostAction: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.35)',
+    backgroundColor: 'rgba(42,31,61,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusGhostActionText: {
+    color: '#D8CCFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   connectionName: {
     marginTop: 4,
     color: '#FFFFFF',
@@ -1312,6 +1649,342 @@ const styles = StyleSheet.create({
   connectAnotherBtnText: {
     color: '#D8CCFF',
     fontSize: 13,
+    fontWeight: '800',
+  },
+  sectionMenuContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(42,31,61,0.86)',
+  },
+  sectionMenuTab: {
+    flex: 1,
+  },
+  sectionMenuActive: {
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionMenuInactive: {
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionMenuActiveText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  sectionMenuInactiveText: {
+    color: '#B8A8E6',
+    fontWeight: '700',
+  },
+  methodSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  methodCard: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  methodCardActive: {
+    backgroundColor: 'rgba(139,92,246,0.34)',
+    borderColor: 'rgba(167,139,250,0.7)',
+  },
+  methodCardInactive: {
+    backgroundColor: 'rgba(42,31,61,0.86)',
+    borderColor: 'rgba(167,139,250,0.28)',
+  },
+  methodCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  methodCardTitleActive: {
+    color: '#FFFFFF',
+  },
+  methodCardTitleInactive: {
+    color: '#D8CCFF',
+  },
+  emptyStateCard: {
+    backgroundColor: 'rgba(54,46,76,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.32)',
+  },
+  emptyStateTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyStateText: {
+    marginTop: 8,
+    color: '#CFC5EE',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  emptyStateButton: {
+    marginTop: 14,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.45)',
+    backgroundColor: 'rgba(42,31,61,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateButtonText: {
+    color: '#D8CCFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  discoverPanel: {
+    backgroundColor: 'rgba(54,46,76,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.32)',
+  },
+  discoverHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  discoverTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  discoverSubtext: {
+    color: '#CFC5EE',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  discoverSearchBox: {
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.4)',
+    backgroundColor: 'rgba(42,31,61,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  discoverSearchInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  discoverCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(54,46,76,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.3)',
+  },
+  discoverRow: {
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(167,139,250,0.22)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  discoverRowMain: {
+    flex: 1,
+  },
+  discoverCardName: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  discoverCardMeta: {
+    marginTop: 2,
+    color: '#DDD6FE',
+    fontSize: 12,
+  },
+  discoverRowMetaCompact: {
+    marginTop: 2,
+    color: '#BFAFDE',
+    fontSize: 11,
+  },
+  discoverCardBio: {
+    marginTop: 8,
+    color: '#CFC5EE',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  discoverSelectBtn: {
+    minWidth: 70,
+    minHeight: 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.5)',
+    backgroundColor: 'rgba(139,92,246,0.2)',
+  },
+  discoverSelectBtnText: {
+    color: '#EDE7FF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  discoverConnectBtn: {
+    marginTop: 12,
+    minHeight: 38,
+    borderRadius: 12,
+    backgroundColor: '#8B5CF6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discoverConnectBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  discoverEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  discoverEmptyText: {
+    marginTop: 8,
+    color: '#CFC5EE',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  requestSummaryCard: {
+    backgroundColor: 'rgba(54,46,76,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.36)',
+  },
+  requestSummaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  requestSummaryTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  requestSummaryVerifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.28)',
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  requestSummaryVerifiedText: {
+    color: '#86EFAC',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  requestSummaryName: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  requestSummaryMeta: {
+    marginTop: 4,
+    color: '#DDD6FE',
+    fontSize: 13,
+  },
+  requestSummaryPinText: {
+    marginTop: 8,
+    color: '#BFAFDE',
+    fontSize: 12,
+  },
+  requestComposerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  requestComposerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  requestComposerSubTitle: {
+    color: '#C9A97E',
+    fontSize: 11,
+    marginTop: 2,
+    letterSpacing: 0.6,
+  },
+  requestComposerCount: {
+    color: '#BFAFDE',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  requestComposerInput: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '400',
+    letterSpacing: 0.15,
+    paddingVertical: 12,
+    paddingHorizontal: 2,
+    backgroundColor: 'transparent',
+    minHeight: 120,
+    lineHeight: 22,
+  },
+  requestActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
+  requestBackBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.45)',
+    backgroundColor: 'rgba(76,62,108,0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestBackBtnText: {
+    color: '#D8CCFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  requestSendBtn: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  requestSendBtnGradient: {
+    minHeight: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  requestSendBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '800',
   },
   refreshConnectionBtn: {

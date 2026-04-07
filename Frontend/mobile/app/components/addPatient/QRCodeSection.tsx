@@ -135,3 +135,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

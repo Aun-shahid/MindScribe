@@ -90,3 +90,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+
