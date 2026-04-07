@@ -1,356 +1,319 @@
-import { useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
+  Alert,
+  ActivityIndicator,
+  Pressable,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
+import { useState, useEffect } from 'react';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../hooks/useAuth';
+import { validateEmailField, validatePasswordField } from '../utils/validation';
+import { AUTH_MESSAGES } from '../constants/messages';
 
-const Login = () => {
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'therapist' | 'patient' | null>(null);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const headingSize             = Math.max(30, Math.min(width * 0.09, 38));
+  const subtitleSize            = Math.max(14, Math.min(width * 0.042, 16));
+  const inputFontSize           = Math.max(14, Math.min(width * 0.039, 15));
+  const imageWidth              = Math.min(width * 0.94, 360);
+  const imageHeight             = Math.min(height * 0.33, 280);
+  const circleOneSize           = Math.min(width * 0.3, 120);
+  const circleTwoSize           = Math.min(width * 0.35, 140);
+  const buttonWidth             = Math.min(width * 0.8, 340);
+  const buttonVerticalPadding   = Math.max(11, Math.min(height * 0.016, 14));
+  const buttonTextSize          = Math.max(18, Math.min(width * 0.05, 21));
+  const fieldWidth              = Math.min(width * 0.84, 320);
+  const linkFontSize            = Math.max(13, Math.min(width * 0.038, 14));
+  const bottomSafeGap           = Math.max(insets.bottom + 42, 54);
+  const keyboardVerticalOffset  = Platform.OS === 'ios' ? insets.top + 8 : 0;
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) return 'Email is required';
-    if (!emailRegex.test(email)) return 'Please enter a valid email address';
-    return '';
-  };
+  // pill link tokens
+  const linkIconSize = clamp(width * 0.042, 14, 17);
+  const linkPillPadX = clamp(width * 0.05, 16, 22);
+  const linkMT       = clamp(height * 0.028, 18, 28);
 
-  const validatePassword = (password: string) => {
-    if (!password) return 'Password is required';
-    if (password.length < 6) return 'Password must be at least 6 characters';
-    return '';
-  };
+  const { login, isLoading, error, clearError } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const loadRole = async () => {
+      const savedRole = await AsyncStorage.getItem('selected_role');
+      if (savedRole === 'therapist' || savedRole === 'patient') {
+        setSelectedRole(savedRole);
+      }
+    };
+    loadRole();
+  }, []);
 
-    // Clear previous errors
-    setEmailError('');
-    setPasswordError('');
-    setError('');
+  const handleLogin = async () => {
+    const emailValidation    = validateEmailField(email);
+    const passwordValidation = validatePasswordField(password);
 
-    const emailValidation = validateEmail(email);
-    const passwordValidation = validatePassword(password);
-
-    if (emailValidation) {
-      setEmailError(emailValidation);
+    if (!emailValidation.isValid) {
+      setEmailError(emailValidation.message || 'Invalid email');
       return;
     }
-    if (passwordValidation) {
-      setPasswordError(passwordValidation);
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.message || 'Invalid password');
       return;
     }
-
-    setLoading(true);
 
     try {
-      const success = await login(email.trim(), password);
-      if (!success) {
-        setError('Invalid email or password');
-      }
-    } catch (err) {
+      await login({ email: email.trim(), password });
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError('Login failed. Please try again.');
-      setError(err?.message || 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
+      if (selectedRole && err.user && err.user.user_type !== selectedRole) {
+        Alert.alert('Wrong User Type', `This account is registered as a ${err.user.user_type}.`);
+        return;
+      }
+      Alert.alert('Login Failed', error?.message || AUTH_MESSAGES.LOGIN_FAILED);
     }
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (emailError) setEmailError(null);
+    if (error) clearError();
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (passwordError) setPasswordError(null);
+    if (error) clearError();
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Back Button */}
-      <Link
-        to="/"
-        className="absolute top-6 left-6 z-20 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-      >
-        <ArrowLeft size={22} className="text-gray-700" />
-      </Link>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+      style={styles.wrapper}
+    >
+      <View>
+        <Pressable
+          style={[styles.backButton, { top: insets.top + 10, left: Math.max(12, width * 0.04) }]}
+          onPress={() => !isLoading && router.push('./welcome')}
+          disabled={isLoading}
+        >
+          <AntDesign name="left" size={24} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
-      {/* Left Panel - Image & Testimonial */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <img
-          src="/images/loginn.png"
-          alt="TherapEase"
-          className="absolute inset-0 w-full h-full object-cover opacity-30"
+      <View style={[styles.circleContainer, { top: -circleOneSize * 0.5, right: -circleOneSize * 0.5 }]}>
+        <View style={[styles.circle1, { width: circleOneSize, height: circleOneSize, borderRadius: circleOneSize / 2, marginTop: circleOneSize * 0.42 }]} />
+        <View style={[styles.circle2, { width: circleTwoSize, height: circleTwoSize, borderRadius: circleTwoSize / 2, top: circleTwoSize * 0.29, right: circleTwoSize * 0.29 }]} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.container,
+          {
+            flexGrow: 1,
+            paddingHorizontal: Math.max(20, Math.min(width * 0.06, 28)),
+            paddingTop: insets.top + Math.max(56, height * 0.09),
+            paddingBottom: bottomSafeGap,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        bounces={false}
+        overScrollMode="never"
+      >
+        <Image
+          style={[styles.img, { width: imageWidth, height: imageHeight }]}
+          source={require('../../assets/images/login2.png')}
+          resizeMode="contain"
         />
 
-        <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-          <div className="mb-8">
-            <h1 className="text-5xl font-bold mb-4">MindScribe</h1>
-            <div className="w-20 h-1 bg-white/50 rounded"></div>
-          </div>
+        <Text style={[styles.title, { fontSize: headingSize, lineHeight: Math.round(headingSize * 1.1), marginTop: height * 0.018 }]}>
+          <Text style={styles.titlePrimary}>LOG</Text>
+          <Text style={styles.titleAccent}>IN</Text>
+        </Text>
+        <Text style={[styles.subtitle, { fontSize: subtitleSize }]}>Please log in to continue</Text>
 
-          <div className="backdrop-blur-sm bg-white/10 rounded-2xl p-8 border border-white/20">
-            <p className="text-2xl font-light italic mb-6 leading-relaxed">
-              "Simply all the tools needed."
-            </p>
+        {(error && !emailError && !passwordError) && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error.message}</Text>
+          </View>
+        )}
 
-          </div>
-        </div>
-      </div>
+        <View style={[styles.inputWrapper, { maxWidth: fieldWidth }, emailError && styles.inputWrapperError]}>
+          <MaterialIcons name="email" size={20} color="#8D8BA7" style={styles.icon} />
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor="#8D8BA7"
+            style={[styles.input, { fontSize: inputFontSize }]}
+            onChangeText={handleEmailChange}
+            value={email}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
+        </View>
+        {emailError && <Text style={styles.fieldErrorText}>{emailError}</Text>}
 
-      {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:w-1/2">
-        <div className="w-full max-w-md">
-          <div className="mb-8">
-            <h2 className="text-4xl font-serif  text-[#66569c] mb-2">Welcome Back to MindScribe</h2>
-            <p className="text-[#6E5F9E] font-serif">Please log in to continue</p>
-          </div>
+        <View style={[styles.inputWrapper, { maxWidth: fieldWidth }, passwordError && styles.inputWrapperError]}>
+          <FontAwesome name="lock" size={20} color="#8D8BA7" style={styles.icon} />
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#8D8BA7"
+            style={[styles.input, { fontSize: inputFontSize }]}
+            onChangeText={handlePasswordChange}
+            value={password}
+            secureTextEntry={!showPassword}
+            editable={!isLoading}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(prev => !prev)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <FontAwesome
+              name={showPassword ? 'eye' : 'eye-slash'}
+              size={18}
+              color="#8D8BA7"
+            />
+          </TouchableOpacity>
+        </View>
+        {passwordError && <Text style={styles.fieldErrorText}>{passwordError}</Text>}
 
-          {/* Error Message */}
-          {(error && !emailError && !passwordError) && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
+        <TouchableOpacity
+          style={[styles.loginButton, { width: buttonWidth, paddingVertical: buttonVerticalPadding }, isLoading && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          {isLoading
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <Text style={[styles.loginButtonText, { fontSize: buttonTextSize }]}>Login</Text>
+          }
+        </TouchableOpacity>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  placeholder="Enter you email.."
-                  className={`w-full px-4 py-3 border-b-2 focus:outline-none transition-colors bg-transparent ${
-                    emailError 
-                      ? 'border-red-500' 
-                      : 'border-gray-300 focus:border-purple-600'
-                  }`}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setEmailError('');
-                  }}
-                  disabled={loading}
-                />
-              </div>
-              {emailError && (
-                <p className="text-red-500 text-xs mt-1">{emailError}</p>
-              )}
-            </div>
+        {/* ── Pill-style links ── */}
+        <View style={[styles.links, { marginTop: linkMT }]}>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="Enter your password.."
-                  className={`w-full px-4 py-3 border-b-2 focus:outline-none transition-colors bg-transparent ${
-                    passwordError 
-                      ? 'border-red-500' 
-                      : 'border-gray-300 focus:border-purple-600'
-                  }`}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setPasswordError('');
-                  }}
-                  disabled={loading}
-                />
-              </div>
-              {passwordError && (
-                <p className="text-red-500 text-xs mt-1">{passwordError}</p>
-              )}
-            </div>
+          {/* Register */}
+          <TouchableOpacity
+            onPress={() => !isLoading && router.push('./register')}
+            disabled={isLoading}
+            style={[styles.pillLink, { paddingHorizontal: linkPillPadX }, isLoading && { opacity: 0.5 }]}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="person-add"
+              size={linkIconSize}
+              color="#A78BFA"
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.pillLinkText, { fontSize: linkFontSize }]}>
+              Don&apos;t have an account? Register
+            </Text>
+          </TouchableOpacity>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <Link
-                to="/request-reset"
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-              >
-                Forgot password?
-              </Link>
-            </div>
+          {/* Forgot password */}
+          <TouchableOpacity
+            onPress={() => !isLoading && router.push('./request-reset')}
+            disabled={isLoading}
+            style={[styles.pillLink, styles.pillLinkSecondary, { paddingHorizontal: linkPillPadX }, isLoading && { opacity: 0.5 }]}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="lock-reset"
+              size={linkIconSize}
+              color="#BFB4E2"
+              style={{ marginRight: clamp(width * 0.016, 5, 8) }}
+            />
+            <Text style={[styles.pillLinkText, styles.pillLinkTextSecondary, { fontSize: linkFontSize }]}>
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
 
-            {/* Login Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full py-3 rounded-lg font-semibold transition-all ${
-                loading
-                  ? 'bg-purple-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 shadow-md hover:shadow-lg'
-              } text-white`}
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Signing in...
-                </div>
-              ) : (
-                'Log In'
-              )}
-            </button>
-
-
-
-          </form>
-
-          {/* Sign Up Link */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-purple-600 hover:text-purple-700 font-semibold">
-                Sign up
-              </Link>
-            </p>
-            <Link
-              to="/verify-email"
-              className="block mt-3 text-sm text-gray-500 hover:text-gray-700"
-            >
-              Verify Email
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-};
+}
 
-export default Login;
-//         <p className="text-white/90 mb-6 text-center">
-//           Please log in to continue
-//         </p>
+const styles = StyleSheet.create({
+  wrapper:      { flex: 1, backgroundColor: '#342949' },
+  backButton:   { position: 'absolute', zIndex: 10, padding: 10 },
+  circleContainer: { position: 'absolute', top: -60, right: -60, zIndex: 1 },
+  circle1: {
+    width: 120, height: 120, borderRadius: 100,
+    backgroundColor: 'rgba(133,130,180,0.2)', opacity: 0.8,
+    position: 'absolute', top: 0, marginTop: 50, right: 0,
+  },
+  circle2: {
+    width: 140, height: 140, borderRadius: 100,
+    backgroundColor: 'rgba(133,130,180,0.25)', opacity: 0.6,
+    position: 'absolute', top: 40, right: 40,
+  },
+  container:    { justifyContent: 'center', alignItems: 'center' },
+  scrollView:   { backgroundColor: '#342949' },
+  img:          { marginTop: -24, alignSelf: 'center', marginBottom: 4 },
+  title:        { fontWeight: '700', textAlign: 'center', marginBottom: 10 },
+  titlePrimary: { color: '#FFFFFF' },
+  titleAccent:  { color: '#B8A8E6' },
+  subtitle:     { color: '#8D8BA7', textAlign: 'center', marginBottom: 30 },
+  errorContainer: {
+    backgroundColor: '#ffebee', padding: 12, borderRadius: 8,
+    borderLeftWidth: 4, borderLeftColor: '#f44336', marginBottom: 16,
+  },
+  errorText:      { color: '#c62828', fontSize: 14, textAlign: 'center' },
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderRadius: 9,
+    marginBottom: 16, paddingHorizontal: 9,
+    backgroundColor: 'rgba(255,255,255,0.05)', width: '100%',
+  },
+  inputWrapperError: { borderColor: '#f44336', borderWidth: 2 },
+  input:          { flex: 1, height: 44, color: '#FFFFFF' },
+  icon:           { marginRight: 7 },
+  fieldErrorText: { color: '#f44336', fontSize: 12, marginTop: -15, marginBottom: 10, marginLeft: 4 },
+  loginButton: {
+    backgroundColor: '#A78BFA', borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', marginTop: 22, minHeight: 48,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14, elevation: 4,
+  },
+  loginButtonDisabled: { backgroundColor: '#9e9e9e' },
+  loginButtonText:     { color: '#fff', fontWeight: '600' },
+  links: { alignItems: 'center', gap: 10 },
 
-//         {(error && !emailError && !passwordError) && (
-//           <div className="mb-4 p-3 bg-red-500/80 backdrop-blur-sm border-l-4 border-red-700 rounded">
-//             <p className="text-white text-sm text-center font-medium">{error}</p>
-//           </div>
-//         )}
-
-//         <form onSubmit={handleSubmit} className="space-y-5">
-
-//           {/* Email */}
-//           <div>
-//             <label className="block text-white text-sm font-medium mb-2">
-//               Email
-//             </label>
-//             <div
-//               className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
-//                 emailError ? 'border-red-500 border-2' : 'border-white/40'
-//               }`}
-//             >
-//               <Mail size={20} className="text-white/80 mr-3" />
-//               <input
-//                 type="email"
-//                 placeholder="Enter your email"
-//                 className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
-//                 value={email}
-//                 onChange={(e) => {
-//                   setEmail(e.target.value);
-//                   setEmailError('');
-//                 }}
-//                 disabled={loading}
-//               />
-//             </div>
-//             {emailError && (
-//               <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{emailError}</p>
-//             )}
-//           </div>
-
-//           {/* Password */}
-//           <div>
-//             <label className="block text-white text-sm font-medium mb-2">
-//               Password
-//             </label>
-//             <div
-//               className={`flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 border ${
-//                 passwordError ? 'border-red-500 border-2' : 'border-white/40'
-//               }`}
-//             >
-//               <Lock size={20} className="text-white/80 mr-3" />
-//               <input
-//                 type="password"
-//                 placeholder="Enter your password"
-//                 className="flex-1 bg-transparent text-white placeholder-white/60 outline-none"
-//                 value={password}
-//                 onChange={(e) => {
-//                   setPassword(e.target.value);
-//                   setPasswordError('');
-//                 }}
-//                 disabled={loading}
-//               />
-//             </div>
-//             {passwordError && (
-//               <p className="text-red-200 text-xs mt-1 ml-1 font-medium">{passwordError}</p>
-//             )}
-//           </div>
-
-//           {/* Login Button */}
-//           <button
-//             type="submit"
-//             disabled={loading}
-//             className={`
-//               w-full py-3 rounded-lg font-semibold text-base
-//               transition-all duration-200
-//               ${loading
-//                 ? 'bg-purple-400/50 cursor-not-allowed text-white/60'
-//                 : 'bg-white text-purple-700 hover:bg-purple-50 hover:shadow-lg'}
-//             `}
-//           >
-//             {loading ? (
-//               <div className="flex items-center justify-center">
-//                 <div className="w-4 h-4 border-2 border-purple-700 border-t-transparent rounded-full animate-spin mr-2"></div>
-//                 Signing in...
-//               </div>
-//             ) : (
-//               'Login'
-//             )}
-//           </button>
-//         </form>
-
-//             <div className="mt-8 text-center space-y-3">
-//               <Link
-//                 to="/register"
-//                 className="block text-white text-sm hover:text-purple-100"
-//               >
-//                 Don’t have an account? Register
-//               </Link>
-//               <Link
-//                 to="/request-reset"
-//                 className="block text-white text-sm hover:text-purple-100 transition-colors"
-//               >
-//                 <span className="font-semibold">Forgot Password?</span>
-//               </Link>
-//               <Link
-//                 to="/verify-email"
-//                 className="block text-white text-sm hover:text-purple-100 transition-colors"
-//               >
-//                 <span className="font-semibold">Verify Email</span>
-//               </Link>
-//             </div>
-
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Login;
+  // ── Pill links ────────────────────────────────────────────────────────────
+  pillLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(167,139,250,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.28)',
+    borderRadius: 999,
+    paddingVertical: 10,
+  },
+  pillLinkSecondary: {
+    backgroundColor: 'rgba(191,180,226,0.08)',
+    borderColor: 'rgba(191,180,226,0.22)',
+  },
+  pillLinkText:          { color: '#A78BFA', fontWeight: '700', letterSpacing: 0.2 },
+  pillLinkTextSecondary: { color: '#BFB4E2' },
+});
