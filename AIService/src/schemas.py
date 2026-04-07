@@ -240,6 +240,10 @@ class SOAPNote(BaseModel):
     objective: SOAPNoteSection
     assessment: SOAPNoteSection
     plan: SOAPNoteSection
+    status: str = "draft"
+    is_finalized: bool = False
+    finalized_at: Optional[datetime] = None
+    finalized_by: Optional[str] = None
     emotional_summary: Optional[str] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     model_version: str = "provider-configured"
@@ -262,6 +266,7 @@ class SOAPUpdateRequest(BaseModel):
     objective: Optional[str] = None
     assessment: Optional[str] = None
     plan: Optional[str] = None
+    is_finalized: Optional[bool] = None
 
 
 class RecommendationSource(BaseModel):
