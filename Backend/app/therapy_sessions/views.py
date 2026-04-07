@@ -1289,14 +1289,11 @@ class MySessionsView(generics.GenericAPIView):
                     'status_code': 400
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Check if patient has a profile
-            if not hasattr(user, 'patient_profile'):
-                return Response({
-                    'error': True,
-                    'message': 'Patient profile not found',
-                    'details': {'profile': ['Patient profile is required to access sessions']},
-                    'status_code': 404
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Ensure patient profile exists for older accounts created before profile bootstrap.
+            PatientProfile.objects.get_or_create(
+                user=user,
+                defaults={'preferred_language': 'en'}
+            )
             
             now = timezone.now()
             

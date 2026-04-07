@@ -21,7 +21,7 @@ from .serializers import (
     PasswordResetConfirmSerializer, EmailVerificationSerializer,
     DeleteAccountSerializer,
 )
-from users.models import TherapistProfile
+from users.models import TherapistProfile, PatientProfile
 from users.services import AccountLinkingService
 
 User = get_user_model()
@@ -246,6 +246,10 @@ class RegisterView(generics.CreateAPIView):
                         }
                         print(f"Account linked for {user.email} with patient profile {linked_profile.patient_id}")
                     else:
+                        PatientProfile.objects.get_or_create(
+                            user=user,
+                            defaults={'preferred_language': 'en'}
+                        )
                         account_linking_info = {
                             'account_linked': False,
                             'message': message
