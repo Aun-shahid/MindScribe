@@ -47,7 +47,7 @@ export interface PasswordResetConfirm {
 }
 
 export interface EmailVerificationRequest {
-  token: string;
+  code: string;
 }
 
 export interface TokenRefreshRequest {

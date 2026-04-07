@@ -140,3 +140,7 @@ export const formatPatientDisplayInfo = (patient: StartNewSessionPatient) => {
     id: patient.id
   };
 };
+
+export default function StartNewSessionUtilsRoute() {
+  return null;
+}

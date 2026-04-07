@@ -144,3 +144,7 @@ export const shouldShowDuration = (session: any): boolean => {
 export const shouldShowEffectiveness = (session: any): boolean => {
   return !!(session.session_effectiveness);
 };
+
+export default function SessionUtilsRoute() {
+  return null;
+}

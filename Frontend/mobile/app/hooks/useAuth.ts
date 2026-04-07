@@ -270,11 +270,10 @@ export const useAuth = (): AuthState & AuthActions => {
       await authService.verifyEmail(data);
       
       updateState({ isLoading: false });
-      
-      // Navigate to login after successful verification
-      router.push('./login');
     } catch (error) {
-      setError(error as AuthError);
+      const authError = error as AuthError;
+      setError(authError);
+      throw authError;
     }
   };
 
