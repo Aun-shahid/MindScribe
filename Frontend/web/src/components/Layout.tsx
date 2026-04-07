@@ -116,7 +116,7 @@ const Layout = () => {
     }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-purple-50">
       {/* Dark-glass header: rich deep purple base + blur = frosted glass with dark purple hue */}
       <nav className="sticky top-0 z-50 w-full bg-[#2f1060]/[.88] backdrop-blur-lg border-b border-purple-400/30 shadow-[0_6px_24px_-4px_rgba(74,29,150,0.45),inset_0_1px_0_rgba(216,180,254,0.22)]">
         <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6">

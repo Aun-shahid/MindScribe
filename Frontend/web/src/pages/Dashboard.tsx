@@ -21,7 +21,7 @@ import {
 import { listenToAppEvent } from '../utils/events';
 import { THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 import { DashboardPageSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
-import { Calendar, Users, ClipboardList, Activity, ChevronRight, Stethoscope, PlusCircle, RefreshCw } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Activity, ChevronRight, Stethoscope, PlusCircle, RefreshCw, QrCode } from 'lucide-react';
 
 interface SessionStats {
   total_sessions: number;
@@ -294,6 +294,13 @@ const Dashboard = () => {
                 <RefreshCw className="h-4 w-4" strokeWidth={2.2} />
                 Refresh
               </button>
+              <Link
+                to="/qr-code"
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-200/70 bg-purple-50/70 px-4 py-2.5 text-sm font-semibold text-[#5c4092] transition hover:bg-purple-100/80"
+              >
+                <QrCode className="h-4 w-4" strokeWidth={2.2} />
+                QR Pairing
+              </Link>
             </div>
           </div>
 
