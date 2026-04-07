@@ -1686,21 +1686,20 @@ class TherapistDashboardView(generics.GenericAPIView):
         
         try:
             therapist_profile = user.therapist_profile
+            now = timezone.now()
             
             # Get today's sessions
-            today = timezone.now().date()
+            today = now.date()
             today_sessions = Session.objects.filter(
                 therapist=user,
                 scheduled_date__date=today
             ).order_by('scheduled_date')
             
-            # Get upcoming sessions (next 7 days)
-            next_week = timezone.now() + timedelta(days=7)
+            # Get all future upcoming sessions
             upcoming_sessions = Session.objects.filter(
                 therapist=user,
                 status='UPCOMING',
-                scheduled_date__gte=timezone.now(),
-                scheduled_date__lte=next_week
+                scheduled_date__gte=now,
             ).order_by('scheduled_date')
             
             # Get recent patients
@@ -1709,7 +1708,7 @@ class TherapistDashboardView(generics.GenericAPIView):
             ).distinct().order_by('-patient_sessions__created_at')[:5]
             
             # Calculate stats for last 30 days
-            thirty_days_ago = timezone.now() - timedelta(days=30)
+            thirty_days_ago = now - timedelta(days=30)
             sessions_last_30_days = Session.objects.filter(
                 therapist=user,
                 scheduled_date__gte=thirty_days_ago
