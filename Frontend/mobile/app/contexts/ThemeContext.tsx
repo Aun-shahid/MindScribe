@@ -25,3 +25,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 export const useTheme = () => {
   return staticThemeContext;
 };
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

@@ -61,3 +61,6 @@ const getResolvedBackendUrl = (): string => {
 };
 
 export const BASE_URL = getResolvedBackendUrl();
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

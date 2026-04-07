@@ -43,3 +43,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

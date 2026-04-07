@@ -83,3 +83,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

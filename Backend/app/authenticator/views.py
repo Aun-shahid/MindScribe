@@ -44,30 +44,26 @@ class LoginView(APIView):
         responses={
             200: OpenApiResponse(description='Login successful, tokens issued.'),
             401: OpenApiResponse(description='Invalid credentials.'),
-            403: OpenApiResponse(description='Email not verified; sign-in is blocked until verification.'),
+            403: OpenApiResponse(description='Account does not match requested role.')
         },
         summary="User Login",
-        description="Authenticate user with email and password, returning access and refresh tokens."
+        description="Authenticate user with email and password, returning access and refresh tokens. Optionally provide role to restrict login to therapist or patient accounts."
     )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
+            requested_role = serializer.validated_data.get('role')
             user = authenticate(request, email=email, password=password)
             if user is not None:
-                if not user.email_verified:
-                    return Response(
-                        {
-                            'detail': (
-                                'This account is not verified yet. Please verify your email '
-                                'before signing in (check your inbox for the verification code).'
-                            ),
-                            'code': 'email_not_verified',
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
+                if requested_role and user.user_type != requested_role:
+                    role_error = (
+                        'You do not have a valid therapist account.'
+                        if requested_role == 'therapist'
+                        else 'You do not have a valid patient account.'
                     )
-
+                    return Response({'detail': role_error}, status=status.HTTP_403_FORBIDDEN)
                 # Use token manager to create tokens
                 tokens = TokenManager.create_tokens(user, request)
                 

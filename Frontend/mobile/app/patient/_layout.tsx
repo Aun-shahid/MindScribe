@@ -64,7 +64,6 @@ export default function Layout() {
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="notification-settings" options={{ href: null }} />
       <Tabs.Screen name="profile-edit" options={{ href: null }} />
-      <Tabs.Screen name="settings" options={{ href: null }} />
       
     
     </Tabs>

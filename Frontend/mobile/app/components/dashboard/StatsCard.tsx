@@ -80,3 +80,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 });
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

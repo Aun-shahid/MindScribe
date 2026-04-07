@@ -200,3 +200,7 @@ export const formatAPIError = (error: any): string => {
   
   return `Failed to create patient${error.response?.status ? ` (${error.response.status})` : ''}`;
 };
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+
