@@ -73,3 +73,6 @@ export const themeStyles = {
   light: lightTheme,
   dark: darkTheme,
 };
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

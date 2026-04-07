@@ -1,0 +1,109 @@
+[33m869a70c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m)[m HEAD@{0}: pull origin dev: Fast-forward
+[33m645e989[m HEAD@{1}: reset: moving to HEAD
+[33m645e989[m HEAD@{2}: commit: Working verify email
+[33m870538b[m HEAD@{3}: commit: Updated connect wiht therapist
+[33mb2a5926[m HEAD@{4}: pull origin dev: Fast-forward
+[33m61700d4[m HEAD@{5}: pull origin dev: Fast-forward
+[33m878ef5d[m HEAD@{6}: commit: Update V2.0
+[33md547d03[m HEAD@{7}: commit: V2.0
+[33m59b084e[m HEAD@{8}: commit: V1.9
+[33m2c9cbcd[m HEAD@{9}: commit: UI ne wupdate V1.8
+[33mee58dd8[m HEAD@{10}: pull origin dev: Merge made by the 'ort' strategy.
+[33m17f65b0[m HEAD@{11}: commit: Updated audio emotion analysis and anonymization
+[33md46448a[m HEAD@{12}: pull origin dev: Fast-forward
+[33mab0d1d7[m HEAD@{13}: pull origin dev: Fast-forward
+[33mad6f9bd[m HEAD@{14}: pull origin dev: Fast-forward
+[33m78e2d80[m HEAD@{15}: commit: version 1.7
+[33mdc596c4[m HEAD@{16}: pull origin dev: Merge made by the 'ort' strategy.
+[33mabc6a53[m HEAD@{17}: commit: Updated Mobile V1.6
+[33m7ec6082[m HEAD@{18}: commit: Updated Mobile V1.5
+[33m2174f43[m HEAD@{19}: pull origin dev: Fast-forward
+[33m8eaf467[m HEAD@{20}: pull origin dev: Fast-forward
+[33m9d8ec26[m HEAD@{21}: checkout: moving from radia-testing to dev
+[33md1402dd[m[33m ([m[1;31morigin/radia-testing[m[33m, [m[1;32mradia-testing[m[33m)[m HEAD@{22}: commit: Fixed SOAPNoteSection DB save issue
+[33mee5873c[m HEAD@{23}: commit: update AI
+[33m9d8ec26[m HEAD@{24}: checkout: moving from dev to radia-testing
+[33m9d8ec26[m HEAD@{25}: checkout: moving from radia-testing to dev
+[33m9d8ec26[m HEAD@{26}: checkout: moving from dev to radia-testing
+[33m9d8ec26[m HEAD@{27}: pull origin dev: Fast-forward
+[33m18d884d[m HEAD@{28}: pull origin dev: Fast-forward
+[33m04de4c7[m HEAD@{29}: commit: Updated Mobile UI V1.4
+[33m23943df[m HEAD@{30}: commit: updated mobile UI V1.3
+[33m93a221e[m HEAD@{31}: commit: updated mobile UI V1.2
+[33m101ae82[m HEAD@{32}: commit: UI updates + config changes
+[33mf93d480[m HEAD@{33}: commit (merge): merge changes from origin/dev
+[33mfcea55d[m HEAD@{34}: commit: Resolved merge conflicts (accepted dev changes)
+[33m6ff22a8[m HEAD@{35}: pull origin dev: Fast-forward
+[33mc88ba65[m HEAD@{36}: commit: add healthcheck.railway.app to allowed hosts
+[33me727fae[m HEAD@{37}: commit: fix
+[33m3d16402[m HEAD@{38}: commit: Updated notification , email authentication and other screens
+[33mac2fd08[m HEAD@{39}: pull origin dev: Fast-forward
+[33mf9f076f[m HEAD@{40}: reset: moving to HEAD
+[33mf9f076f[m HEAD@{41}: pull origin dev: Fast-forward
+[33m698eed3[m HEAD@{42}: reset: moving to HEAD
+[33m698eed3[m HEAD@{43}: pull origin dev: Fast-forward
+[33m5679a51[m HEAD@{44}: reset: moving to HEAD
+[33m5679a51[m HEAD@{45}: pull origin dev: Fast-forward
+[33m119feea[m HEAD@{46}: reset: moving to HEAD
+[33m119feea[m HEAD@{47}: commit: Updated mobile frontend
+[33mcdd080c[m HEAD@{48}: commit (merge): :wqMerge branch 'dev' of https://github.com/Aun-shahid/TherapEase into dev
+[33ma87efb3[m HEAD@{49}: reset: moving to HEAD
+[33ma87efb3[m HEAD@{50}: commit (merge): Resolved notifications merge conflict
+[33ma8e7102[m HEAD@{51}: commit: Mobile UI version 2
+[33md5c5f6d[m HEAD@{52}: pull origin dev --rebase (finish): returning to refs/heads/dev
+[33md5c5f6d[m HEAD@{53}: pull origin dev --rebase (pick): Updated Frontend/mobile UI
+[33m6307700[m HEAD@{54}: pull origin dev --rebase (start): checkout 6307700857719186f1be7ba47fc57667495bc5ef
+[33mffedb68[m HEAD@{55}: commit: Updated Frontend/mobile UI
+[33ma60c657[m HEAD@{56}: checkout: moving from newfrontend-radia to dev
+[33me65e3c0[m[33m ([m[1;32mnewfrontend-radia[m[33m)[m HEAD@{57}: commit: Updated Mobile UI
+[33me6e6697[m HEAD@{58}: checkout: moving from dev to newfrontend-radia
+[33ma60c657[m HEAD@{59}: commit: Updated Backend and mobile frontend from newfrontend-radia
+[33m5c8e615[m HEAD@{60}: pull origin dev: Fast-forward
+[33m0d4c0b1[m HEAD@{61}: checkout: moving from newfrontend-radia to dev
+[33me6e6697[m HEAD@{62}: commit: Backend updates
+[33me17e7e9[m[33m ([m[1;31morigin/newfrontend-radia[m[33m)[m HEAD@{63}: commit: updated Backend frm dev branhc
+[33m39eac08[m HEAD@{64}: commit: Updated mobile and backend
+[33mb8e6775[m HEAD@{65}: commit (merge): Update mobile patient features
+[33mf66a19f[m HEAD@{66}: checkout: moving from dev to newfrontend-radia
+[33m0d4c0b1[m HEAD@{67}: pull origin dev: Fast-forward
+[33m097e053[m[33m ([m[1;32mmain[m[33m)[m HEAD@{68}: checkout: moving from newfrontend-radia to dev
+[33mf66a19f[m HEAD@{69}: commit: Save work in newfrontend-radia
+[33mb4dd2c1[m HEAD@{70}: commit (merge): Overwrite newfrontend-radia with local project state
+[33m4895a7a[m HEAD@{71}: commit: Sync frontend from local (overwrite old branch state)
+[33m1cc562e[m[33m ([m[1;32mamna[m[33m)[m HEAD@{72}: checkout: moving from main to newfrontend-radia
+[33m097e053[m[33m ([m[1;32mmain[m[33m)[m HEAD@{73}: reset: moving to HEAD
+[33m097e053[m[33m ([m[1;32mmain[m[33m)[m HEAD@{74}: merge origin/dev: Fast-forward
+[33me10b279[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{75}: pull origin main: Fast-forward
+[33mf78e008[m HEAD@{76}: checkout: moving from newfrontend-radia to main
+[33m1cc562e[m[33m ([m[1;32mamna[m[33m)[m HEAD@{77}: pull origin newfrontend-radia: Fast-forward
+[33m3ba0cf2[m HEAD@{78}: checkout: moving from main to newfrontend-radia
+[33mf78e008[m HEAD@{79}: checkout: moving from amna to main
+[33m1cc562e[m[33m ([m[1;32mamna[m[33m)[m HEAD@{80}: pull origin main: Fast-forward
+[33m86eb0e6[m HEAD@{81}: checkout: moving from amna to amna
+[33m86eb0e6[m HEAD@{82}: checkout: moving from newfrontend-radia to amna
+[33m3ba0cf2[m HEAD@{83}: checkout: moving from amna to newfrontend-radia
+[33m86eb0e6[m HEAD@{84}: commit: WIP: save before switching branches
+[33mb8d106b[m HEAD@{85}: checkout: moving from newfrontend-radia to amna
+[33m3ba0cf2[m HEAD@{86}: checkout: moving from amna to newfrontend-radia
+[33mb8d106b[m HEAD@{87}: commit: followed the folder structure , improved styling , added some components
+[33m1eab7a2[m HEAD@{88}: reset: moving to origin/amna
+[33m1818984[m HEAD@{89}: checkout: moving from radia to amna
+[33m1c38a3e[m[33m ([m[1;32mradia[m[33m)[m HEAD@{90}: commit: Fixed some UI and added QR coding
+[33m1818984[m HEAD@{91}: checkout: moving from amna to radia
+[33m1818984[m HEAD@{92}: checkout: moving from main to amna
+[33mf78e008[m HEAD@{93}: commit: Added patient screens, updated therapist dashboard, removed old theme.js
+[33m3ba0cf2[m HEAD@{94}: Branch: renamed refs/heads/newfrontend-radia to refs/heads/main
+[33m3ba0cf2[m HEAD@{96}: commit: Final push with updated backend and frontend
+[33m6f8b9a2[m HEAD@{97}: reset: moving to HEAD
+[33m6f8b9a2[m HEAD@{98}: checkout: moving from frontend-radia to newfrontend-radia
+[33mcfe4bde[m[33m ([m[1;32mfrontend-radia[m[33m)[m HEAD@{99}: reset: moving to HEAD
+[33mcfe4bde[m[33m ([m[1;32mfrontend-radia[m[33m)[m HEAD@{100}: reset: moving to cfe4bde
+[33m9c5eaa1[m[33m ([m[1;31morigin/frontend[m[33m, [m[1;32mfrontend[m[33m)[m HEAD@{101}: reset: moving to HEAD~1
+[33mc4d6792[m HEAD@{102}: checkout: moving from frontend-amna to frontend-radia
+[33mb4fc68d[m[33m ([m[1;32mfrontend-amna[m[33m)[m HEAD@{103}: commit: Initial frontend commit
+[33mb9822a0[m HEAD@{104}: checkout: moving from frontend-radia to frontend-amna
+[33mc4d6792[m HEAD@{105}: commit: Add onboarding screens and email verification flow
+[33m9c5eaa1[m[33m ([m[1;31morigin/frontend[m[33m, [m[1;32mfrontend[m[33m)[m HEAD@{106}: checkout: moving from frontend to frontend-radia
+[33m9c5eaa1[m[33m ([m[1;31morigin/frontend[m[33m, [m[1;32mfrontend[m[33m)[m HEAD@{107}: pull origin frontend: Fast-forward
+[33mcfe4bde[m[33m ([m[1;32mfrontend-radia[m[33m)[m HEAD@{108}: reset: moving to HEAD
+[33mcfe4bde[m[33m ([m[1;32mfrontend-radia[m[33m)[m HEAD@{109}: checkout: moving 

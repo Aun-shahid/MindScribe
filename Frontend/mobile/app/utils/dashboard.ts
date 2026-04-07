@@ -207,3 +207,7 @@ export const getPatientInitial = (patient: any): string => {
   }
   return (patient.name || patient.full_name || 'P').charAt(0).toUpperCase();
 };
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

@@ -15,6 +15,7 @@ export interface User {
 export interface LoginRequest {
   email: string;
   password: string;
+  role?: 'therapist' | 'patient';
 }
 
 export interface LoginResponse {
@@ -64,3 +65,6 @@ export interface AuthError {
   code?: string;
   details?: Record<string, string[]>;
 }
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

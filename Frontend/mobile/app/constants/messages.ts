@@ -228,3 +228,7 @@ export const UI_MESSAGES = {
   SPECIALTY: 'Specialty:',
   SCHEDULE: 'Schedule',
 } as const;
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+

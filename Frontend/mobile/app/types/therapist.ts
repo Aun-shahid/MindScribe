@@ -676,3 +676,7 @@ export interface ProfileActions {
   handleThemeToggle: () => void;
   refetchProfile: () => void;
 }
+
+const ExpoRouterStubScreen = () => null;
+export default ExpoRouterStubScreen;
+
