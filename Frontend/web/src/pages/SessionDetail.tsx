@@ -13,7 +13,6 @@ import {
   Trash2,
   Activity,
   Sparkles,
-  CheckCircle
 } from 'lucide-react';
 import { useSessionDetail, useSessionAnalysis, useSessionInsights, useSessionTranscription } from '../hooks/useSessions';
 import sessionsService from '../services/sessions.service';
@@ -182,10 +181,8 @@ const SessionDetailPage: React.FC = () => {
   const {
     insight: sessionInsight,
     loading: insightsLoading,
-    generating: insightsGenerating,
     error: insightsError,
     fetchInsights,
-    generateInsights,
     clearError: clearInsightsError,
   } = useSessionInsights(session?.status === 'COMPLETED' ? id! : '', { autoFetch: false });
 
@@ -293,33 +290,6 @@ const SessionDetailPage: React.FC = () => {
     } finally {
       setSoapSaving(false);
     }
-  };
-
-  const handleFinalizeSoap = async () => {
-    if (!id || !soapNote) return;
-    setSoapSaving(true);
-    setSoapError(null);
-    try {
-      const finalized = await sessionsService.updateSessionSOAP(id, {
-        subjective: soapDraft.subjective,
-        objective: soapDraft.objective,
-        assessment: soapDraft.assessment,
-        plan: soapDraft.plan,
-        is_finalized: true,
-      });
-      setSoapNote(finalized);
-      setSoapEditMode(false);
-    } catch (error: any) {
-      setSoapError(error?.message || 'Failed to finalize SOAP note.');
-    } finally {
-      setSoapSaving(false);
-    }
-  };
-
-  const handleGenerateInsights = async () => {
-    if (!id) return;
-    setInsightsFetchAttempted(true);
-    await generateInsights(true);
   };
 
   React.useEffect(() => {
@@ -1046,7 +1016,7 @@ const SessionDetailPage: React.FC = () => {
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${soapNote.is_finalized ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                       {soapNote.is_finalized ? 'Finalized' : 'Draft'}
                     </span>
-                    {!soapEditMode && !soapNote.is_finalized && (
+                    {!soapEditMode && (
                       <button
                         onClick={() => setSoapEditMode(true)}
                         className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
@@ -1077,13 +1047,6 @@ const SessionDetailPage: React.FC = () => {
                           className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                         >
                           <X size={16} className="mr-2" /> Cancel
-                        </button>
-                        <button
-                          onClick={handleFinalizeSoap}
-                          disabled={soapSaving}
-                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                        >
-                          <CheckCircle size={16} className="mr-2" /> {soapSaving ? 'Finalizing...' : 'Finalize SOAP'}
                         </button>
                       </>
                     )}
@@ -1302,20 +1265,11 @@ const SessionDetailPage: React.FC = () => {
         {activeTab === 'ai-insights' && (
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-fuchsia-50 to-indigo-100/60 px-6 py-4 border-b border-fuchsia-200">
-              <div className="flex items-center justify-between gap-4">
+              <div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">AI Insights</h3>
                   <p className="text-sm text-gray-600 mt-1">Therapist coaching insights generated from notes, SOAP, transcription, and emotion signals.</p>
                 </div>
-                {isCompletedSession && (
-                  <button
-                    onClick={handleGenerateInsights}
-                    disabled={insightsGenerating}
-                    className="inline-flex items-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"
-                  >
-                    <Sparkles size={16} className="mr-2" /> {insightsGenerating ? 'Generating...' : 'Generate AI Insights'}
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1386,14 +1340,8 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-500 mb-4">No AI insights generated yet for this session.</p>
-                  <button
-                    onClick={handleGenerateInsights}
-                    disabled={insightsGenerating}
-                    className="inline-flex items-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"
-                  >
-                    <Sparkles size={16} className="mr-2" /> {insightsGenerating ? 'Generating...' : 'Generate AI Insights'}
-                  </button>
+                  <p className="text-gray-500 mb-1">AI insights are generated automatically after pipeline completion.</p>
+                  <p className="text-sm text-gray-400">If this is a newly completed session, please refresh in a moment.</p>
                 </div>
               )}
 

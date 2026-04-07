@@ -151,7 +151,7 @@ const Tools: React.FC = () => {
               <p className="text-[11px] uppercase tracking-[0.06em] text-[#534AB7] font-semibold">Clinical documentation</p>
               <h3 className="mt-2 text-[16px] font-medium text-gray-900">SOAP Notes</h3>
               <p className="mt-2 text-[13px] text-gray-600 leading-[1.6]">Structured Subjective, Objective, Assessment, and Plan documentation generated from completed sessions.</p>
-              <span className="inline-flex mt-4 px-3 py-1.5 text-xs font-medium rounded-md border border-[#534AB7] text-[#534AB7]">View notes →</span>
+              
             </div>
           </button>
 
@@ -181,7 +181,7 @@ const Tools: React.FC = () => {
               <p className="text-[11px] uppercase tracking-[0.06em] text-[#0F6E56] font-semibold">Mood tracking</p>
               <h3 className="mt-2 text-[16px] font-medium text-gray-900">Emotional Profile</h3>
               <p className="mt-2 text-[13px] text-gray-600 leading-[1.6]">Review emotional movement and trend signals throughout sessions to monitor progress over time.</p>
-              <span className="inline-flex mt-4 px-3 py-1.5 text-xs font-medium rounded-md border border-[#2b0f6e] text-[#350759]">View profile →</span>
+              
             </div>
           </button>
 
@@ -212,7 +212,7 @@ const Tools: React.FC = () => {
               <p className="text-[11px] uppercase tracking-[0.06em] text-[#854F0B] font-semibold">Clinical recommendations</p>
               <h3 className="mt-2 text-[16px] font-medium text-gray-900">AI Insights</h3>
               <p className="mt-2 text-[13px] text-gray-600 leading-[1.6]">Actionable recommendations and themes to support your intervention planning and follow-up strategy.</p>
-              <span className="inline-flex mt-4 px-3 py-1.5 text-xs font-medium rounded-md border border-[#854F0B] text-[#854F0B]">View insights →</span>
+              
             </div>
           </button>
         </div>

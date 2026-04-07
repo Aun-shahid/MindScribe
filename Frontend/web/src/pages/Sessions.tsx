@@ -201,21 +201,29 @@ const Sessions = () => {
                 </>
               ) : (
                 <>
-                  <Link
-                    to="/sessions/calendar"
-                    className="inline-flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-white/20 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg sm:flex-none"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Calendar View</span>
-                  </Link>
-                  <Link
-                    to="/sessions/new"
-                    className="inline-flex min-w-[140px] flex-1 items-center justify-center rounded-md bg-white/90 px-5 py-2 text-sm font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg sm:flex-none"
-                  >
-                    + New Session
-                  </Link>
+                  <div className="flex flex-col space-y-3 w-full sm:w-auto">
+  <Link
+    to="/sessions/calendar"
+    className="inline-flex min-w-[170px] items-center justify-center space-x-2 rounded-md bg-white/20 px-6 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg"
+  >
+    <svg className="h-6 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+    <span>Calendar View</span>
+  </Link>
+
+  <Link
+    to="/sessions/new"
+    className="inline-flex min-w-[170px] items-center justify-center rounded-md bg-white/90 px-6 py-3 text-base font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg"
+  >
+    + New Session
+  </Link>
+</div>
                 </>
               )
             }

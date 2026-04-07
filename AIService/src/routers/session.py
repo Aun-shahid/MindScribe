@@ -1496,7 +1496,7 @@ async def _auto_generate_post_pipeline_outputs(
         from .soap import ensure_soap_note_generated
 
         await ensure_soap_note_generated(
-            session_id=session_id,
+            session_id=django_session_id,
             transcript=transcript,
             include_emotions=True,
             additional_context=None,
