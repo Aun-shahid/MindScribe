@@ -13,8 +13,7 @@ import {
   Smartphone,
   MessageCircle,
   Lock,
-  TrendingUp,
-  BookOpen
+  TrendingUp
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
