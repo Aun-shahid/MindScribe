@@ -453,12 +453,16 @@ const Layout = () => {
         <div className="mx-auto flex w-full max-w-[1600px] flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-gray-600 sm:flex-row sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} MindScribe. All rights reserved.</p>
           <div className="flex items-center gap-3">
-            <Link to="/profile" className="hover:text-purple-700 transition-colors">
-              Profile
+            <Link to="/privacy-policy" className="hover:text-purple-700 transition-colors">
+              Privacy Policy
             </Link>
             <span className="text-gray-300">•</span>
-            <Link to="/notifications" className="hover:text-purple-700 transition-colors">
-              Notifications
+            <Link to="/terms-and-conditions" className="hover:text-purple-700 transition-colors">
+              Terms & Conditions
+            </Link>
+            <span className="text-gray-300">•</span>
+            <Link to="/help" className="hover:text-purple-700 transition-colors">
+              Help
             </Link>
           </div>
         </div>

@@ -167,11 +167,11 @@ const Sessions = () => {
             subtitle="Manage and organize your therapy appointments"
             actions={
               selectedSessions.length > 0 ? (
-                <>
+                <div className="flex w-full min-w-[220px] flex-col items-stretch gap-2 sm:w-auto">
                   <button
                     type="button"
                     onClick={() => handleBulkAction('cancel')}
-                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-red-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-red-700 hover:shadow-lg sm:flex-none"
+                    className="flex w-full items-center justify-center space-x-2 rounded-md bg-red-600/90 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-red-700 hover:shadow-lg"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -181,7 +181,7 @@ const Sessions = () => {
                   <button
                     type="button"
                     onClick={() => handleBulkAction('reschedule')}
-                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-yellow-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-yellow-700 hover:shadow-lg sm:flex-none"
+                    className="flex w-full items-center justify-center space-x-2 rounded-md bg-yellow-600/90 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-yellow-700 hover:shadow-lg"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -191,19 +191,19 @@ const Sessions = () => {
                   <button
                     type="button"
                     onClick={() => handleBulkAction('update')}
-                    className="flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-blue-600/90 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-blue-700 hover:shadow-lg sm:flex-none"
+                    className="flex w-full items-center justify-center space-x-2 rounded-md bg-blue-600/90 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-blue-700 hover:shadow-lg"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     <span>Update ({selectedSessions.length})</span>
                   </button>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex w-full min-w-[220px] flex-col items-stretch gap-2 sm:w-auto">
                   <Link
                     to="/sessions/calendar"
-                    className="inline-flex min-w-[140px] flex-1 items-center justify-center space-x-2 rounded-md bg-white/20 px-4 py-2 text-sm font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg sm:flex-none"
+                    className="inline-flex w-full items-center justify-center space-x-2 rounded-md bg-white/20 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -212,11 +212,11 @@ const Sessions = () => {
                   </Link>
                   <Link
                     to="/sessions/new"
-                    className="inline-flex min-w-[140px] flex-1 items-center justify-center rounded-md bg-white/90 px-5 py-2 text-sm font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg sm:flex-none"
+                    className="inline-flex w-full items-center justify-center rounded-md bg-white/90 px-5 py-3 text-base font-semibold text-purple-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg"
                   >
                     + New Session
                   </Link>
-                </>
+                </div>
               )
             }
           />

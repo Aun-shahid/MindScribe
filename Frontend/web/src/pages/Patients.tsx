@@ -5,7 +5,6 @@ import { useState } from 'react';
 import {
   TherapistPageBanner,
   TherapistPageSimpleHero,
-  therapistHeroPrimaryButtonClass,
 } from '../components/TherapistPageBanner';
 import { THERAPIST_PAGE_SHELL } from '../constants/pageShell';
 import { PatientsListSkeleton } from '../components/pageSkeletons/MainPageSkeletons';
@@ -58,9 +57,14 @@ const Patients = () => {
           title="All Patients"
           subtitle="Manage and monitor patient progress"
           actions={
-            <Link to="/patients/new" className={therapistHeroPrimaryButtonClass}>
-              + Add Patient
-            </Link>
+            <div className="flex w-full min-w-[190px] flex-col items-stretch gap-2 sm:w-auto">
+              <Link
+                to="/patients/new"
+                className="inline-flex w-full items-center justify-center rounded-md bg-white/20 px-5 py-3 text-base font-semibold text-white shadow-md backdrop-blur-sm transition-all hover:bg-white/30 hover:shadow-lg"
+              >
+                + Add Patient
+              </Link>
+            </div>
           }
         />
       </TherapistPageBanner>
