@@ -55,7 +55,10 @@ class AuthService {
 
   async login(data: LoginData): Promise<AuthResponse> {
     try {
-      const response = await api.post<AuthResponse>('/authenticator/login/', data);
+      const response = await api.post<AuthResponse>('/authenticator/login/', {
+        ...data,
+        role: 'therapist',
+      });
 
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);

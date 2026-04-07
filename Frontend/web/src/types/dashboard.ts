@@ -1,7 +1,7 @@
 // src/types/dashboard.ts
 // Dashboard-specific types
 
-import type { UpcomingSession, RecentActivity } from './session';
+import type { RecentActivity } from './session';
 import type { TherapistNotificationSummary } from './notification';
 
 export interface DashboardData {
@@ -52,10 +52,22 @@ export interface TherapistDashboardSessionStats {
   cancelled_sessions_30_days: number;
 }
 
+export interface TherapistDashboardUpcomingSession {
+  id: string;
+  status?: string | null;
+  session_type?: string | null;
+  scheduled_date?: string | null;
+  session_date?: string | null;
+  patient_name?: string | null;
+  patient?: {
+    full_name?: string | null;
+  } | null;
+}
+
 export interface DashboardResponse {
   stats: DashboardStats;
   session_stats?: TherapistDashboardSessionStats;
   notification_stats?: TherapistNotificationSummary;
-  upcoming_sessions: UpcomingSession[];
+  upcoming_sessions: TherapistDashboardUpcomingSession[];
   recent_activities: RecentActivity[];
 }
