@@ -3,8 +3,11 @@ import api from '../utils/api';
 import type { DashboardResponse } from '../types/dashboard';
 
 interface RawTherapistDashboardResponse {
+  therapist_info?: DashboardResponse['therapist_info'];
   patient_stats?: {
     total_patients?: number | string;
+    max_patients?: number | string;
+    can_accept_new?: boolean;
   };
   session_stats?: {
     today_sessions?: number | string;
@@ -14,8 +17,9 @@ interface RawTherapistDashboardResponse {
     cancelled_sessions_30_days?: number | string;
   };
   notification_stats?: DashboardResponse['notification_stats'];
+  today_sessions?: DashboardResponse['today_sessions'];
   upcoming_sessions?: DashboardResponse['upcoming_sessions'];
-  recent_activities?: DashboardResponse['recent_activities'];
+  recent_patients?: DashboardResponse['recent_patients'];
 }
 
 const toNumber = (value: unknown): number => {
@@ -46,22 +50,27 @@ class DashboardService {
 
       const backendData = (response.data || {}) as RawTherapistDashboardResponse;
       const transformedData: DashboardResponse = {
-        stats: {
-          total_patients: toNumber(backendData.patient_stats?.total_patients),
-          upcoming_sessions: toNumber(backendData.session_stats?.upcoming_sessions),
-          completed_sessions: toNumber(backendData.session_stats?.completed_sessions_30_days),
-          cancelled_sessions: toNumber(backendData.session_stats?.cancelled_sessions_30_days),
-        },
-        session_stats: {
-          today_sessions: toNumber(backendData.session_stats?.today_sessions),
-          upcoming_sessions: toNumber(backendData.session_stats?.upcoming_sessions),
-          total_sessions_30_days: toNumber(backendData.session_stats?.total_sessions_30_days),
-          completed_sessions_30_days: toNumber(backendData.session_stats?.completed_sessions_30_days),
-          cancelled_sessions_30_days: toNumber(backendData.session_stats?.cancelled_sessions_30_days),
-        },
+        therapist_info: backendData.therapist_info,
+        patient_stats: backendData.patient_stats
+          ? {
+              total_patients: toNumber(backendData.patient_stats.total_patients),
+              max_patients: toNumber(backendData.patient_stats.max_patients),
+              can_accept_new: Boolean(backendData.patient_stats.can_accept_new),
+            }
+          : undefined,
+        session_stats: backendData.session_stats
+          ? {
+              today_sessions: toNumber(backendData.session_stats.today_sessions),
+              upcoming_sessions: toNumber(backendData.session_stats.upcoming_sessions),
+              total_sessions_30_days: toNumber(backendData.session_stats.total_sessions_30_days),
+              completed_sessions_30_days: toNumber(backendData.session_stats.completed_sessions_30_days),
+              cancelled_sessions_30_days: toNumber(backendData.session_stats.cancelled_sessions_30_days),
+            }
+          : undefined,
         notification_stats: backendData.notification_stats,
+        today_sessions: Array.isArray(backendData.today_sessions) ? backendData.today_sessions : [],
         upcoming_sessions: Array.isArray(backendData.upcoming_sessions) ? backendData.upcoming_sessions : [],
-        recent_activities: Array.isArray(backendData.recent_activities) ? backendData.recent_activities : [],
+        recent_patients: Array.isArray(backendData.recent_patients) ? backendData.recent_patients : [],
       };
 
       return transformedData;

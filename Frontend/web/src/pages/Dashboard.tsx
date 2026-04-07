@@ -22,16 +22,20 @@ const Dashboard = () => {
   const { user } = useAuth();
   const locationStateMessage = (location.state as { message?: string } | null)?.message;
 
+  const patientStats = dashboard?.patient_stats;
+  const sessionStats = dashboard?.session_stats;
   const notificationStats = dashboard?.notification_stats;
-  const completedSessionsCount = dashboard?.session_stats?.completed_sessions_30_days ?? 0;
-  const upcomingSessionsCount = dashboard?.session_stats?.upcoming_sessions ?? 0;
-  const cancelledSessionsCount = dashboard?.session_stats?.cancelled_sessions_30_days ?? 0;
-  const totalPatients = dashboard?.stats?.total_patients ?? 0;
-  const totalSessions = dashboard?.session_stats?.total_sessions_30_days ?? 0;
 
-  const notificationsPage = notificationStats?.navigation?.notifications_page || '/notifications';
-  const moodNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.mood_tab_query || '?category=mood'}`;
-  const sessionNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.session_tab_query || '?category=session'}`;
+  const completedSessionsCount = sessionStats?.completed_sessions_30_days ?? null;
+  const upcomingSessionsCount = sessionStats?.upcoming_sessions ?? null;
+  const cancelledSessionsCount = sessionStats?.cancelled_sessions_30_days ?? null;
+  const totalPatients = patientStats?.total_patients ?? null;
+  const totalSessions = sessionStats?.total_sessions_30_days ?? null;
+  const totalNotifications = notificationStats?.total_notifications ?? null;
+
+  const notificationsPage = notificationStats?.navigation?.notifications_page ?? '/notifications';
+  const moodNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.mood_tab_query ?? '?category=mood'}`;
+  const sessionNotificationsHref = `${notificationsPage}${notificationStats?.navigation?.session_tab_query ?? '?category=session'}`;
 
   const displayName = useMemo(() => {
     const fn = user?.first_name?.trim();
@@ -74,20 +78,9 @@ const Dashboard = () => {
     { name: 'Completed', value: completedSessionsCount, color: '#10b981' },
     { name: 'Upcoming', value: upcomingSessionsCount, color: '#3b82f6' },
     { name: 'Cancelled', value: cancelledSessionsCount, color: '#ef4444' },
-  ].filter((item) => item.value > 0);
+  ].filter((item): item is { name: string; value: number; color: string } => typeof item.value === 'number' && item.value > 0);
 
   const pieStatusTotal = pieChartData.reduce((sum, item) => sum + item.value, 0);
-
-  const notificationChartData = [
-    { name: 'Session', value: notificationStats?.session_notifications || 0, color: '#2563eb' },
-    { name: 'Mood', value: notificationStats?.mood_notifications || 0, color: '#f97316' },
-    { name: 'Other', value: notificationStats?.other_notifications || 0, color: '#8b5cf6' },
-  ].filter((item) => item.value > 0);
-
-  const totalNotifications =
-    (notificationStats?.session_notifications || 0) +
-    (notificationStats?.mood_notifications || 0) +
-    (notificationStats?.other_notifications || 0);
 
   const parseSessionDateMs = (session: TherapistDashboardUpcomingSession): number | null => {
     const sessionDateValue = session.scheduled_date || session.session_date;
@@ -99,22 +92,19 @@ const Dashboard = () => {
   };
 
   const filteredUpcoming = useMemo(() => {
-    const list = dashboard?.upcoming_sessions || [];
-    const now = Date.now();
-    const allowedStatuses = new Set(['UPCOMING', 'IN_PROGRESS', 'RESCHEDULED']);
+    const list = dashboard?.upcoming_sessions ?? [];
 
     return list
       .filter((session) => {
         const sessionDateMs = parseSessionDateMs(session);
-        const status = String(session.status || 'UPCOMING').toUpperCase();
-        return sessionDateMs !== null && sessionDateMs > now && allowedStatuses.has(status);
+        return sessionDateMs !== null;
       })
       .sort((a, b) => {
         const dateA = parseSessionDateMs(a) ?? Number.MAX_SAFE_INTEGER;
         const dateB = parseSessionDateMs(b) ?? Number.MAX_SAFE_INTEGER;
         return dateA - dateB;
       })
-      .slice(0, 6);
+      .slice(0, 5);
   }, [dashboard?.upcoming_sessions]);
 
   if (loading) {
@@ -157,13 +147,13 @@ const Dashboard = () => {
             <p className="mt-2 text-sm text-gray-600">Here&apos;s a snapshot of your practice today.</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <span className="rounded-full bg-[#5c4092] px-4 py-2 text-xs font-semibold text-white shadow-sm">
-                {upcomingSessionsCount} upcoming sessions
+                {upcomingSessionsCount ?? '—'} upcoming sessions
               </span>
               <span className="rounded-full bg-[#ede9fe] px-4 py-2 text-xs font-semibold text-[#5b21b6]">
-                {completedSessionsCount} completed (30d)
+                {completedSessionsCount ?? '—'} completed (30d)
               </span>
               <span className="rounded-full bg-[#ede9fe] px-4 py-2 text-xs font-semibold text-[#5b21b6]">
-                {totalNotifications} notifications
+                {totalNotifications ?? '—'} notifications
               </span>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -252,7 +242,7 @@ const Dashboard = () => {
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value ?? 0} sessions`, '']} />
+                    <Tooltip formatter={(value) => [`${value} sessions`, '']} />
                   </PieChart>
                 </ResponsiveContainer>
                 </ChartSurface>
@@ -297,7 +287,10 @@ const Dashboard = () => {
             <div className="space-y-3">
               {filteredUpcoming.length > 0 ? (
                 filteredUpcoming.map((session) => {
-                  const patientName = session.patient_name || session.patient?.full_name || 'Patient';
+                  const patientName = session.patient_name || session.patient?.full_name;
+                  if (!patientName) {
+                    return null;
+                  }
                   const initials = patientName
                     .split(' ')
                     .map((n: string) => n[0])
@@ -305,7 +298,7 @@ const Dashboard = () => {
                     .slice(0, 2)
                     .toUpperCase();
                   const sessionDateMs = parseSessionDateMs(session);
-                  const status = String(session.status || 'UPCOMING').toUpperCase();
+                  const status = session.status ? String(session.status).toUpperCase() : null;
                   const sessionDateLabel =
                     sessionDateMs !== null
                       ? new Date(sessionDateMs).toLocaleString(undefined, {
@@ -315,6 +308,7 @@ const Dashboard = () => {
                           minute: '2-digit',
                         })
                       : '';
+                  const sessionType = typeof session.session_type === 'string' ? session.session_type : '';
                   const statusStyle =
                     status === 'IN_PROGRESS'
                       ? 'bg-emerald-50 text-emerald-700'
@@ -334,11 +328,14 @@ const Dashboard = () => {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-gray-900">{patientName}</p>
                         <p className="truncate text-xs text-gray-500">
-                          {sessionDateLabel ? `${sessionDateLabel} · ` : ''}
-                          {session.session_type || 'Therapy session'}
+                          {sessionDateLabel}
+                          {sessionDateLabel && sessionType ? ' · ' : ''}
+                          {sessionType}
                         </p>
                       </div>
-                      <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle}`}>{status.replace(/_/g, ' ')}</span>
+                      {status ? (
+                        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle}`}>{status.replace(/_/g, ' ')}</span>
+                      ) : null}
                     </Link>
                   );
                 })
@@ -360,21 +357,21 @@ const Dashboard = () => {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-2">
             <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-            {notificationChartData.length > 0 ? (
+            {typeof totalNotifications === 'number' && totalNotifications > 0 ? (
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
                   to={sessionNotificationsHref}
                   className="flex flex-1 min-w-[140px] items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm font-medium text-blue-900 hover:bg-blue-100"
                 >
                   Session
-                  <span className="text-lg font-bold text-blue-700">{notificationStats?.session_notifications ?? 0}</span>
+                  <span className="text-lg font-bold text-blue-700">{notificationStats?.session_notifications ?? '—'}</span>
                 </Link>
                 <Link
                   to={moodNotificationsHref}
                   className="flex flex-1 min-w-[140px] items-center justify-between rounded-2xl border border-orange-100 bg-orange-50/80 px-4 py-3 text-sm font-medium text-orange-900 hover:bg-orange-100"
                 >
                   Mood
-                  <span className="text-lg font-bold text-orange-700">{notificationStats?.mood_notifications ?? 0}</span>
+                  <span className="text-lg font-bold text-orange-700">{notificationStats?.mood_notifications ?? '—'}</span>
                 </Link>
               </div>
             ) : (
@@ -416,14 +413,14 @@ function MetricMini({
   icon: ReactNode;
   iconBg: string;
   label: string;
-  value: number;
+  value: number | null;
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-medium text-gray-500">{label}</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">{value}</p>
+          <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">{value ?? '—'}</p>
         </div>
         <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${iconBg} shadow-inner`}>{icon}</div>
       </div>
