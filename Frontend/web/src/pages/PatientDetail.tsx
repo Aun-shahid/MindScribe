@@ -14,7 +14,9 @@ import {
   formatPreferredDays,
   formatPreferredLanguage,
 } from '../utils/patientDetails';
-import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
+import { THERAPIST_PAGE_CANVAS, THERAPIST_PAGE_SHELL } from '../constants/pageShell';
+import { TherapistPageBanner } from '../components/TherapistPageBanner';
+import { CalendarPlus, Play, UserMinus } from 'lucide-react';
 
 
 
@@ -559,57 +561,46 @@ const PatientDetail = () => {
   }
 
   return (
-    <div className={THERAPIST_DETAIL_FLOW_BG}>
-      {/* Purple Gradient Header with Patient Info */}
-      <div className="relative bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 text-white shadow-2xl overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 80%, white 1px, transparent 1px)',
-            backgroundSize: '50px 50px'
-          }}></div>
-        </div>
+    <div className={THERAPIST_PAGE_SHELL}>
+      <div className="mb-6">
+        <TherapistPageBanner heightClassName="min-h-[220px]">
+          <div className="relative z-10 flex w-full flex-col gap-5 p-4 text-white sm:p-6">
+            <button
+              onClick={() => navigate('/patients')}
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/95 transition-colors hover:bg-white/20"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              
+            </button>
 
-        <div className="relative max-w-7xl mx-auto py-6">
-          {/* Back Button */}
-          <button
-            onClick={() => navigate('/patients')}
-            className="mb-4 flex items-center space-x-2 text-white/90 hover:text-white transition-colors group text-sm"
-          >
-            <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="font-medium">Back to Patients</span>
-          </button>
-
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            {/* Patient Info Section */}
-            <div className="flex items-start gap-4 flex-1">
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl lg:text-3xl font-bold shadow-xl border-4 border-white/30">
-                  {patient.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 flex-1 items-start gap-4">
+                <div className="relative shrink-0">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl border-4 border-white/30 bg-white/20 text-2xl font-bold shadow-lg backdrop-blur-sm">
+                    {patient.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full border-4 border-white bg-green-500 shadow-lg" />
                 </div>
-                {/* Online Status Indicator */}
-                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-green-500 border-4 border-white rounded-full shadow-lg"></div>
-              </div>
 
-              {/* Patient Details */}
-              <div className="flex-1 space-y-3">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold mb-2">{patient.full_name}</h1>
-                  <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0 space-y-3">
+                  <div>
+                    <h1 className="truncate text-2xl font-semibold sm:text-3xl">{patient.full_name}</h1>
+                    <p className="mt-1 text-sm text-purple-100">
+                      {patient.patient_profile?.primary_concern || 'Patient profile and clinical overview'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
                     {isConnectedToTherapist && (
-                      <span className="inline-flex items-center px-2.5 py-1 bg-green-500/20 backdrop-blur-sm rounded-lg text-xs font-semibold border border-green-300/30">
+                      <span className="rounded-lg border border-emerald-300/35 bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold">
                         Connected to therapist
                       </span>
                     )}
                     {patient.date_of_birth && (
-                      <span className="inline-flex items-center px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-xs font-medium">
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Age: {(() => {
+                      <span className="rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
+                        Age {(() => {
                           const dob = new Date(patient.date_of_birth);
                           const diff = Date.now() - dob.getTime();
                           const ageDate = new Date(diff);
@@ -617,106 +608,52 @@ const PatientDetail = () => {
                         })()}
                       </span>
                     )}
-                    {patient.patient_profile?.primary_concern && (
-                      <>
-                        {/* <span className="px-3 py-1.5 bg-purple-500/30 backdrop-blur-sm rounded-lg text-xs font-semibold">
-                          Anxiety
-                        </span>
-                        <span className="px-3 py-1.5 bg-purple-500/30 backdrop-blur-sm rounded-lg text-xs font-semibold">
-                          GAD
-                        </span>
-                        <span className="px-3 py-1.5 bg-purple-500/30 backdrop-blur-sm rounded-lg text-xs font-semibold">
-                          Work Stress
-                        </span> */}
-                      </>
+                    {patient.phone_number && (
+                      <span className="rounded-lg bg-white/15 px-2.5 py-1 text-xs">
+                        {formatPhoneNumber(patient.phone_number)}
+                      </span>
+                    )}
+                    {patient.email && (
+                      <span className="max-w-[320px] truncate rounded-lg bg-white/15 px-2.5 py-1 text-xs">
+                        {patient.email}
+                      </span>
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Contact Info */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {patient.phone_number && (
-                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
-                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-white/70">Phone</p>
-                        <p className="font-medium text-sm">{formatPhoneNumber(patient.phone_number)}</p>
-                      </div>
-                    </div>
-                  )}
-                  {patient.email && (
-                    <div className="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2.5">
-                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-white/70">Email</p>
-                        <p className="font-medium text-sm">{patient.email}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick Stats */}
-                {/* <div className="flex flex-wrap gap-4 pt-2">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-                    <p className="text-xs text-white/70 mb-1">Last session</p>
-                    <p className="font-semibold">{patient.last_session ? formatDate(patient.last_session) : 'No previous sessions'}</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-                    <p className="text-xs text-white/70 mb-1">Total sessions</p>
-                    <p className="font-semibold">{patient.total_sessions || '0'}</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-                    <p className="text-xs text-white/70 mb-1">Started</p>
-                    <p className="font-semibold">
-                      {patient.patient_profile?.therapy_start_date
-                        ? new Date(patient.patient_profile.therapy_start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                        : 'Not set'}
-                    </p>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-400/20 to-emerald-400/20 backdrop-blur-sm rounded-lg px-4 py-2 border border-green-400/30 flex items-center space-x-2">
-                    <svg className="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    <span className="font-semibold text-sm">Mood improving</span>
-                  </div>
-                </div> */}
+              <div className="flex w-full flex-col gap-2 sm:w-auto">
+                <button
+                  onClick={() => {
+                    openScheduleModal();
+                    setUsePatientPreferences(true);
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-all hover:bg-white/25 hover:shadow-md sm:w-auto"
+                >
+                  <CalendarPlus className="h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden />
+                  <span>Schedule Sessions</span>
+                </button>
+                <button
+                  onClick={handleStartSession}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-all hover:bg-white/25 hover:shadow-md sm:w-auto"
+                >
+                  <Play className="h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden />
+                  <span>Start Session</span>
+                </button>
+                {isConnectedToTherapist && (
+                  <button
+                    onClick={handleDisconnectPatient}
+                    disabled={disconnectingPatient}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-300/45 bg-red-600/70 px-4 py-2 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-all hover:bg-red-600/80 disabled:opacity-70 sm:w-auto"
+                  >
+                    <UserMinus className="h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden />
+                    <span>{disconnectingPatient ? 'Disconnecting...' : 'Disconnect Patient'}</span>
+                  </button>
+                )}
               </div>
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-2.5 lg:self-start">
-              <button
-                onClick={() => {
-                  openScheduleModal();
-                  setUsePatientPreferences(true);
-                }}
-                className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-900 rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 group"
-              >
-                <span className="text-xl">📅</span>
-                <span>Schedule Sessions</span>
-              </button>
-              <button
-                onClick={handleStartSession}
-                className="px-4 py-2.5 bg-white hover:bg-gray-50 text-purple-700 rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl"
-              >
-                Start Session
-              </button>
-              {isConnectedToTherapist && (
-                <button
-                  onClick={handleDisconnectPatient}
-                  disabled={disconnectingPatient}
-                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium text-sm transition-all shadow-lg hover:shadow-xl"
-                >
-                  {disconnectingPatient ? 'Disconnecting...' : 'Disconnect Patient'}
-                </button>
-              )}
-            </div>
           </div>
-        </div>
+        </TherapistPageBanner>
       </div>
 
       {/* Success Message */}
@@ -732,7 +669,7 @@ const PatientDetail = () => {
       )}
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto py-6">
+      <div className="py-1">
         <div className="space-y-5">
           {/* Schedule Preferences Card */}
           {preferences && (
@@ -789,8 +726,8 @@ const PatientDetail = () => {
           <PatientMoodTrend patientId={patient.id} patientName={patient.full_name} />
 
           {/* Basic Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -809,8 +746,8 @@ const PatientDetail = () => {
           </div>
 
           {/* Therapy Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -836,8 +773,8 @@ const PatientDetail = () => {
           </div>
 
           {/* Emergency Contact */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -858,8 +795,8 @@ const PatientDetail = () => {
           </div>
 
           {/* Additional Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -890,8 +827,8 @@ const PatientDetail = () => {
           </div>
 
           {/* Clinical Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m8-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -941,8 +878,8 @@ const PatientDetail = () => {
           </div> */}
 
           {/* Session History */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="overflow-hidden rounded-xl border border-purple-100 bg-white shadow-md">
+            <div className="flex items-center justify-between gap-3 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 px-4 py-2.5">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

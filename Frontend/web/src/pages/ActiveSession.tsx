@@ -452,13 +452,13 @@ const ActiveSession: React.FC = () => {
   return (
     <div className={THERAPIST_PAGE_CANVAS}>
       {/* Header */}
-      <div className="bg-purple-700 text-white">
-        <div className="max-w-7xl mx-auto">
+      <div className="overflow-hidden rounded-xl border border-purple-300/35 bg-gradient-to-r from-[#43275a] via-[#5c4092] to-[#6d4ea8] text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(-1)}
-                className="mr-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                className="mr-4 rounded-full border border-white/35 bg-white/20 p-2 backdrop-blur-sm transition-colors hover:bg-white/30"
               >
                 <ChevronLeft size={24} />
               </button>
@@ -471,16 +471,16 @@ const ActiveSession: React.FC = () => {
             <button
               type="button"
               onClick={() => setEndSessionConfirmOpen(true)}
-              className="flex items-center bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-300/40 bg-red-600/75 px-4 py-2 font-semibold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-red-600/90"
             >
-              <StopCircle size={20} className="mr-2" />
+              <StopCircle size={18} />
               End Session
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto py-8">
+      <div className="max-w-7xl mx-auto py-8 px-1">
         {/* WebSocket Connection Status */}
         {aiError && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
@@ -491,12 +491,12 @@ const ActiveSession: React.FC = () => {
           <div className="mb-4 space-y-2">
             {/* AI Service WebSocket Status - show when we have the token */}
             {aiWebsocketToken && (
-              <div className={`px-4 py-3 rounded-lg border flex items-center justify-between ${aiConnected
-                ? 'bg-blue-50 border-blue-200 text-blue-800'
-                : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+              <div className={`px-4 py-3 rounded-xl border flex items-center justify-between ${aiConnected
+                ? 'bg-purple-50 border-purple-200 text-purple-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}>
                 <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-2 ${aiConnected ? 'bg-blue-500 animate-pulse' : 'bg-yellow-500 animate-pulse'}`}></div>
+                  <div className={`w-3 h-3 rounded-full mr-2 ${aiConnected ? 'bg-purple-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}></div>
                   <p className="font-medium">
                     {aiConnected ? '🤖 AI Transcription Service Connected' : '🟡 Connecting to AI transcription service...'}
                   </p>
@@ -504,7 +504,7 @@ const ActiveSession: React.FC = () => {
                 <div className="text-right text-sm font-medium">
                   <p>{aiTranscriptionSegments.length} segments</p>
                   {aiConnected && isRecording && (
-                    <p className={`${uploadDelayMs > 3000 ? 'text-amber-700' : 'text-blue-700'} text-xs`}>
+                      <p className={`${uploadDelayMs > 3000 ? 'text-amber-700' : 'text-purple-700'} text-xs`}>
                       Delay: {uploadDelayMs}ms • Queue: {queuedChunkCount}
                     </p>
                   )}
@@ -518,7 +518,7 @@ const ActiveSession: React.FC = () => {
           {/* Left Column */}
           <div className="space-y-6">
             {/* Session Timer */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="rounded-xl border border-purple-100 bg-white shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <Clock className="text-purple-600 mr-2" size={24} />
@@ -531,7 +531,7 @@ const ActiveSession: React.FC = () => {
             </div>
 
             {/* Audio Recording */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="rounded-xl border border-purple-100 bg-white shadow-md p-6">
               <div className="flex items-center mb-4">
                 <Mic className="text-purple-600 mr-2" size={24} />
                 <h2 className="text-xl font-semibold text-gray-900">Audio Recording</h2>
@@ -545,7 +545,7 @@ const ActiveSession: React.FC = () => {
                 </p>
 
                 {/* Waveform Visualization */}
-                <div className="flex items-end justify-center h-20 space-x-1 bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="mb-6 flex h-20 items-end justify-center space-x-1 rounded-lg bg-purple-50/60 p-4">
                   {waveformBars}
                 </div>
 
@@ -554,7 +554,7 @@ const ActiveSession: React.FC = () => {
                   {!isRecording ? (
                     <button
                       onClick={handleStartRecording}
-                      className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      className="inline-flex items-center rounded-lg border border-purple-300/40 bg-[#5c4092] px-6 py-3 text-white shadow-sm transition-colors hover:bg-[#43275a]"
                     >
                       <Play size={20} className="mr-2" />
                       Start Recording
@@ -562,7 +562,7 @@ const ActiveSession: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleStopRecording}
-                      className="flex items-center bg-[#431657] hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      className="inline-flex items-center rounded-lg border border-purple-300/40 bg-[#431657] px-6 py-3 text-white shadow-sm transition-colors hover:bg-[#3a124a]"
                     >
                       <Square size={20} className="mr-2" />
                       Stop Recording
@@ -577,7 +577,7 @@ const ActiveSession: React.FC = () => {
           {/* Right Column */}
           <div className="space-y-6">
             {/* Recording Status */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="rounded-xl border border-purple-100 bg-white shadow-md p-6">
               <div className="flex items-center mb-4">
                 <FileText className="text-purple-600 mr-2" size={24} />
                 <h2 className="text-xl font-semibold text-gray-900">Session Recording</h2>
@@ -586,14 +586,14 @@ const ActiveSession: React.FC = () => {
               <div className="text-center py-8">
                 {isRecording ? (
                   <div className="space-y-4">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                       <div className="w-8 h-8 bg-red-500 rounded-full animate-pulse" />
                     </div>
                     <p className="text-gray-700 font-medium">Recording in progress...</p>
                     <p className="text-gray-500 text-sm">Audio is being captured and sent to the AI service.</p>
                     <p className="text-gray-400 text-xs">Transcript will be generated when the session ends.</p>
                     {aiConnected && (
-                      <p className="text-blue-600 text-xs">
+                      <p className="text-purple-600 text-xs">
                         🤖 AI Service connected — {queuedChunkCount > 0 ? `${queuedChunkCount} chunks queued` : 'streaming'}
                       </p>
                     )}
@@ -609,7 +609,7 @@ const ActiveSession: React.FC = () => {
             </div>
 
             {/* Session Notes
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="rounded-xl border border-purple-100 bg-white shadow-md p-6">
               <div className="flex items-center mb-4">
                 <FileText className="text-purple-600 mr-2" size={24} />
                 <h2 className="text-xl font-semibold text-gray-900">Session Notes & Observations</h2>
