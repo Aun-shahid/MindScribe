@@ -42,25 +42,25 @@ const LandingNew = () => {
   const heroScale = useTransform(
     heroScrollProgress,
     [0, 0.5, 1],
-    prefersReducedMotion ? [1, 1, 1] : [1, 1.08, 1.15]
+    prefersReducedMotion ? [1, 1, 1] : [1, 1.06, 1.12]
   );
 
   const heroOpacity = useTransform(
     heroScrollProgress,
-    [0, 0.3, 0.7],
-    [1, 0.5, 0]
+    [0, 0.4, 0.75],
+    [1, 0.6, 0]
   );
 
   const heroTextY = useTransform(
     heroScrollProgress,
-    [0, 0.5, 1],
-    prefersReducedMotion ? [0, 0, 0] : [0, -75, -150]
+    [0, 1],
+    prefersReducedMotion ? [0, 0] : [0, -90]
   );
 
   const overlayOpacity = useTransform(
     heroScrollProgress,
     [0, 0.5, 1],
-    [0.7, 0.5, 0.3]
+    [0.8, 0.55, 0.3]
   );
 
   // Workflow timeline data
@@ -83,7 +83,7 @@ const LandingNew = () => {
       bgColor: 'bg-blue-50',
       glowColor: 'shadow-blue-500/50'
     },
-    
+
     {
       id: 4,
       icon: FileText,
@@ -124,43 +124,43 @@ const LandingNew = () => {
         }}
       >
         <div className="absolute inset-y-0 right-0 hidden w-[42%] overflow-hidden md:block">
-  <svg
-    width="100%"
-    height="100%"
-    viewBox="0 0 680 380"
-    preserveAspectRatio="xMidYMid slice"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <rect width="680" height="380" fill="#3d2d6e" />
-    <polygon points="340,0 520,140 340,200 160,140"  fill="#6E5F9E" />
-    <polygon points="340,0 160,140 0,80 0,0"          fill="#4a3880" />
-    <polygon points="340,0 680,0 680,80 520,140"      fill="#5a4a90" />
-    <polygon points="0,80 160,140 80,260 0,200"       fill="#3d2d6e" />
-    <polygon points="680,80 680,200 600,260 520,140"  fill="#7B6BAE" />
-    <polygon points="160,140 340,200 260,310 80,260"  fill="#4f3f85" />
-    <polygon points="520,140 600,260 420,310 340,200" fill="#8074B8" />
-    <polygon points="80,260 260,310 200,380 0,380 0,200"      fill="#2e2058" />
-    <polygon points="600,260 680,200 680,380 480,380 420,310" fill="#5a4a90" />
-    <polygon points="260,310 420,310 480,380 200,380"         fill="#3d2d6e" />
-    <polygon points="260,310 340,200 420,310 340,360"         fill="#6E5F9E" />
-    <line x1="340" y1="0"   x2="160" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
-    <line x1="340" y1="0"   x2="520" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
-    <line x1="340" y1="0"   x2="0"   y2="80"  stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
-    <line x1="340" y1="0"   x2="680" y2="80"  stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
-    <line x1="160" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
-    <line x1="520" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
-    <line x1="340" y1="200" x2="260" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
-    <line x1="340" y1="200" x2="420" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
-    <line x1="160" y1="140" x2="80"  y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
-    <line x1="520" y1="140" x2="600" y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
-    <line x1="80"  y1="260" x2="260" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
-    <line x1="600" y1="260" x2="420" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
-    <line x1="340" y1="0" x2="680" y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
-    <line x1="340" y1="0" x2="0"   y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
-    <line x1="340" y1="0" x2="580" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
-    <line x1="340" y1="0" x2="100" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
-  </svg>
-</div>
+          <svg
+            width="100%"
+            height="100%"
+            viewBox="0 0 680 380"
+            preserveAspectRatio="xMidYMid slice"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect width="680" height="380" fill="#3d2d6e" />
+            <polygon points="340,0 520,140 340,200 160,140" fill="#6E5F9E" />
+            <polygon points="340,0 160,140 0,80 0,0" fill="#4a3880" />
+            <polygon points="340,0 680,0 680,80 520,140" fill="#5a4a90" />
+            <polygon points="0,80 160,140 80,260 0,200" fill="#3d2d6e" />
+            <polygon points="680,80 680,200 600,260 520,140" fill="#7B6BAE" />
+            <polygon points="160,140 340,200 260,310 80,260" fill="#4f3f85" />
+            <polygon points="520,140 600,260 420,310 340,200" fill="#8074B8" />
+            <polygon points="80,260 260,310 200,380 0,380 0,200" fill="#2e2058" />
+            <polygon points="600,260 680,200 680,380 480,380 420,310" fill="#5a4a90" />
+            <polygon points="260,310 420,310 480,380 200,380" fill="#3d2d6e" />
+            <polygon points="260,310 340,200 420,310 340,360" fill="#6E5F9E" />
+            <line x1="340" y1="0" x2="160" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
+            <line x1="340" y1="0" x2="520" y2="140" stroke="#c4b5fd" strokeWidth="0.8" opacity="0.35" />
+            <line x1="340" y1="0" x2="0" y2="80" stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
+            <line x1="340" y1="0" x2="680" y2="80" stroke="#a78bfa" strokeWidth="0.5" opacity="0.2" />
+            <line x1="160" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
+            <line x1="520" y1="140" x2="340" y2="200" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.3" />
+            <line x1="340" y1="200" x2="260" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
+            <line x1="340" y1="200" x2="420" y2="310" stroke="#c4b5fd" strokeWidth="0.6" opacity="0.25" />
+            <line x1="160" y1="140" x2="80" y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
+            <line x1="520" y1="140" x2="600" y2="260" stroke="#7c6aad" strokeWidth="0.5" opacity="0.3" />
+            <line x1="80" y1="260" x2="260" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
+            <line x1="600" y1="260" x2="420" y2="310" stroke="#6d5fa0" strokeWidth="0.5" opacity="0.25" />
+            <line x1="340" y1="0" x2="680" y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
+            <line x1="340" y1="0" x2="0" y2="380" stroke="#ddd6fe" strokeWidth="1.2" opacity="0.06" />
+            <line x1="340" y1="0" x2="580" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
+            <line x1="340" y1="0" x2="100" y2="380" stroke="#ddd6fe" strokeWidth="0.8" opacity="0.04" />
+          </svg>
+        </div>
 
         <motion.div className="absolute inset-0" style={{ opacity: overlayOpacity }}>
           <div className="absolute -top-24 -left-16 h-80 w-80 rounded-full bg-[#B8A3FF]/20 blur-3xl" />
@@ -169,44 +169,70 @@ const LandingNew = () => {
 
         <motion.div
           className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-3 py-5 sm:px-6 md:px-8 md:py-8"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="mb-5 flex items-center md:mb-7">
+          <motion.div
+            className="mb-5 flex items-center md:mb-7"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+          >
             <Brain className="text-[#7B5FCB]" size={28} />
             <div className="flex items-center gap-2 p-1 text-md font-semibold text-[#1f2d29]">
-              
               MindScribe
             </div>
-          </div>
+          </motion.div>
 
           <div className="grid flex-1 items-center gap-6 pb-4 lg:grid-cols-[60%_40%] lg:gap-8 lg:pb-0">
             <motion.div
               style={{ opacity: heroOpacity, y: heroTextY }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.1 }}
               className="max-w-xl pt-1 lg:pr-8"
             >
-              <p className="mb-5 text-sm tracking-[0.25em] text-[#6E5F9E] uppercase">Your AI Therapy Assistant</p>
-              <h1
+              <motion.p
+                className="mb-4 text-sm tracking-[0.25em] text-[#6E5F9E] uppercase"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.15 }}
+              >
+                Your AI Therapy Assistant
+              </motion.p>
+              <motion.h1
                 className="text-3xl font-semibold leading-[1.08] text-[#5A45A5] sm:text-4xl md:text-6xl"
                 style={{ fontFamily: 'serif' }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.25 }}
               >
                 MindScribe
-              </h1>
-              <p className="mt-4 max-w-xl text-xl font-serif leading-tight text-[#4E3D88] sm:text-2xl md:mt-5 md:text-4xl">
+              </motion.h1>
+              <motion.p
+                className="mt-4 max-w-xl text-xl font-serif leading-tight text-[#4E3D88] sm:text-2xl md:mt-5 md:text-4xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.35 }}
+              >
                 Clarity for every therapy session, every note you write.
-              </p>
-              <p className="mt-5 text-sm font-serif leading-relaxed text-[#6E5F9E] sm:text-base md:mt-6 md:text-lg">
+              </motion.p>
+              <motion.p
+                className="mt-4 text-sm font-serif leading-relaxed text-[#6E5F9E] sm:text-base md:mt-5 md:text-lg"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.45 }}
+              >
                 Supporting therapists with real-time transcription, structured SOAP notes, and AI-powered insights so you can focus on patient care.
-              </p>
+              </motion.p>
 
-              <div className="mt-8">
+              <motion.div
+                className="mt-7"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.55 }}
+              >
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold text-white transition hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold text-white transition-transform hover:-translate-y-1 hover:shadow-xl"
                   style={{
                     background: 'linear-gradient(135deg, #7B5FCB, #8F74FF)',
                     boxShadow: '0 10px 25px rgba(143,116,255,0.35)'
@@ -215,16 +241,37 @@ const LandingNew = () => {
                   Get Started
                   <ArrowRight size={18} />
                 </Link>
-              </div>
+              </motion.div>
 
-              <div className="mt-8 flex items-center gap-4 md:mt-10">
-                <div className="flex -space-x-2">
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#b399c9]" />
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#5b446f]" />
-                  <div className="h-9 w-9 rounded-full border-2 border-white bg-[#3b124b]" />
+              <motion.div
+                className="mt-7 flex items-center gap-3 md:mt-8"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.65 }}
+              >
+                <div className="flex -space-x-3">
+                  {['/images/therapist_face_1.png', '/images/therapist_face_2.png', '/images/therapist_face_3.png'].map((src, i) => (
+                    <motion.div
+                      key={i}
+                      className="h-9 w-9 rounded-full border-2 border-white overflow-hidden"
+                      style={{ zIndex: 3 - i }}
+                      initial={{ opacity: 0, scale: 0.6, x: -10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.7 + i * 0.1 }}
+                    >
+                      <img src={src} alt="Therapist" className="h-full w-full object-cover" />
+                    </motion.div>
+                  ))}
                 </div>
-               
-              </div>
+                <motion.p
+                  className="text-sm font-medium text-[#6E5F9E]"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: 1.0 }}
+                >
+                  Trusted by therapists
+                </motion.p>
+              </motion.div>
             </motion.div>
 
             <motion.div
@@ -234,7 +281,7 @@ const LandingNew = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              
+
 
               <img
                 src="/images/profff.png"
@@ -247,7 +294,7 @@ const LandingNew = () => {
       </section>
 
       {/* SECTION 2 - About MindScribe */}
-      <section className="relative bg-[#f6f1f4] px-6 py-24 md:px-10">
+      <section className="relative bg-[#f6f1f4] px-6 py-14 md:px-10">
         <div className="mx-auto max-w-6xl">
           <motion.div
             className="relative overflow-visible rounded-[1.8rem] border border-[#e7d7df] bg-[#cbc1eb] p-6 shadow-[0_18px_45px_rgba(127,83,108,0.12)] md:p-10 lg:p-14"
@@ -303,7 +350,7 @@ const LandingNew = () => {
                   for meaningful treatment decisions without documentation fatigue.
                 </p>
 
-                
+
               </motion.div>
             </div>
           </motion.div>
@@ -311,14 +358,14 @@ const LandingNew = () => {
       </section>
 
       {/* SECTION 3 - Therapy Workflow Timeline with Timeline Reveal */}
-      <section className="relative overflow-hidden bg-[#f8f3f6] py-28 md:py-32">
+      <section className="relative overflow-hidden bg-[#f8f3f6] py-16 md:py-20">
 
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <motion.div
-            className="mb-16 text-center md:mb-20"
+            className="mb-12 text-center md:mb-14"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
+            viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.6 }}
           >
             <p className="mb-4 text-[0.65rem] font-semibold tracking-[0.32em] text-[#8b6a7d] uppercase">How It Works</p>
@@ -346,7 +393,7 @@ const LandingNew = () => {
             />
 
             {/* Timeline Steps */}
-            <div className="space-y-16 md:space-y-20">
+            <div className="space-y-12 md:space-y-16">
               {workflowSteps.map((step, index) => {
                 const isEven = index % 2 === 0;
                 const StepIcon = step.icon;
@@ -444,7 +491,7 @@ const LandingNew = () => {
                       )}
 
                       {/* Step 3: Live Transcription */}
-                      
+
 
                       {/* Step 4: SOAP Note */}
                       {step.id === 4 && (
@@ -532,12 +579,12 @@ const LandingNew = () => {
       </section>
 
       {/* SECTION 5 - Dashboard Preview */}
-      <section className="relative overflow-hidden bg-[#f6f1f7] py-28 md:py-32">
+      <section className="relative overflow-hidden bg-[#f6f1f7] py-16 md:py-20">
         <div className="pointer-events-none absolute -left-16 top-8 h-72 w-72 rounded-full bg-[#5A45A5]/8 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-[#7A68BA]/10 blur-3xl" />
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <motion.div
-            className="text-center mb-16"
+            className="text-center mb-10"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -660,7 +707,7 @@ const LandingNew = () => {
       </section>
 
       {/* Patient App Download Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#f6f1f7] via-[#f0eaf9] to-[#e8dff5] py-28 md:py-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#f6f1f7] via-[#f0eaf9] to-[#e8dff5] py-16 md:py-20">
         <div className="pointer-events-none absolute -right-32 top-1/4 h-96 w-96 rounded-full bg-gradient-to-br from-[#5A45A5]/15 to-[#7A68BA]/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-24 bottom-0 h-80 w-80 rounded-full bg-gradient-to-br from-[#8F74FF]/10 to-[#A78BFA]/5 blur-3xl" />
 
@@ -788,12 +835,12 @@ const LandingNew = () => {
                             <circle cx="58" cy="42" r="4" fill="#2d1b4e" />
                             <circle cx="82" cy="42" r="4" fill="#2d1b4e" />
                             <path d="M 58 60 Q 70 68 82 60" stroke="#2d1b4e" strokeWidth="2" fill="none" strokeLinecap="round" />
-                            
+
                             {/* Body/Hands */}
                             <rect x="55" y="85" width="30" height="25" rx="4" fill="#7B5FCB" opacity="0.8" />
                             <circle cx="45" cy="95" r="6" fill="#e8dff5" opacity="0.8" />
                             <circle cx="95" cy="95" r="6" fill="#e8dff5" opacity="0.8" />
-                            
+
                             {/* Decorative circles (emotions) */}
                             <circle cx="30" cy="30" r="8" fill="#FFC0CB" opacity="0.6" />
                             <circle cx="110" cy="40" r="10" fill="#A78BFA" opacity="0.6" />
@@ -831,7 +878,7 @@ const LandingNew = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#4c398f] via-[#5A45A5] to-[#6e5bb8] py-28 md:py-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#4c398f] via-[#5A45A5] to-[#6e5bb8] py-18 md:py-24">
         <div className="absolute inset-0">
           {[...Array(30)].map((_, i) => (
             <motion.div
