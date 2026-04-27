@@ -227,7 +227,7 @@ export interface CreatePatientResponse {
 export interface CreatePatientData {
   first_name: string;
   last_name: string;
-  email?: string;
+  email: string;
   phone_number: string;
   date_of_birth?: string;
   gender: string;
