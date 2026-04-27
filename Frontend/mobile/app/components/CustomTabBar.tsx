@@ -9,7 +9,7 @@ import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const VISIBLE_TABS = ['dashboard', 'actions', 'profile'];
+const VISIBLE_TABS = ['dashboard', 'actions', 'sessions', 'journal-list'];
 
 const TAB_META: Record<string, { label: string; icon: (color: string, size: number) => React.ReactNode }> = {
   dashboard: {
@@ -20,9 +20,13 @@ const TAB_META: Record<string, { label: string; icon: (color: string, size: numb
     label: 'Actions',
     icon: (color, size) => <MaterialIcons name="apps" size={size} color={color} />,
   },
-  profile: {
-    label: 'Profile',
-    icon: (color, size) => <FontAwesome name="user" size={size} color={color} />,
+  sessions: {
+    label: 'Sessions',
+    icon: (color, size) => <MaterialIcons name="event-available" size={size} color={color} />,
+  },
+  'journal-list': {
+    label: 'Journal',
+    icon: (color, size) => <FontAwesome name="book" size={size} color={color} />,
   },
 };
 
@@ -66,7 +70,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
           // Pill width: expands from ~48 to ~130 when active
           const pillWidth = anim.interpolate({
             inputRange: [0, 1],
-            outputRange: [44, 128],
+            outputRange: [44, 110],
           });
 
           // Label opacity fades in
@@ -148,7 +152,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingBottom: 4,
     height: 56,
   },
@@ -156,6 +160,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: 137, 
   },
   pill: {
     flexDirection: 'row',

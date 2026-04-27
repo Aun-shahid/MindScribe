@@ -124,6 +124,31 @@ export default function RelaxationSoundsScreen() {
   const playBtnRadius = playBtnSize / 2;
   const playIconSize = clamp(width * 0.047, 15, 21);
 
+  const filteredContent = content.filter((item) => {
+    const t = (item.title || '').toLowerCase();
+    const category = String(item.category || '').toLowerCase();
+    const contentType = String(item.content_type || '').toLowerCase();
+
+    const isBreathing = category === 'breathing' || contentType === 'breathing' || t.includes('breath') || t.includes('breathing');
+    const isBodyScan = category === 'body_scan' || contentType === 'body_scan' || t.includes('body scan') || t.includes('body-scan');
+    const isVisualization = category === 'visualization' || contentType === 'guided_meditation' || t.includes('visualization') || t.includes('guided meditation') || t.includes('guided-meditation');
+
+    return !isBreathing && !isBodyScan && !isVisualization;
+  });
+
+  const displayedContent = filteredContent.length > 0 ? filteredContent : content;
+
+  useEffect(() => {
+    console.log(
+      '[RelaxationSounds] counts => total:',
+      content.length,
+      'filtered:',
+      filteredContent.length,
+      'displayed:',
+      displayedContent.length
+    );
+  }, [content.length, filteredContent.length, displayedContent.length]);
+
   useEffect(() => {
     loadContent();
     
@@ -185,6 +210,7 @@ export default function RelaxationSoundsScreen() {
       const data = await PatientService.getRelaxationContent();
       // Store all content; tab UI will control what's shown
       setContent(data);
+      console.log('[RelaxationSounds] API items:', data.length);
     } catch (err: any) {
       console.error('Error loading relaxation content:', err);
       setError(err.response?.data?.detail || 'Unable to load relaxation sounds. Try again.');
@@ -366,21 +392,17 @@ export default function RelaxationSoundsScreen() {
           Nature sounds and ambient audio for relaxation
         </Text>
 
+        {filteredContent.length === 0 && content.length > 0 && (
+          <Text style={[styles.subtitle, { fontSize: clamp(width * 0.032, 11, 13), paddingHorizontal: contentHPad, marginBottom: 6 }]}>
+            Showing available relaxation items because ambient-only sounds were not found.
+          </Text>
+        )}
+
         {/* Content List */}
         <View style={[styles.contentList, { paddingHorizontal: contentHPad }]}>
-          {content
-              .filter((item) => {
-                const t = (item.title || '').toLowerCase();
-                const isBreathing = (item.category as string) === 'breathing' || (item.content_type as string) === 'breathing' || t.includes('breath') || t.includes('breathing');
-                const isBodyScan = (item.category as string) === 'body_scan' || (item.content_type as string) === 'body_scan' || t.includes('body scan') || t.includes('body-scan');
-                const isVisualization = (item.category as string) === 'visualization' || (item.content_type as string) === 'guided_meditation' || t.includes('visualization') || t.includes('guided meditation') || t.includes('guided-meditation');
-
-                // Relaxing Sounds page: exclude breathing, body-scan, and visualization items
-                return !isBreathing && !isBodyScan && !isVisualization;
-              })
-              .map((item) => (
-                <ContentCard key={item.id} item={item} />
-              ))}
+          {displayedContent.map((item) => (
+            <ContentCard key={item.id} item={item} />
+          ))}
         </View>
 
         {/* Footer Spacing */}

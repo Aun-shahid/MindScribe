@@ -19,9 +19,10 @@ export default function Layout() {
         },
       }}
     >
-      <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
-      <Tabs.Screen name="actions" options={{ title: 'Actions' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+<Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+<Tabs.Screen name="actions" options={{ title: 'Actions' }} />
+<Tabs.Screen name="sessions" options={{ title: 'Sessions' }} />
+<Tabs.Screen name="journal-list" options={{ title: 'Journal' }} />
       
 
       {/* Hidden routes */}
@@ -29,9 +30,9 @@ export default function Layout() {
       <Tabs.Screen name="activity-tracker" options={{ href: null }} />
       <Tabs.Screen name="activities" options={{ href: null }} />
       <Tabs.Screen name="log-activity" options={{ href: null }} />
-      <Tabs.Screen name="journal" options={{ href: null }} />
+      {/* <Tabs.Screen name="journal" options={{ href: null }} /> */}
       <Tabs.Screen name="create-journal" options={{ href: null }} />
-      <Tabs.Screen name="journal-list" options={{ href: null }} />
+      {/* <Tabs.Screen name="journal-list" options={{ href: null }} /> */}
       <Tabs.Screen name="journal-detail" options={{ href: null }} />
       <Tabs.Screen name="journal-edit" options={{ href: null }} />
       <Tabs.Screen name="journal-analytics-detail" options={{ href: null }} />
@@ -59,7 +60,7 @@ export default function Layout() {
       <Tabs.Screen name="emotional-insights-analytics" options={{ href: null }} />
       <Tabs.Screen name="emotional-insights-history" options={{ href: null }} />
       <Tabs.Screen name="connect-with-therapist" options={{ href: null }} />
-      <Tabs.Screen name="sessions" options={{ href: null }} />
+      {/* <Tabs.Screen name="sessions" options={{ href: null }} /> */}
       <Tabs.Screen name="session-detail" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="notification-settings" options={{ href: null }} />

@@ -137,7 +137,7 @@ export default function Dashboard() {
     sv: { y: ReturnType<typeof useSharedValue<number>>; x: ReturnType<typeof useSharedValue<number>> },
     dY: number, dX: number, delayY = 0, delayX = 0,
   ) => {
-    sv.y.value = 0; sv.x.value = 0;
+    // sv.y.value = 0; sv.x.value = 0;
     sv.y.value = withDelay(delayY, withRepeat(withSequence(
       withTiming(50,  { duration: dY, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
       withTiming(-50, { duration: dY, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
@@ -534,24 +534,32 @@ function DashboardHeader(p: any) {
     <>
       {/* HEADER */}
       <View style={[styles.header, { paddingTop: p.headerTopPadding }]}>
-        <View style={[styles.headerMetaRow, { marginHorizontal: p.dashboardCardSideInset }]}>
+        <View style={[styles.headerMetaRow, { marginHorizontal: p.dashboardCardSideInset, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
           <View style={[styles.dateBadge, { gap: clampLocal(width * 0.02, 6, 8) }]}>
             <MaterialIcons name="calendar-today" size={p.dateIconSize} color="rgba(255,255,255,0.72)" />
             <Text style={[styles.dateBadgeText, { fontSize: p.dateFontSize }]}>{p.todayLabel}</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.notificationCircle, { width: p.notifCircleSize, height: p.notifCircleSize, borderRadius: p.notifCircleSize / 2 }]}
-            onPress={() => router.push('./notifications' as any)}
-          >
-            <View style={{ position: 'relative' }}>
-              <FontAwesome name="bell" size={p.notifIconSize} color="#FFFFFF" />
-              {p.unreadCount > 0 && (
-                <View style={[styles.notificationBadge, { minWidth: p.notifBadgeMinW, height: p.notifBadgeH, borderRadius: p.notifBadgeH / 2 }]}>
-                  <Text style={styles.notificationBadgeText}>{p.unreadCount}</Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[styles.notificationCircle, { width: p.notifCircleSize, height: p.notifCircleSize, borderRadius: p.notifCircleSize / 2 }]}
+              onPress={() => router.push('/patient/profile' as any)}
+            >
+              <FontAwesome name="user-circle" size={p.notifIconSize} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.notificationCircle, { width: p.notifCircleSize, height: p.notifCircleSize, borderRadius: p.notifCircleSize / 2, marginLeft: 8 }]}
+              onPress={() => router.push('./notifications' as any)}
+            >
+              <View style={{ position: 'relative' }}>
+                <FontAwesome name="bell" size={p.notifIconSize} color="#FFFFFF" />
+                {p.unreadCount > 0 && (
+                  <View style={[styles.notificationBadge, { minWidth: p.notifBadgeMinW, height: p.notifBadgeH, borderRadius: p.notifBadgeH / 2 }]}>
+                    <Text style={styles.notificationBadgeText}>{p.unreadCount}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={[styles.headerIdentityRow, { marginTop: clampLocal(height * 0.012, 10, 14) }]}>

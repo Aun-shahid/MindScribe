@@ -44,6 +44,22 @@ export interface DashboardStats {
   cancelled_sessions: number;
 }
 
+export interface TherapistDashboardPatientStats {
+  total_patients: number;
+  max_patients: number;
+  can_accept_new: boolean;
+}
+
+export interface TherapistDashboardTherapistInfo {
+  full_name: string;
+  email: string;
+  specialization: string;
+  license_number: string;
+  clinic_name: string;
+  therapist_pin: string;
+  years_of_experience: number;
+}
+
 export interface TherapistDashboardSessionStats {
   today_sessions: number;
   upcoming_sessions: number;
@@ -65,9 +81,12 @@ export interface TherapistDashboardUpcomingSession {
 }
 
 export interface DashboardResponse {
-  stats: DashboardStats;
+  therapist_info?: TherapistDashboardTherapistInfo;
+  patient_stats?: TherapistDashboardPatientStats;
   session_stats?: TherapistDashboardSessionStats;
   notification_stats?: TherapistNotificationSummary;
+  today_sessions?: TherapistDashboardUpcomingSession[];
   upcoming_sessions: TherapistDashboardUpcomingSession[];
-  recent_activities: RecentActivity[];
+  recent_patients?: unknown[];
+  recent_activities?: RecentActivity[];
 }

@@ -166,7 +166,11 @@ export default function AddGoalPage() {
   };
 
   // Bubble animation effect
+  const animStarted = useRef(false);
   useEffect(() => {
+    if (animStarted.current) return;
+    animStarted.current = true;
+
     const createFloatingAnimation = (
       animatedValueY: Animated.Value,
       animatedValueX: Animated.Value,

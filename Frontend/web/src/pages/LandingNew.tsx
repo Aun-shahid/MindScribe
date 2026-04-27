@@ -8,7 +8,12 @@ import {
   Calendar,
   Clock,
   Users,
-  ArrowRight
+  ArrowRight,
+  Download,
+  Smartphone,
+  MessageCircle,
+  Lock,
+  TrendingUp
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
@@ -650,6 +655,177 @@ const LandingNew = () => {
                 ))}
               </div>
             </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Patient App Download Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#f6f1f7] via-[#f0eaf9] to-[#e8dff5] py-28 md:py-32">
+        <div className="pointer-events-none absolute -right-32 top-1/4 h-96 w-96 rounded-full bg-gradient-to-br from-[#5A45A5]/15 to-[#7A68BA]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 bottom-0 h-80 w-80 rounded-full bg-gradient-to-br from-[#8F74FF]/10 to-[#A78BFA]/5 blur-3xl" />
+
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              {/* Left Side - Content */}
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, delay: 0.1 }}
+              >
+                <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full bg-white/60 border border-[#dbc7d2]">
+                  <Smartphone className="text-[#5A45A5]" size={20} />
+                  <span className="text-sm font-semibold text-[#5A45A5]">Patient App</span>
+                </div>
+
+                <h2 className="mb-6 text-4xl md:text-5xl leading-tight text-[#5A45A5] font-serif">
+                  Looking to Connect with Your Therapist?
+                </h2>
+
+                <p className="mb-6 text-lg text-[#6E5F9E] leading-relaxed">
+                  Download the MindScribe patient app and stay connected with your therapy journey. Access session notes, track your progress, and communicate seamlessly with your therapist in one secure place.
+                </p>
+
+                <ul className="space-y-4 mb-10">
+                  {[
+                    { Icon: Calendar, text: 'Easy session booking and management' },
+                    { Icon: TrendingUp, text: 'View your progress and therapy insights' },
+                    { Icon: MessageCircle, text: 'Secure messaging with your therapist' },
+                    { Icon: Lock, text: 'Your privacy is our priority' }
+                  ].map((item, idx) => (
+                    <motion.div
+                      key={idx}
+                      className="flex items-center gap-4"
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.2 + idx * 0.1 }}
+                    >
+                      <item.Icon className="w-6 h-6 text-[#7B5FCB] flex-shrink-0" />
+                      <span className="text-[#5A45A5] font-medium">{item.text}</span>
+                    </motion.div>
+                  ))}
+                </ul>
+
+                <motion.a
+                  href="https://drive.google.com/file/d/1jCx83GcuFxjR5A4E7-bTa4winTW0_1cO/view?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-white transition transform"
+                  style={{
+                    background: 'linear-gradient(135deg, #7B5FCB, #8F74FF)',
+                    boxShadow: '0 12px 30px rgba(143,116,255,0.3)'
+                  }}
+                  whileHover={{ scale: 1.05, boxShadow: '0 16px 40px rgba(143,116,255,0.4)' }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Download size={22} />
+                  <span>Download App Now</span>
+                </motion.a>
+              </motion.div>
+
+              {/* Right Side - Visual */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: 40 }}
+                whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="relative"
+              >
+                {/* Decorative Phone Frame */}
+                <div className="relative mx-auto max-w-xs">
+                  {/* Outer Glow */}
+                  <motion.div
+                    className="absolute -inset-6 rounded-3xl bg-gradient-to-br from-[#8F74FF]/30 to-[#5A45A5]/20 blur-2xl"
+                    animate={{
+                      opacity: [0.4, 0.6, 0.4]
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity
+                    }}
+                  />
+
+                  {/* iPhone Frame */}
+                  <div className="relative rounded-[3rem] overflow-hidden border-8 border-[#1a1a1a] bg-[#1a1a1a] shadow-2xl" style={{ aspectRatio: '9/19.5' }}>
+                    {/* Status Bar */}
+                    <div className="h-6 bg-[#2d1b4e] border-b border-[#3d2d5e] flex items-center justify-between px-6 text-white text-xs">
+                      <span>11:20</span>
+                      <div className="flex gap-1">
+                        <span>📶</span>
+                        <span>📡</span>
+                        <span>🔋</span>
+                      </div>
+                    </div>
+
+                    {/* Notch */}
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-40 h-7 bg-[#1a1a1a] rounded-b-3xl z-20" />
+
+                    {/* Phone Content - Onboarding Screen */}
+                    <div className="h-full bg-gradient-to-b from-[#2d1b4e] via-[#3a2954] to-[#2d1b4e] p-6 flex flex-col justify-between overflow-hidden relative">
+                      {/* MindScribe Logo */}
+                      <div className="text-center pt-4">
+                        <div className="font-bold text-white text-sm mb-2">MindScribe</div>
+                      </div>
+
+                      {/* Illustration Area */}
+                      <motion.div
+                        className="flex-1 flex items-center justify-center"
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      >
+                        <div className="text-center">
+                          {/* Simple Illustration - Healing Journey */}
+                          <svg width="140" height="140" viewBox="0 0 140 140" className="mx-auto mb-4">
+                            {/* Happy face illustration */}
+                            <circle cx="70" cy="50" r="35" fill="#e8dff5" opacity="0.9" />
+                            <circle cx="58" cy="42" r="4" fill="#2d1b4e" />
+                            <circle cx="82" cy="42" r="4" fill="#2d1b4e" />
+                            <path d="M 58 60 Q 70 68 82 60" stroke="#2d1b4e" strokeWidth="2" fill="none" strokeLinecap="round" />
+                            
+                            {/* Body/Hands */}
+                            <rect x="55" y="85" width="30" height="25" rx="4" fill="#7B5FCB" opacity="0.8" />
+                            <circle cx="45" cy="95" r="6" fill="#e8dff5" opacity="0.8" />
+                            <circle cx="95" cy="95" r="6" fill="#e8dff5" opacity="0.8" />
+                            
+                            {/* Decorative circles (emotions) */}
+                            <circle cx="30" cy="30" r="8" fill="#FFC0CB" opacity="0.6" />
+                            <circle cx="110" cy="40" r="10" fill="#A78BFA" opacity="0.6" />
+                            <circle cx="25" cy="90" r="7" fill="#CFC2FF" opacity="0.5" />
+                          </svg>
+                        </div>
+                      </motion.div>
+
+                      {/* Onboarding Text */}
+                      <div className="text-center pb-8">
+                        <h2 className="text-xl font-bold text-white mb-2">
+                          Welcome to your
+                          <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#CFC2FF] to-[#A78BFA]">
+                            safe space
+                          </span>
+                        </h2>
+                        <p className="text-sm text-[#b6a5d6] mb-6">
+                          where healing begins gently
+                        </p>
+
+                        <button className="w-full py-3 bg-gradient-to-r from-[#7B5FCB] to-[#8F74FF] text-white rounded-full font-semibold text-sm">
+                          Get Started
+                        </button>
+
+                        {/* Swipe indicator */}
+                        <p className="text-xs text-[#8b7ba5] mt-6">Swipe left to continue →</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>

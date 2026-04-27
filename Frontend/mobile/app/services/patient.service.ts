@@ -488,8 +488,16 @@ class PatientService {
    * Get all relaxation content with optional filters
    */
   async getRelaxationContent(filters?: RelaxationFilters): Promise<RelaxationContent[]> {
-    const response = await api.get<RelaxationContent[]>('/patients/relaxation/content/', { params: filters });
-    const data = response.data || [];
+    const response = await api.get<any>('/patients/relaxation/content/', { params: filters });
+    const payload = response.data;
+    const data = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.results)
+        ? payload.results
+        : [];
+
+    console.log('[PatientService] Relaxation content parsed count:', data.length);
+
     // Normalize audio_url to a full URL if backend sent a relative path
     return data.map((item: any) => ({
       ...item,
