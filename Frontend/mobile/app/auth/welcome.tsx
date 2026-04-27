@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
+import { useAuthContext } from '../contexts/AuthContext';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,6 +22,18 @@ export default function Welcome() {
   const imageHeight = Math.min(height * 0.62, 520);
   const titleSize = width < 380 ? 32 : 38;
   const bottomSafeGap = Math.max(insets.bottom + 42, 54);
+    const { isAuthenticated, isLoading, user } = useAuthContext();
+
+    useEffect(() => {
+      // Only redirect if not loading and authenticated
+      if (!isLoading && isAuthenticated && user) {
+        if (user.user_type === 'therapist') {
+          router.replace('../therapist/dashboard');
+        } else {
+          router.replace('../patient/dashboard');
+        }
+      }
+    }, [isAuthenticated, isLoading, user]);
 
   const handleGetStarted = async () => {
     await AsyncStorage.setItem('selected_role', 'patient');

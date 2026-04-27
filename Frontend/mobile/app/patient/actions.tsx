@@ -96,7 +96,7 @@ export default function AllActionsScreen() {
       >
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>
-            <Text style={styles.headerBlue}>All </Text>
+              <Text style={styles.headerBlue}>All </Text>
             <Text style={styles.headerOrange}>Actions</Text>
           </Text>
         </View>
@@ -104,9 +104,9 @@ export default function AllActionsScreen() {
         {/* Connect with Therapist */}
         <TouchableOpacity activeOpacity={0.8} style={styles.cardWrapper} onPress={() => router.push('./connect-with-therapist?from=actions' as any)}>
           <LinearGradient colors={['#E6E0F8', '#D4C5F0']} style={styles.actionCard}>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Connect with Therapist</Text>
-              <Text style={styles.cardSubtitle}>Scan QR code or enter code manually to connect</Text>
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>Connect with Therapist</Text>
+                <Text style={styles.cardSubtitle}>Scan QR code or enter code manually to connect</Text>
               <View style={styles.actionRow}>
                 <View style={styles.actionItem}>
                   <MaterialCommunityIcons name="qrcode-scan" size={wp(4.5)} color="#7C5CDB" />
@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
     flex: 1, paddingRight: wp(2), paddingBottom: hp(1.8),
     justifyContent: 'flex-start',
   },
-  cardTitle: { fontSize: wp(4.8), fontWeight: '700', color: '#111', marginBottom: hp(0.4), lineHeight: wp(6) },
-  cardSubtitle: { fontSize: wp(3), color: '#333', marginBottom: hp(1.2), lineHeight: wp(4.3) },
+  cardTitle: { fontSize: Math.min(wp(4.8), 20), fontWeight: '700', color: '#111', marginBottom: hp(0.4), lineHeight: Math.min(wp(6), 26) },
+  cardSubtitle: { fontSize: Math.min(wp(3), 15), color: '#333', marginBottom: hp(1.2), lineHeight: Math.min(wp(4.3), 20) },
   actionRow: { flexDirection: 'row', gap: wp(2) },
   actionItem: {
     backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: wp(3),
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
   },
-  actionText: { fontSize: wp(3), fontWeight: '600' },
+  actionText: { fontSize: Math.min(wp(3), 13), fontWeight: '600' },
   imageContainer: { width: wp(35), height: hp(15), justifyContent: 'flex-end', alignItems: 'center' },
   cardImage: { width: wp(33), height: hp(13.5) },
 });
