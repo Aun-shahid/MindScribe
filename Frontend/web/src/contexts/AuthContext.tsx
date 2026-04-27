@@ -30,7 +30,7 @@ export type LoginResult =
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<LoginResult>;
-  loginWithGoogle: (credential: string, role: string) => Promise<LoginResult>;
+  loginWithGoogle: (credential: string, role: 'therapist' | 'patient') => Promise<LoginResult>;
   register: (userData: any) => Promise<{ success: boolean; needsVerification?: boolean; user?: any }>;
   logout: () => void;
   loading: boolean;
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const loginWithGoogle = async (credential: string, role: string): Promise<LoginResult> => {
+  const loginWithGoogle = async (credential: string, role: 'therapist' | 'patient'): Promise<LoginResult> => {
     try {
       setLoading(true);
       const response = await authService.loginWithGoogle(credential, role);
