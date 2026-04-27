@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,12 +11,34 @@ const Login = () => {
   const [passwordError, setPasswordError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
 
   // Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const handleGoogleSubmit = async (credential?: string) => {
+    if (!credential) {
+      setError('Google Login Failed');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await loginWithGoogle(credential, 'therapist');
+      if (!result.success) {
+        setError(result.message);
+      }
+    } catch (err) {
+      console.error('Google Login error:', err);
+      setError('Google Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -200,7 +223,12 @@ const Login = () => {
               )}
             </button>
 
-            
+            <div className="mt-4">
+              <GoogleLogin 
+                onSuccess={(resp) => handleGoogleSubmit(resp.credential)} 
+                onError={() => setError('Google Login Failed')} 
+              />
+            </div>
             
           </form>
 

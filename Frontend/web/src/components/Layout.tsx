@@ -310,20 +310,24 @@ const Layout = () => {
                   aria-expanded={isProfileMenuOpen}
                   aria-label="Open profile menu"
                 >
-                  {user?.avatar_url ? (
+                  {user?.avatar_url && (
                     <img
                       src={user.avatar_url}
                       alt=""
                       className="w-8 h-8 rounded-full object-cover border border-white/35 shrink-0 bg-white/10"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                     />
-                  ) : (
-                    <span
-                      className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold border border-white/30 shrink-0"
-                      aria-hidden
-                    >
-                      {profileInitials}
-                    </span>
                   )}
+                  <span
+                    className={`avatar-fallback ${user?.avatar_url ? 'hidden' : 'flex'} w-8 h-8 rounded-full bg-white/20 items-center justify-center text-[11px] font-bold border border-white/30 shrink-0`}
+                    aria-hidden
+                  >
+                    {profileInitials}
+                  </span>
                   <span className="hidden sm:inline">Profile</span>
                 </button>
 
@@ -425,17 +429,21 @@ const Layout = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               <span className="inline-flex items-center gap-2">
-                {user?.avatar_url ? (
+                {user?.avatar_url && (
                   <img
                     src={user.avatar_url}
                     alt=""
                     className="w-7 h-7 rounded-full object-cover border border-white/30 bg-white/10 shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold border border-white/25 shrink-0">
-                    {profileInitials}
-                  </span>
                 )}
+                <span className={`avatar-fallback ${user?.avatar_url ? 'hidden' : 'flex'} w-7 h-7 rounded-full bg-white/20 items-center justify-center text-[10px] font-bold border border-white/25 shrink-0`}>
+                  {profileInitials}
+                </span>
                 Profile
               </span>
             </Link>

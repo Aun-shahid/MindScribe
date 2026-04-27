@@ -329,17 +329,23 @@ const Profile = () => {
                 onChange={handleAvatarChange}
               />
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0">
-                {avatarUrl ? (
+                {avatarUrl && (
                   <img
                     src={avatarUrl}
                     alt=""
                     className="w-full h-full rounded-xl object-cover shadow-lg border-4 border-white/35 bg-white/10"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-lg border-4 border-white/30">
-                    {fullName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
-                  </div>
                 )}
+                <div 
+                  className={`avatar-fallback ${avatarUrl ? 'hidden' : 'flex'} w-full h-full bg-white/20 backdrop-blur-sm rounded-xl items-center justify-center text-2xl sm:text-3xl font-bold shadow-lg border-4 border-white/30`}
+                >
+                  {fullName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'T'}
+                </div>
                 {avatarUrl && (
                   <button
                     type="button"

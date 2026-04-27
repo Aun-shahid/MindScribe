@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, UserProfileView, ChangePasswordView, LogoutView,
     PasswordResetRequestView, PasswordResetConfirmView, EmailVerificationView,
-    RefreshTokenView, DeleteAccountView,
+    RefreshTokenView, DeleteAccountView, GoogleLoginView
 )
 from core.views import HealthCheckView
 
@@ -10,6 +10,7 @@ urlpatterns = [
     path('health/', HealthCheckView.as_view(), name='health_check'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
+    path('google/', GoogleLoginView.as_view(), name='google_login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', UserProfileView.as_view(), name='user_profile'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),

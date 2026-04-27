@@ -56,6 +56,9 @@ function App() {
             <Route path="/ResetConfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
             <Route path="/resetconfirm" element={<RedirectWithQuery to="/reset-confirm" />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+            <Route path="/help" element={<HelpCenter />} />
             
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
@@ -81,9 +84,6 @@ function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/qr-code" element={<QRCode />} />
                 <Route path="/notifications" element={<Notifications />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-                <Route path="/help" element={<HelpCenter />} />
                 {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}
               </Route>
             </Route>

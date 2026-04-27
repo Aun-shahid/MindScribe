@@ -15,6 +15,12 @@ class LoginSerializer(serializers.Serializer):
     role = serializers.ChoiceField(
         choices=[('patient', 'Patient'), ('therapist', 'Therapist')],
         required=False)
+
+class GoogleLoginSerializer(serializers.Serializer):
+    id_token = serializers.CharField(required=True)
+    role = serializers.ChoiceField(
+        choices=[('patient', 'Patient'), ('therapist', 'Therapist')],
+        required=False)
     
 
 # class RegisterSerializer(serializers.ModelSerializer):

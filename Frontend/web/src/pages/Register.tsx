@@ -4,6 +4,7 @@ import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { validatePasswordStrength } from '../utils/passwordValidation';
+import { GoogleLogin } from '@react-oauth/google';
 
 /** YYYY-MM-DD for a date N full calendar years before today (local). */
 function getIsoDateYearsAgo(years: number): string {
@@ -86,12 +87,34 @@ const Register = () => {
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register, isAuthenticated } = useAuth();
+  const { register, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const handleGoogleSubmit = async (credential?: string) => {
+    if (!credential) {
+      setError('Google Login Failed');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await loginWithGoogle(credential, 'therapist');
+      if (!result.success) {
+        setError(result.message);
+      }
+    } catch (err) {
+      console.error('Google Sign Up error:', err);
+      setError('Google Sign Up failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const phoneLocalDigits = formData.phone_number.replace(/^\+92/, '');
 
@@ -524,6 +547,14 @@ const Register = () => {
                 'Create Account'
               )}
             </button>
+            
+            <div className="mt-4 flex justify-center">
+              <GoogleLogin 
+                onSuccess={(resp) => handleGoogleSubmit(resp.credential)} 
+                onError={() => setError('Google Sign Up Failed')} 
+              />
+            </div>
+            
           </form>
 
           <div className="mt-6 text-center">

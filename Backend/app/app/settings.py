@@ -49,6 +49,9 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-xlb)p+*0f81&n^
 # AI Service Authentication Key (Shared with AI Service)
 AI_SERVICE_SECRET_KEY = os.environ.get("AI_SERVICE_SECRET_KEY", SECRET_KEY)
 
+# Google OAuth2 Client ID
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+
 # SECURITY WARNING: don't run with debug turned on in production!
 # IMPORTANT: In production, set DEBUG to False!
 DEBUG = env_bool("DJANGO_DEBUG", True)

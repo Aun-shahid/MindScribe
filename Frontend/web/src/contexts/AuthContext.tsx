@@ -30,6 +30,7 @@ export type LoginResult =
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<LoginResult>;
+  loginWithGoogle: (credential: string, role: string) => Promise<LoginResult>;
   register: (userData: any) => Promise<{ success: boolean; needsVerification?: boolean; user?: any }>;
   logout: () => void;
   loading: boolean;
@@ -94,6 +95,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         error instanceof Error && error.message
           ? error.message
           : 'Invalid email or password.';
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (credential: string, role: string): Promise<LoginResult> => {
+    try {
+      setLoading(true);
+      const response = await authService.loginWithGoogle(credential, role);
+      if (response.user) {
+        setUser(response.user);
+        return { success: true };
+      }
+      return { success: false, message: 'Google login failed.' };
+    } catch (error) {
+      console.error('Google login failed:', error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Google login failed.';
       return { success: false, message };
     } finally {
       setLoading(false);
@@ -227,6 +249,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const value: AuthContextType = {
     user,
     login,
+    loginWithGoogle,
     register,
     logout,
     loading,

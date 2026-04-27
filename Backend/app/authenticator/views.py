@@ -12,6 +12,10 @@ import uuid
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 from .models import PasswordResetToken, EmailVerificationToken
 from .token_manager import TokenManager
 from .services.email_service import ResendEmailService
@@ -19,7 +23,7 @@ from .serializers import (
     LoginSerializer, RegisterSerializer, UserProfileSerializer,
     ChangePasswordSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer, EmailVerificationSerializer,
-    DeleteAccountSerializer,
+    DeleteAccountSerializer, GoogleLoginSerializer,
 )
 from users.models import TherapistProfile, PatientProfile
 from users.services import AccountLinkingService
@@ -85,6 +89,117 @@ class LoginView(APIView):
                 return Response(response_data, status=status.HTTP_200_OK)
             return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class GoogleLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = GoogleLoginSerializer
+
+    @extend_schema(
+        summary="Google Login",
+        description="Authenticate user with Google credentials/token.",
+        request=GoogleLoginSerializer,
+        responses={
+            200: OpenApiResponse(description='Login successful, tokens issued.'),
+            400: OpenApiResponse(description='Invalid Google token or bad request.')
+        }
+    )
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        token = serializer.validated_data['id_token']
+        role = serializer.validated_data.get('role', 'patient')  # default to patient if not provided
+
+        try:
+            # Verify token and specify the expected audience (Client ID)
+            client_id = getattr(settings, "GOOGLE_CLIENT_ID", None)
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+            
+            email = idinfo.get("email")
+            first_name = idinfo.get("given_name", "")
+            last_name = idinfo.get("family_name", "")
+            
+            if not email:
+                return Response({"detail": "Token does not contain an email."}, status=status.HTTP_400_BAD_REQUEST)
+
+            User = get_user_model()
+            user, created = User.objects.get_or_create(email=email, defaults={
+                'username': email.split('@')[0] + "_" + str(uuid.uuid4())[:8],
+                'first_name': first_name,
+                'last_name': last_name,
+                'user_type': role,
+                'email_verified': True,
+                'is_active': True 
+            })
+
+            # if the user already existed but had no first/last name, we could update them here
+            if not created and not user.email_verified:
+                user.email_verified = True
+                user.save()
+
+            account_linking_info = None
+
+            if created:
+                if user.user_type == 'therapist':
+                    TherapistProfile.objects.get_or_create(
+                        user=user,
+                        defaults={
+                            'license_number': '',
+                            'specialization': '',
+                            'is_public': False,
+                        }
+                    )
+                elif user.user_type == 'patient':
+                    linked, message, linked_profile = AccountLinkingService.detect_and_link_during_registration(user)
+
+                    if linked and linked_profile:
+                        account_linking_info = {
+                            'account_linked': True,
+                            'message': message,
+                            'therapist_info': {
+                                'id': str(linked_profile.therapist.user.id),
+                                'name': linked_profile.therapist.user.full_name,
+                                'specialization': linked_profile.therapist.specialization,
+                                'clinic_name': linked_profile.therapist.clinic_name
+                            },
+                            'patient_id': linked_profile.patient_id,
+                            'linked_at': linked_profile.linked_at
+                        }
+                    else:
+                        PatientProfile.objects.get_or_create(
+                            user=user,
+                            defaults={'preferred_language': 'en'}
+                        )
+                        account_linking_info = {
+                            'account_linked': False,
+                            'message': message
+                        }
+
+            tokens = TokenManager.create_tokens(user)
+            
+            response_data = {
+                **tokens,
+                'user': {
+                    'id': str(user.id),
+                    'username': user.username,
+                    'email': user.email,
+                    'user_type': user.user_type,
+                    'email_verified': user.email_verified
+                }
+            }
+            
+            if user.user_type == 'therapist' and hasattr(user, 'therapist_profile'):
+                response_data['therapist_pin'] = user.therapist_profile.therapist_pin
+
+            if account_linking_info:
+                response_data['account_linking'] = account_linking_info
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            # Invalid token
+            return Response({"detail": f"Invalid token: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # Radia chnages

@@ -76,6 +76,29 @@ class AuthService {
     }
   }
 
+  async loginWithGoogle(credential: string, role: "therapist" | "patient"): Promise<AuthResponse> {
+    try {
+      const response = await api.post<AuthResponse>('/authenticator/google/', {
+        id_token: credential,
+        role: role,
+      });
+
+      localStorage.setItem('access_token', response.data.access);
+      localStorage.setItem('refresh_token', response.data.refresh);
+
+      try {
+        const full = await this.getProfile();
+        localStorage.setItem('user', JSON.stringify(full));
+        return { ...response.data, user: full as AuthResponse['user'] };
+      } catch {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return response.data;
+      }
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/authenticator/register/', data);
