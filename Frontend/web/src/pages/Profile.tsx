@@ -20,6 +20,9 @@ interface ProfileEditingState {
   clinic_address: boolean;
   specialization: boolean;
   years_of_experience: boolean;
+  phone_number: boolean;
+  date_of_birth: boolean;
+  license_number: boolean;
 }
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -52,6 +55,9 @@ const Profile = () => {
     clinic_address: false,
     specialization: false,
     years_of_experience: false,
+    phone_number: false,
+    date_of_birth: false,
+    license_number: false,
   });
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -86,7 +92,7 @@ const Profile = () => {
   const handleEdit = (field: keyof ProfileEditingState) => {
     setEditing({ ...editing, [field]: true });
     const userInfo = (profile as any)?.user_info;
-    if (field === 'first_name' || field === 'last_name' || field === 'username') {
+    if (['first_name', 'last_name', 'username', 'phone_number', 'date_of_birth'].includes(field)) {
       setFormData({ ...formData, [field]: userInfo?.[field] ?? '' });
     } else {
       setFormData({ ...formData, [field]: (profile as any)?.[field] || '' });
@@ -132,7 +138,7 @@ const Profile = () => {
     e.preventDefault();
     setPasswordNotice(null);
     const nextErrors: typeof passwordErrors = {};
-    if (!passwordForm.old.trim()) {
+    if (!passwordForm.old.trim() && userInfo?.has_usable_password) {
       nextErrors.old = 'Current password is required';
     }
     const newErr = validatePasswordStrength(passwordForm.new, 'New password is required');
@@ -445,8 +451,33 @@ const Profile = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <HeaderReadOnlyChip label="Email" value={userInfo?.email} />
-                <HeaderReadOnlyChip label="Phone" value={userInfo?.phone_number} />
-                <HeaderReadOnlyChip label="Date of birth" value={formatDobDisplay(userInfo?.date_of_birth)} />
+                <ProfileEditableField
+                  label="Phone"
+                  value={userInfo?.phone_number}
+                  field="phone_number"
+                  editing={editing.phone_number}
+                  formData={formData.phone_number}
+                  onEdit={() => handleEdit('phone_number')}
+                  onCancel={() => handleCancel('phone_number')}
+                  onSave={() => handleSave('phone_number')}
+                  onChange={(value: string) => setFormData({ ...formData, phone_number: value })}
+                  onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'phone_number')}
+                  tone="header"
+                />
+                <ProfileEditableField
+                  label="Date of birth"
+                  value={userInfo?.date_of_birth}
+                  field="date_of_birth"
+                  type="date"
+                  editing={editing.date_of_birth}
+                  formData={formData.date_of_birth}
+                  onEdit={() => handleEdit('date_of_birth')}
+                  onCancel={() => handleCancel('date_of_birth')}
+                  onSave={() => handleSave('date_of_birth')}
+                  onChange={(value: string) => setFormData({ ...formData, date_of_birth: value })}
+                  onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'date_of_birth')}
+                  tone="header"
+                />
                 <HeaderReadOnlyChip
                   label="Total patients"
                   value={String((profile as any)?.patient_count ?? 0)}
@@ -498,7 +529,18 @@ const Profile = () => {
                 onChange={(value: string) => setFormData({ ...formData, specialization: value })}
                 onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'specialization')}
               />
-              <InfoField label="License Number" value={(profile as any)?.license_number} readOnly />
+              <ProfileEditableField
+                label="License Number"
+                value={(profile as any)?.license_number}
+                field="license_number"
+                editing={editing.license_number}
+                formData={formData.license_number}
+                onEdit={() => handleEdit('license_number')}
+                onCancel={() => handleCancel('license_number')}
+                onSave={() => handleSave('license_number')}
+                onChange={(value: string) => setFormData({ ...formData, license_number: value })}
+                onKeyPress={(e: React.KeyboardEvent) => handleKeyPress(e, 'license_number')}
+              />
               <ProfileEditableField
                 label="Years of Experience"
                 value={(profile as any)?.years_of_experience}
@@ -628,19 +670,25 @@ const Profile = () => {
                     {passwordNotice.text}
                   </p>
                 )}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Current password</label>
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={passwordForm.old}
-                    onChange={(e) => setPasswordField('old', e.target.value)}
-                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 ${
-                      passwordErrors.old ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {passwordErrors.old && <p className="text-red-500 text-xs mt-1">{passwordErrors.old}</p>}
-                </div>
+                {!userInfo?.has_usable_password ? (
+                  <p className="text-sm text-purple-700 bg-purple-50 p-3 rounded-lg border border-purple-100 mb-4">
+                    Since you signed up via Google, you don't have a password set yet. Create one below if you'd like to sign in with your email and a password in the future.
+                  </p>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Current password</label>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={passwordForm.old}
+                      onChange={(e) => setPasswordField('old', e.target.value)}
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                        passwordErrors.old ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    {passwordErrors.old && <p className="text-red-500 text-xs mt-1">{passwordErrors.old}</p>}
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">New password</label>
                   <input
@@ -674,7 +722,7 @@ const Profile = () => {
                   disabled={passwordSaving}
                   className="w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-60"
                 >
-                  {passwordSaving ? 'Updating…' : 'Change password'}
+                  {passwordSaving ? 'Updating…' : (userInfo?.has_usable_password ? 'Change password' : 'Create password')}
                 </button>
               </form>
 

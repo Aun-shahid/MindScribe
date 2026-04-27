@@ -164,6 +164,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     can_change_username = serializers.SerializerMethodField(read_only=True)
     next_username_change_at = serializers.SerializerMethodField(read_only=True)
     avatar_url = serializers.SerializerMethodField(read_only=True)
+    has_usable_password = serializers.SerializerMethodField(read_only=True)
     clear_avatar = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
@@ -172,11 +173,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'user_type', 'phone_number', 'date_of_birth', 'email_verified',
             'can_change_username', 'next_username_change_at',
-            'avatar', 'avatar_url', 'clear_avatar',
+            'avatar', 'avatar_url', 'clear_avatar', 'has_usable_password'
         ]
         read_only_fields = [
             'id', 'email', 'user_type', 'email_verified',
             'can_change_username', 'next_username_change_at', 'avatar_url',
+            'has_usable_password'
         ]
         extra_kwargs = {
             'avatar': {'write_only': True, 'required': False},
@@ -190,6 +192,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if next_at is None or obj.can_change_username_now():
             return None
         return next_at.isoformat()
+
+    def get_has_usable_password(self, obj):
+        return obj.has_usable_password()
 
     def get_avatar_url(self, obj):
         return user_avatar_absolute_url(obj, self.context.get('request'))
@@ -238,7 +243,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
+    old_password = serializers.CharField(required=False, allow_blank=True)
     new_password = serializers.CharField(required=True, validators=[validate_password])
     new_password_confirm = serializers.CharField(required=True)
 
