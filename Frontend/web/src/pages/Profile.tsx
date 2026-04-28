@@ -83,11 +83,7 @@ const Profile = () => {
     ? `${userInfo.first_name || ''} ${userInfo.last_name || ''}`.trim()
     : 'N/A';
 
-  const formatDobDisplay = (d?: string | null) => {
-    if (!d) return '—';
-    const x = new Date(d as string);
-    return Number.isNaN(x.getTime()) ? String(d) : x.toLocaleDateString();
-  };
+
 
   const handleEdit = (field: keyof ProfileEditingState) => {
     setEditing({ ...editing, [field]: true });
