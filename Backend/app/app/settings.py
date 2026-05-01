@@ -305,7 +305,7 @@ else:
         "CORS_ALLOWED_ORIGINS",
         [
             os.environ.get("FRONTEND_URL", "http://localhost:3000"),
-            "http://127.0.0.1:3000","https://mindscribe.api.dev.codexcape.solutions"
+            "http://127.0.0.1:3000","mindscribe.api.dev.codexcape.solutions"
         ],
     )
 
@@ -318,7 +318,7 @@ CSRF_TRUSTED_ORIGINS = env_list(
         "https://*.railway.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://mindscribe.api.dev.codexcape.solutions",
+        "mindscribe.api.dev.codexcape.solutions",
     ],
 )
 
