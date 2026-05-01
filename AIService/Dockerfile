@@ -37,4 +37,4 @@ EXPOSE 8080
 
 # Run the application with uvicorn
 # We use a shell-form CMD to allow environment variable expansion
-CMD uvicorn src.main:app --host 0.0.0.0 --port 8080
+CMD uvicorn src.main:app --host 0.0.0.0 --port 8000
