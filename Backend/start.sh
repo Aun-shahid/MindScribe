@@ -17,4 +17,4 @@ python manage.py migrate
 echo "Starting server..."
 # Use Daphne for ASGI (Channels support)
 # Railway provides the PORT environment variable
-exec daphne -b 0.0.0.0 -p ${PORT:-8000} app.asgi:application
+exec daphne -b 0.0.0.0 -p 8000 app.asgi:application
