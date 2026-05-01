@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime
 import base64
 import os
+from pathlib import Path
 import requests
 
 from ..auth import (
@@ -485,6 +486,20 @@ async def _run_full_pipeline(
         # ── Step 2 ──────────────────────────────────────────────────────────
         tmp_resampled = _raw_pcm_to_wav(tmp_raw, sample_rate=16000)
         logger.info(f"[PIPELINE] Step 2 — 16kHz WAV ready")
+
+        # ── Step 2.5: Local PII Redaction (CPU) ─────────────────────────────
+        # This keeps PII local and ensures external APIs only see redacted audio.
+        # We run this in a thread to avoid blocking the main event loop.
+        from ..services.audio_redaction import get_audio_privacy_guard
+        logger.info("[PIPELINE] Step 2.5 — Local audio redaction (CPU)...")
+        guard = get_audio_privacy_guard()
+        tmp_redacted = str(Path(tmp_resampled).with_name(f"{Path(tmp_resampled).stem}_redacted.wav"))
+        await asyncio.to_thread(guard.redact_audio_file, tmp_resampled, output_path=tmp_redacted)
+        
+        # Cleanup original unredacted WAV and swap to redacted version
+        if os.path.exists(tmp_resampled):
+            os.unlink(tmp_resampled)
+        tmp_resampled = tmp_redacted
 
         # Load full audio once for slicing (used in steps 4 and 7)
         from pydub import AudioSegment as PydubSegment
