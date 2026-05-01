@@ -27,7 +27,7 @@ COPY start.sh /app/start.sh
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Expose the port (Railway uses PORT env var, but 8000 is a good default)
-EXPOSE 8000
+EXPOSE 8080
 
 # Run the start script
 CMD ["/app/start.sh"]
