@@ -64,7 +64,7 @@ if env_bool("DJANGO_BEHIND_PROXY", not DEBUG):
 # ALLOWED_HOSTS for production. Add your domain and Elastic Beanstalk URL here.
 # For development, if DEBUG is True, ['*'] is often used, but it's safer to specify.
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if os.environ.get("DJANGO_ALLOWED_HOSTS") else []
-DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost", ".railway.app", "healthcheck.railway.app", "mindscribe.api.dev.codexcape.solutions"]
+DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost", ".railway.app", "healthcheck.railway.app", "mindscribe.api.dev.codexcape.solutions","mindscribe-api.dev.codexcape.solutions"]
 ENV_ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", [])
 ALLOWED_HOSTS = list(dict.fromkeys(DEFAULT_ALLOWED_HOSTS + ENV_ALLOWED_HOSTS))
 
