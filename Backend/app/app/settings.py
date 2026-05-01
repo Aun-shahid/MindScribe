@@ -318,6 +318,7 @@ CSRF_TRUSTED_ORIGINS = env_list(
         "https://*.railway.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://mindscribe.api.dev.codexcape.solutions",
     ],
 )
 
