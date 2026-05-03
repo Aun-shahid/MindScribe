@@ -1526,6 +1526,13 @@ async def _auto_generate_post_pipeline_outputs(
     try:
         session_uuid = uuid.UUID(django_session_id)
         async with get_db_context() as db:
+            # Check if session exists in DB before trying to save insights (FK constraint)
+            session_result = await db.execute(select(SessionDB).where(SessionDB.id == session_uuid))
+            session_row = session_result.scalar_one_or_none()
+            if not session_row:
+                logger.warning("[PIPELINE] Skipping insights generation: session %s not found in 'sessions' table (required for FK constraint)", django_session_id)
+                return generated_items
+
             context = await _build_insight_context(db, session_id=django_session_id, session_uuid=session_uuid)
             generated = await _generate_insight_payload(context)
             emotional_patterns = _build_emotional_patterns(context, generated)
