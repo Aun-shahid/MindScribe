@@ -6,10 +6,11 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, User, Calendar, Clock, FileText,
-  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star
+  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star, Sparkles, Activity
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { aiServiceUrl } from '../config';
-import { useSessionDetail } from '../hooks/useSessions';
+import { useSessionDetail, useSessionInsights } from '../hooks/useSessions';
 import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 // ─── Emotion colours for the badge ──────────────────────────────────────────
@@ -908,6 +909,104 @@ const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: str
   );
 };
 
+// ─── AI Insights Section ─────────────────────────────────────────────────────
+
+const normalizeEmotionalPatterns = (
+  emotionalPatterns: string[] | string | Record<string, unknown> | null | undefined
+): string[] => {
+  if (!emotionalPatterns) return [];
+  if (Array.isArray(emotionalPatterns)) return emotionalPatterns.map(s => String(s).trim()).filter(Boolean);
+  if (typeof emotionalPatterns === 'string') return emotionalPatterns.replace(/;/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+  const obj = emotionalPatterns as Record<string, any>;
+  if (Array.isArray(obj.high_level_patterns)) return obj.high_level_patterns.map((s: any) => String(s).trim()).filter(Boolean);
+  return [];
+};
+
+const markdownComponents = {
+  h1: (props: any) => <h3 className="text-base font-semibold text-gray-900 mb-2" {...props} />,
+  h2: (props: any) => <h4 className="text-sm font-semibold text-gray-900 mb-2" {...props} />,
+  p: (props: any) => <p className="text-sm text-gray-700 leading-relaxed mb-2 last:mb-0" {...props} />,
+  ul: (props: any) => <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1 mb-2" {...props} />,
+  li: (props: any) => <li className="leading-relaxed" {...props} />,
+};
+
+const AIInsightsSection: React.FC<{ sessionId: string; sessionStatus?: string }> = ({
+  sessionId,
+  sessionStatus,
+}) => {
+  const { insight, loading, error, fetchInsights } = useSessionInsights(sessionId, { autoFetch: false });
+  const isCompletedSession = String(sessionStatus || '').toUpperCase() === 'COMPLETED';
+
+  React.useEffect(() => {
+    if (isCompletedSession && !insight && !loading) {
+      fetchInsights();
+    }
+  }, [isCompletedSession, sessionId, insight, loading, fetchInsights]);
+
+  if (!isCompletedSession) return null;
+
+  if (loading) return (
+    <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-fuchsia-500" />
+      Loading AI insights…
+    </div>
+  );
+
+  if (error || !insight) return (
+    <p className="text-sm text-gray-400 py-3 italic">AI insights not yet available for this session.</p>
+  );
+
+  const patterns = normalizeEmotionalPatterns(insight.emotional_patterns);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Overall Mood</div>
+          <div className="text-lg font-bold text-gray-900 capitalize">{insight.overall_mood || 'N/A'}</div>
+        </div>
+        <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Mood Score</div>
+          <div className="text-lg font-bold text-gray-900">
+            {insight.mood_score !== null ? `${insight.mood_score.toFixed(1)}/10` : 'N/A'}
+          </div>
+        </div>
+      </div>
+
+      {insight.key_themes && insight.key_themes.length > 0 && (
+        <div>
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Key Themes</h4>
+          <div className="flex flex-wrap gap-2">
+            {insight.key_themes.map((t, i) => (
+              <span key={i} className="px-3 py-1 rounded-full bg-fuchsia-50 text-fuchsia-700 text-xs font-semibold border border-fuchsia-100">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recommendations</h4>
+        <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+          <ReactMarkdown components={markdownComponents}>
+            {insight.recommendations || 'No recommendations available.'}
+          </ReactMarkdown>
+        </div>
+      </div>
+
+      {patterns.length > 0 && (
+        <div>
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Emotional Patterns</h4>
+          <p className="text-sm text-gray-600 leading-relaxed italic bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50">
+            {patterns.join(', ')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── END BLOCK 1 ─────────────────────────────────────────────────────────────
 
 
@@ -1144,6 +1243,21 @@ const SessionDetailView: React.FC = () => {
   </div>
   <div className="p-6">
     <EmotionalProfileSection sessionId={id!} sessionStatus={session.status} />
+  </div>
+</div>
+
+<div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+  <div className="bg-gradient-to-r from-fuchsia-50 to-indigo-100/60 px-6 py-4 border-b border-fuchsia-200">
+    <h3 className="text-lg font-bold text-gray-900 flex items-center">
+      <Sparkles className="mr-2 text-fuchsia-600" size={20} />
+      AI Insights
+      <span className="ml-2 text-xs font-normal text-gray-400">
+        Coaching & Clinical Patterns
+      </span>
+    </h3>
+  </div>
+  <div className="p-6">
+    <AIInsightsSection sessionId={id!} sessionStatus={session.status} />
   </div>
 </div>
 

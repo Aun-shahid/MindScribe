@@ -181,8 +181,10 @@ const SessionDetailPage: React.FC = () => {
   const {
     insight: sessionInsight,
     loading: insightsLoading,
+    generating: insightsGenerating,
     error: insightsError,
     fetchInsights,
+    generateInsights,
     clearError: clearInsightsError,
   } = useSessionInsights(session?.status === 'COMPLETED' ? id! : '', { autoFetch: false });
 
@@ -1265,11 +1267,21 @@ const SessionDetailPage: React.FC = () => {
         {activeTab === 'ai-insights' && (
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-fuchsia-50 to-indigo-100/60 px-6 py-4 border-b border-fuchsia-200">
-              <div>
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">AI Insights</h3>
                   <p className="text-sm text-gray-600 mt-1">Therapist coaching insights generated from notes, SOAP, transcription, and emotion signals.</p>
                 </div>
+                {isCompletedSession && (
+                  <button
+                    onClick={() => generateInsights(true)}
+                    disabled={insightsLoading || insightsGenerating}
+                    className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    <Activity size={16} className={`mr-2 ${insightsLoading || insightsGenerating ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1340,8 +1352,15 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-500 mb-1">AI insights are generated automatically after pipeline completion.</p>
-                  <p className="text-sm text-gray-400">If this is a newly completed session, please refresh in a moment.</p>
+                  <p className="text-gray-500 mb-4">AI insights are generated automatically after pipeline completion.</p>
+                  <button
+                    onClick={() => generateInsights(true)}
+                    disabled={insightsLoading || insightsGenerating}
+                    className="inline-flex items-center px-4 py-2 bg-fuchsia-600 text-white rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={16} className="mr-2" /> {insightsLoading || insightsGenerating ? 'Generating...' : 'Generate AI Insights'}
+                  </button>
+                  <p className="text-xs text-gray-400 mt-3">If this is a newly completed session, please refresh in a moment.</p>
                 </div>
               )}
 
