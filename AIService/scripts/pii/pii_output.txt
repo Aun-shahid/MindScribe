@@ -1,0 +1,12 @@
+Start: 40.89s, End: 42.11s, Type: LOCATION, Text: street number 8
+Start: 42.77s, End: 43.49s, Type: LOCATION, Text: phase 7
+Start: 50.27s, End: 54.55s, Type: CREDIT_CARD, Text: 4524883331229900
+Start: 8.37s, End: 9.23s, Type: PERSON, Text: Adnan Shahida
+Start: 11.07s, End: 17.43s, Type: CNIC, Text: 3740598765431
+Start: 33.23s, End: 35.59s, Type: PERSON, Text: adnan .test2024
+Start: 35.85s, End: 36.71s, Type: PERSON, Text: gmail .com
+Start: 38.41s, End: 40.89s, Type: LOCATION, Text: home number 222
+Start: 42.11s, End: 42.49s, Type: LOCATION, Text: Bahria
+Start: 43.83s, End: 44.33s, Type: LOCATION, Text: Rawalpindi
+Start: 21.41s, End: 24.87s, Type: PHONE_NUMBER, Text: 03215551234
+Start: 27.61s, End: 31.09s, Type: PHONE_NUMBER, Text: 0514448899

@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "language": "Urdu (Roman)",
+    "region": "Pakistan",
+    "description": "Synthetic PII for testing audio/text redaction models",
+    "total_entities": 9
+  },
+  "original_transcript": "Ji bilkul, mein apni file update karwanay ke liye tamam tafseelaat likhwa deta hoon. Mera poora naam Adnan Shahid hai aur mera shanakhti card number note kar lain: 37405-9876543-1. Jahan tak raabtay ka taluq hai, aap mujhe meray personal mobile number 0321-5551234 par call kar saktay hain, aur mera mutabadil number 051-4448899 hai. Mera email address adnan.test2024@gmail.com hai aur mein filhal Makan number 212, Gali number 8, Bahria Town Phase 7, Rawalpindi mein muqeem hoon. Adaigi ke liye mein apna debit card istemal karoon ga jis ka number 4524-8833-1122-9900 hai aur is ki miyaad December 2027 tak hai. Baraye meherbani yeh tamam maloomat system mein update kar dain takay ayinda koi masla na ho.",
+  "pii_entities": [
+    {
+      "type": "PERSON",
+      "value": "Adnan Shahid",
+      "reasoning": "Full name of the individual."
+    },
+    {
+      "type": "GOVERNMENT_ID",
+      "sub_type": "CNIC",
+      "value": "37405-9876543-1",
+      "pattern": "XXXXX-XXXXXXX-X"
+    },
+    {
+      "type": "PHONE_NUMBER",
+      "sub_type": "MOBILE",
+      "value": "0321-5551234",
+      "provider_code": "0321"
+    },
+    {
+      "type": "PHONE_NUMBER",
+      "sub_type": "LANDLINE",
+      "value": "051-4448899",
+      "city_code": "051"
+    },
+    {
+      "type": "EMAIL_ADDRESS",
+      "value": "adnan.test2024@gmail.com"
+    },
+    {
+      "type": "LOCATION",
+      "sub_type": "FULL_ADDRESS",
+      "value": "Makan number 212, Gali number 8, Bahria Town Phase 7, Rawalpindi",
+      "components": {
+        "house": "212",
+        "street": "8",
+        "area": "Bahria Town Phase 7",
+        "city": "Rawalpindi"
+      }
+    },
+    {
+      "type": "CREDIT_CARD",
+      "value": "4524-8833-1122-9900",
+      "issuer": "Visa/Mastercard Placeholder"
+    },
+    {
+      "type": "DATE",
+      "sub_type": "EXPIRY_DATE",
+      "value": "December 2027"
+    }
+  ],
+  "expected_redacted_transcript": "Ji bilkul, mein apni file update karwanay ke liye tamam tafseelaat likhwa deta hoon. Mera poora naam [REDACTED] hai aur mera shanakhti card number note kar lain: [REDACTED]. Jahan tak raabtay ka taluq hai, aap mujhe meray personal mobile number [REDACTED] par call kar saktay hain, aur mera mutabadil number [REDACTED] hai. Mera email address [REDACTED] hai aur mein filhal [REDACTED] mein muqeem hoon. Adaigi ke liye mein apna debit card istemal karoon ga jis ka number [REDACTED] hai aur is ki miyaad [REDACTED] tak hai. Baraye meherbani yeh tamam maloomat system mein update kar dain takay ayinda koi masla na ho."
+}

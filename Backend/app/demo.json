@@ -1,0 +1,507 @@
+[
+    {
+        "model": "therapy_sessions.session",
+        "pk": "1ae061be-becd-4bb0-8758-47d32351776f",
+        "fields": {
+            "patient": "3180957b-b02c-4ad3-89c0-a38a163ef6ef",
+            "therapist": "18ef7c96-74e4-433c-8d47-fa0e94709bc2",
+            "session_number": 1,
+            "session_type": "individual",
+            "is_recurring": false,
+            "scheduled_date": "2026-04-17T04:13:24.451996+00:00",
+            "actual_start_time": "2026-04-17T04:13:24.451996+00:00",
+            "actual_end_time": "2026-04-17T05:03:24.451996+00:00",
+            "duration_minutes": 50,
+            "status": "COMPLETED",
+            "location": "Online Video",
+            "is_online": true,
+            "session_notes": "Initial discussion on workplace anxiety.",
+            "session_summary": "Summary of session 1",
+            "patient_goals": "Manage anxiety and stress",
+            "homework_assigned": "Keep a daily mood journal.",
+            "patient_mood_before": 5,
+            "patient_mood_after": 7,
+            "session_effectiveness": 8,
+            "consent_recording": true,
+            "consent_ai_analysis": true,
+            "websocket_room_id": "24141457-31d4-4a2b-b6ea-9248fb8e2417",
+            "created_at": "2026-04-17T04:13:24.451996+00:00",
+            "updated_at": "2026-04-17T05:03:24.451996+00:00"
+        }
+    },
+    {
+        "model": "therapy_sessions.session",
+        "pk": "1a5a418b-3089-458a-9193-eec0918fc6c3",
+        "fields": {
+            "patient": "3180957b-b02c-4ad3-89c0-a38a163ef6ef",
+            "therapist": "18ef7c96-74e4-433c-8d47-fa0e94709bc2",
+            "session_number": 2,
+            "session_type": "individual",
+            "is_recurring": false,
+            "scheduled_date": "2026-04-24T04:13:24.451996+00:00",
+            "actual_start_time": "2026-04-24T04:13:24.451996+00:00",
+            "actual_end_time": "2026-04-24T05:03:24.451996+00:00",
+            "duration_minutes": 50,
+            "status": "COMPLETED",
+            "location": "Online Video",
+            "is_online": true,
+            "session_notes": "Follow-up on prioritization homework. Good progress.",
+            "session_summary": "Summary of session 2",
+            "patient_goals": "Manage anxiety and stress",
+            "homework_assigned": "Keep a daily mood journal.",
+            "patient_mood_before": 5,
+            "patient_mood_after": 7,
+            "session_effectiveness": 8,
+            "consent_recording": true,
+            "consent_ai_analysis": true,
+            "websocket_room_id": "e9cea7ae-0d13-4fc7-bf14-69d2138797be",
+            "created_at": "2026-04-24T04:13:24.451996+00:00",
+            "updated_at": "2026-04-24T05:03:24.451996+00:00"
+        }
+    },
+    {
+        "model": "therapy_sessions.session",
+        "pk": "238aa425-f1ff-42de-a218-202418a92852",
+        "fields": {
+            "patient": "3180957b-b02c-4ad3-89c0-a38a163ef6ef",
+            "therapist": "18ef7c96-74e4-433c-8d47-fa0e94709bc2",
+            "session_number": 3,
+            "session_type": "individual",
+            "is_recurring": false,
+            "scheduled_date": "2026-05-01T04:13:24.451996+00:00",
+            "actual_start_time": "2026-05-01T04:13:24.451996+00:00",
+            "actual_end_time": null,
+            "duration_minutes": 50,
+            "status": "IN_PROGRESS",
+            "location": "Online Video",
+            "is_online": true,
+            "session_notes": "Session currently ongoing.",
+            "session_summary": "Summary of session 3",
+            "patient_goals": "Manage anxiety and stress",
+            "homework_assigned": "Keep a daily mood journal.",
+            "patient_mood_before": null,
+            "patient_mood_after": null,
+            "session_effectiveness": null,
+            "consent_recording": true,
+            "consent_ai_analysis": true,
+            "websocket_room_id": "e4731713-2789-4cba-9b58-ae6c920518aa",
+            "created_at": "2026-05-01T04:13:24.451996+00:00",
+            "updated_at": "2026-05-01T04:13:24.451996+00:00"
+        }
+    },
+    {
+        "model": "therapy_sessions.session",
+        "pk": "4c95de1d-6b2e-46a7-99cb-139679b034da",
+        "fields": {
+            "patient": "3180957b-b02c-4ad3-89c0-a38a163ef6ef",
+            "therapist": "18ef7c96-74e4-433c-8d47-fa0e94709bc2",
+            "session_number": 4,
+            "session_type": "individual",
+            "is_recurring": false,
+            "scheduled_date": "2026-05-08T04:13:24.451996+00:00",
+            "actual_start_time": null,
+            "actual_end_time": null,
+            "duration_minutes": 50,
+            "status": "UPCOMING",
+            "location": "Online Video",
+            "is_online": true,
+            "session_notes": "",
+            "session_summary": "Summary of session 4",
+            "patient_goals": "Manage anxiety and stress",
+            "homework_assigned": "Keep a daily mood journal.",
+            "patient_mood_before": null,
+            "patient_mood_after": null,
+            "session_effectiveness": null,
+            "consent_recording": true,
+            "consent_ai_analysis": true,
+            "websocket_room_id": "607c7a89-73b6-42e1-b765-cf26c363d012",
+            "created_at": "2026-05-08T04:13:24.451996+00:00",
+            "updated_at": "2026-05-08T04:13:24.451996+00:00"
+        }
+    },
+    {
+        "model": "transcription.transcription",
+        "pk": "058693ad-f154-4e2b-ad90-e101897acbfb",
+        "fields": {
+            "session": "1ae061be-becd-4bb0-8758-47d32351776f",
+            "status": "completed",
+            "language_detected": "en",
+            "processing_started_at": "2026-04-17T05:03:24.451996+00:00",
+            "processing_completed_at": "2026-04-17T05:08:24.451996+00:00"
+        }
+    },
+    {
+        "model": "transcription.transcription",
+        "pk": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+        "fields": {
+            "session": "1a5a418b-3089-458a-9193-eec0918fc6c3",
+            "status": "completed",
+            "language_detected": "en",
+            "processing_started_at": "2026-04-24T05:03:24.451996+00:00",
+            "processing_completed_at": "2026-04-24T05:08:24.451996+00:00"
+        }
+    },
+    {
+        "model": "transcription.transcription",
+        "pk": "6e5d9834-0672-41f2-92c2-5cf047551236",
+        "fields": {
+            "session": "238aa425-f1ff-42de-a218-202418a92852",
+            "status": "processing",
+            "language_detected": "en",
+            "processing_started_at": "2026-05-01T04:13:24.451996+00:00",
+            "processing_completed_at": null
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 1,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "therapist",
+            "text": "Hello, how are you feeling today?",
+            "start_time": 0.0,
+            "end_time": 3.0,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 2,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "patient",
+            "text": "A bit overwhelmed, to be honest. Work has been piling up.",
+            "start_time": 4.2,
+            "end_time": 9.2,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 3,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "therapist",
+            "text": "I hear you. When you say overwhelming, what specific part of work feels that way?",
+            "start_time": 10.4,
+            "end_time": 16.4,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 4,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "patient",
+            "text": "It's mostly the new project deadlines. They feel impossible to meet.",
+            "start_time": 17.6,
+            "end_time": 23.6,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 5,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "therapist",
+            "text": "Let's break them down together. Have you tried making a prioritized list?",
+            "start_time": 24.8,
+            "end_time": 29.8,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 6,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "patient",
+            "text": "Not yet. I just get frozen when I look at all of it at once.",
+            "start_time": 31.0,
+            "end_time": 36.0,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 7,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "therapist",
+            "text": "That's a common reaction. What if we focus on just the very first step?",
+            "start_time": 37.2,
+            "end_time": 42.2,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 8,
+        "fields": {
+            "transcription": "058693ad-f154-4e2b-ad90-e101897acbfb",
+            "speaker_type": "patient",
+            "text": "That... actually sounds more manageable. I could probably do that.",
+            "start_time": 43.400000000000006,
+            "end_time": 48.400000000000006,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 9,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "therapist",
+            "text": "Welcome back. How did the prioritizing exercise go this week?",
+            "start_time": 0.0,
+            "end_time": 4.0,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 10,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "patient",
+            "text": "It went surprisingly well. I actually got the first two tasks done.",
+            "start_time": 5.2,
+            "end_time": 10.2,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 11,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "therapist",
+            "text": "That's fantastic progress! How did it feel when you crossed them off?",
+            "start_time": 11.4,
+            "end_time": 16.4,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 12,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "patient",
+            "text": "Really relieving. Like a huge weight was lifted off my shoulders.",
+            "start_time": 17.6,
+            "end_time": 23.6,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 13,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "therapist",
+            "text": "Great! Did you face any moments where the anxiety returned?",
+            "start_time": 24.8,
+            "end_time": 28.8,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 14,
+        "fields": {
+            "transcription": "12eda5bf-9290-42d0-8a2b-89d837807fae",
+            "speaker_type": "patient",
+            "text": "A little bit on Wednesday, but I remembered to focus on just one thing.",
+            "start_time": 30.0,
+            "end_time": 36.0,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 15,
+        "fields": {
+            "transcription": "6e5d9834-0672-41f2-92c2-5cf047551236",
+            "speaker_type": "therapist",
+            "text": "It's good to see you again. Where would you like to start today?",
+            "start_time": 0.0,
+            "end_time": 4.0,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.transcriptionsegment",
+        "pk": 16,
+        "fields": {
+            "transcription": "6e5d9834-0672-41f2-92c2-5cf047551236",
+            "speaker_type": "patient",
+            "text": "I've been thinking about the mindfulness exercises...",
+            "start_time": 5.2,
+            "end_time": 9.2,
+            "confidence_score": 0.96
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 1,
+        "fields": {
+            "segment": 2,
+            "primary_emotion": "overwhelmed",
+            "emotion_scores": {
+                "overwhelmed": 0.7,
+                "sad": 0.2
+            },
+            "valence": -0.5,
+            "arousal": 0.6,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 2,
+        "fields": {
+            "segment": 4,
+            "primary_emotion": "anxious",
+            "emotion_scores": {
+                "anxious": 0.8,
+                "fear": 0.1
+            },
+            "valence": -0.7,
+            "arousal": 0.7,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 3,
+        "fields": {
+            "segment": 6,
+            "primary_emotion": "fear",
+            "emotion_scores": {
+                "fear": 0.6,
+                "helpless": 0.4
+            },
+            "valence": -0.8,
+            "arousal": 0.5,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 4,
+        "fields": {
+            "segment": 8,
+            "primary_emotion": "hopeful",
+            "emotion_scores": {
+                "hopeful": 0.6,
+                "calm": 0.4
+            },
+            "valence": 0.4,
+            "arousal": 0.3,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 5,
+        "fields": {
+            "segment": 10,
+            "primary_emotion": "happy",
+            "emotion_scores": {
+                "happy": 0.8,
+                "proud": 0.2
+            },
+            "valence": 0.7,
+            "arousal": 0.6,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 6,
+        "fields": {
+            "segment": 12,
+            "primary_emotion": "relieved",
+            "emotion_scores": {
+                "relieved": 0.9
+            },
+            "valence": 0.8,
+            "arousal": 0.2,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 7,
+        "fields": {
+            "segment": 14,
+            "primary_emotion": "calm",
+            "emotion_scores": {
+                "calm": 0.7,
+                "focused": 0.3
+            },
+            "valence": 0.3,
+            "arousal": 0.2,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "transcription.emotionanalysis",
+        "pk": 8,
+        "fields": {
+            "segment": 16,
+            "primary_emotion": "thoughtful",
+            "emotion_scores": {
+                "thoughtful": 0.8
+            },
+            "valence": 0.2,
+            "arousal": 0.3,
+            "confidence": 0.88
+        }
+    },
+    {
+        "model": "therapy_sessions.sessioninsight",
+        "pk": 1,
+        "fields": {
+            "session": "1ae061be-becd-4bb0-8758-47d32351776f",
+            "overall_mood": "anxious but improving",
+            "mood_score": 6.5,
+            "key_themes": [
+                "workplace stress",
+                "time management",
+                "overwhelm"
+            ],
+            "emotional_patterns": {
+                "anxious": 0.6,
+                "hopeful": 0.3,
+                "fear": 0.1
+            },
+            "recommendations": "Patient responds well to task breakdown. Continue practicing prioritization.",
+            "generated_at": "2026-04-17T05:09:24.451996+00:00"
+        }
+    },
+    {
+        "model": "therapy_sessions.sessioninsight",
+        "pk": 2,
+        "fields": {
+            "session": "1a5a418b-3089-458a-9193-eec0918fc6c3",
+            "overall_mood": "relieved and calm",
+            "mood_score": 8.0,
+            "key_themes": [
+                "progress",
+                "relief",
+                "coping mechanism success"
+            ],
+            "emotional_patterns": {
+                "relieved": 0.5,
+                "happy": 0.3,
+                "calm": 0.2
+            },
+            "recommendations": "Reinforce successful use of focusing techniques. Introduce secondary coping strategy for mid-week anxiety spikes.",
+            "generated_at": "2026-04-24T05:09:24.451996+00:00"
+        }
+    }
+]

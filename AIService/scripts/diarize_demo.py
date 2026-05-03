@@ -25,8 +25,15 @@ import sys
 import argparse
 import json
 import tempfile
+import requests
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
+import torch
+import torch.nn as nn
+from transformers import Wav2Vec2Processor
+from transformers.models.wav2vec2.modeling_wav2vec2 import Wav2Vec2Model, Wav2Vec2PreTrainedModel
+import librosa
+import numpy as np
 
 # Load environment variables from .env if present
 try:
@@ -37,7 +44,7 @@ except ImportError:
     pass
 
 try:
-    from openai import OpenAI, BadRequestError
+    from openai import OpenAI
 except Exception as e:
     print("Missing dependency: install the 'openai' package.", file=sys.stderr)
     raise
@@ -49,11 +56,23 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 REFINEMENT_MODEL = os.getenv("TRANSCRIPTION_REFINEMENT_MODEL", "gpt-5.4-nano-2026-03-17")
 RECLASSIFICATION_MODEL = os.getenv("EMOTION_RECLASSIFICATION_MODEL", REFINEMENT_MODEL)
 
-# Emotion model path
-EMOTION_MODEL_PATH = os.getenv("EMOTION_MODEL_PATH", "superb/wav2vec2-large-superb-er")
+# Text emotion model (Local)
+TEXT_EMOTION_MODEL_PATH = os.getenv("TEXT_EMOTION_MODEL_PATH", "j-hartmann/emotion-english-distilroberta-base")
+
+# ── New model path ──
+EMOTION_MODEL_PATH = os.getenv(
+    "EMOTION_MODEL_PATH",
+    "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
+)
 
 # Max audio chunk duration for emotion model (seconds)
-EMOTION_MAX_CHUNK_SECS = 10
+EMOTION_MAX_CHUNK_SECS = 5   # was 10
+EMOTION_HOP_SECS = 2.5       # 50% overlap
+
+# Fusion weights: text (LLM) is the primary signal, audio (Wav2Vec2) is weak.
+# For Urdu, where no audio model has seen the language, audio should never override text.
+AUDIO_WEIGHT = float(os.getenv("EMOTION_AUDIO_WEIGHT", "0.05"))
+TEXT_WEIGHT  = float(os.getenv("EMOTION_TEXT_WEIGHT",  "0.95"))
 
 EMOTION_LABEL_MAP = {
     "happiness": "joy", "happy": "joy", "joy": "joy",
@@ -137,23 +156,141 @@ def _strip_code_fences(text: str) -> str:
 
 
 # ============================================================================
-# Step 1: Diarization
+# Step 1: Diarization (ElevenLabs)
 # ============================================================================
 
-def request_diarization(client: OpenAI, audio_path: Path, language: str, known_speakers: Optional[List[str]]):
-    extra_body = None
-    if known_speakers:
-        extra_body = {"known_speaker_names": known_speakers}
+ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
+ELEVENLABS_MODEL_ID = "scribe_v2"
+DEFAULT_KEYTERMS = ["therapy", "session", "patient", "therapist", "mindscribe"]
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+
+def _bool_to_api(value: bool) -> str:
+    return "true" if value else "false"
+
+def _request_elevenlabs_transcription_sync(
+    audio_path: str,
+    language: str,
+    num_speakers: Optional[int],
+) -> Dict[str, Any]:
+    if not ELEVENLABS_API_KEY:
+        raise ValueError("ELEVENLABS_API_KEY environment variable is missing")
+
+    if num_speakers is not None:
+        num_speakers = max(1, min(32, num_speakers))
+
+    payload: Dict[str, Any] = {
+        "model_id": ELEVENLABS_MODEL_ID,
+        "language_code": language,
+        "tag_audio_events": True,
+        "num_speakers": num_speakers,
+        "timestamps_granularity": "word",
+        "diarize": True,
+        "diarization_threshold": 0.22 if num_speakers is None else None,
+        "additional_formats": [],
+        "file_format": "other",
+        "webhook": False,
+        "temperature": 0.0,
+        "seed": 42,
+        "use_multi_channel": False,
+        "entity_detection": "all",
+        "no_verbatim": False,
+        "entity_redaction": "pii",
+        "entity_redaction_mode": "enumerated_entity_type",
+        "keyterms": DEFAULT_KEYTERMS,
+    }
+
+    data_items = []
+    for key, value in payload.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            data_items.append((key, _bool_to_api(value)))
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, (dict, list)):
+                    data_items.append((key, json.dumps(item, ensure_ascii=False)))
+                else:
+                    data_items.append((key, str(item)))
+        elif isinstance(value, dict):
+            data_items.append((key, json.dumps(value, ensure_ascii=False)))
+        else:
+            data_items.append((key, str(value)))
+
+    headers = {"xi-api-key": ELEVENLABS_API_KEY}
+    params = {"enable_logging": _bool_to_api(True)}
 
     with open(audio_path, "rb") as audio_file:
-        return client.audio.transcriptions.create(
-            file=audio_file,
-            model="gpt-4o-transcribe-diarize",
-            response_format="diarized_json",
-            language=language,
-            chunking_strategy="auto",
-            extra_body=extra_body,
+        files = {"file": (Path(audio_path).name, audio_file, "application/octet-stream")}
+        response = requests.post(
+            ELEVENLABS_STT_URL,
+            headers=headers,
+            params=params,
+            data=data_items,
+            files=files,
+            timeout=900,
         )
+
+    parsed_payload = None
+    try:
+        raw_payload = response.json()
+        parsed_payload = raw_payload if isinstance(raw_payload, dict) else None
+    except Exception:
+        pass
+
+    if response.status_code >= 400:
+        if parsed_payload is not None:
+            raise RuntimeError(
+                f"ElevenLabs transcription failed ({response.status_code}): "
+                f"{json.dumps(parsed_payload, ensure_ascii=False)}"
+            )
+        raise RuntimeError(f"ElevenLabs transcription failed ({response.status_code}): {response.text}")
+
+    if parsed_payload is None:
+        raise RuntimeError("ElevenLabs transcription returned an unexpected response format.")
+
+    return parsed_payload
+
+
+def _build_sentence_segments(words: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    segments = []
+    current = None
+    SENTENCE_END_CHARS = {".", "!", "?", "۔", "؟"}
+
+    for word in words:
+        if not isinstance(word, dict):
+            continue
+
+        token = str(word.get("text", ""))
+        if not token:
+            continue
+
+        token_type = str(word.get("type") or "word")
+        speaker = str(word.get("speaker_id") or "unknown")
+        start = float(word.get("start") or 0.0)
+        end = float(word.get("end") or start)
+
+        if current is not None and current["speaker"] != speaker:
+            if current["text"].strip():
+                segments.append(current)
+            current = None
+
+        if current is None:
+            if token_type == "spacing":
+                continue
+            current = {"start": start, "end": end, "speaker": speaker, "text": token}
+        else:
+            current["end"] = end
+            current["text"] += token
+
+        if token_type != "spacing" and token.rstrip() and token.rstrip()[-1] in SENTENCE_END_CHARS:
+            if current["text"].strip():
+                segments.append(current)
+            current = None
+
+    if current is not None and current["text"].strip():
+        segments.append(current)
+
+    return segments
 
 
 def run_diarization(
@@ -162,45 +299,34 @@ def run_diarization(
     language: str,
     known_speakers: Optional[List[str]],
 ) -> Dict[str, Any]:
-    """Step 1: Transcribe with speaker diarization."""
+    """Step 1: Transcribe with speaker diarization (ElevenLabs)."""
     print(f"\n{'='*60}")
-    print(f"STEP 1/4: Diarization (model=gpt-4o-transcribe-diarize)")
+    print(f"STEP 1/4: Diarization (model=ElevenLabs Scribe)")
     print(f"{'='*60}")
     print(f"Uploading {resolved_path.name}...")
 
-    transcript = None
-    temp_converted_path = None
     try:
-        try:
-            transcript = request_diarization(client, resolved_path, language, known_speakers)
-        except BadRequestError as e:
-            message = str(e)
-            if "unsupported" in message.lower() or "corrupted" in message.lower() or "invalid_value" in message.lower():
-                print("OpenAI rejected the original file. Trying WAV (16kHz mono) conversion + retry...", file=sys.stderr)
-                temp_converted_path = transcode_to_wav_16k_mono(resolved_path)
-                if not temp_converted_path:
-                    raise
-                transcript = request_diarization(client, temp_converted_path, language, known_speakers)
-            else:
-                raise
+        num_speakers = len([s for s in known_speakers if s.strip()]) if known_speakers else None
+        transcript = _request_elevenlabs_transcription_sync(
+            str(resolved_path), language, num_speakers
+        )
     except Exception as e:
         print(f"Transcription request failed: {e}", file=sys.stderr)
         raise
-    finally:
-        if temp_converted_path and temp_converted_path.exists():
-            try:
-                temp_converted_path.unlink()
-            except Exception:
-                pass
 
-    raw_segments = get_attr(transcript, "segments", []) or []
+    words = transcript.get("words", []) if isinstance(transcript.get("words"), list) else []
+    sentence_segments = _build_sentence_segments(words)
+
     segments = []
-    for idx, seg in enumerate(raw_segments):
-        start = float(get_attr(seg, "start", 0.0) or 0.0)
-        end = float(get_attr(seg, "end", 0.0) or 0.0)
-        text = str(get_attr(seg, "text", "") or "").strip()
-        speaker = str(get_attr(seg, "speaker", "UNKNOWN") or "UNKNOWN")
-        seg_id = str(get_attr(seg, "id", f"seg_{idx:04d}") or f"seg_{idx:04d}")
+    for idx, seg in enumerate(sentence_segments):
+        start = float(seg.get("start", 0.0) or 0.0)
+        end = float(seg.get("end", 0.0) or 0.0)
+        text = str(seg.get("text", "") or "").strip()
+        speaker = str(seg.get("speaker", "unknown") or "unknown")
+        seg_id = f"seg_{idx:04d}"
+
+        if not text:
+            continue
 
         segments.append({
             "id": seg_id,
@@ -211,9 +337,11 @@ def run_diarization(
             "text": text,
         })
 
+    duration = max((s["end"] for s in segments), default=0.0)
+
     result = {
-        "text": str(get_attr(transcript, "text", "") or ""),
-        "duration": get_attr(transcript, "duration", None),
+        "text": str(transcript.get("text", "") or ""),
+        "duration": duration,
         "segments": segments,
         "language": language,
     }
@@ -420,130 +548,215 @@ def run_refinement(
 # Step 3: Voice-Based Emotion Analysis (chunked <=10s per model requirements)
 # ============================================================================
 
+class RegressionHead(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout = nn.Dropout(config.final_dropout)
+        self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
+
+    def forward(self, features, **kwargs):
+        x = self.dropout(features)
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
+
+class EmotionModel(Wav2Vec2PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.wav2vec2 = Wav2Vec2Model(config)
+        self.classifier = RegressionHead(config)
+        self.init_weights()
+
+    def forward(self, input_values):
+        outputs = self.wav2vec2(input_values)
+        hidden = torch.mean(outputs[0], dim=1)
+        logits = self.classifier(hidden)
+        return hidden, logits
+
+
 def _load_emotion_model():
     """Load the Wav2Vec2 emotion recognition model (cached in globals)."""
     global _cached_emotion_model, _cached_feature_extractor
     if "_cached_emotion_model" in globals() and _cached_emotion_model is not None:
         return _cached_emotion_model, _cached_feature_extractor
 
-    try:
-        import torch
-        from transformers import Wav2Vec2ForSequenceClassification, AutoFeatureExtractor
-    except ImportError:
-        print("Missing dependencies for emotion analysis: install 'transformers' and 'torch'.", file=sys.stderr)
-        raise
-
     model_path = EMOTION_MODEL_PATH
     print(f"  Loading emotion model: {model_path}")
 
-    if model_path.startswith("https://huggingface.co/"):
-        parts = model_path.replace("https://huggingface.co/", "").split("/")
-        if len(parts) >= 2:
-            model_path = f"{parts[0]}/{parts[1]}"
-
     try:
-        model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path, local_files_only=True)
-        extractor = AutoFeatureExtractor.from_pretrained(model_path, local_files_only=True)
-        print("  Loaded emotion model from local cache")
+        processor = Wav2Vec2Processor.from_pretrained(model_path, local_files_only=True)
+        model = EmotionModel.from_pretrained(model_path, local_files_only=True)
     except Exception:
         print("  Downloading emotion model...")
-        model = Wav2Vec2ForSequenceClassification.from_pretrained(model_path)
-        extractor = AutoFeatureExtractor.from_pretrained(model_path)
+        processor = Wav2Vec2Processor.from_pretrained(model_path)
+        model = EmotionModel.from_pretrained(model_path)
 
-    import torch
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = model.to(device)
-    model.eval()
+    model = model.to(device).eval()
     print(f"  Emotion model loaded on {device}")
 
     _cached_emotion_model = model
-    _cached_feature_extractor = extractor
-    return model, extractor
+    _cached_feature_extractor = processor
+    return model, processor
+
+
+def _vad_to_category(arousal: float, valence: float, dominance: float) -> str:
+    """Map VAD to categorical label for backward compatibility."""
+    if valence > 0.55 and arousal > 0.55:
+        return "joy"
+    if valence < 0.45 and arousal > 0.60:
+        return "anger"
+    if valence < 0.45 and arousal < 0.40:
+        return "sadness"
+    if valence < 0.40 and 0.35 <= arousal <= 0.60 and dominance < 0.45:
+        return "fear"
+    if valence < 0.45 and dominance > 0.60:
+        return "disgust"
+    if arousal > 0.65 and valence > 0.45:
+        return "surprise"
+    return "neutral"
 
 
 def _analyze_audio_chunk_emotion(audio_bytes: bytes, sample_rate: int = 16000) -> Dict[str, Any]:
-    """Analyze emotion from a single audio chunk (must be <= 10s, 16kHz)."""
+    """Analyze emotion from a single audio chunk (must be <= 5s, 16kHz)."""
     import numpy as np
-    import torch
-
-    model, feature_extractor = _load_emotion_model()
+    model, processor = _load_emotion_model()
 
     audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
     audio_float = audio_array.astype(np.float32) / 32768.0
 
-    # Skip if too short (< 0.1s at 16kHz = 1600 samples)
     if len(audio_float) < 1600:
         return {
             "primary_emotion": "neutral",
             "confidence": 0.5,
-            "all_scores": {},
+            "all_scores": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5, "mapped_category": "neutral"},
+            "vad": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5},
         }
 
-    inputs = feature_extractor(
-        audio_float,
-        sampling_rate=sample_rate,
-        padding=True,
-        return_tensors="pt",
-    )
-
+    inputs = processor(audio_float, sampling_rate=sample_rate, return_tensors="pt")
     if next(model.parameters()).is_cuda:
         inputs = {k: v.to("cuda") for k, v in inputs.items()}
 
     with torch.no_grad():
-        logits = model(**inputs).logits
+        _, logits = model(inputs["input_values"])
 
-    probs = torch.nn.functional.softmax(logits, dim=-1)
-    predicted_id = torch.argmax(logits, dim=-1).item()
+    # Sigmoid → 0..1 range. Order: [arousal, dominance, valence]
+    vad = torch.sigmoid(logits)[0]
+    arousal, dominance, valence = vad[0].item(), vad[1].item(), vad[2].item()
 
-    emotion_label = model.config.id2label[predicted_id]
-    confidence = probs[0][predicted_id].item()
-
-    all_scores = {
-        model.config.id2label[i]: round(probs[0][i].item(), 4)
-        for i in range(len(model.config.id2label))
-    }
+    category = _vad_to_category(arousal, valence, dominance)
+    # Confidence proxy: distance from neutral center
+    dist = ((arousal - 0.5) ** 2 + (valence - 0.5) ** 2 + (dominance - 0.5) ** 2) ** 0.5
+    confidence = min(0.95, 0.5 + dist)
 
     return {
-        "primary_emotion": normalize_emotion_label(emotion_label),
+        "primary_emotion": category,
         "confidence": round(confidence, 4),
-        "all_scores": all_scores,
+        "all_scores": {
+            "arousal": round(arousal, 4),
+            "dominance": round(dominance, 4),
+            "valence": round(valence, 4),
+            "mapped_category": category,
+        },
+        "vad": {"arousal": round(arousal, 4), "dominance": round(dominance, 4), "valence": round(valence, 4)},
     }
+
+
+def extract_prosody(audio_float: np.ndarray, sr: int = 16000) -> Dict[str, float]:
+    """Language-agnostic vocal biomarkers."""
+    # Pitch
+    f0, _, _ = librosa.pyin(audio_float, fmin=librosa.note_to_hz('C2'),
+                             fmax=librosa.note_to_hz('C7'))
+    f0 = f0[~np.isnan(f0)]
+
+    # Energy & rate
+    rms = librosa.feature.rms(y=audio_float)[0]
+    zcr = librosa.feature.zero_crossing_rate(audio_float)[0]
+
+    return {
+        "pitch_mean_hz": float(np.mean(f0)) if len(f0) else 0.0,
+        "pitch_std_hz":  float(np.std(f0))  if len(f0) else 0.0,
+        "energy_mean":   float(np.mean(rms)),
+        "energy_std":    float(np.std(rms)),
+        "zcr_mean":      float(np.mean(zcr)),
+    }
+
+
+def _audio_segment_to_numpy(seg_audio) -> np.ndarray:
+    """Convert pydub AudioSegment to normalized float32 numpy array."""
+    samples = np.array(seg_audio.get_array_of_samples(), dtype=np.float32)
+    if seg_audio.channels == 2:
+        samples = samples.reshape((-1, 2)).mean(axis=1)
+    # Normalize by bit depth
+    max_val = float(1 << (seg_audio.sample_width * 8 - 1))
+    samples /= max_val
+    if seg_audio.frame_rate != 16000:
+        samples = librosa.resample(samples, orig_sr=seg_audio.frame_rate, target_sr=16000)
+    return samples
 
 
 def _analyze_segment_emotion_chunked(seg_audio, sample_rate: int = 16000) -> Dict[str, Any]:
     """
-    Analyze emotion for a segment, chunking into <=10s pieces if needed.
-    Aggregates results by averaging probabilities across chunks.
+    Analyze emotion for a segment, chunking into <=5s pieces with 50% overlap.
+    Aggregates results by averaging VAD scores and prosody across chunks.
     """
     import numpy as np
 
     duration_ms = len(seg_audio)
-    max_chunk_ms = EMOTION_MAX_CHUNK_SECS * 1000
+    window_ms = int(EMOTION_MAX_CHUNK_SECS * 1000)
+    hop_ms = int(EMOTION_HOP_SECS * 1000)
 
-    if duration_ms <= max_chunk_ms:
-        # Short segment — analyze directly
-        return _analyze_audio_chunk_emotion(seg_audio.raw_data, sample_rate)
+    if duration_ms <= window_ms:
+        result = _analyze_audio_chunk_emotion(seg_audio.raw_data, sample_rate)
+        audio_float = _audio_segment_to_numpy(seg_audio)
+        result["prosody"] = extract_prosody(audio_float, sample_rate)
+        return result
 
-    # Long segment — split into chunks and aggregate
     chunks = []
-    for offset in range(0, duration_ms, max_chunk_ms):
-        chunk = seg_audio[offset:offset + max_chunk_ms]
-        if len(chunk) < 200:  # skip chunks shorter than 200ms
-            continue
-        chunks.append(chunk)
+    for offset in range(0, duration_ms - window_ms + 1, hop_ms):
+        chunk = seg_audio[offset:offset + window_ms]
+        if len(chunk) >= 200:
+            chunks.append(chunk)
+
+    # Tail window
+    last_offset = duration_ms - window_ms
+    if last_offset > 0 and (last_offset % hop_ms != 0 or not chunks):
+        chunk = seg_audio[last_offset:]
+        if len(chunk) >= 200:
+            chunks.append(chunk)
 
     if not chunks:
-        return {"primary_emotion": "neutral", "confidence": 0.5, "all_scores": {}}
+        return {
+            "primary_emotion": "neutral",
+            "confidence": 0.5,
+            "all_scores": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5, "mapped_category": "neutral"},
+            "vad": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5},
+            "prosody": {"pitch_mean_hz": 0.0, "pitch_std_hz": 0.0, "energy_mean": 0.0, "energy_std": 0.0, "zcr_mean": 0.0}
+        }
 
     # Analyze each chunk
     all_results = []
+    all_prosody = []
     for chunk in chunks:
         result = _analyze_audio_chunk_emotion(chunk.raw_data, sample_rate)
+        audio_float = _audio_segment_to_numpy(chunk)
+        result["prosody"] = extract_prosody(audio_float, sample_rate)
+        
         if result["all_scores"]:
             all_results.append(result)
+            all_prosody.append(result["prosody"])
 
     if not all_results:
-        return {"primary_emotion": "neutral", "confidence": 0.5, "all_scores": {}}
+        return {
+            "primary_emotion": "neutral",
+            "confidence": 0.5,
+            "all_scores": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5, "mapped_category": "neutral"},
+            "vad": {"arousal": 0.5, "dominance": 0.5, "valence": 0.5},
+            "prosody": {"pitch_mean_hz": 0.0, "pitch_std_hz": 0.0, "energy_mean": 0.0, "energy_std": 0.0, "zcr_mean": 0.0}
+        }
 
     # Aggregate: average the probability scores across all chunks
     score_keys = set()
@@ -552,17 +765,32 @@ def _analyze_segment_emotion_chunked(seg_audio, sample_rate: int = 16000) -> Dic
 
     avg_scores = {}
     for key in score_keys:
-        vals = [r["all_scores"].get(key, 0.0) for r in all_results]
-        avg_scores[key] = round(sum(vals) / len(vals), 4)
+        vals = [r["all_scores"].get(key, 0.0) for r in all_results if isinstance(r["all_scores"].get(key), (int, float))]
+        if vals:
+            avg_scores[key] = round(sum(vals) / len(vals), 4)
 
-    # Pick the emotion with the highest average score
-    best_label = max(avg_scores, key=avg_scores.get)
-    best_confidence = avg_scores[best_label]
+    # Average prosody
+    avg_prosody = {}
+    if all_prosody:
+        for key in all_prosody[0].keys():
+            vals = [p[key] for p in all_prosody]
+            avg_prosody[key] = round(sum(vals) / len(vals), 4)
+
+    # Pick the emotion with the highest average score (mapped_category)
+    # Actually, for VAD, we use the averaged VAD to determine category
+    arousal, dominance, valence = avg_scores["arousal"], avg_scores["dominance"], avg_scores["valence"]
+    best_label = _vad_to_category(arousal, valence, dominance)
+    
+    # Confidence proxy
+    dist = ((arousal - 0.5) ** 2 + (valence - 0.5) ** 2 + (dominance - 0.5) ** 2) ** 0.5
+    best_confidence = min(0.95, 0.5 + dist)
 
     return {
-        "primary_emotion": normalize_emotion_label(best_label),
-        "confidence": best_confidence,
+        "primary_emotion": best_label,
+        "confidence": round(best_confidence, 4),
         "all_scores": avg_scores,
+        "vad": {"arousal": arousal, "dominance": dominance, "valence": valence},
+        "prosody": avg_prosody,
     }
 
 
@@ -605,6 +833,22 @@ def run_emotion_analysis(
         return segments
 
     for i, seg in enumerate(segments):
+        # ── THERAPIST OVERRIDE ──
+        if seg.get("speaker") == "THERAPIST":
+            seg["emotion"] = "neutral"
+            seg["emotion_confidence"] = 1.0
+            seg["emotion_scores"] = {
+                "arousal": 0.5, "dominance": 0.5, "valence": 0.5,
+                "mapped_category": "neutral",
+            }
+            seg["vad"] = {"arousal": 0.5, "dominance": 0.5, "valence": 0.5}
+            seg["prosody"] = {
+                "pitch_mean_hz": 0.0, "pitch_std_hz": 0.0,
+                "energy_mean": 0.0, "energy_std": 0.0, "zcr_mean": 0.0,
+            }
+            print(f"  Segment {i+1}/{len(segments)}: THERAPIST → NEUTRAL (skipped)")
+            continue
+
         start_ms = int(seg.get("start", 0) * 1000)
         end_ms = int(seg.get("end", 0) * 1000)
         if end_ms <= start_ms:
@@ -619,6 +863,11 @@ def run_emotion_analysis(
             seg["emotion"] = result["primary_emotion"]
             seg["emotion_confidence"] = result["confidence"]
             seg["emotion_scores"] = result["all_scores"]
+            seg["vad"] = result.get("vad", {"arousal": 0.5, "dominance": 0.5, "valence": 0.5})
+            seg["prosody"] = result.get("prosody", {
+                "pitch_mean_hz": 0.0, "pitch_std_hz": 0.0,
+                "energy_mean": 0.0, "energy_std": 0.0, "zcr_mean": 0.0,
+            })
 
             chunks_tag = f" ({n_chunks} chunks)" if n_chunks > 1 else ""
             emotion_display = f"{result['primary_emotion'].upper()} ({result['confidence']:.0%})"
@@ -626,15 +875,77 @@ def run_emotion_analysis(
 
         except Exception as e:
             print(f"  WARNING: Emotion analysis failed for segment {i+1}: {e}", file=sys.stderr)
-            seg["emotion"] = "unknown"
-            seg["emotion_confidence"] = 0.0
+            seg["emotion"] = "neutral"
+            seg["emotion_confidence"] = 0.5
+            seg["vad"] = {"arousal": 0.5, "dominance": 0.5, "valence": 0.5}
+            seg["prosody"] = {
+                "pitch_mean_hz": 0.0, "pitch_std_hz": 0.0,
+                "energy_mean": 0.0, "energy_std": 0.0, "zcr_mean": 0.0,
+            }
 
     return segments
 
 
 # ============================================================================
-# Step 4: LLM Emotion Re-classification (full conversation context)
+# Step 4: Hybrid Emotion Fusion (Local RoBERTa + GPT Clinical Judgment)
 # ============================================================================
+
+def _load_text_emotion_model():
+    """Load the DistilRoBERTa text emotion model (cached)."""
+    global _cached_text_classifier
+    if "_cached_text_classifier" in globals() and _cached_text_classifier is not None:
+        return _cached_text_classifier
+
+    from transformers import pipeline
+    print(f"  Loading text emotion model: {TEXT_EMOTION_MODEL_PATH}")
+    
+    try:
+        classifier = pipeline(
+            "text-classification", 
+            model=TEXT_EMOTION_MODEL_PATH, 
+            top_k=None,
+            device=0 if torch.cuda.is_available() else -1
+        )
+        _cached_text_classifier = classifier
+        return classifier
+    except Exception as e:
+        print(f"  WARNING: Failed to load text emotion model: {e}")
+        return None
+
+
+def _analyze_text_emotion(text: str) -> Dict[str, float]:
+    """Get categorical emotion scores from text using RoBERTa."""
+    if not text or len(text.strip()) < 2:
+        return {}
+    
+    classifier = _load_text_emotion_model()
+    if not classifier:
+        return {}
+        
+    try:
+        results = classifier(text)[0]
+        # Format: [{"label": "anger", "score": 0.9}, ...]
+        return {r['label']: round(r['score'], 4) for r in results}
+    except Exception:
+        return {}
+
+
+def _weighted_fuse(audio_emotion, audio_confidence, llm_emotion, llm_confidence):
+    a_conf = max(0.0, min(1.0, audio_confidence))
+    t_conf = max(0.0, min(1.0, llm_confidence))
+
+    # Urdu rule: text is the only reliable signal.
+    if llm_emotion and llm_emotion != "unknown":
+        final_emotion = llm_emotion
+        # Small confidence boost if acoustics agree
+        boost = 1.08 if (audio_emotion == llm_emotion and a_conf > 0.5) else 1.0
+        final_conf = min(0.99, t_conf * boost)
+    else:
+        final_emotion = audio_emotion
+        final_conf = a_conf
+
+    return final_emotion, round(final_conf, 2)
+
 
 def run_llm_emotion_reclassification(
     client: OpenAI,
@@ -642,69 +953,86 @@ def run_llm_emotion_reclassification(
     chunk_size: int = 30,
 ) -> List[Dict[str, Any]]:
     """
-    Step 4: Use an LLM to review and correct emotion labels using the
-    full conversation context. The LLM knows this is a patient-therapist
-    session and can make more grounded predictions than per-segment audio analysis.
+    Step 4: Use an LLM to produce text-based emotion labels, then fuse
+    them with the audio (Wav2Vec2) labels using configurable weights.
+
+    Weights:
+        TEXT_WEIGHT  (default 0.85) — LLM / text-based emotion
+        AUDIO_WEIGHT (default 0.15) — Wav2Vec2 audio emotion
     """
     print(f"\n{'='*60}")
-    print(f"STEP 4/4: LLM Emotion Re-classification (contextual)")
+    print(f"STEP 4/4: LLM Emotion Re-classification + Weighted Fusion")
     print(f"  Model: {RECLASSIFICATION_MODEL}")
+    print(f"  Weights: text={TEXT_WEIGHT}, audio={AUDIO_WEIGHT}")
     print(f"{'='*60}")
 
     if not segments:
         print("  No segments to re-classify.")
         return segments
 
-    # First, stamp emotion_audio_raw on every segment (the Wav2Vec2 result)
+    # Stamp emotion_audio_raw on every segment (the Wav2Vec2 result)
     for seg in segments:
         if "emotion_audio_raw" not in seg:
             seg["emotion_audio_raw"] = seg.get("emotion", "unknown")
 
     for chunk_start in range(0, len(segments), chunk_size):
         chunk = segments[chunk_start : chunk_start + chunk_size]
-        print(f"  Processing chunk {chunk_start // chunk_size + 1} ({len(chunk)} segments)...")
+        print(f"  Processing hybrid fusion chunk {chunk_start // chunk_size + 1} ({len(chunk)} segments)...")
 
         payload = []
         for i, seg in enumerate(chunk):
+            speaker = seg.get("speaker", "UNKNOWN")
+            text = seg.get("text_english") or seg.get("text_original") or seg.get("text", "")
+            
+            # ── Hybrid Skip: No analysis for therapists ──
+            if speaker == "THERAPIST":
+                roberta_scores = {"neutral": 1.0}
+            else:
+                roberta_scores = _analyze_text_emotion(text)
+                
+            seg["roberta_scores"] = roberta_scores
+            
             payload.append({
                 "idx": i,
                 "id": seg.get("id"),
-                "speaker": seg.get("speaker", "UNKNOWN"),
-                "text": seg.get("text_english") or seg.get("text_original") or seg.get("text", ""),
-                "audio_emotion": seg.get("emotion_audio_raw", "unknown"),
-                "audio_confidence": seg.get("emotion_confidence", 0.0),
+                "speaker": speaker,
+                "text": text,
+                "audio_vad": seg.get("vad", {"arousal": 0.5, "valence": 0.5, "dominance": 0.5}),
+                "audio_prosody": seg.get("prosody", {}),
+                "text_sentiment_roberta": roberta_scores,
             })
 
         prompt = (
-            "You are a clinical emotion specialist reviewing a psychiatrist-patient therapy session.\n\n"
-            "CONTEXT:\n"
-            "- This is a psychiatric consultation. Two speakers: THERAPIST and PATIENT.\n"
-            "- THERAPIST: Almost always NEUTRAL. Clinical questions and reflections carry no personal emotion.\n"
-            "- PATIENT: Can feel anger, sadness, disgust, joy. Frustration/irritation = anger. Guilt = sadness.\n"
-            "- The audio model (Wav2Vec2) often outputs 'sadness' even for angry or neutral speech.\n"
-            "- Short filler words ('Hmm', 'Exactly', 'Huh') = neutral unless context is very clear.\n\n"
-            "RULES:\n"
-            "1. THERAPIST segments: assign neutral unless there is strong vocal stress evidence.\n"
-            "2. PATIENT describing frustration/irritation toward others = anger.\n"
-            "3. PATIENT expressing sadness, loss, guilt = sadness.\n"
-            "4. PATIENT expressing superiority, contempt, disgust = disgust or anger.\n"
-            "5. If audio_emotion seems correct given the text, keep it.\n\n"
+            "You are a clinical emotion specialist reviewing a therapy session.\n\n"
+            "INPUTS:\n"
+            "1. TEXT: The English translation of the speaker's words.\n"
+            "2. AUDIO_VAD: Acoustic biomarkers (valence, arousal, dominance).\n"
+            "3. AUDIO_PROSODY: Voice features (pitch variation, energy).\n"
+            "4. TEXT_SENTIMENT_ROBERTA: Local NLP model's prediction of text emotion.\n\n"
+            "YOUR TASK: Act as the final 'Fusion Layer'. Use the RoBERTa sentiment and Audio VAD "
+            "as hints, but apply CLINICAL JUDGMENT to provide the final label.\n\n"
+            "CLINICAL RULES:\n"
+            "- THERAPIST: Always NEUTRAL. They use emotional words for mirroring, not personal feeling.\n"
+            "- PATIENT: If RoBERTa says 'anger' and Audio Arousal is > 0.6 → high confidence ANGER.\n"
+            "- PATIENT: If RoBERTa says 'sadness' but Pitch Std < 15Hz → strong marker for DEPRESSIVE SADNESS.\n"
+            "- If Audio and Text models disagree, prioritize the TEXT_SENTIMENT unless Audio is extreme.\n\n"
             "VALID EMOTIONS: joy, sadness, anger, neutral, disgust, fear, surprise\n\n"
-            "Return ONLY a valid JSON array. Each item:\n"
-            '{"idx": number, "final_emotion": string, "confidence": float}\n\n'
+            "Return ONLY a JSON array of items: "
+            '{"idx": number, "emotion": string, "confidence": float}\n\n'
             f"Segments JSON:\n{json.dumps(payload, ensure_ascii=False)}"
         )
 
         try:
             response = client.chat.completions.create(
-                model=REFINEMENT_MODEL,
+                model=RECLASSIFICATION_MODEL,
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "You are a clinical emotion analysis specialist. You assign contextually accurate "
-                            "emotion labels to therapy session segments. You understand that audio models "
-                            "are noisy and often confuse anger/neutral with sadness. Output strict JSON only."
+                            "You are a clinical emotion analysis specialist. You classify emotions "
+                            "from therapy session text. Audio model predictions are unreliable and "
+                            "should be treated as weak hints only. Base your classification on the "
+                            "semantic content of the text and the speaker's role. Output strict JSON only."
                         ),
                     },
                     {"role": "user", "content": prompt},
@@ -727,24 +1055,37 @@ def run_llm_emotion_reclassification(
             corrections = 0
             for i, seg in enumerate(chunk):
                 mapped = by_idx.get(i, {})
-                final_emo = str(mapped.get("final_emotion", "") or "").strip().lower()
-                final_conf = float(mapped.get("confidence", 0.5) or 0.5)
+                # LLM text-based emotion (check both keys for robustness)
+                llm_emo = str(
+                    mapped.get("emotion") or mapped.get("final_emotion", "") or ""
+                ).strip().lower()
+                llm_conf = float(mapped.get("confidence", 0.5) or 0.5)
 
-                if final_emo and final_emo in EMOTION_LABEL_MAP.values():
-                    if final_emo != seg.get("emotion_audio_raw", "unknown"):
-                        corrections += 1
+                audio_emo = seg.get("emotion_audio_raw", "unknown")
+                audio_conf = seg.get("emotion_confidence", 0.0)
+
+                if llm_emo and llm_emo in EMOTION_LABEL_MAP.values():
+                    # Store the raw LLM result before fusion
+                    seg["emotion"] = llm_emo
+
+                    # Weighted fusion
+                    final_emo, final_conf = _weighted_fuse(
+                        audio_emo, audio_conf, llm_emo, llm_conf
+                    )
                     seg["final_emotion"] = final_emo
                     seg["final_emotion_confidence"] = final_conf
+
+                    if final_emo != audio_emo:
+                        corrections += 1
                 else:
-                    # Fall back to audio emotion if LLM returns invalid label
-                    seg["final_emotion"] = seg.get("emotion_audio_raw", "unknown")
-                    seg["final_emotion_confidence"] = seg.get("emotion_confidence", 0.0)
+                    # LLM returned invalid label — fall back to audio
+                    seg["final_emotion"] = audio_emo
+                    seg["final_emotion_confidence"] = audio_conf
 
             print(f"    {corrections} emotion labels corrected in this chunk")
 
         except Exception as e:
             print(f"  WARNING: LLM emotion reclassification failed for chunk {chunk_start // chunk_size + 1}: {e}", file=sys.stderr)
-            # Fall back: final_emotion = audio emotion
             for seg in chunk:
                 if "final_emotion" not in seg:
                     seg["final_emotion"] = seg.get("emotion_audio_raw", seg.get("emotion", "unknown"))
@@ -755,7 +1096,8 @@ def run_llm_emotion_reclassification(
     for seg in segments:
         e = seg.get("final_emotion", "unknown")
         emotion_counts[e] = emotion_counts.get(e, 0) + 1
-    print(f"\n  Final emotion distribution (text-based LLM): {json.dumps(emotion_counts, indent=2)}")
+    print(f"\n  Final emotion distribution (weighted fusion): {json.dumps(emotion_counts, indent=2)}")
+    print(f"  Weights used: text={TEXT_WEIGHT}, audio={AUDIO_WEIGHT}")
 
     return segments
 
@@ -894,6 +1236,12 @@ def transcribe(
                 final_seg["final_emotion_confidence"] = seg.get("final_emotion_confidence", seg.get("emotion_confidence", 0.0))
                 if "emotion_scores" in seg:
                     final_seg["emotion_scores"] = seg.get("emotion_scores")
+                if "vad" in seg:
+                    final_seg["vad"] = seg.get("vad")
+                if "prosody" in seg:
+                    final_seg["prosody"] = seg.get("prosody")
+                if "roberta_scores" in seg:
+                    final_seg["roberta_scores"] = seg.get("roberta_scores")
 
             final_segments.append(final_seg)
 
@@ -957,4 +1305,5 @@ def main():
 if __name__ == "__main__":
     _cached_emotion_model = None
     _cached_feature_extractor = None
+    _cached_text_classifier = None
     main()
