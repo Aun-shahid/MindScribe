@@ -6,22 +6,23 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, User, Calendar, Clock, FileText,
-  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star
+  RefreshCw, Target, Eye, Heart, TrendingUp, BookOpen, Star, Sparkles, Activity
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { aiServiceUrl } from '../config';
-import { useSessionDetail } from '../hooks/useSessions';
+import { useSessionDetail, useSessionInsights } from '../hooks/useSessions';
 import { THERAPIST_DETAIL_FLOW_BG, THERAPIST_PAGE_CANVAS } from '../constants/pageShell';
 
 // ─── Emotion colours for the badge ──────────────────────────────────────────
 const EMOTION_COLOR: Record<string, string> = {
-  joy: 'bg-yellow-100 text-yellow-800',
-  sadness: 'bg-blue-100   text-blue-800',
-  anger: 'bg-red-100    text-red-800',
-  neutral: 'bg-gray-100   text-gray-600',
-  disgust: 'bg-green-100  text-green-800',
-  fear: 'bg-purple-100 text-purple-800',
+  joy:      'bg-yellow-100 text-yellow-800',
+  sadness:  'bg-blue-100   text-blue-800',
+  anger:    'bg-red-100    text-red-800',
+  neutral:  'bg-gray-100   text-gray-600',
+  disgust:  'bg-green-100  text-green-800',
+  fear:     'bg-purple-100 text-purple-800',
   surprise: 'bg-orange-100 text-orange-800',
-  unknown: 'bg-gray-100   text-gray-400',
+  unknown:  'bg-gray-100   text-gray-400',
 };
 
 const EMOTION_ICON: Record<string, string> = {
@@ -31,24 +32,24 @@ const EMOTION_ICON: Record<string, string> = {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface SegmentEmotion {
-  audio_emotion: string | null;
-  audio_confidence: number;
-  text_emotion: string | null;
-  text_confidence: number;
-  final_emotion: string;
-  final_confidence: number;
-  agreement: boolean | null;
-  analysis_type: 'combined' | 'text_only' | 'audio_only';
+  audio_emotion:     string | null;
+  audio_confidence:  number;
+  text_emotion:      string | null;
+  text_confidence:   number;
+  final_emotion:     string;
+  final_confidence:  number;
+  agreement:         boolean | null;
+  analysis_type:     'combined' | 'text_only' | 'audio_only';
 }
 
 interface Segment {
-  id: string;
-  speaker: string;
-  start_time: number;
-  end_time: number;
+  id:           string;
+  speaker:      string;
+  start_time:   number;
+  end_time:     number;
   text_english: string;
-  text_urdu: string;
-  emotion?: SegmentEmotion | string | null;
+  text_urdu:    string;
+  emotion?:     SegmentEmotion | string | null;
 }
 
 // ─── Helper: parse emotion from whatever shape the backend returns ─────────
@@ -58,9 +59,9 @@ function parseEmotion(raw: Segment['emotion']): SegmentEmotion | null {
     // legacy flat string
     return {
       audio_emotion: null, audio_confidence: 0,
-      text_emotion: raw, text_confidence: 0,
-      final_emotion: raw, final_confidence: 0,
-      agreement: null, analysis_type: 'text_only',
+      text_emotion: raw,   text_confidence: 0,
+      final_emotion: raw,  final_confidence: 0,
+      agreement: null,     analysis_type: 'text_only',
     };
   }
   return raw as SegmentEmotion;
@@ -126,8 +127,8 @@ const EmotionTimeline: React.FC<{ segments: Segment[] }> = ({ segments }) => {
 
   const EMOTION_ORDER = ['joy', 'neutral', 'surprise', 'sadness', 'fear', 'anger', 'disgust', 'unknown'];
   const AUDIO_COLOR = '#6366f1';   // indigo
-  const TEXT_COLOR = '#f59e0b';   // amber
-  const GPT_COLOR = '#10b981';   // emerald
+  const TEXT_COLOR  = '#f59e0b';   // amber
+  const GPT_COLOR   = '#10b981';   // emerald
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -206,28 +207,28 @@ const EmotionTimeline: React.FC<{ segments: Segment[] }> = ({ segments }) => {
       });
     };
 
-    const audioPoints: Array<{ x: number; y: number }> = [];
-    const textPoints: Array<{ x: number; y: number }> = [];
-    const gptPoints: Array<{ x: number; y: number }> = [];
+    const audioPoints: Array<{x:number;y:number}> = [];
+    const textPoints:  Array<{x:number;y:number}> = [];
+    const gptPoints:   Array<{x:number;y:number}> = [];
 
     combined.forEach(seg => {
       const em = parseEmotion(seg.emotion)!;
       const midT = (seg.start_time + seg.end_time) / 2;
       const x = xOf(midT);
       if (em.audio_emotion) audioPoints.push({ x, y: yOf(em.audio_emotion) });
-      if (em.text_emotion) textPoints.push({ x, y: yOf(em.text_emotion) });
+      if (em.text_emotion)  textPoints.push ({ x, y: yOf(em.text_emotion) });
       gptPoints.push({ x, y: yOf(em.final_emotion) });
     });
 
     drawLine(audioPoints, AUDIO_COLOR, [4, 3]);
-    drawLine(textPoints, TEXT_COLOR, [2, 2]);
-    drawLine(gptPoints, GPT_COLOR, []);
+    drawLine(textPoints,  TEXT_COLOR,  [2, 2]);
+    drawLine(gptPoints,   GPT_COLOR,   []);
 
     // legend
     const legend = [
       { label: '🎤 Audio (Wav2Vec2)', color: AUDIO_COLOR, dash: [4, 3] },
       { label: '📝 Text (distilroberta)', color: TEXT_COLOR, dash: [2, 2] },
-      { label: '🤖 GPT fused final', color: GPT_COLOR, dash: [] },
+      { label: '🤖 GPT fused final',   color: GPT_COLOR,   dash: [] },
     ];
     let lx = PAD.left;
     legend.forEach(({ label, color, dash }) => {
@@ -407,8 +408,8 @@ export const TranscriptSection: React.FC<{ sessionId: string; sessionStatus?: st
       {/* Legend */}
       {hasEmotion && (
         <div className="flex flex-wrap gap-3 text-xs text-gray-500 pb-1">
-          <span><span className="inline-block w-4 h-0.5 bg-indigo-500 mr-1 align-middle" style={{ borderTop: '2px dashed #6366f1' }} />🎤 Wav2Vec2 audio</span>
-          <span><span className="inline-block w-4 h-0.5 mr-1 align-middle" style={{ borderTop: '2px dashed #f59e0b' }} />📝 distilroberta text</span>
+          <span><span className="inline-block w-4 h-0.5 bg-indigo-500 mr-1 align-middle" style={{borderTop:'2px dashed #6366f1'}} />🎤 Wav2Vec2 audio</span>
+          <span><span className="inline-block w-4 h-0.5 mr-1 align-middle" style={{borderTop:'2px dashed #f59e0b'}} />📝 distilroberta text</span>
           <span><span className="inline-block w-4 h-0.5 bg-emerald-500 mr-1 align-middle" />🤖 GPT fused final</span>
         </div>
       )}
@@ -427,10 +428,11 @@ export const TranscriptSection: React.FC<{ sessionId: string; sessionStatus?: st
               className={`flex flex-col ${isTherapist ? 'items-end' : 'items-start'}`}
             >
               <div
-                className={`max-w-[85%] px-4 py-3 rounded-xl text-sm shadow-sm ${isTherapist
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-900 border border-gray-200'
-                  }`}
+                className={`max-w-[85%] px-4 py-3 rounded-xl text-sm shadow-sm ${
+                  isTherapist
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-900 border border-gray-200'
+                }`}
               >
                 {/* Speaker + time */}
                 <div className="flex items-center justify-between gap-4 mb-1">
@@ -469,28 +471,26 @@ export const TranscriptSection: React.FC<{ sessionId: string; sessionStatus?: st
 
 // ─── PASTE THIS BLOCK 1: just above `const SessionDetailView` ────────────────
 
-const EMOTION_ORDER_EP = ['joy', 'neutral', 'surprise', 'fear', 'sadness', 'anger', 'disgust', 'unknown'];
+const EMOTION_ORDER_EP = ['joy','neutral','surprise','fear','sadness','anger','disgust','unknown'];
 const EMOTION_META_EP: Record<string, { color: string; bg: string; label: string }> = {
-  joy: { color: '#d97706', bg: '#fef3c7', label: 'Joy' },
-  neutral: { color: '#6b7280', bg: '#f3f4f6', label: 'Neutral' },
+  joy:      { color: '#d97706', bg: '#fef3c7', label: 'Joy'      },
+  neutral:  { color: '#6b7280', bg: '#f3f4f6', label: 'Neutral'  },
   surprise: { color: '#ea580c', bg: '#fff7ed', label: 'Surprise' },
-  fear: { color: '#7c3aed', bg: '#ede9fe', label: 'Fear' },
-  sadness: { color: '#2563eb', bg: '#eff6ff', label: 'Sadness' },
-  anger: { color: '#dc2626', bg: '#fef2f2', label: 'Anger' },
-  disgust: { color: '#059669', bg: '#ecfdf5', label: 'Disgust' },
-  unknown: { color: '#9ca3af', bg: '#f9fafb', label: 'Unknown' },
+  fear:     { color: '#7c3aed', bg: '#ede9fe', label: 'Fear'     },
+  sadness:  { color: '#2563eb', bg: '#eff6ff', label: 'Sadness'  },
+  anger:    { color: '#dc2626', bg: '#fef2f2', label: 'Anger'    },
+  disgust:  { color: '#059669', bg: '#ecfdf5', label: 'Disgust'  },
+  unknown:  { color: '#9ca3af', bg: '#f9fafb', label: 'Unknown'  },
 };
 const EP_AUDIO = '#6366f1';
-const EP_TEXT = '#f59e0b';
-const EP_GPT = '#10b981';
+const EP_TEXT  = '#f59e0b';
+const EP_GPT   = '#10b981';
 
 function epParseEmotion(raw: Segment['emotion']): SegmentEmotion | null {
   if (!raw) return null;
   if (typeof raw === 'string') {
-    return {
-      audio_emotion: null, audio_confidence: 0, text_emotion: raw, text_confidence: 0,
-      final_emotion: raw, final_confidence: 0, agreement: null, analysis_type: 'text_only'
-    };
+    return { audio_emotion: null, audio_confidence: 0, text_emotion: raw, text_confidence: 0,
+             final_emotion: raw, final_confidence: 0, agreement: null, analysis_type: 'text_only' };
   }
   return raw as SegmentEmotion;
 }
@@ -503,20 +503,18 @@ function epEmotionIdx(label: string | null): number {
 const EpPill: React.FC<{ label: string; conf: number; prefix?: string }> = ({ label, conf, prefix }) => {
   const meta = EMOTION_META_EP[label.toLowerCase()] ?? EMOTION_META_EP.unknown;
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500,
-      background: meta.bg, color: meta.color, border: `1px solid ${meta.color}33`, fontFamily: 'ui-monospace,monospace'
-    }}>
-      {prefix && <span style={{ opacity: .6, fontSize: 10 }}>{prefix}</span>}
-      {meta.label.toUpperCase()} <span style={{ opacity: .55 }}>({Math.round(conf * 100)}%)</span>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4,
+      padding:'2px 8px', borderRadius:999, fontSize:11, fontWeight:500,
+      background:meta.bg, color:meta.color, border:`1px solid ${meta.color}33`, fontFamily:'ui-monospace,monospace' }}>
+      {prefix && <span style={{ opacity:.6, fontSize:10 }}>{prefix}</span>}
+      {meta.label.toUpperCase()} <span style={{ opacity:.55 }}>({Math.round(conf * 100)}%)</span>
     </span>
   );
 };
 
 const EpChart: React.FC<{ segments: Segment[] }> = ({ segments }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const chartRef = React.useRef<any>(null);
+  const chartRef  = React.useRef<any>(null);
   const segs = segments.filter(s => epParseEmotion(s.emotion) !== null);
 
   React.useEffect(() => {
@@ -527,12 +525,12 @@ const EpChart: React.FC<{ segments: Segment[] }> = ({ segments }) => {
       if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
 
       const labels: string[] = [];
-      const aData: (number | null)[] = [], tData: (number | null)[] = [], gData: number[] = [];
+      const aData: (number|null)[] = [], tData: (number|null)[] = [], gData: number[] = [];
       segs.forEach(seg => {
         const em = epParseEmotion(seg.emotion)!;
         labels.push(((seg.start_time + seg.end_time) / 2).toFixed(1) + 's');
         aData.push(em.audio_emotion ? epEmotionIdx(em.audio_emotion) : null);
-        tData.push(em.text_emotion ? epEmotionIdx(em.text_emotion) : null);
+        tData.push(em.text_emotion  ? epEmotionIdx(em.text_emotion)  : null);
         gData.push(epEmotionIdx(em.final_emotion));
       });
 
@@ -546,45 +544,31 @@ const EpChart: React.FC<{ segments: Segment[] }> = ({ segments }) => {
         data: {
           labels,
           datasets: [
-            {
-              label: 'Audio (Wav2Vec2)', data: aData, borderColor: EP_AUDIO, backgroundColor: EP_AUDIO + '22',
-              borderWidth: 2, borderDash: [6, 3], pointRadius: 4, tension: .3, spanGaps: true
-            },
-            {
-              label: 'Text (distilroberta)', data: tData, borderColor: EP_TEXT, backgroundColor: EP_TEXT + '22',
-              borderWidth: 2, borderDash: [3, 3], pointRadius: 4, tension: .3, spanGaps: true
-            },
-            {
-              label: 'GPT fused final', data: gData, borderColor: EP_GPT, backgroundColor: EP_GPT + '33',
-              borderWidth: 2.5, pointRadius: 5, tension: .3, fill: false
-            },
+            { label:'Audio (Wav2Vec2)',      data:aData, borderColor:EP_AUDIO, backgroundColor:EP_AUDIO+'22',
+              borderWidth:2, borderDash:[6,3], pointRadius:4, tension:.3, spanGaps:true },
+            { label:'Text (distilroberta)',  data:tData, borderColor:EP_TEXT,  backgroundColor:EP_TEXT+'22',
+              borderWidth:2, borderDash:[3,3], pointRadius:4, tension:.3, spanGaps:true },
+            { label:'GPT fused final',       data:gData, borderColor:EP_GPT,   backgroundColor:EP_GPT+'33',
+              borderWidth:2.5, pointRadius:5, tension:.3, fill:false },
           ],
         },
         options: {
-          responsive: true, maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx: any) => {
-                  const v = ctx.parsed.y;
-                  if (v == null) return ctx.dataset.label + ': —';
-                  return `${ctx.dataset.label}: ${EMOTION_META_EP[EMOTION_ORDER_EP[Math.round(v)]]?.label ?? '?'}`;
-                }
-              }
-            },
+          responsive:true, maintainAspectRatio:false,
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{ display:false },
+            tooltip:{ callbacks:{ label:(ctx: any) => {
+              const v = ctx.parsed.y;
+              if (v == null) return ctx.dataset.label + ': —';
+              return `${ctx.dataset.label}: ${EMOTION_META_EP[EMOTION_ORDER_EP[Math.round(v)]]?.label ?? '?'}`;
+            }}},
           },
-          scales: {
-            x: { ticks: { color: tc, font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: gc } },
-            y: {
-              min: -.5, max: EMOTION_ORDER_EP.length - .5,
-              ticks: {
-                color: lc, font: { size: 11 }, stepSize: 1,
-                callback: (v: any) => EMOTION_META_EP[EMOTION_ORDER_EP[Math.round(v)]]?.label ?? ''
-              },
-              grid: { color: gc }
-            },
+          scales:{
+            x:{ ticks:{ color:tc, font:{ size:10 }, maxTicksLimit:12 }, grid:{ color:gc } },
+            y:{ min:-.5, max:EMOTION_ORDER_EP.length-.5,
+                ticks:{ color:lc, font:{ size:11 }, stepSize:1,
+                        callback:(v: any) => EMOTION_META_EP[EMOTION_ORDER_EP[Math.round(v)]]?.label ?? '' },
+                grid:{ color:gc } },
           },
         },
       });
@@ -613,22 +597,22 @@ const EpChart: React.FC<{ segments: Segment[] }> = ({ segments }) => {
     <div>
       <div className="flex flex-wrap gap-5 mb-3">
         {[
-          { color: EP_AUDIO, dash: true, label: 'Audio — Wav2Vec2' },
-          { color: EP_TEXT, dash: true, label: 'Text — distilroberta' },
-          { color: EP_GPT, dash: false, label: 'GPT fused final' },
+          { color:EP_AUDIO, dash:true,  label:'Audio — Wav2Vec2' },
+          { color:EP_TEXT,  dash:true,  label:'Text — distilroberta' },
+          { color:EP_GPT,   dash:false, label:'GPT fused final' },
         ].map(({ color, dash, label }) => (
           <span key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
             <svg width="28" height="10">
               {dash
-                ? <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="6 3" />
-                : <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2.5" />}
-              <circle cx="14" cy="5" r="3" fill={color} />
+                ? <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="6 3"/>
+                : <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2.5"/>}
+              <circle cx="14" cy="5" r="3" fill={color}/>
             </svg>
             {label}
           </span>
         ))}
       </div>
-      <div style={{ position: 'relative', width: '100%', height: 240 }}>
+      <div style={{ position:'relative', width:'100%', height:240 }}>
         <canvas ref={canvasRef} />
       </div>
     </div>
@@ -637,24 +621,24 @@ const EpChart: React.FC<{ segments: Segment[] }> = ({ segments }) => {
 
 const EpDistribution: React.FC<{ segments: Segment[] }> = ({ segments }) => {
   const segs = segments.filter(s => epParseEmotion(s.emotion) !== null);
-  const aC: Record<string, number> = {}, tC: Record<string, number> = {}, gC: Record<string, number> = {};
+  const aC: Record<string,number> = {}, tC: Record<string,number> = {}, gC: Record<string,number> = {};
   segs.forEach(s => {
     const em = epParseEmotion(s.emotion)!;
-    if (em.audio_emotion) aC[em.audio_emotion] = (aC[em.audio_emotion] ?? 0) + 1;
-    if (em.text_emotion) tC[em.text_emotion] = (tC[em.text_emotion] ?? 0) + 1;
-    gC[em.final_emotion] = (gC[em.final_emotion] ?? 0) + 1;
+    if (em.audio_emotion) aC[em.audio_emotion] = (aC[em.audio_emotion]??0)+1;
+    if (em.text_emotion)  tC[em.text_emotion]  = (tC[em.text_emotion] ??0)+1;
+    gC[em.final_emotion] = (gC[em.final_emotion]??0)+1;
   });
-  const allLabels = Array.from(new Set([...Object.keys(aC), ...Object.keys(tC), ...Object.keys(gC)]))
-    .sort((a, b) => epEmotionIdx(a) - epEmotionIdx(b));
-  const maxVal = Math.max(...allLabels.flatMap(l => [aC[l] ?? 0, tC[l] ?? 0, gC[l] ?? 0]), 1);
+  const allLabels = Array.from(new Set([...Object.keys(aC),...Object.keys(tC),...Object.keys(gC)]))
+    .sort((a,b) => epEmotionIdx(a) - epEmotionIdx(b));
+  const maxVal = Math.max(...allLabels.flatMap(l => [aC[l]??0, tC[l]??0, gC[l]??0]), 1);
 
   return (
     <table className="w-full text-xs border-collapse">
       <thead>
         <tr>
           <th className="text-left py-1 px-2 text-gray-500 font-medium">Emotion</th>
-          {[{ label: 'Audio', color: EP_AUDIO }, { label: 'Text', color: EP_TEXT }, { label: 'Fused', color: EP_GPT }]
-            .map(c => <th key={c.label} style={{ color: c.color }} className="py-1 px-2 font-medium text-right">{c.label}</th>)}
+          {[{label:'Audio',color:EP_AUDIO},{label:'Text',color:EP_TEXT},{label:'Fused',color:EP_GPT}]
+            .map(c => <th key={c.label} style={{color:c.color}} className="py-1 px-2 font-medium text-right">{c.label}</th>)}
         </tr>
       </thead>
       <tbody>
@@ -663,14 +647,14 @@ const EpDistribution: React.FC<{ segments: Segment[] }> = ({ segments }) => {
           return (
             <tr key={label} className="border-t border-gray-100">
               <td className="py-1.5 px-2 flex items-center gap-1.5">
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: meta.color, display: 'inline-block' }} />
+                <span style={{width:8,height:8,borderRadius:2,background:meta.color,display:'inline-block'}}/>
                 <span className="text-gray-700">{meta.label}</span>
               </td>
-              {([{ v: aC[label] ?? 0, c: EP_AUDIO }, { v: tC[label] ?? 0, c: EP_TEXT }, { v: gC[label] ?? 0, c: EP_GPT }]).map((col, i) => (
+              {([{v:aC[label]??0,c:EP_AUDIO},{v:tC[label]??0,c:EP_TEXT},{v:gC[label]??0,c:EP_GPT}]).map((col,i) => (
                 <td key={i} className="py-1.5 px-2">
                   <div className="flex items-center gap-1.5 justify-end">
                     <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div style={{ width: `${(col.v / maxVal) * 100}%`, height: '100%', background: col.c, borderRadius: 999 }} />
+                      <div style={{width:`${(col.v/maxVal)*100}%`,height:'100%',background:col.c,borderRadius:999}}/>
                     </div>
                     <span className="text-gray-500 w-4 text-right">{col.v}</span>
                   </div>
@@ -691,18 +675,18 @@ const EpCoOccurrence: React.FC<{ segments: Segment[] }> = ({ segments }) => {
   });
   if (combined.length === 0) return <p className="text-xs text-gray-400">No combined segments (need both models to run).</p>;
 
-  const matrix: Record<string, Record<string, number>> = {};
+  const matrix: Record<string,Record<string,number>> = {};
   const aL = new Set<string>(), tL = new Set<string>();
   combined.forEach(s => {
     const em = epParseEmotion(s.emotion)!;
     const a = em.audio_emotion!, t = em.text_emotion!;
     aL.add(a); tL.add(t);
     if (!matrix[a]) matrix[a] = {};
-    matrix[a][t] = (matrix[a][t] ?? 0) + 1;
+    matrix[a][t] = (matrix[a][t]??0)+1;
   });
-  const aLabels = Array.from(aL).sort((a, b) => epEmotionIdx(a) - epEmotionIdx(b));
-  const tLabels = Array.from(tL).sort((a, b) => epEmotionIdx(a) - epEmotionIdx(b));
-  const maxVal = Math.max(...aLabels.flatMap(a => tLabels.map(t => matrix[a]?.[t] ?? 0)), 1);
+  const aLabels = Array.from(aL).sort((a,b)=>epEmotionIdx(a)-epEmotionIdx(b));
+  const tLabels = Array.from(tL).sort((a,b)=>epEmotionIdx(a)-epEmotionIdx(b));
+  const maxVal  = Math.max(...aLabels.flatMap(a=>tLabels.map(t=>matrix[a]?.[t]??0)),1);
 
   return (
     <div className="overflow-x-auto">
@@ -711,7 +695,7 @@ const EpCoOccurrence: React.FC<{ segments: Segment[] }> = ({ segments }) => {
           <tr>
             <th className="py-1 px-2 text-gray-400 font-normal text-left">Audio ↓ / Text →</th>
             {tLabels.map(t => (
-              <th key={t} style={{ color: EP_TEXT }} className="py-1 px-2 font-medium text-center whitespace-nowrap">
+              <th key={t} style={{color:EP_TEXT}} className="py-1 px-2 font-medium text-center whitespace-nowrap">
                 {EMOTION_META_EP[t]?.label ?? t}
               </th>
             ))}
@@ -720,7 +704,7 @@ const EpCoOccurrence: React.FC<{ segments: Segment[] }> = ({ segments }) => {
         <tbody>
           {aLabels.map(a => (
             <tr key={a} className="border-t border-gray-100">
-              <td style={{ color: EP_AUDIO }} className="py-1 px-2 font-medium whitespace-nowrap">
+              <td style={{color:EP_AUDIO}} className="py-1 px-2 font-medium whitespace-nowrap">
                 {EMOTION_META_EP[a]?.label ?? a}
               </td>
               {tLabels.map(t => {
@@ -730,13 +714,13 @@ const EpCoOccurrence: React.FC<{ segments: Segment[] }> = ({ segments }) => {
                   <td key={t} className="py-1 px-2 text-center">
                     {v > 0
                       ? <span style={{
-                        display: 'inline-block', minWidth: 20, padding: '1px 5px', borderRadius: 4,
-                        fontWeight: 500,
-                        background: a === t
-                          ? `rgba(16,185,129,${0.15 + intensity * 0.6})`
-                          : `rgba(239,68,68,${0.1 + intensity * 0.4})`,
-                        color: a === t ? '#065f46' : '#991b1b',
-                      }}>{v}</span>
+                          display:'inline-block', minWidth:20, padding:'1px 5px', borderRadius:4,
+                          fontWeight:500,
+                          background: a===t
+                            ? `rgba(16,185,129,${0.15+intensity*0.6})`
+                            : `rgba(239,68,68,${0.1+intensity*0.4})`,
+                          color: a===t ? '#065f46' : '#991b1b',
+                        }}>{v}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
                 );
@@ -758,7 +742,7 @@ const EpSegmentCards: React.FC<{ segments: Segment[]; patientOnly: boolean }> = 
         const em = epParseEmotion(seg.emotion);
         if (!em) return null;
         const isTherapist = seg.speaker === 'THERAPIST';
-        const isCombined = em.analysis_type === 'combined';
+        const isCombined  = em.analysis_type === 'combined';
         return (
           <div key={seg.id || i} className="p-3 rounded-xl border border-gray-100 bg-white">
             <div className="flex justify-between items-center mb-1.5">
@@ -774,7 +758,7 @@ const EpSegmentCards: React.FC<{ segments: Segment[]; patientOnly: boolean }> = 
             </p>
             <div className="flex flex-wrap gap-1.5 items-center">
               {isCombined && em.audio_emotion && <EpPill label={em.audio_emotion} conf={em.audio_confidence} prefix="Audio" />}
-              {isCombined && em.text_emotion && <EpPill label={em.text_emotion} conf={em.text_confidence} prefix="Text" />}
+              {isCombined && em.text_emotion  && <EpPill label={em.text_emotion}  conf={em.text_confidence}  prefix="Text"  />}
               <EpPill label={em.final_emotion} conf={em.final_confidence} prefix={isCombined ? 'GPT' : undefined} />
               {isCombined && em.agreement !== null && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${em.agreement ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
@@ -796,9 +780,9 @@ const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: str
   sessionId,
   sessionStatus,
 }) => {
-  const [segments, setSegments] = React.useState<Segment[]>([]);
-  const [status, setStatus] = React.useState<'loading' | 'processing' | 'ready' | 'error'>('loading');
-  const [tab, setTab] = React.useState<'chart' | 'distribution' | 'cooccurrence' | 'segments'>('chart');
+  const [segments, setSegments]       = React.useState<Segment[]>([]);
+  const [status, setStatus]           = React.useState<'loading'|'processing'|'ready'|'error'>('loading');
+  const [tab, setTab]                 = React.useState<'chart'|'distribution'|'cooccurrence'|'segments'>('chart');
   const [patientOnly, setPatientOnly] = React.useState(true);
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -862,19 +846,19 @@ const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: str
   );
 
   // Summary numbers
-  const withEm = segments.filter(s => epParseEmotion(s.emotion) !== null);
+  const withEm   = segments.filter(s => epParseEmotion(s.emotion) !== null);
   const combined = withEm.filter(s => epParseEmotion(s.emotion)?.analysis_type === 'combined');
-  const agreed = combined.filter(s => epParseEmotion(s.emotion)?.agreement === true);
-  const gptC: Record<string, number> = {};
-  withEm.forEach(s => { const l = epParseEmotion(s.emotion)!.final_emotion; gptC[l] = (gptC[l] ?? 0) + 1; });
-  const dominant = Object.entries(gptC).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'unknown';
-  const agreePct = combined.length > 0 ? Math.round((agreed.length / combined.length) * 100) : 0;
+  const agreed   = combined.filter(s => epParseEmotion(s.emotion)?.agreement === true);
+  const gptC: Record<string,number> = {};
+  withEm.forEach(s => { const l = epParseEmotion(s.emotion)!.final_emotion; gptC[l]=(gptC[l]??0)+1; });
+  const dominant = Object.entries(gptC).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? 'unknown';
+  const agreePct = combined.length > 0 ? Math.round((agreed.length/combined.length)*100) : 0;
 
   const tabs = [
-    { key: 'chart' as const, label: 'Timeline' },
-    { key: 'distribution' as const, label: 'Distribution' },
-    { key: 'cooccurrence' as const, label: 'Co-occurrence' },
-    { key: 'segments' as const, label: 'Segments' },
+    { key:'chart'        as const, label:'Timeline'      },
+    { key:'distribution' as const, label:'Distribution'  },
+    { key:'cooccurrence' as const, label:'Co-occurrence' },
+    { key:'segments'     as const, label:'Segments'      },
   ];
 
   return (
@@ -882,10 +866,10 @@ const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: str
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
         {[
-          { label: 'Segments analysed', value: withEm.length },
-          { label: 'Both models ran', value: combined.length },
-          { label: 'Models agreed', value: `${agreePct}%` },
-          { label: 'Dominant emotion', value: EMOTION_META_EP[dominant]?.label ?? dominant },
+          { label:'Segments analysed', value: withEm.length },
+          { label:'Both models ran',   value: combined.length },
+          { label:'Models agreed',     value: `${agreePct}%` },
+          { label:'Dominant emotion',  value: EMOTION_META_EP[dominant]?.label ?? dominant },
         ].map(c => (
           <div key={c.label} className="bg-gray-50 rounded-lg px-3 py-2.5">
             <div className="text-xs text-gray-500 mb-1">{c.label}</div>
@@ -900,24 +884,123 @@ const EmotionalProfileSection: React.FC<{ sessionId: string; sessionStatus?: str
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${tab === t.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              tab === t.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'chart' && <EpChart segments={segments} />}
-      {tab === 'distribution' && <EpDistribution segments={segments} />}
-      {tab === 'cooccurrence' && <EpCoOccurrence segments={segments} />}
-      {tab === 'segments' && (
+      {tab === 'chart'        && <EpChart          segments={segments} />}
+      {tab === 'distribution' && <EpDistribution   segments={segments} />}
+      {tab === 'cooccurrence' && <EpCoOccurrence   segments={segments} />}
+      {tab === 'segments'     && (
         <div>
           <label className="flex items-center gap-2 text-xs text-gray-500 mb-3 cursor-pointer">
             <input type="checkbox" checked={patientOnly} onChange={e => setPatientOnly(e.target.checked)} />
             Patient segments only
           </label>
           <EpSegmentCards segments={segments} patientOnly={patientOnly} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── AI Insights Section ─────────────────────────────────────────────────────
+
+const normalizeEmotionalPatterns = (
+  emotionalPatterns: string[] | string | Record<string, unknown> | null | undefined
+): string[] => {
+  if (!emotionalPatterns) return [];
+  if (Array.isArray(emotionalPatterns)) return emotionalPatterns.map(s => String(s).trim()).filter(Boolean);
+  if (typeof emotionalPatterns === 'string') return emotionalPatterns.replace(/;/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+  const obj = emotionalPatterns as Record<string, any>;
+  if (Array.isArray(obj.high_level_patterns)) return obj.high_level_patterns.map((s: any) => String(s).trim()).filter(Boolean);
+  return [];
+};
+
+const markdownComponents = {
+  h1: (props: any) => <h3 className="text-base font-semibold text-gray-900 mb-2" {...props} />,
+  h2: (props: any) => <h4 className="text-sm font-semibold text-gray-900 mb-2" {...props} />,
+  p: (props: any) => <p className="text-sm text-gray-700 leading-relaxed mb-2 last:mb-0" {...props} />,
+  ul: (props: any) => <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1 mb-2" {...props} />,
+  li: (props: any) => <li className="leading-relaxed" {...props} />,
+};
+
+const AIInsightsSection: React.FC<{ sessionId: string; sessionStatus?: string }> = ({
+  sessionId,
+  sessionStatus,
+}) => {
+  const { insight, loading, error, fetchInsights } = useSessionInsights(sessionId, { autoFetch: false });
+  const isCompletedSession = String(sessionStatus || '').toUpperCase() === 'COMPLETED';
+
+  React.useEffect(() => {
+    if (isCompletedSession && !insight && !loading) {
+      fetchInsights();
+    }
+  }, [isCompletedSession, sessionId, insight, loading, fetchInsights]);
+
+  if (!isCompletedSession) return null;
+
+  if (loading) return (
+    <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-fuchsia-500" />
+      Loading AI insights…
+    </div>
+  );
+
+  if (error || !insight) return (
+    <p className="text-sm text-gray-400 py-3 italic">AI insights not yet available for this session.</p>
+  );
+
+  const patterns = normalizeEmotionalPatterns(insight.emotional_patterns);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Overall Mood</div>
+          <div className="text-lg font-bold text-gray-900 capitalize">{insight.overall_mood || 'N/A'}</div>
+        </div>
+        <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Mood Score</div>
+          <div className="text-lg font-bold text-gray-900">
+            {insight.mood_score !== null ? `${insight.mood_score.toFixed(1)}/10` : 'N/A'}
+          </div>
+        </div>
+      </div>
+
+      {insight.key_themes && insight.key_themes.length > 0 && (
+        <div>
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Key Themes</h4>
+          <div className="flex flex-wrap gap-2">
+            {insight.key_themes.map((t, i) => (
+              <span key={i} className="px-3 py-1 rounded-full bg-fuchsia-50 text-fuchsia-700 text-xs font-semibold border border-fuchsia-100">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recommendations</h4>
+        <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+          <ReactMarkdown components={markdownComponents}>
+            {insight.recommendations || 'No recommendations available.'}
+          </ReactMarkdown>
+        </div>
+      </div>
+
+      {patterns.length > 0 && (
+        <div>
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Emotional Patterns</h4>
+          <p className="text-sm text-gray-600 leading-relaxed italic bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50">
+            {patterns.join(', ')}
+          </p>
         </div>
       )}
     </div>
@@ -961,11 +1044,11 @@ const SessionDetailView: React.FC = () => {
 
   const getStatusColor = (s: string) => {
     switch (s?.toLowerCase()) {
-      case 'completed': return 'bg-green-100  text-green-800  border-green-200';
+      case 'completed':   return 'bg-green-100  text-green-800  border-green-200';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'scheduled': return 'bg-blue-100   text-blue-800   border-blue-200';
-      case 'cancelled': return 'bg-red-100    text-red-800    border-red-200';
-      default: return 'bg-gray-100   text-gray-800   border-gray-200';
+      case 'scheduled':   return 'bg-blue-100   text-blue-800   border-blue-200';
+      case 'cancelled':   return 'bg-red-100    text-red-800    border-red-200';
+      default:            return 'bg-gray-100   text-gray-800   border-gray-200';
     }
   };
 
@@ -1061,7 +1144,7 @@ const SessionDetailView: React.FC = () => {
 
 
 
-
+      
 
 
 
@@ -1082,24 +1165,24 @@ const SessionDetailView: React.FC = () => {
                 <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                   <div className="p-2 bg-purple-100 rounded-lg"><User className="text-purple-600" size={20} /></div>
                   <div><p className="text-sm font-medium text-gray-500 mb-1">Patient</p>
-                    <p className="text-base font-semibold text-gray-900">{session.patient?.full_name}</p></div>
+                       <p className="text-base font-semibold text-gray-900">{session.patient?.full_name}</p></div>
                 </div>
                 <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                   <div className="p-2 bg-blue-100 rounded-lg"><FileText className="text-blue-600" size={20} /></div>
                   <div><p className="text-sm font-medium text-gray-500 mb-1">Session Type</p>
-                    <p className="text-base font-semibold text-gray-900">{session.session_type}</p>
-                    <p className="text-sm text-gray-600">{session.is_online ? '🌐 Online' : `📍 ${session.location}`}</p></div>
+                       <p className="text-base font-semibold text-gray-900">{session.session_type}</p>
+                       <p className="text-sm text-gray-600">{session.is_online ? '🌐 Online' : `📍 ${session.location}`}</p></div>
                 </div>
                 <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                   <div className="p-2 bg-green-100 rounded-lg"><Calendar className="text-green-600" size={20} /></div>
                   <div><p className="text-sm font-medium text-gray-500 mb-1">Scheduled Date</p>
-                    <p className="text-base font-semibold text-gray-900">{formatDate(session.scheduled_date)}</p></div>
+                       <p className="text-base font-semibold text-gray-900">{formatDate(session.scheduled_date)}</p></div>
                 </div>
                 {session.actual_duration_minutes && (
                   <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-xl">
                     <div className="p-2 bg-orange-100 rounded-lg"><Clock className="text-orange-600" size={20} /></div>
                     <div><p className="text-sm font-medium text-gray-500 mb-1">Duration</p>
-                      <p className="text-base font-semibold text-gray-900">{session.actual_duration_minutes} minutes</p></div>
+                         <p className="text-base font-semibold text-gray-900">{session.actual_duration_minutes} minutes</p></div>
                   </div>
                 )}
               </div>
@@ -1149,19 +1232,34 @@ const SessionDetailView: React.FC = () => {
               </div>
             </div>
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 px-6 py-4 border-b border-indigo-200">
-                <h3 className="text-lg font-bold text-gray-900 flex items-center">
-                  <Heart className="mr-2 text-indigo-600" size={20} />
-                  Emotional Profile
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    Wav2Vec2 audio · distilroberta text · GPT-4o-mini fused
-                  </span>
-                </h3>
-              </div>
-              <div className="p-6">
-                <EmotionalProfileSection sessionId={id!} sessionStatus={session.status} />
-              </div>
-            </div>
+  <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 px-6 py-4 border-b border-indigo-200">
+    <h3 className="text-lg font-bold text-gray-900 flex items-center">
+      <Heart className="mr-2 text-indigo-600" size={20} />
+      Emotional Profile
+      <span className="ml-2 text-xs font-normal text-gray-400">
+        Wav2Vec2 audio · distilroberta text · GPT-4o-mini fused
+      </span>
+    </h3>
+  </div>
+  <div className="p-6">
+    <EmotionalProfileSection sessionId={id!} sessionStatus={session.status} />
+  </div>
+</div>
+
+<div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+  <div className="bg-gradient-to-r from-fuchsia-50 to-indigo-100/60 px-6 py-4 border-b border-fuchsia-200">
+    <h3 className="text-lg font-bold text-gray-900 flex items-center">
+      <Sparkles className="mr-2 text-fuchsia-600" size={20} />
+      AI Insights
+      <span className="ml-2 text-xs font-normal text-gray-400">
+        Coaching & Clinical Patterns
+      </span>
+    </h3>
+  </div>
+  <div className="p-6">
+    <AIInsightsSection sessionId={id!} sessionStatus={session.status} />
+  </div>
+</div>
 
             {/* Therapist Observations */}
             {session.therapist_observations && (
@@ -1248,8 +1346,8 @@ const SessionDetailView: React.FC = () => {
                       </div>
                       <p className={`text-center text-sm font-semibold mt-3 ${session.mood_improvement >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                         {session.mood_improvement >= 3 ? '🎉 Significant Improvement' :
-                          session.mood_improvement >= 1 ? '✅ Positive Progress' :
-                            session.mood_improvement === 0 ? '➡️ Stable' : '⚠️ Needs Attention'}
+                         session.mood_improvement >= 1 ? '✅ Positive Progress' :
+                         session.mood_improvement === 0 ? '➡️ Stable' : '⚠️ Needs Attention'}
                       </p>
                     </div>
                   )}
@@ -1269,18 +1367,20 @@ const SessionDetailView: React.FC = () => {
                     <div className="text-5xl font-bold text-gray-900 mb-2">
                       {session.session_effectiveness}<span className="text-2xl text-gray-500">/10</span>
                     </div>
-                    <p className={`text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full inline-block ${session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
+                    <p className={`text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-full inline-block ${
+                      session.session_effectiveness >= 8 ? 'bg-green-100 text-green-700' :
                       session.session_effectiveness >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                    }`}>
                       {session.session_effectiveness >= 8 ? '⭐ Highly Effective' :
-                        session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
+                       session.session_effectiveness >= 6 ? '👍 Moderately Effective' : '⚠️ Needs Improvement'}
                     </p>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                    <div className={`h-4 rounded-full ${session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                    <div className={`h-4 rounded-full ${
+                      session.session_effectiveness >= 8 ? 'bg-gradient-to-r from-green-400 to-green-600' :
                       session.session_effectiveness >= 6 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
-                        'bg-gradient-to-r from-red-400 to-red-600'
-                      }`} style={{ width: `${(session.session_effectiveness / 10) * 100}%` }} />
+                      'bg-gradient-to-r from-red-400 to-red-600'
+                    }`} style={{ width: `${(session.session_effectiveness / 10) * 100}%` }} />
                   </div>
                 </div>
               </div>
